@@ -129,6 +129,8 @@
     var dmgName = spellText(spec.dmg) || spellText(spec.dmgType);
     if (dmgName) out.dmg = dmgName.toLowerCase().replace(/[^a-z]/g, "").slice(0, 16);
     if (spec.self) out.self = true;
+    var face = Number(spec.facing);
+    if (spec.facing != null && isFinite(face)) out.facing = Math.round(face * 1000) / 1000;
     if (spec.weaponId) out.weaponId = String(spec.weaponId).replace(/[^a-z0-9-]/gi, "").slice(0, 60);
     if (spec.scene) out.scene = String(spec.scene).slice(0, 60);
     var nat = Number(spec.nat);
@@ -153,6 +155,8 @@
     var dmgName = spellText(info.dmg) || spellText(info.dmgType);
     if (dmgName) r.dmg = dmgName.toLowerCase().replace(/[^a-z]/g, "").slice(0, 16);
     if (info.self) r.self = true;
+    var face = Number(info.facing);
+    if (info.facing != null && isFinite(face)) r.facing = Math.round(face * 1000) / 1000;
     if (info.at && isFinite(Number(info.at.x)) && isFinite(Number(info.at.y))) {
       r.at = { x: Math.round(Number(info.at.x) * 10) / 10, y: Math.round(Number(info.at.y) * 10) / 10 };
     }
@@ -606,6 +610,10 @@
     var raw = names.join(" ");
     if (/pact shot|hellshot|lightshot|churn shot|belly shot|sirocco shot|pallbearer load|undertow shot/.test(raw)) return "bullet";
     var i, name;
+    /* Thunderwave's frontier label is "Porch Boom". That name is not the chunk key.
+       Without the rules alias table it used to miss CHUNK_LOOKS and fall through to
+       damage-type thunder, which paints the short 3-point wedge. */
+    if (/thunderwave|porch boom/.test(raw)) return "thundercube";
     for (i = 0; i < names.length; i++) {
       name = names[i];
       if (/eldritch blast/.test(name)) return "scurve";
@@ -1036,14 +1044,18 @@ function fireballPaint(ctx, A, B, lt, seed, g) {
 }
 /* Canyon thunderclap in a box. A 15-ft cube off the caster's palm, not a cone.
    Palette: glow 200,170,110 · core 235,215,170 · dust 95,80,60 · edge 215,185,125 / 150,120,80. */
-function thunderCubePaint(ctx, A, B, lt, seed, g) {
+function thunderCubePaint(ctx, A, B, lt, seed, g, spec) {
   var time = LOOK_TIME.thundercube;
   var life = time.grow + time.hold + time.fade;
   if (!A || lt < 0 || lt > life) return;
   var cell = (g && g.cell) || 70;
   var side = cell * 3;
   var span = B ? Math.hypot(B.x - A.x, B.y - A.y) : 0;
-  var d = span > 8 ? dirOf(A, B) : { x: 1, y: 0, d: 1 };
+  var face = spec && isFinite(Number(spec.facing)) ? Number(spec.facing) : null;
+  /* A short stub is only a direction hint. A missing stub must still use the aimed facing,
+     or the square jumps to screen +x and the old wedge is what people remember. */
+  var d = span > Math.max(12, cell * 0.35) ? dirOf(A, B)
+    : (face != null ? { x: Math.cos(face), y: Math.sin(face), d: 1 } : { x: 1, y: 0, d: 1 });
   var nx = -d.y, ny = d.x;
   var f = lt < time.grow + time.hold ? 1 : 1 - clamp((lt - time.grow - time.hold) / time.fade);
   var grow = easeOut(Math.min(1, lt / Math.max(1, time.grow)));
@@ -1297,7 +1309,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
     if (look === "necrotic") return necroticPaint(ctx, A, B, lt, seed);
     if (look === "radiant") return radiantPaint(ctx, A, B, lt);
     if (look === "fireball") return fireballPaint(ctx, A, (g && g.T) || B, lt, seed, g);
-    if (look === "thundercube") return thunderCubePaint(ctx, A, B, lt, seed, g);
+    if (look === "thundercube") return thunderCubePaint(ctx, A, B, lt, seed, g, spec);
     if (look === "thunder") return thunderPaint(ctx, A, B, lt, seed);
     if (look === "psychic") return psychicPaint(ctx, A, B, lt);
     if (look === "beads") return beadsPaint(ctx, A, B, lt, seed);

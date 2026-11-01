@@ -5900,11 +5900,17 @@ function areaMapFx(shooter, name, known, placed) {
   const face = Number(placed.facing) || 0;
   let reach = 0;
   if (area.shape === "cone" || area.shape === "line") reach = Math.min((Number(area.length) || 15) / 5, 8);
+  /* A self cube (Thunderwave) originates on the caster. Leave a point along the aim
+     so the shockwave is not a zero-length stub, which painted the old wedge. */
+  const cubeReach = area.self && (area.shape === "cube" || area.shape === "square")
+    ? Math.max(1.2, Math.min((Number(area.side) || 15) / 5, 6) * 0.45)
+    : 0;
   const points = [];
   list.forEach((o) => {
     if (!o || !isFinite(Number(o.x)) || !isFinite(Number(o.y))) return;
     let x = Number(o.x), y = Number(o.y);
     if (reach > 0.2) { x += Math.cos(face) * reach; y += Math.sin(face) * reach; }
+    else if (cubeReach > 0) { x += Math.cos(face) * cubeReach; y += Math.sin(face) * cubeReach; }
     points.push({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 });
   });
   if (!points.length) {
@@ -5917,6 +5923,7 @@ function areaMapFx(shooter, name, known, placed) {
       shooter: shooter,
       self: false,
       at: p,
+      facing: face,
       result: "hit",
       weapon: name || "",
       spell: name || "",
