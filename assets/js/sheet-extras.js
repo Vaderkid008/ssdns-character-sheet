@@ -1131,6 +1131,10 @@
   function attackGate(tgt, opts) {
     opts = opts || {};
     if (opts.heal || opts.death) return "";
+    if (opts.utility) {
+      if (downed()) return "You're at 0 HP. Death saves only.";
+      return "";
+    }
     if (opts.area) {
       if (downed()) return "You're at 0 HP. Death saves only.";
       return "";
@@ -1695,6 +1699,8 @@
   }
   function spellNeedsTarget(row) {
     if (row && row.kind === "rider" && row.trigger && row.trigger !== "meleeHitOnCaster") return true;
+    var bare = String((row && row.name) || "").toLowerCase().replace(/\s+shell$/, "").trim();
+    if (bare === "true strike") return true;
     return !!(row && (row.kind === "attack" || row.kind === "weapon" || row.kind === "auto" || row.kind === "save"));
   }
   function askSpellOption(name, spec) {
@@ -2363,7 +2369,11 @@
     start.then(function (choice) {
       if (!choice) { abortCast(); return; }
       if (!choice.skip) applyCastChoice(choice);
-      var blocked = attackGate(pendingBlind ? null : currentTarget(), { heal: looked && looked.kind === "heal", area: !!areaPick });
+      var blocked = attackGate(pendingBlind ? null : currentTarget(), {
+        heal: looked && looked.kind === "heal",
+        area: !!areaPick,
+        utility: !!(looked && (looked.kind === "none" || looked.kind === "utility" || looked.kind === "rider"))
+      });
       if (blocked) { toast(blocked); addLog({ kind: "alert", text: blocked }); pendingDarts = null; pendingBeams = null; pendingBlind = false; abortCast(); return; }
       if (Cast && Cast.needsType && Cast.needsType(spellName)) {
         Cast.pickType(spellName).then(function (type) {
@@ -2769,6 +2779,7 @@
       rolled.text += " · " + ((placedBlast.area && placedBlast.area.label) || "area") + ": " + where0;
       var zoneLine = rememberZone(spellName, slot, placedBlast, v.spellDC);
       if (zoneLine) rolled.text += " · " + zoneLine;
+      noteSpellLight(spellName);
       postAppear(spellName, placedBlast, v.spellDC, rollId);
       var blastPts = blastAimPoints(placedBlast);
       if (blastPts.length) {
@@ -2847,12 +2858,13 @@
       attack: rolled.attack, nat: rolled.nat, crit: rolled.crit
     });
     var spellFx = null;
-    if (rolled.attack && !rolled.multi && tgt && tgt.id && !blankTarget(tgt) && rolled.nat != null) {
-      var aim = fxAim(tgt.id);
+    if (rolled.attack && !rolled.multi && rolled.nat != null) {
+      var aimedFx = !!(tgt && tgt.id && !blankTarget(tgt));
+      var aim = aimedFx ? fxAim(tgt.id) : { target: "", self: false };
       spellFx = {
         type: "spell",
-        target: aim.self ? "" : aim.target,
-        self: !!aim.self,
+        target: aimedFx && !aim.self ? aim.target : "",
+        self: aimedFx ? !!aim.self : false,
         weapon: spellName || "",
         spell: spellName || "",
         dmg: (row && row.type) || damageType || "",
@@ -4077,10 +4089,24 @@
       if (reach > 0.2) {
         x += Math.cos(face) * reach;
         y += Math.sin(face) * reach;
+      } else if (area.self && (area.shape === "cube" || area.shape === "square")) {
+        var sideReach = Math.min((Number(area.side) || 15) / 5, 6);
+        x += Math.cos(face) * Math.max(1.2, sideReach * 0.45);
+        y += Math.sin(face) * Math.max(1.2, sideReach * 0.45);
       }
       out.push({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 });
     });
     return out.slice(0, 4);
+  }
+  /* Turn on a carried spell light (Light) once the cast actually lands. */
+  function noteSpellLight(spellName) {
+    var L = root.SSDNSLighting;
+    var c = ch();
+    if (!L || !L.spellKey || !L.setSpell || !c) return;
+    var key = L.spellKey(spellName);
+    if (!key || key === "spell:darkvision") return;
+    L.setSpell(c, key, true);
+    if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function () {});
   }
   /* One-shot map paint. Attack rolls already call sheetMapFx. Area and save casts land here.
      A placed token (look "token") is the visual for that spell, not a beam. */

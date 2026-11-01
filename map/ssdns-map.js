@@ -1181,10 +1181,15 @@ function fxWalk(a, b, test) {
   }
   return null;
 }
-function fxRef(ref) {
+function fxTokenRaw(ref) {
   if (!ref) return null;
-  const t = tokenByRef(String(ref)); /* id, combatantId (DM only: public tokens carry none) or ownerUid */
+  const t = tokenByRef(String(ref));
   if (!t || !t.pos) return null;
+  return t;
+}
+function fxRef(ref) {
+  const t = fxTokenRaw(ref); /* id, combatantId (DM only: public tokens carry none) or ownerUid */
+  if (!t) return null;
   if (role === 'player' && t.hidden) return null;
   return t;
 }
@@ -1216,9 +1221,11 @@ function fxFacing(S, spec) {
 function fxGeometry(spec) {
   const type = FXA ? FXA.classify(spec) : 'gun';
   const S = fxRef(spec.shooter), T = fxRef(spec.target);
+  const rawT = fxTokenRaw(spec.target);
   const melee = type === 'blade' || type === 'blunt';
   const geo = { type, S: null, T: null, rS: 0.42, rT: 0.42, src: null, srcHidden: false, dir: null };
-  if (spec.target && !T) return null;
+  /* A hidden token stays hidden. A missing token (no target, or a fight row with no map piece) still lets a spell leave the caster. */
+  if (spec.target && rawT && !T) return null;
   if (T) {
     if (!tokenSeen(T)) return null; /* never draw at something this player can't see */
     geo.T = fxCenter(T); geo.rT = fxRadius(T); geo.tokT = T;
@@ -1251,6 +1258,13 @@ function fxGeometry(spec) {
     geo.rT = geo.rS || 0.42;
     geo.self = true;
     geo.tokT = geo.tokS || null;
+  } else if (!geo.T && type === 'spell' && (geo.S || geo.src)) {
+    const from = geo.S || geo.src;
+    const faceTok = S || { pos: { x: from.x, y: from.y }, size: 1, ownerUid: spec.shooter || 'x', kind: 'player' };
+    const face = fxFacing(faceTok, spec);
+    geo.T = { x: from.x + face.x * 3, y: from.y + face.y * 3 };
+    geo.rT = 0.42;
+    geo.point = true;
   } else if (!geo.T) return null;
   if (melee && !geo.S && !geo.src) return null;
   return geo;
@@ -1836,12 +1850,17 @@ function paintStickyMarks(ctx, t, s, r) {
     if (!look || seen[look]) return;
     seen[look] = 1;
     const col = (FX.chunkColor && FX.chunkColor(look)) || "185,170,180";
+    /* Lasting wrap. The cast glow fades; this ring stays while the condition is on the token. */
     ctx.save();
-    ctx.globalAlpha = 0.42;
-    ctx.strokeStyle = "rgba(" + col + ",0.9)";
-    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.95;
+    ctx.strokeStyle = "rgba(" + col + ",0.95)";
+    ctx.lineWidth = 3.4;
     ctx.beginPath();
-    ctx.arc(s.x, s.y, r + 4, 0, Math.PI * 2);
+    ctx.arc(s.x, s.y, r + 6, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 1.7;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, r + 11, 0.35, Math.PI * 1.65);
     ctx.stroke();
     ctx.restore();
   });
@@ -4236,6 +4255,11 @@ function blastPointer(e, kind) {
       b.origin = b.points[0];
     } else b.origin = hover;
     b.placed = !b.needsAim;
+    /* Touch spells (Light) commit on the legal click. A second click read as the cast doing nothing. */
+    if (b.placed && b.area && b.area.rangeFeet != null && Number(b.area.rangeFeet) <= 5) {
+      confirmBlast();
+      return;
+    }
     paintBlastBanner();
     draw();
     return;
@@ -7618,7 +7642,11 @@ function removeMapTokens(ids, opts) {
     if (fields.label) t.label = String(fields.label).slice(0, 16);
     if (fields.combatantId) t.combatantId = fields.combatantId;
     if (fields.image && !t.image) t.image = fields.image;
+    if (Array.isArray(fields.conditions)) {
+      t.conditions = fields.conditions.map(c => String(c || "").trim()).filter(Boolean);
+    }
     const copy = shared.tokens[t.id] || (shared.tokens[t.id] = { id: t.id });
+    if (Array.isArray(fields.conditions)) copy.conditions = t.conditions.slice();
     copy.status = t.status || '';
     if (t.name) copy.name = t.name;
     if (t.label) copy.label = t.label;
