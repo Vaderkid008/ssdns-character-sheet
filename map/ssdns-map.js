@@ -1407,6 +1407,7 @@ function fxScreen(entry) {
     }
   }
   if (entry.spec && entry.spec.mode) screen.mode = entry.spec.mode;
+  if (entry.spec && entry.spec.facing != null && isFinite(Number(entry.spec.facing))) screen.facing = Number(entry.spec.facing);
   return screen;
 }
 /* Extra beam targets travel as token ids or grid points. Screen pixels are resolved here, not in the painter. */
@@ -1500,7 +1501,7 @@ function fxFrame() {
       const look = FXA.lookOf(e.spec);
       if ((e.spec.dust || e.spec.crumbOnly) && look === "disintegrate") erodeLive = true;
       const spellName = String((e.spec && (e.spec.spell || e.spec.weapon)) || "");
-      if (look === "thorn" || look === "enfeeble" || look === "deathray" || look === "sickray" || (look === "cold" && /ray of frost/i.test(spellName))) bodyLive = true;
+      if (look === "thorn" || look === "enfeeble" || look === "deathray" || look === "sickray" || look === "sunburst" || look === "icebomb" || look === "void" || (look === "cold" && /ray of frost/i.test(spellName))) bodyLive = true;
     });
     if (shook || was || erodeLive || bodyLive) { try { draw(); } catch (e) {} }
     if (fxCtx.setTransform) fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1557,7 +1558,7 @@ function fxPublic(spec) {
     if (spec.beat != null && isFinite(Number(spec.beat))) pub.beat = Math.max(0, Math.min(7, Math.round(Number(spec.beat))));
     if (spec.killed) pub.killed = true;
     if (spec.rise) pub.rise = true;
-    if (spec.garnish === "place" || spec.garnish === "swipe" || spec.garnish === "clear") pub.garnish = spec.garnish;
+    if (spec.garnish === "place" || spec.garnish === "swipe" || spec.garnish === "clear" || spec.garnish === "detonate") pub.garnish = spec.garnish;
   if (spec.id) pub.id = spec.id;
   if (T) pub.target = T.id;
   const sc = fxCenter(S);
@@ -1594,7 +1595,7 @@ function fxSpecFromReq(row) {
     dust: !!req.dust, crumbOnly: !!req.crumbOnly, pulse: !!req.pulse, saved: !!req.saved,
     mode: req.mode === "chill" || req.mode === "warm" ? req.mode : "",
     beat: req.beat, killed: !!req.killed, rise: !!req.rise,
-    garnish: req.garnish === "place" || req.garnish === "swipe" || req.garnish === "clear" ? req.garnish : ""
+    garnish: req.garnish === "place" || req.garnish === "swipe" || req.garnish === "clear" || req.garnish === "detonate" ? req.garnish : ""
   };
 }
 /** DM: draw locally with full knowledge, then publish the cleaned row. Returns the public fx (or null). */
@@ -2044,7 +2045,7 @@ function fxBodyNudge(t) {
     if (!e || !e.geo || !e.geo.tokT) continue;
     if (e.geo.tokT !== t && e.geo.tokT.id !== t.id) continue;
     const n = FXA.nudge(e.spec, now - e.t0, fxScreen(e));
-    if (n && (n.dx || n.dy || n.grey)) return n;
+    if (n && (n.dx || n.dy || n.grey || (n.tint && n.tint.a))) return n;
   }
   return null;
 }
@@ -2276,12 +2277,74 @@ function zoneLoopLive() {
   zones.forEach(z => {
     if (!z) return;
     if (z.key === "guardian of faith") guard = true;
+    if (chunk4ZoneKey(z.key)) { live[zoneFxId(z)] = 1; hit = true; }
     if (z.key !== "wall of fire") return;
     live[zoneFxId(z)] = 1;
     hit = true;
   });
   Object.keys(zoneFxBorn).forEach(id => { if (!live[id]) delete zoneFxBorn[id]; });
   return hit || guard;
+}
+function chunk4ZoneKey(key) {
+  const k = String(key || "").toLowerCase();
+  if (k === "wall of ice" || k === "wall of thorns" || k === "blade barrier" || k === "hunger of hadar" || k === "cloud of daggers" || k === "insect plague" || k === "incendiary cloud" || k === "delayed blast fireball") return k;
+  return "";
+}
+function chunk4ScreenGeom(zone, px) {
+  const cell = px * (state.view.zoom || 1);
+  const C = worldToScreen(Number(zone.origin.x) * px, Number(zone.origin.y) * px);
+  const id = zoneFxId(zone);
+  const now = Date.now();
+  if (!zoneFxBorn[id]) zoneFxBorn[id] = now;
+  const face = Number(zone.facing) || 0;
+  const g = {
+    A: C, S: C, T: C, Z: C, cell: cell,
+    rT: cell * 0.42, rS: cell * 0.42,
+    facing: face, quiet: true,
+    age: now - zoneFxBorn[id],
+    rounds: zone.rounds, roundsLeft: zone.roundsLeft
+  };
+  if (zone.radius) g.zr = Number(zone.radius) / 5;
+  if (zone.shape === "wall") {
+    const lenFt = Number(zone.length) || (zone.key === "wall of thorns" ? 60 : 100);
+    const half = (lenFt / 5) * cell / 2;
+    const fx = Math.cos(face), fy = Math.sin(face);
+    const skin = zone.key === "wall of ice" ? "ice" : (zone.key === "wall of thorns" ? "thorns" : "blades");
+    g.W = [{
+      A: { x: C.x - fx * half, y: C.y - fy * half },
+      B: { x: C.x + fx * half, y: C.y + fy * half },
+      skin: skin
+    }];
+  }
+  const caster = tokenByRef(zone.casterId);
+  if (caster && caster.pos) {
+    const cs = fxCenter(caster);
+    const cp = worldToScreen(cs.x * px, cs.y * px);
+    const dx = C.x - cp.x, dy = C.y - cp.y, d = Math.hypot(dx, dy) || 1;
+    g.drift = { x: dx / d, y: dy / d };
+    g.A = cp;
+    g.S = cp;
+  }
+  return g;
+}
+function paintChunk4Zone(zone, px, layer) {
+  if (!FXA || !FXA.zoneLayer || !zone || !zone.origin) return;
+  FXA.zoneLayer(ctx, { type: "spell", spell: zone.spell || zone.key, result: "hit", quiet: true }, Date.now(), chunk4ScreenGeom(zone, px), layer);
+}
+function paintChunk4Overs() {
+  if (!state.scene) return;
+  const px = state.scene.grid.px || 70;
+  (liveSpellZones() || []).forEach(zone => {
+    if (!zone || zoneIsToken(zone) || !chunk4ZoneKey(zone.key)) return;
+    paintChunk4Zone(zone, px, "over");
+  });
+}
+function hungerVoidTint(t) {
+  const Z = window.SSDNSSpellZones;
+  if (!Z || !Z.tokenIn || !t || !t.pos) return null;
+  const tok = { x: t.pos.x, y: t.pos.y, size: t.size || 1, id: t.id };
+  const hit = (liveSpellZones() || []).some(z => z && z.key === "hunger of hadar" && Z.tokenIn(z, tok, 0));
+  return hit ? { col: "20,12,26", a: 0.28 } : null;
 }
 function wallScreen(ox, oy, fx, fy, lx, ly, alongFt, latFt, ft) {
   return worldToScreen(ox + (fx * alongFt + lx * latFt) * ft, oy + (fy * alongFt + ly * latFt) * ft);
@@ -2485,6 +2548,11 @@ function paintSpellZones() {
       paintZonePulse(zone, px);
       return;
     }
+    if (chunk4ZoneKey(zone.key)) {
+      paintChunk4Zone(zone, px, "under");
+      paintZonePulse(zone, px);
+      return;
+    }
     const style = zoneStyle(zone.key);
     const obscures = !!(zone.heavilyObscured || zone.magicalDark || zone.noLight || zone.blindedInside);
     let solid = role === "dm";
@@ -2617,9 +2685,33 @@ function renderZoneClear() {
   });
   if (state.zonePulse && !marks.some(m => String(m.id) === String(state.zonePulse))) state.zonePulse = "";
 }
+function noteChunk4ZoneGone(prev, next) {
+  if (role !== "dm" || !FXA) return;
+  const still = {};
+  (next || []).forEach(z => { if (z && z.id) still[String(z.id)] = 1; });
+  (prev || []).forEach(zone => {
+    if (!zone || !zone.id || still[String(zone.id)] || !zone.origin || zone.blast) return;
+    if (!chunk4ZoneKey(zone.key)) return;
+    const mover = (state.tokens || []).find(t => t && t.id);
+    const caster = tokenByRef(zone.casterId);
+    const shooter = (caster && caster.id) || (mover && mover.id);
+    if (!shooter) return;
+    dmFx({
+      type: "spell",
+      spell: zone.spell || zone.key,
+      weapon: zone.spell || zone.key,
+      shooter: shooter,
+      result: "hit",
+      garnish: "clear",
+      at: { x: Number(zone.origin.x), y: Number(zone.origin.y) }
+    });
+  });
+}
 function adoptSpellZones(list, seq) {
+  const prev = (state.spellZones || []).slice();
   const next = (Array.isArray(list) ? list : []).map(z => Object.assign({}, z));
   state.spellZones = next.filter(z => !(z && z.id && state.zoneGone[String(z.id)]));
+  noteChunk4ZoneGone(prev, state.spellZones);
   state.spellZonesLive = true;
   if (seq) state.zoneSeq = Number(seq) || state.zoneSeq;
   stampDispelledLights();
@@ -2750,9 +2842,24 @@ function dispatchZoneTicks(ticks, mover, from, to) {
   const fresh = !turnKey || !Z || !Z.once ? ticks : ticks.filter(t => Z.once(state.zoneSeen, t, (t && t.targetId) || tokenId, turnKey));
   if (!fresh.length) return;
   fresh.forEach(tick => {
-    if (!tick || !/guardian of faith/i.test(String(tick.spell || "")) || !mover) return;
-    const guard = (state.tokens || []).find(t => t && t.spellPiece === "guardian of faith" && (!tick.zoneId || String(t.zoneId) === String(tick.zoneId)));
-    if (guard) guardianGarnish(guard, mover, "swipe");
+    if (!tick || !mover) return;
+    if (/guardian of faith/i.test(String(tick.spell || ""))) {
+      const guard = (state.tokens || []).find(t => t && t.spellPiece === "guardian of faith" && (!tick.zoneId || String(t.zoneId) === String(tick.zoneId)));
+      if (guard) guardianGarnish(guard, mover, "swipe");
+    }
+    if (!chunk4ZoneKey(tick.spell) || /delayed blast fireball/i.test(String(tick.spell || ""))) return;
+    const spec = {
+      type: "spell",
+      spell: tick.spell,
+      weapon: tick.spell,
+      shooter: mover.id,
+      target: mover.id,
+      result: "hit",
+      pulse: true,
+      dmg: tick.type || ""
+    };
+    if (role === "dm") dmFx(spec);
+    else startFx(spec, { local: true });
   });
   try {
     window.dispatchEvent(new CustomEvent("ssdns-zone-tick", {
@@ -3798,11 +3905,13 @@ function draw() {
       ctx.fill();
       ctx.restore();
     }
-    if (nudge && nudge.tint && nudge.tint.a > 0 && nudge.tint.col) {
+    const voidTint = hungerVoidTint(t);
+    const tint = (nudge && nudge.tint && nudge.tint.a > 0 && nudge.tint.col) ? nudge.tint : voidTint;
+    if (tint && tint.a > 0 && tint.col) {
       ctx.save();
       ctx.beginPath();
       ctx.arc(s.x, s.y, Math.max(1, r - 2), 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(" + nudge.tint.col + "," + Math.max(0, Math.min(0.55, nudge.tint.a)) + ")";
+      ctx.fillStyle = "rgba(" + tint.col + "," + Math.max(0, Math.min(0.55, tint.a)) + ")";
       ctx.fill();
       ctx.restore();
     }
@@ -4004,6 +4113,8 @@ function draw() {
     }
     ctx.restore();
   }
+
+  paintChunk4Overs();
 
   if (state.recall) drawPath(state.recall, '#fff');
   // ruler

@@ -1966,6 +1966,14 @@ function growBeads(who) {
 function detonateBead(zone, caster) {
   if (!zone || !zone.blast) return;
   const blast = zone.blast;
+  spellMapFx(
+    (caster && (caster.mapTokenId || caster.playerId || caster.id)) || "",
+    "",
+    zone.spell || "Delayed Blast Fireball",
+    { type: blast.type || "fire" },
+    "hit",
+    { garnish: "detonate", at: zone.origin }
+  );
   const host = window.SSDNSMapHost;
   const who = (caster && caster.name) || zone.spell || "Someone";
   DM.toast((zone.spell || "Bead") + " detonates " + (blast.dice || "") + " " + (blast.type || "fire"));
@@ -5939,7 +5947,12 @@ function spellMapFx(shooter, target, name, known, result, extra) {
   if (extra.rise) body.rise = true;
   if (extra.killed) body.killed = true;
   if (extra.beat != null && isFinite(Number(extra.beat))) body.beat = Math.max(0, Math.min(7, Math.round(Number(extra.beat))));
-  if (extra.garnish === "place" || extra.garnish === "swipe" || extra.garnish === "clear") body.garnish = extra.garnish;
+  if (extra.garnish === "place" || extra.garnish === "swipe" || extra.garnish === "clear" || extra.garnish === "detonate") body.garnish = extra.garnish;
+  if (extra.at && isFinite(Number(extra.at.x)) && isFinite(Number(extra.at.y))) {
+    body.at = { x: Math.round(Number(extra.at.x) * 10) / 10, y: Math.round(Number(extra.at.y) * 10) / 10 };
+    body.self = false;
+  }
+  if (extra.facing != null && isFinite(Number(extra.facing))) body.facing = Number(extra.facing);
   const mode = String(extra.mode || "").toLowerCase();
   if (mode === "chill" || mode === "warm") body.mode = mode;
   if (body.dust) coverDustFx();
@@ -5990,6 +6003,14 @@ function areaMapFx(shooter, name, known, placed) {
     const size = Number(t && t.size) || 1;
     return { x: Number(t.x) + size / 2, y: Number(t.y) + size / 2 };
   }).filter((p) => isFinite(p.x) && isFinite(p.y));
+  if (/fire storm/i.test(name || "")) {
+    mapFx({
+      type: "spell", shooter: shooter, self: false, at: points[0], facing: face,
+      result: "hit", weapon: name || "", spell: name || "", dmg: dmg, heard: [],
+      hops: points.slice(1, 10)
+    });
+    return;
+  }
   points.slice(0, 4).forEach((p, i) => {
     const body = {
       type: "spell",
@@ -6004,7 +6025,7 @@ function areaMapFx(shooter, name, known, placed) {
       heard: []
     };
     if (/meteor swarm/i.test(name || "")) body.beat = i;
-    if (/sunbeam|prismatic spray/i.test(name || "") && crowd.length) body.hops = crowd;
+    if (/sunbeam|prismatic spray|sunburst|circle of death|arms of hadar|flame strike/i.test(name || "") && crowd.length) body.hops = crowd;
     mapFx(body);
   });
 }

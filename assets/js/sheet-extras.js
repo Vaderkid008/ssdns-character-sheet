@@ -1427,6 +1427,7 @@
       var line = (bead.spell || "Bead") + " detonates " + (blast.dice || "") + " " + (blast.type || "fire");
       addLog({ kind: "alert", text: line });
       toast(line);
+      postSpellLook(bead.spell || "Delayed Blast Fireball", "", "hit", { type: blast.type || "fire" }, bead.origin, "beadfx_" + (bead.id || "x"), { garnish: "detonate" });
       if (!host || typeof host.tokensInBlast !== "function" || !bead.origin) return;
       var area = { shape: "sphere", radius: blast.radius || 20, feet: blast.radius || 20 };
       var tokens = [];
@@ -2800,12 +2801,7 @@
       if (zoneLine) rolled.text += " · " + zoneLine;
       noteSpellLight(spellName);
       postAppear(spellName, placedBlast, v.spellDC, rollId);
-      var blastPts = blastAimPoints(placedBlast);
-      if (blastPts.length) {
-        blastPts.forEach(function (p, i) { postSpellLook(spellName, "", "hit", row, p, rollId + "_fx" + i, areaFxExtra(spellName, placedBlast, i)); });
-      } else {
-        postSpellLook(spellName, "", "hit", row);
-      }
+      postPlacedLooks(spellName, row, placedBlast, rollId);
       rolled.detail = rolled.text;
     } else if (row && (row.kind === "none" || row.kind === "rider" || row.kind === "utility")) {
       var buffLine = applySpellBuff(spellName, slot);
@@ -4178,13 +4174,29 @@
     var extra = {};
     var key = String(name || "").toLowerCase();
     if (/meteor swarm/.test(key)) extra.beat = index || 0;
-    if (/sunbeam|prismatic spray/.test(key) && placed && placed.tokens) {
+    if (/sunbeam|prismatic spray|sunburst|circle of death|arms of hadar|flame strike/.test(key) && placed && placed.tokens) {
       extra.hops = placed.tokens.map(function (t) {
         var size = Number(t && t.size) || 1;
         return { x: Number(t.x) + size / 2, y: Number(t.y) + size / 2 };
       }).filter(function (p) { return isFinite(p.x) && isFinite(p.y); });
     }
+    if (/fire storm/.test(key) && placed) {
+      var cubes = blastAimPoints(placed);
+      extra.hops = cubes.slice(1, 10);
+    }
+    if (placed && placed.facing != null && isFinite(Number(placed.facing))) extra.facing = Number(placed.facing);
     return extra;
+  }
+  function postPlacedLooks(spellName, row, placed, rollId) {
+    var pts = blastAimPoints(placed);
+    if (/fire storm/i.test(String(spellName || ""))) {
+      var storm = areaFxExtra(spellName, placed, 0);
+      if (pts.length) postSpellLook(spellName, "", "hit", row, pts[0], rollId + "_fx0", storm);
+      else postSpellLook(spellName, "", "hit", row, null, rollId + "_fx0", storm);
+      return;
+    }
+    if (pts.length) pts.forEach(function (p, i) { postSpellLook(spellName, "", "hit", row, p, rollId + "_fx" + i, areaFxExtra(spellName, placed, i)); });
+    else postSpellLook(spellName, "", "hit", row);
   }
   /* Turn on a carried spell light (Light, including Light Shell) once the cast actually lands. */
   function noteSpellLight(spellName) {
@@ -4229,7 +4241,8 @@
     if (extra.beat != null && isFinite(Number(extra.beat))) req.beat = Math.max(0, Math.min(7, Math.round(Number(extra.beat))));
     if (extra.killed) req.killed = true;
     if (extra.rise) req.rise = true;
-    if (extra.garnish === "place" || extra.garnish === "swipe" || extra.garnish === "clear") req.garnish = extra.garnish;
+    if (extra.garnish === "place" || extra.garnish === "swipe" || extra.garnish === "clear" || extra.garnish === "detonate") req.garnish = extra.garnish;
+    if (extra.facing != null && isFinite(Number(extra.facing))) req.facing = Number(extra.facing);
     var pickedMode = String(extra.mode || (castSpellAttackNow && castSpellAttackNow._mode) || "").toLowerCase();
     if (pickedMode === "chill" || pickedMode === "warm") req.mode = pickedMode;
     if (pointed) req.at = { x: Math.round(Number(at.x) * 10) / 10, y: Math.round(Number(at.y) * 10) / 10 };
@@ -4942,9 +4955,7 @@
       if (placed) {
         var crowd = placed.tokens || [];
         text += " · " + ((placed.area && placed.area.label) || "area") + ": " + (crowd.length ? crowd.map(function (t) { return t.name || "token"; }).join(", ") : "nobody in the area");
-        var altPts = blastAimPoints(placed);
-        if (altPts.length) altPts.forEach(function (p, i) { postSpellLook(spellName, "", "hit", row, p, rollId + "_fx" + i, areaFxExtra(spellName, placed, i)); });
-        else postSpellLook(spellName, "", "hit", row);
+        postPlacedLooks(spellName, row, placed, rollId);
       }
       addLog({ id: "roll:" + rollId, kind: "roll", text: text, label: rolled.label || spellName, formula: rolled.formula, attack: !!rolled.attack, nat: rolled.nat, crit: !!rolled.crit });
       toast(text);
