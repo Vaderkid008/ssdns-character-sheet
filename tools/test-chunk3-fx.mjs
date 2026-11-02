@@ -107,7 +107,7 @@ check("paint.sun.blind", hasColor(sun, "255,250,235"));
 const death = trace({ spell: "Finger of Death", dmg: "necrotic" }, 180, g);
 const harm = trace({ spell: "Harm", dmg: "necrotic" }, 180, g);
 check("paint.death", thick(death, 18) && hasColor(death, "6,3,8") && hasColor(death, "185,170,180"));
-check("paint.harm.stub", !thick(harm, 18));
+check("paint.harm.pulse", (hasColor(harm, "6,3,8") || hasColor(harm, "95,45,100")) && !thick(harm, 18) && !lineFromTo(harm, A, T, 40));
 const rise = trace({ spell: "Finger of Death", dmg: "necrotic", rise: true }, 400, g);
 check("paint.rise", hasColor(rise, "140,160,130"));
 const grey = FX.nudge({ type: "spell", spell: "Finger of Death", rise: true }, 500, g);
@@ -165,7 +165,9 @@ check("paint.wrath", hasColor(wrath, "170,90,190") || hasColor(wrath, "95,45,100
 const blind = trace({ spell: "Blinding Smite" }, 220, g);
 check("paint.blind", hasColor(blind, "255,250,235"));
 const hail = trace({ spell: "Hail of Thorns" }, 160, g);
-check("paint.hail.stub", !hasColor(hail, "40,38,18"));
+check("paint.hail.burst", hasColor(hail, "40,38,18") || hasColor(hail, "150,175,80"));
+const hailNudge = FX.nudge({ type: "spell", spell: "Hail of Thorns", result: "hit" }, 400, Object.assign({}, g, { yank: { x: -140, y: 0 } }));
+check("paint.hail.noyank", hailNudge.dx === 0 && hailNudge.dy === 0, JSON.stringify(hailNudge));
 
 check("shake.sky", Math.hypot(FX.shakeOf({ spell: "Call Lightning" }, 610).x, FX.shakeOf({ spell: "Call Lightning" }, 610).y) > 0.4);
 check("shake.meteor", Math.hypot(FX.shakeOf({ spell: "Meteor Swarm", beat: 0 }, 430).x, FX.shakeOf({ spell: "Meteor Swarm" }, 430).y) > 0.4);
@@ -179,8 +181,8 @@ check("sanitize.orb", kept && kept.dmg === "poison" && kept.beat === 2 && kept.g
 vm.runInContext(read("assets/js/spell-tokens.js"), sandbox);
 const Tok = sandbox.SSDNSSpellTokens;
 check("held.flame", Tok.isHeld("Produce Flame") === true && Tok.isToken("Produce Flame") === false && Tok.isToken("Guardian of Faith") === true);
-check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.205-c2") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.218-c2"));
-check("ver", JSON.parse(read("version.json")).sheet === "0.3.205" && JSON.parse(read("version.json")).dmcc === "0.2.218");
+check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.206-c2") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.219-c2"));
+check("ver", JSON.parse(read("version.json")).sheet === "0.3.206" && JSON.parse(read("version.json")).dmcc === "0.2.219");
 
 console.log(failures.length ? "\n" + failures.length + " FAILED" : "\nall chunk3 fx checks passed");
 process.exit(failures.length ? 1 : 0);

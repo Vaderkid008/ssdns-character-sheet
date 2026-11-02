@@ -4174,11 +4174,15 @@
     var extra = {};
     var key = String(name || "").toLowerCase();
     if (/meteor swarm/.test(key)) extra.beat = index || 0;
-    if (/sunbeam|prismatic spray|sunburst|circle of death|arms of hadar|flame strike/.test(key) && placed && placed.tokens) {
+    if (/sunbeam|prismatic spray|sunburst|circle of death|arms of hadar|flame strike|conjure barrage|conjure volley|cone of cold|destructive wave/.test(key) && placed && placed.tokens) {
       extra.hops = placed.tokens.map(function (t) {
         var size = Number(t && t.size) || 1;
         return { x: Number(t.x) + size / 2, y: Number(t.y) + size / 2 };
       }).filter(function (p) { return isFinite(p.x) && isFinite(p.y); });
+    }
+    if (/destructive wave/.test(key)) {
+      var skin = String((castSpellAttackNow && castSpellAttackNow._mode) || "").toLowerCase();
+      if (skin === "radiant" || skin === "necrotic") extra.mode = skin;
     }
     if (/fire storm/.test(key) && placed) {
       var cubes = blastAimPoints(placed);
@@ -4244,7 +4248,7 @@
     if (extra.garnish === "place" || extra.garnish === "swipe" || extra.garnish === "clear" || extra.garnish === "detonate") req.garnish = extra.garnish;
     if (extra.facing != null && isFinite(Number(extra.facing))) req.facing = Number(extra.facing);
     var pickedMode = String(extra.mode || (castSpellAttackNow && castSpellAttackNow._mode) || "").toLowerCase();
-    if (pickedMode === "chill" || pickedMode === "warm") req.mode = pickedMode;
+    if (pickedMode === "chill" || pickedMode === "warm" || pickedMode === "radiant" || pickedMode === "necrotic") req.mode = pickedMode;
     if (pointed) req.at = { x: Math.round(Number(at.x) * 10) / 10, y: Math.round(Number(at.y) * 10) / 10 };
     sheetMapFx(Object.assign({ id: id }, req));
     if (!joined() || !root.SSDNSDmJoin || !root.SSDNSDmJoin.postFx) return;

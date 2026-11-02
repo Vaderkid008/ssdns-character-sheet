@@ -152,7 +152,10 @@ check("paint.fireball.kept", look("Fireball") === "fireball" && !highPoint(ball,
 const whip = trace({ spell: "Thorn Whip" }, 400, g);
 const hail = trace({ spell: "Hail of Thorns" }, 160, g);
 check("paint.whip.kept", whip.length > 0 && hasColor(whip, "40,38,18") || span(whip) > 20);
-check("paint.hail.stub", !hasColor(hail, "70,62,38") || maxArc(hail) < 80);
+check("paint.hail.burst", hasColor(hail, "40,38,18") || hasColor(hail, "150,175,80"));
+const hailNudge = FX.nudge({ type: "spell", spell: "Hail of Thorns", result: "hit" }, 400, Object.assign({}, g, { yank: { x: -140, y: 0 } }));
+check("paint.hail.noyank", hailNudge.dx === 0 && hailNudge.dy === 0, JSON.stringify(hailNudge));
+check("paint.whip.yank", FX.nudge({ type: "spell", spell: "Thorn Whip", result: "hit" }, 640, Object.assign({}, g, { yank: { x: -140, y: 0 } })).dx < -30);
 
 check("shake.arms", Math.hypot(FX.shakeOf({ spell: "Arms of Hadar" }, 280).x, FX.shakeOf({ spell: "Arms of Hadar" }, 280).y) > 0.4);
 check("shake.strike", Math.hypot(FX.shakeOf({ spell: "Flame Strike" }, 160).x, FX.shakeOf({ spell: "Flame Strike" }, 160).y) > 0.4);
@@ -185,8 +188,8 @@ check("map.wallfire", map.includes("paintWallOfFire"));
 const sheet = read("assets/js/sheet-extras.js");
 const dm = read("dm/assets/js/v2.js");
 check("wire.firestorm", sheet.includes("postPlacedLooks") && dm.includes("fire storm") && sheet.includes("garnish: \"detonate\"") && dm.includes("garnish: \"detonate\""));
-check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.205-c2") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.218-c2"));
-check("ver", JSON.parse(read("version.json")).sheet === "0.3.205" && JSON.parse(read("version.json")).dmcc === "0.2.218");
+check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.206-c2") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.219-c2"));
+check("ver", JSON.parse(read("version.json")).sheet === "0.3.206" && JSON.parse(read("version.json")).dmcc === "0.2.219");
 
 console.log(failures.length ? "\n" + failures.length + " FAILED" : "\nall chunk4 fx checks passed");
 process.exit(failures.length ? 1 : 0);

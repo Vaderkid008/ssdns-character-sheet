@@ -5954,7 +5954,7 @@ function spellMapFx(shooter, target, name, known, result, extra) {
   }
   if (extra.facing != null && isFinite(Number(extra.facing))) body.facing = Number(extra.facing);
   const mode = String(extra.mode || "").toLowerCase();
-  if (mode === "chill" || mode === "warm") body.mode = mode;
+  if (mode === "chill" || mode === "warm" || mode === "radiant" || mode === "necrotic") body.mode = mode;
   if (body.dust) coverDustFx();
   if (/produce flame/i.test(name || "")) holdProduceFlame(shooter);
   return mapFx(body);
@@ -6025,7 +6025,11 @@ function areaMapFx(shooter, name, known, placed) {
       heard: []
     };
     if (/meteor swarm/i.test(name || "")) body.beat = i;
-    if (/sunbeam|prismatic spray|sunburst|circle of death|arms of hadar|flame strike/i.test(name || "") && crowd.length) body.hops = crowd;
+    if (/sunbeam|prismatic spray|sunburst|circle of death|arms of hadar|flame strike|conjure barrage|conjure volley|cone of cold|destructive wave/i.test(name || "") && crowd.length) body.hops = crowd;
+    if (/destructive wave/i.test(name || "")) {
+      const skin = String((known && known.mode) || "").toLowerCase();
+      if (skin === "radiant" || skin === "necrotic") body.mode = skin;
+    }
     mapFx(body);
   });
 }
@@ -11092,7 +11096,12 @@ function conditionNamesForMap(row) {
     const snap = playerSnapshot(row.playerId || row.id);
     list = (snap && snap.activeConditions) || [];
   }
-  return list.map((c) => String((c && (c.name || c.label)) || c || "").trim() + (c && c.name === "Exhaustion" && c.level ? " " + c.level : "")).filter(Boolean);
+  return list.map((c) => {
+    const name = String((c && (c.name || c.label)) || c || "").trim() + (c && c.name === "Exhaustion" && c.level ? " " + c.level : "");
+    if (!name) return "";
+    if (c && c.spell) return { name: name, spell: String(c.spell) };
+    return name;
+  }).filter(Boolean);
 }
 async function mapPickWeapon(detail) {
   detail = detail || {};

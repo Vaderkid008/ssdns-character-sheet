@@ -207,6 +207,7 @@ window.SSDNSMap = { create(opts) {
       darkvision: Number(t.darkvision) || 0, skulker: !!t.skulker, devilsSight: !!t.devilsSight,
       facing: Number(t.facing) || 0, dmDoused: !!t.dmDoused,
       conditions: t.conditions ? [...t.conditions] : [],
+      conditionSpells: t.conditionSpells ? Object.assign({}, t.conditionSpells) : {},
       sceneId: t.sceneId || activeSceneId() || 'scn_dustyspur01', image: t.image || '',
       veil: !!t.veil,
       ownerUid: t.ownerUid || '', controlledBy: t.controlledBy || [],
@@ -383,6 +384,7 @@ function applySharedToTokens() {
       if (s.dmTorch != null) t.dmTorch = !!s.dmTorch;
       t.status = s.status || '';
       t.conditions = s.conditions ? [...s.conditions] : [];
+      if (s.conditionSpells && typeof s.conditionSpells === "object") t.conditionSpells = Object.assign({}, s.conditionSpells);
       stampScene(t, s);
       if ((s.kind === 'asset' || t.kind === 'asset') && s.image && s.image !== t.image) t._img = null;
       t.image = s.image || t.image || '';
@@ -1391,8 +1393,16 @@ function fxScreen(entry) {
   const look = FXA && FXA.lookOf ? FXA.lookOf(entry.spec || {}) : "";
   screen.pop = look !== "guiding-bolt" && screen.marks.some(n => /^guided\b/i.test(String(n || "")));
   const castRes = String((entry.spec && entry.spec.result) || "");
-  if (look === "thorn" && (castRes === "hit" || castRes === "crit") && g.T && !g.yankOrigin) {
+  const spellNow = String((entry.spec && (entry.spec.spell || entry.spec.weapon)) || "");
+  /* Thorn Whip yanks. Hail of Thorns shares the thorn key and must not. */
+  if (look === "thorn" && !/hail of thorns/i.test(spellNow) && (castRes === "hit" || castRes === "crit") && g.T && !g.yankOrigin) {
     g.yankOrigin = { x: g.T.x, y: g.T.y };
+  }
+  if (/hail of thorns/i.test(spellNow) && g.T) {
+    screen.hops = (screen.hops || []).concat(fxNeighbors(g.T, 1, [g.tokT, g.tokS]));
+  }
+  if (/lightning arrow/i.test(spellNow) && g.T) {
+    screen.hops = (screen.hops || []).concat(fxNeighbors(g.T, 2, [g.tokT, g.tokS]));
   }
   if (g.yankOrigin) {
     screen.ghost = worldToScreen(g.yankOrigin.x * px, g.yankOrigin.y * px);
@@ -1411,6 +1421,23 @@ function fxScreen(entry) {
   return screen;
 }
 /* Extra beam targets travel as token ids or grid points. Screen pixels are resolved here, not in the painter. */
+/* Creatures actually standing near the hit. Squares are 5 ft. Hail is 1, Lightning Arrow splash is 2. */
+function fxNeighbors(worldCenter, squares, skip) {
+  if (!worldCenter) return [];
+  const px = fxPx();
+  const out = [];
+  (state.tokens || []).forEach(t => {
+    if (!t || !t.pos || t.kind === "marker" || t.kind === "asset") return;
+    if (skip && skip.some(one => one && (one === t || one.id === t.id))) return;
+    if (!tokenSeen(t)) return;
+    const c = fxCenter(t);
+    const d = Math.max(Math.abs(c.x - worldCenter.x), Math.abs(c.y - worldCenter.y));
+    if (d <= 0.2 || d > squares + 0.05) return;
+    const p = worldToScreen(c.x * px, c.y * px);
+    out.push({ x: p.x, y: p.y });
+  });
+  return out.slice(0, 8);
+}
 function fxListScreens(list) {
   const px = fxPx();
   const out = [];
@@ -2055,17 +2082,92 @@ function tokenIsEnfeebled(t) {
   for (let i = 0; i < names.length; i++) if (FXA.stickyLook(names[i]) === "enfeeble") return true;
   return false;
 }
+function conditionSpellMap(t) {
+  const spells = {};
+  const take = (raw) => {
+    if (!raw || typeof raw !== "object" || !raw.spell) return;
+    const name = String(raw.name || raw.label || "").trim().toLowerCase();
+    if (name) spells[name] = String(raw.spell);
+  };
+  let names = [];
+  try { names = tokenConditions(t) || []; } catch (e) { names = []; }
+  const live = {};
+  names.forEach(name => { live[String(name || "").trim().toLowerCase()] = 1; });
+  Object.keys((t && t.conditionSpells) || {}).forEach(key => {
+    if (live[key]) spells[key] = t.conditionSpells[key];
+  });
+  (t && t.conditions || []).forEach(take);
+  const order = (state.initiative && state.initiative.order) || [];
+  const row = t && order.find(o => o && ((t.combatantId && (o.id === t.combatantId || o.playerId === t.combatantId)) ||
+    (t.ownerUid && (o.playerId === t.ownerUid || o.id === t.ownerUid)) || o.id === t.id));
+  if (row && !(row.mapHidden && role !== "dm")) (row.conditions || []).forEach(take);
+  return spells;
+}
+function wrapLooksOn(t) {
+  const FX = window.SSDNSMapFx;
+  if (!FX || !FX.wrapLook || !t) return {};
+  const spells = conditionSpellMap(t);
+  const looks = {};
+  let names = [];
+  try { names = tokenConditions(t) || []; } catch (e) { names = []; }
+  names.forEach(name => {
+    const key = String(name || "").trim().toLowerCase();
+    const look = FX.wrapLook(name, spells[key] || "");
+    if (look) looks[look] = spells[key] || name;
+  });
+  return looks;
+}
+/* The wrap stays while its condition is on the token. Losing that condition plays the grey dust pop. */
+function watchWraps(t) {
+  if (!t || !window.SSDNSMapFx || !window.SSDNSMapFx.wrapLook) return;
+  const looks = wrapLooksOn(t);
+  const sig = Object.keys(looks).sort().join("|");
+  if (t._wrapSig == null) { t._wrapSig = sig; t._wrapLooks = looks; return; }
+  if (t._wrapSig === sig) return;
+  const prev = t._wrapLooks || {};
+  t._wrapSig = sig;
+  t._wrapLooks = looks;
+  if (role !== "dm") return;
+  Object.keys(prev).forEach(look => {
+    if (looks[look]) return;
+    const spell = look === "ensnare" ? "Ensnaring Strike" : (look === "fever" ? "Contagion" : "Phantasmal Killer");
+    dmFx({
+      type: "spell",
+      spell: spell,
+      weapon: spell,
+      shooter: t.id,
+      target: t.id,
+      result: "hit",
+      garnish: "clear"
+    });
+  });
+  const spells = conditionSpellMap(t);
+  t.conditionSpells = spells;
+  const copy = shared.tokens[t.id];
+  if (copy) {
+    copy.conditionSpells = Object.assign({}, spells);
+    saveToken(t.id);
+  }
+}
 function paintStickyMarks(ctx, t, s, r) {
   const FX = window.SSDNSMapFx;
   if (!FX || !FX.stickyLook || !t) return;
+  watchWraps(t);
+  const spells = conditionSpellMap(t);
   const names = [];
   (t.conditions || []).forEach(c => names.push(typeof c === "string" ? c : (c && c.name) || ""));
   try { tokenConditions(t).forEach(c => names.push(typeof c === "string" ? c : (c && c.name) || "")); } catch (e) {}
   const seen = {};
   names.forEach(name => {
-    const look = FX.stickyLook(name);
+    const key = String(name || "").trim().toLowerCase();
+    const wrap = FX.wrapLook ? FX.wrapLook(name, spells[key] || "") : "";
+    const look = wrap || FX.stickyLook(name);
     if (!look || seen[look]) return;
     seen[look] = 1;
+    if (wrap) {
+      if (!fxCoversLook(t, wrap) && FX.paintRider) FX.paintRider(ctx, wrap, s.x, s.y, r, (typeof performance !== "undefined" ? performance.now() : Date.now()));
+      return;
+    }
     const rich = look === "guiding-bolt" || look === "chill-touch" || look === "cage"
       || look === "hex" || look === "brand" || look === "heat" || look === "fireshield"
       || look === "rime" || look === "flameblade" || look === "enfeeble"
@@ -8341,10 +8443,27 @@ function removeMapTokens(ids, opts) {
     if (fields.combatantId) t.combatantId = fields.combatantId;
     if (fields.image && !t.image) t.image = fields.image;
     if (Array.isArray(fields.conditions)) {
-      t.conditions = fields.conditions.map(c => String(c || "").trim()).filter(Boolean);
+      const names = [];
+      const spells = Object.assign({}, t.conditionSpells || {});
+      fields.conditions.forEach(c => {
+        if (c && typeof c === "object") {
+          const name = String(c.name || c.label || "").trim();
+          if (!name) return;
+          names.push(name);
+          if (c.spell) spells[name.toLowerCase()] = String(c.spell);
+        } else {
+          const name = String(c || "").trim();
+          if (name && name !== "[object Object]") names.push(name);
+        }
+      });
+      t.conditions = names;
+      t.conditionSpells = spells;
     }
     const copy = shared.tokens[t.id] || (shared.tokens[t.id] = { id: t.id });
-    if (Array.isArray(fields.conditions)) copy.conditions = t.conditions.slice();
+    if (Array.isArray(fields.conditions)) {
+      copy.conditions = t.conditions.slice();
+      copy.conditionSpells = Object.assign({}, t.conditionSpells || {});
+    }
     copy.status = t.status || '';
     if (t.name) copy.name = t.name;
     if (t.label) copy.label = t.label;

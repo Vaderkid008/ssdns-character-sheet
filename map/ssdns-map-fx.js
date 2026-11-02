@@ -114,6 +114,13 @@
         p.impactAt += beatN * 120;
         p.duration += beatN * 120;
       }
+      if (chunk5Spell(look, info)) {
+        var c5 = chunk5Clock(look, info);
+        p.impactAt = c5.impact;
+        p.duration = c5.duration;
+        if (info.pulse) { p.impactAt = 40; p.duration = 700; }
+        else if (info.garnish === "clear") { p.impactAt = 20; p.duration = 900; }
+      }
       if (chunk4Spell(look, info)) {
         if (info.pulse) { p.impactAt = 40; p.duration = 700; }
         else if (info.garnish === "clear") { p.impactAt = 20; p.duration = 900; }
@@ -190,7 +197,7 @@
     if (spec.crumbOnly) out.crumbOnly = true;
     if (spec.pulse) out.pulse = true;
     if (spec.saved) out.saved = true;
-    if (spec.mode === "chill" || spec.mode === "warm") out.mode = spec.mode;
+    if (spec.mode === "chill" || spec.mode === "warm" || spec.mode === "radiant" || spec.mode === "necrotic") out.mode = spec.mode;
     var beat = Number(spec.beat);
     if (spec.beat != null && isFinite(beat)) out.beat = Math.max(0, Math.min(7, Math.round(beat)));
     if (spec.killed) out.killed = true;
@@ -232,7 +239,7 @@
     if (info.crumbOnly) r.crumbOnly = true;
     if (info.pulse) r.pulse = true;
     if (info.saved) r.saved = true;
-    if (info.mode === "chill" || info.mode === "warm") r.mode = info.mode;
+    if (info.mode === "chill" || info.mode === "warm" || info.mode === "radiant" || info.mode === "necrotic") r.mode = info.mode;
     var reqBeat = Number(info.beat);
     if (info.beat != null && isFinite(reqBeat)) r.beat = Math.max(0, Math.min(7, Math.round(reqBeat)));
     if (info.killed) r.killed = true;
@@ -1406,8 +1413,8 @@ function blastShake(lt, amp, dur) {
   };
 }
 /* Chunk 3 painters that share a key with an older look. The spell name decides.
-   Hail of Thorns stays on the thorn stub. Harm stays on the deathray stub. A bare thunder
-   or cold damage type stays on the old beam. Hunter's Mark stays on brand. */
+   Hail of Thorns is the Chunk 5 burst, not this painter. Harm is the Chunk 5 collapse.
+   A bare thunder or cold damage type stays on the old beam. Hunter's Mark stays on brand. */
 function chunk3Spell(look, spec) {
   var name = low((spec && (spec.spell || spec.weapon)) || "");
   if (look === "skybolt" || look === "sunshaft" || look === "prism" || look === "meteors" || look === "orb" || look === "produceflame" || look === "sickray" || look === "smitefire" || look === "fear" || look === "blind") return true;
@@ -1419,7 +1426,7 @@ function chunk3Spell(look, spec) {
   return false;
 }
 /* Chunk 4 named looks. Hunger and Arms share `void`. Flame Strike and Fire Storm share `skypillar`.
-   Hail of Thorns stays on the thorn stub. Wall of Fire, Cloudkill, Fireball, and Sacred Flame stay on their own looks. */
+   Hail of Thorns is the Chunk 5 burst. Wall of Fire, Cloudkill, Fireball, and Sacred Flame stay on their own looks. */
 function chunk4Spell(look, spec) {
   var name = low((spec && (spec.spell || spec.weapon)) || "");
   if (look === "wallice" || look === "wallthorn" || look === "wallblade" || look === "daggers" || look === "swarm" || look === "furnace" || look === "icebomb" || look === "sunburst" || look === "deathring" || look === "bead") return true;
@@ -1434,6 +1441,55 @@ function chunk4Key(look, spec) {
   if (look === "skypillar" && /fire storm/.test(name)) return "storm";
   if (look === "skypillar") return "flame";
   return look;
+}
+/* Chunk 5 named looks. Barrage and Volley share `volley`. Hail of Thorns shares `thorn`
+   with Thorn Whip. Harm shares `deathray` with Finger of Death. The spell name picks the painter. */
+function chunk5Key(look, spec) {
+  var name = low((spec && (spec.spell || spec.weapon)) || "");
+  if (look === "volley") return /conjure volley/.test(name) ? "volley" : "barrage";
+  if (look === "thorn" && /hail of thorns/.test(name)) return "hail";
+  if (look === "deathray" && /^harm$/.test(name)) return "harm";
+  if (look === "charged" || look === "ensnare" || look === "fever" || look === "specter" || look === "stomp" || look === "coldcone" || look === "mockery" || look === "whispers") return look;
+  return "";
+}
+function chunk5Spell(look, spec) { return !!chunk5Key(look, spec); }
+function chunk5Clock(look, spec) {
+  var key = chunk5Key(look, spec);
+  var clocks = {
+    barrage: { impact: 230, duration: 1200 },
+    volley: { impact: 420, duration: 1700 },
+    charged: { impact: 280, duration: 1100 },
+    hail: { impact: 220, duration: 1100 },
+    ensnare: { impact: 420, duration: 1400 },
+    fever: { impact: 460, duration: 1400 },
+    specter: { impact: 520, duration: 1500 },
+    harm: { impact: 300, duration: 1700 },
+    stomp: { impact: 320, duration: 1200 },
+    coldcone: { impact: 360, duration: 2100 },
+    mockery: { impact: 240, duration: 1100 },
+    whispers: { impact: 420, duration: 1400 }
+  };
+  return clocks[key] || { impact: 240, duration: 1200 };
+}
+function chunk5Skin(spec) {
+  spec = spec || {};
+  var mode = low(spec.mode || "");
+  if (mode === "radiant") return "radiant";
+  if (mode === "necrotic") return "necrotic";
+  var dmg = low(spec.dmg || spec.dmgType || "");
+  if (dmg === "radiant") return "radiant";
+  return "necrotic";
+}
+/* Lasting token wraps. A bare Restrained or Frightened chip is not a wrap.
+   The spell on the condition, or a Contagion chip name, decides. */
+function wrapLook(name, spell) {
+  var bySpell = spell ? lookOf({ type: "spell", spell: spell }) : "";
+  if (bySpell === "ensnare" || bySpell === "fever" || bySpell === "specter") return bySpell;
+  var s = low(name);
+  if (/contagion/.test(s)) return "fever";
+  if (/ensnar/.test(s)) return "ensnare";
+  if (/phantasmal/.test(s)) return "specter";
+  return "";
 }
 function c4Mode(spec) {
   spec = spec || {};
@@ -1453,6 +1509,7 @@ function chunk3Key(look, spec) {
 }
 function shakeOf(spec, lt) {
   var look = lookOf(spec || {});
+  if (chunk5Spell(look, spec)) return Chunk5Fx.shakeOf(chunk5Key(look, spec), lt);
   if (chunk4Spell(look, spec)) return Chunk4Fx.shakeOf(chunk4Key(look, spec), lt, spec || {});
   if (chunk3Spell(look, spec)) return Chunk3Fx.shakeOf(chunk3Key(look, spec), lt, spec || {});
   if (C1_LOOKS[look]) {
@@ -4915,6 +4972,756 @@ function beadsPaint(ctx, A, B, lt, seed) {
     };
   })();
 
+  var Chunk5Fx = (function () {
+    var TAU = Math.PI * 2;
+    var PAL = {
+      steel: { metal: "90,95,105", dark: "55,58,66", glint: "220,225,235", spark: "255,190,110", fletch: "135,115,75" },
+      force: "95,220,205",
+      dust: "120,95,70",
+      lightning: { glow: "85,120,240", core: "232,236,255", hot: "255,255,255" },
+      briar: { wood: "70,62,38", vine: "90,95,45", dark: "40,38,18", sage: "110,120,70", tip: "150,110,70", prick: "150,175,80", prickHot: "220,235,170", splinter: "200,160,110" },
+      poison: { glow: "150,140,70", core: "195,185,110", dark: "40,42,18", pox: "200,170,70", hot: "240,230,160" },
+      psychic: { glow: "150,45,105", core: "215,125,170", hot: "245,200,220", wisp: "190,170,225" },
+      necrotic: { glow: "95,45,100", black: "6,3,8", bone: "185,170,180", ash: "120,112,118", hex: "170,90,190" },
+      thunder: { glow: "200,170,110", core: "235,215,170", dust: "95,80,60" },
+      radiant: { glow: "230,175,70", core: "255,232,170", hot: "255,250,230" },
+      cold: { glow: "80,125,185", core: "200,225,250", hot: "250,252,255", mist: "150,185,225" },
+      note: { paper: "205,188,150", edge: "60,62,70" }
+    };
+    function clamp(v, a, b) { a = a === undefined ? 0 : a; b = b === undefined ? 1 : b; return Math.max(a, Math.min(b, v)); }
+    function rgba(c, a) { return "rgba(" + c + "," + clamp(a) + ")"; }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function lp(A, B, t) { return { x: lerp(A.x, B.x, t), y: lerp(A.y, B.y, t) }; }
+    function easeOut(t) { return 1 - Math.pow(1 - clamp(t), 3); }
+    function easeIn(t) { t = clamp(t); return t * t; }
+    function easeInOut(t) { t = clamp(t); return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+    function env(t, a, b, c, d) { if (t < a || t > d) return 0; if (t < b) return (t - a) / Math.max(1, b - a); if (t <= c) return 1; return 1 - (t - c) / Math.max(1, d - c); }
+    function rng(seed) { var s = (seed * 2654435761) >>> 0; return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+    function dist(A, B) { return Math.hypot((B.x - A.x), (B.y - A.y)); }
+    function norm(A, B) { var d = dist(A, B) || 1; return { x: (B.x - A.x) / d, y: (B.y - A.y) / d }; }
+    function scOf(G) { return ((G && G.cell) || 70) / 70; }
+    function poly(ctx, pts) {
+      if (!pts || pts.length < 2) return;
+      ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+      for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    }
+    function stroke(ctx, pts, w, col, blur, blurCol) {
+      if (!pts || pts.length < 2) return;
+      ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = w; ctx.strokeStyle = col;
+      if (blur) { ctx.shadowBlur = blur; ctx.shadowColor = blurCol || col; }
+      poly(ctx, pts); ctx.stroke(); ctx.restore();
+    }
+    function glow(ctx, x, y, r, stops) {
+      if (!(r > 0.5)) return;
+      var g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      for (var i = 0; i < stops.length; i++) g.addColorStop(stops[i][0], stops[i][1]);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+    }
+    function add(ctx, fn) { ctx.save(); ctx.globalCompositeOperation = "lighter"; fn(); ctx.restore(); }
+    function ring(ctx, x, y, r, w, col, blur) {
+      if (!(r > 0) || !(w > 0)) return;
+      ctx.save(); ctx.lineWidth = w; ctx.strokeStyle = col;
+      if (blur) { ctx.shadowBlur = blur; ctx.shadowColor = col; }
+      ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); ctx.restore();
+    }
+    function sparks(ctx, x, y, t, n, seed, speed, life, col, size) {
+      if (t < 0 || t > life) return;
+      var r = rng(seed), u = t / life;
+      add(ctx, function () {
+        for (var i = 0; i < n; i++) {
+          var a = r() * TAU, v = speed * (0.4 + r() * 0.8), d = v * (1 - Math.pow(1 - u, 2)) * life / 1000 * 0.6;
+          ctx.fillStyle = rgba(col, (1 - u) * (0.6 + r() * 0.4));
+          ctx.beginPath(); ctx.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, size * (1 - u * 0.5), 0, TAU); ctx.fill();
+        }
+      });
+    }
+    function jag(A, B, segs, amp, seed) {
+      var r = rng(seed), n = norm(A, B), px = -n.y, py = n.x, pts = [];
+      for (var i = 0; i <= segs; i++) {
+        var u = i / segs, o = (i === 0 || i === segs) ? 0 : (r() - 0.5) * 2 * amp;
+        pts.push({ x: lerp(A.x, B.x, u) + px * o, y: lerp(A.y, B.y, u) + py * o });
+      }
+      return pts;
+    }
+    function puff(ctx, x, y, t, life, R, seed) {
+      if (t < 0 || t > life) return;
+      var u = t / life, r = rng(seed);
+      for (var k = 0; k < 5; k++) {
+        var an = r() * TAU, d = R * (0.25 + 0.75 * easeOut(u)) * (0.5 + r() * 0.5);
+        glow(ctx, x + Math.cos(an) * d, y + Math.sin(an) * d - u * 5, R * 0.5 * (0.6 + 0.6 * u), [[0, rgba(PAL.dust, 0.4 * (1 - u))], [1, rgba(PAL.dust, 0)]]);
+      }
+    }
+    function clearPop(ctx, C, R, t) {
+      if (!C || t < 0 || t > 800) return;
+      var v = t / 800, r = rng(91);
+      for (var k = 0; k < 28; k++) {
+        var an = r() * TAU, d = R * (0.3 + r() * 0.8) * (0.6 + 0.4 * easeOut(v));
+        ctx.fillStyle = "rgba(150,140,125," + (0.55 * (1 - v) * (0.4 + r() * 0.6)) + ")";
+        ctx.beginPath(); ctx.arc(C.x + Math.cos(an) * d, C.y + Math.sin(an) * d - v * 8, 1.8, 0, TAU); ctx.fill();
+      }
+    }
+    function coneGeom(G) {
+      var ang = Number(G.facing);
+      if (!isFinite(ang)) ang = 0;
+      var cells = (G.cone && G.cone.L) || 12;
+      return { ang: ang, L: cells * (G.cell || 70), half: Math.atan(0.5) };
+    }
+    function conePath(ctx, S, ang, L, half) {
+      ctx.beginPath(); ctx.moveTo(S.x, S.y);
+      ctx.arc(S.x, S.y, Math.max(1, L), ang - half, ang + half);
+      ctx.closePath();
+    }
+    function victims(G) {
+      var S = G.S || G.A, out = [], i;
+      for (i = 0; i < (G.T || []).length; i++) {
+        var B = G.T[i];
+        if (!B) continue;
+        if (S && dist(S, B) < Math.max(8, (G.rS || 18) * 0.75)) continue;
+        out.push(B);
+      }
+      return out;
+    }
+    function primary(G) { var list = victims(G); return list[0] || (G.T && G.T[0]) || G.Z || G.S; }
+    function arrow(ctx, H, n, len, a, sc, trail) {
+      if (a <= 0) return;
+      var px = -n.y, py = n.x, Tl = { x: H.x - n.x * len, y: H.y - n.y * len };
+      if (trail) add(ctx, function () { stroke(ctx, [{ x: H.x - n.x * len * trail, y: H.y - n.y * len * trail }, Tl], 2.4 * sc, rgba(PAL.force, 0.22 * a), 6); });
+      stroke(ctx, [Tl, H], 2.2 * sc, rgba(PAL.steel.metal, a));
+      ctx.save(); ctx.beginPath();
+      ctx.moveTo(H.x + n.x * 5 * sc, H.y + n.y * 5 * sc);
+      ctx.lineTo(H.x - n.x * 2 * sc + px * 3 * sc, H.y - n.y * 2 * sc + py * 3 * sc);
+      ctx.lineTo(H.x - n.x * 2 * sc - px * 3 * sc, H.y - n.y * 2 * sc - py * 3 * sc);
+      ctx.closePath(); ctx.fillStyle = rgba(PAL.steel.dark, a); ctx.fill(); ctx.restore();
+      stroke(ctx, [{ x: Tl.x + px * 2 * sc, y: Tl.y + py * 2 * sc }, { x: Tl.x + n.x * 3 * sc, y: Tl.y + n.y * 3 * sc }], 1.1 * sc, rgba(PAL.steel.fletch, a));
+    }
+    function sparkHit(ctx, B, t, seed, G) {
+      if (!B || t < 0 || t > 480) return;
+      var u = t / 480, sc = scOf(G);
+      add(ctx, function () { glow(ctx, B.x, B.y, G.cell * 0.45, [[0, rgba(PAL.steel.spark, 0.55 * (1 - u))], [1, rgba(PAL.steel.spark, 0)]]); });
+      sparks(ctx, B.x, B.y, t, 10, seed, 180 * sc, 420, PAL.steel.spark, 1.3 * sc);
+      puff(ctx, B.x, B.y, t, 420, 12 * sc, seed + 3);
+    }
+    function bolt(ctx, A, B, seed, w, a) {
+      if (!A || !B || a <= 0) return;
+      var d = dist(A, B), pts = jag(A, B, Math.max(4, Math.round(d / 18)), Math.min(12, d * 0.08), seed);
+      add(ctx, function () {
+        stroke(ctx, pts, w * 3, rgba(PAL.lightning.glow, 0.45 * a), 12);
+        stroke(ctx, pts, w, rgba(PAL.lightning.core, a), 6);
+        stroke(ctx, pts, Math.max(0.6, w * 0.35), rgba(PAL.lightning.hot, a));
+      });
+    }
+    function flash(ctx, B, t, life, R, col, hot) {
+      if (!B || t < 0 || t > life) return;
+      var u = t / life;
+      add(ctx, function () {
+        glow(ctx, B.x, B.y, R * (0.55 + 0.45 * u), [[0, rgba(hot, 1 - u)], [0.45, rgba(col, 0.5 * (1 - u))], [1, rgba(col, 0)]]);
+        ring(ctx, B.x, B.y, R * (0.35 + 0.6 * easeOut(u)), 2.4 * (1 - u) + 0.4, rgba(hot, 1 - u), 8);
+      });
+    }
+    function pricks(ctx, B, t, seed, G) {
+      if (!B || t < 0 || t > 420) return;
+      var u = t / 420, r = rng(seed), sc = scOf(G);
+      add(ctx, function () { glow(ctx, B.x, B.y, G.cell * 0.5, [[0, rgba(PAL.briar.prickHot, 0.65 * (1 - u))], [0.5, rgba(PAL.briar.prick, 0.35 * (1 - u))], [1, rgba(PAL.briar.prick, 0)]]); });
+      for (var k = 0; k < 8; k++) {
+        var an = r() * TAU, d0 = (G.rT || 16) * (0.4 + 0.8 * easeOut(u));
+        stroke(ctx, [{ x: B.x + Math.cos(an) * d0, y: B.y + Math.sin(an) * d0 }, { x: B.x + Math.cos(an) * (d0 + 6 * sc), y: B.y + Math.sin(an) * (d0 + 6 * sc) }], 1.6 * sc, rgba(PAL.briar.splinter, 1 - u));
+      }
+    }
+    function spike(ctx, B, an, L0, L1, w, a) {
+      var n = { x: Math.cos(an), y: Math.sin(an) }, px = -n.y, py = n.x;
+      var P0 = { x: B.x + n.x * L0, y: B.y + n.y * L0 }, P1 = { x: B.x + n.x * L1, y: B.y + n.y * L1 };
+      ctx.beginPath();
+      ctx.moveTo(P0.x + px * w, P0.y + py * w); ctx.lineTo(P1.x, P1.y); ctx.lineTo(P0.x - px * w, P0.y - py * w);
+      ctx.closePath(); ctx.fillStyle = rgba(PAL.briar.dark, a); ctx.fill();
+      stroke(ctx, [lp(P0, P1, 0.55), P1], Math.max(1, w * 0.4), rgba(PAL.briar.prick, a));
+    }
+    function vinePath(B, k, rT, sq) {
+      var a0 = k / 6 * TAU + 0.4, pts = [], s, R0 = rT * 1.45, R1 = rT * 1.02 * sq;
+      for (s = 0; s <= 8; s++) {
+        var u = s / 8, an = a0 + u * 1.05, rr = lerp(R0, R1, u);
+        pts.push({ x: B.x + Math.cos(an) * rr, y: B.y + Math.sin(an) * rr });
+      }
+      for (s = 1; s <= 12; s++) {
+        var an2 = a0 + 1.05 + s / 12 * 1.5, rr2 = R1 + Math.sin(s * 0.8 + k) * 1.6;
+        pts.push({ x: B.x + Math.cos(an2) * rr2, y: B.y + Math.sin(an2) * rr2 });
+      }
+      return pts;
+    }
+    function vines(ctx, B, frac, a, sq, G) {
+      if (!B || a <= 0) return;
+      var sc = scOf(G);
+      for (var k = 0; k < 6; k++) {
+        var all = vinePath(B, k, G.rT || 18, sq);
+        var n = Math.max(2, Math.round(all.length * clamp(frac - k * 0.02)));
+        var pts = all.slice(0, n);
+        if (pts.length < 2) continue;
+        stroke(ctx, pts, 5.2 * sc, rgba(PAL.briar.dark, 0.92 * a));
+        stroke(ctx, pts, 2.4 * sc, rgba(PAL.briar.vine, a));
+        var tip = pts[pts.length - 1];
+        ctx.beginPath();
+        if (ctx.ellipse) ctx.ellipse(tip.x, tip.y, 4 * sc, 2 * sc, k, 0, TAU);
+        else ctx.arc(tip.x, tip.y, 3 * sc, 0, TAU);
+        ctx.fillStyle = rgba(PAL.briar.sage, 0.9 * a); ctx.fill();
+      }
+    }
+    function shard(ctx, x, y, an, L, w, col) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(an); ctx.beginPath();
+      ctx.moveTo(L, 0); ctx.lineTo(0, w); ctx.lineTo(-L * 0.55, 0); ctx.lineTo(0, -w); ctx.closePath();
+      ctx.fillStyle = col; ctx.fill(); ctx.restore();
+    }
+    function noteGlyph(ctx, x, y, kind, sz, rot, a) {
+      if (a <= 0) return;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(sz / 10, sz / 10); ctx.globalAlpha = clamp(a);
+      ctx.fillStyle = "rgb(" + PAL.note.paper + ")"; ctx.strokeStyle = "rgb(" + PAL.note.edge + ")"; ctx.lineWidth = 1.1;
+      ctx.shadowBlur = 6; ctx.shadowColor = rgba(PAL.psychic.core, 0.75);
+      function head(hx) {
+        ctx.beginPath();
+        if (ctx.ellipse) ctx.ellipse(hx, 6, 3.4, 2.4, -0.4, 0, TAU);
+        else ctx.arc(hx, 6, 3, 0, TAU);
+        ctx.fill(); ctx.stroke();
+      }
+      function stem(hx) { ctx.fillRect(hx + 2.2, -8, 1.6, 14); }
+      if (kind === 0) { head(0); stem(0); }
+      else { head(-5); head(5); stem(-5); stem(5); ctx.fillRect(-2.4, -8.5, 10, 2.4); }
+      ctx.restore();
+    }
+    function anchor(S, aim, G) {
+      var n = (aim && dist(S, aim) > 4) ? norm(S, aim) : { x: Math.cos(G.facing || 0), y: Math.sin(G.facing || 0) };
+      var M = { x: S.x + n.x * ((G.rS || 18) + 6), y: S.y + n.y * ((G.rS || 18) + 6) };
+      return { n: n, M: M };
+    }
+
+    function barrageUnder(ctx, lt, G) {
+      var S = G.S || G.A; if (!S) return;
+      var c = coneGeom(G), a = env(lt, 0, 40, 280, 700);
+      if (a <= 0) return;
+      ctx.save(); conePath(ctx, S, c.ang, c.L * easeOut(clamp(lt / 230)), c.half);
+      var g = ctx.createRadialGradient(S.x, S.y, 0, S.x, S.y, Math.max(8, c.L));
+      g.addColorStop(0, rgba(PAL.force, 0.12 * a)); g.addColorStop(1, rgba(PAL.force, 0.02 * a));
+      ctx.fillStyle = g; ctx.fill(); ctx.restore();
+    }
+    function barrage(ctx, lt, G) {
+      var S = G.S || G.A; if (!S) return;
+      var c = coneGeom(G), r = rng(12), sc = scOf(G);
+      for (var k = 0; k < 28; k++) {
+        var an = c.ang + (r() * 2 - 1) * c.half * 0.92, D = c.L * (0.45 + 0.55 * r()), t0 = r() * 60, t = lt - t0;
+        if (t < 0) continue;
+        var n = { x: Math.cos(an), y: Math.sin(an) }, p = clamp(t / 230);
+        var H = { x: S.x + n.x * ((G.rS || 18) + D * easeOut(p)), y: S.y + n.y * ((G.rS || 18) + D * easeOut(p)) };
+        var a = 1 - clamp((t - 230) / 420);
+        arrow(ctx, H, n, 18 * sc, a, sc, p < 1 ? 2.2 : 0);
+        if (p >= 1) puff(ctx, H.x, H.y, t - 230, 320, 8 * sc, k);
+      }
+      victims(G).forEach(function (B, i) { sparkHit(ctx, B, lt - 180 - i * 30, 30 + i, G); });
+    }
+    function volleyUnder(ctx, lt, G) {
+      var Z = G.Z || primary(G); if (!Z) return;
+      var R = (G.zr || 8) * G.cell, a = env(lt, 0, 80, 900, 1500);
+      if (a <= 0) return;
+      glow(ctx, Z.x, Z.y, R * 1.02, [[0, rgba(PAL.dust, 0.28 * a)], [0.75, rgba(PAL.dust, 0.16 * a)], [1, rgba(PAL.dust, 0)]]);
+      var r = rng(44), sc = scOf(G);
+      for (var k = 0; k < 36; k++) {
+        var t0 = r() * 700, an = r() * TAU, d = Math.sqrt(r()) * R * 0.92;
+        var x = Z.x + Math.cos(an) * d, y = Z.y + Math.sin(an) * d, ta = lt - t0 - 190;
+        if (ta < 80) continue;
+        var sa = 1 - clamp((ta - 500) / 500);
+        if (sa <= 0) continue;
+        stroke(ctx, [{ x: x - 2 * sc, y: y - 8 * sc }, { x: x, y: y }], 1.8 * sc, rgba(PAL.steel.dark, 0.85 * sa));
+      }
+    }
+    function volley(ctx, lt, G) {
+      var Z = G.Z || primary(G); if (!Z) return;
+      var R = (G.zr || 8) * G.cell, r = rng(44), sc = scOf(G);
+      var dn = norm({ x: 0, y: 0 }, { x: 0.28, y: 1 });
+      for (var q = 0; q < 48; q++) {
+        var t0 = r() * 700, an = r() * TAU, d = Math.sqrt(r()) * R * 0.92;
+        var X = { x: Z.x + Math.cos(an) * d, y: Z.y + Math.sin(an) * d }, tq = lt - t0;
+        if (tq < 0 || tq > 900) continue;
+        if (tq < 190) {
+          var f = easeIn(tq / 190);
+          var Hh = { x: X.x - dn.x * 150 * sc * (1 - f), y: X.y - dn.y * 150 * sc * (1 - f) };
+          arrow(ctx, Hh, dn, 18 * sc, 0.5 + 0.5 * f, sc, 2.4);
+        } else {
+          puff(ctx, X.x, X.y, tq - 190, 360, 7 * sc, 100 + q);
+          sparks(ctx, X.x, X.y, tq - 190, 3, 200 + q, 100, 220, PAL.steel.spark, 1.1 * sc);
+        }
+      }
+      victims(G).forEach(function (B, i) { sparkHit(ctx, B, lt - 220 - i * 40, 70 + i, G); });
+    }
+    function lightningUnder(ctx, lt, G) {
+      var t = lt - 200; if (t < 0) return;
+      var B = primary(G); if (!B) return;
+      var a = env(t, 0, 20, 180, 700);
+      glow(ctx, B.x, B.y + 2, G.cell * 0.55, [[0, "rgba(15,12,10," + (0.45 * a) + ")"], [1, "rgba(15,12,10,0)"]]);
+    }
+    function lightningArrow(ctx, lt, G) {
+      var S = G.S || G.A; if (!S) return;
+      var B = primary(G), aim = B || { x: S.x + Math.cos(G.facing || 0) * G.cell, y: S.y + Math.sin(G.facing || 0) * G.cell };
+      var W = anchor(S, aim, G), sc = scOf(G);
+      if (lt < 220) {
+        var ca = clamp(lt / 80), sd = Math.floor(lt / 50);
+        add(ctx, function () {
+          glow(ctx, W.M.x, W.M.y, (12 + 3 * Math.sin(lt / 60)) * sc, [[0, rgba(PAL.lightning.hot, 0.7 * ca)], [0.45, rgba(PAL.lightning.glow, 0.4 * ca)], [1, rgba(PAL.lightning.glow, 0)]]);
+          for (var k = 0; k < 3; k++) {
+            var rr = rng(sd * 5 + k);
+            stroke(ctx, jag(S, { x: W.M.x + (rr() - 0.5) * 8, y: W.M.y + (rr() - 0.5) * 8 }, 4, 3 * sc, sd + k), 1.1 * sc, rgba(PAL.lightning.core, 0.7 * ca), 6);
+          }
+        });
+      }
+      var t = lt - 200; if (t < 0 || !B || dist(S, B) < (G.rS || 18)) return;
+      var a = 1 - clamp((t - 140) / 280);
+      bolt(ctx, W.M, B, 11 + Math.floor(t / 40), 2.2 * sc, a);
+      flash(ctx, B, t, 460, G.cell * 0.9, PAL.lightning.glow, PAL.lightning.hot);
+      sparks(ctx, B.x, B.y, t, 12, 5, 200, 420, PAL.lightning.core, 1.2 * sc);
+      victims(G).slice(1).forEach(function (C, i) {
+        var ts = t - 70 - i * 20; if (ts < 0) return;
+        var sa = 1 - clamp((ts - 100) / 200);
+        bolt(ctx, B, C, 80 + i * 9, 1.2 * sc, sa);
+        flash(ctx, C, ts, 320, G.cell * 0.55, PAL.lightning.glow, PAL.lightning.core);
+      });
+    }
+    function hailUnder(ctx, lt, G) {
+      if (lt < 0) return;
+      var B = primary(G); if (!B) return;
+      var a = env(lt, 0, 60, 480, 1100), r = rng(8), sc = scOf(G);
+      for (var k = 0; k < 18; k++) {
+        var an = r() * TAU, d = G.cell * (0.25 + r() * 0.9);
+        ctx.fillStyle = rgba(r() > 0.5 ? PAL.briar.wood : PAL.briar.sage, 0.55 * a);
+        ctx.fillRect(B.x + Math.cos(an) * d, B.y + Math.sin(an) * d, 3 * sc, 2 * sc);
+      }
+    }
+    function hail(ctx, lt, G) {
+      var B = primary(G); if (!B) return;
+      var R = G.cell * 1.15, g = easeOut(clamp(lt / 220)), a = 1 - clamp((lt - 360) / 500), r = rng(3), sc = scOf(G);
+      if (a > 0) {
+        add(ctx, function () { glow(ctx, B.x, B.y, R * (0.45 + 0.7 * g), [[0, rgba(PAL.briar.prickHot, 0.55 * a)], [0.6, rgba(PAL.briar.prick, 0.28 * a)], [1, rgba(PAL.briar.prick, 0)]]); });
+        ring(ctx, B.x, B.y, R * g, 2.6 * sc, rgba(PAL.briar.dark, 0.55 * a));
+        for (var k = 0; k < 22; k++) {
+          var an = k / 22 * TAU + (r() - 0.5) * 0.15, L = R * (0.5 + 0.5 * r()) * g;
+          spike(ctx, B, an, (G.rT || 16) * 0.3, L, (2.6 + r()) * sc, a);
+        }
+      }
+      puff(ctx, B.x, B.y, lt, 560, R * 0.55, 9);
+      pricks(ctx, B, lt, 2, G);
+      victims(G).slice(1).forEach(function (C, i) { pricks(ctx, C, lt - 80 - i * 24, 20 + i, G); });
+    }
+    function ensnareUnder(ctx, lt, G) {
+      if (G.mode === "tick" || G.mode === "clear") return;
+      var B = primary(G); if (!B) return;
+      var a = G.mode === "idle" ? 0.45 : clamp(lt / 140) * (1 - 0.45 * clamp((lt - 500) / 400));
+      var r = rng(17);
+      for (var k = 0; k < 6; k++) {
+        var an = r() * TAU;
+        var P0 = { x: B.x + Math.cos(an) * (G.rT || 16) * 0.7, y: B.y + Math.sin(an) * (G.rT || 16) * 0.7 };
+        var P1 = { x: B.x + Math.cos(an) * (G.rT || 16) * (1.5 + r() * 0.4), y: B.y + Math.sin(an) * (G.rT || 16) * (1.5 + r() * 0.4) };
+        stroke(ctx, jag(P0, P1, 3, 2, 5 + k), 1.4 * scOf(G), "rgba(25,18,12," + (0.7 * a) + ")");
+      }
+    }
+    function ensnare(ctx, lt, G) {
+      var B = primary(G); if (!B) return;
+      if (G.mode === "clear") {
+        vines(ctx, B, 1, 1 - clamp(lt / 320), 1, G);
+        clearPop(ctx, B, G.cell * 0.8, lt);
+        return;
+      }
+      if (G.mode === "tick") { pricks(ctx, B, lt, 7, G); return; }
+      if (G.mode === "idle") {
+        var sq = 1 + 0.03 * Math.sin(lt / 380);
+        vines(ctx, B, 1, 0.92, sq, G);
+        return;
+      }
+      var frac = easeOut(clamp(lt / 420)), a = clamp(lt / 80);
+      vines(ctx, B, frac, a, 1, G);
+      puff(ctx, B.x, B.y, lt, 420, G.cell * 0.55, 4);
+      pricks(ctx, B, lt - 40, 6, G);
+    }
+    function contagion(ctx, lt, G) {
+      var B = primary(G); if (!B) return;
+      var S = G.S || G.A || B, sc = scOf(G);
+      if (G.mode === "clear") {
+        ring(ctx, B.x, B.y, (G.rT || 18) + 4, 6 * sc, rgba(PAL.poison.dark, 0.5 * (1 - clamp(lt / 320))));
+        clearPop(ctx, B, G.cell * 0.8, lt);
+        return;
+      }
+      var idle = G.mode === "idle";
+      var t = idle ? 800 : lt;
+      if (!idle && lt < 520) {
+        var n = norm(S, B), p = easeOut(clamp(lt / 200)), hand = lp(S, { x: B.x - n.x * (G.rT || 18), y: B.y - n.y * (G.rT || 18) }, p);
+        add(ctx, function () {
+          stroke(ctx, [S, hand], 8 * sc, rgba(PAL.poison.glow, 0.35 * (1 - clamp((lt - 280) / 200))), 10);
+          stroke(ctx, [S, hand], 3 * sc, rgba(PAL.poison.core, 0.8), 6);
+          glow(ctx, hand.x, hand.y, 12 * sc, [[0, rgba(PAL.poison.hot, 0.65)], [1, rgba(PAL.poison.glow, 0)]]);
+        });
+      }
+      if (!idle && lt < 360) return;
+      var wa = idle ? 0.9 : clamp((lt - 360) / 160);
+      var pu = 0.5 + 0.5 * Math.sin((idle ? lt : lt - 360) / 180);
+      ring(ctx, B.x, B.y, (G.rT || 18) + 3, 6 * sc, rgba(PAL.poison.dark, 0.7 * wa));
+      add(ctx, function () {
+        ring(ctx, B.x, B.y, (G.rT || 18) + 3, 2.2 * sc, rgba(PAL.poison.core, (0.65 + 0.3 * pu) * wa), 8);
+        var pr = ((lt % 1100) / 1100);
+        ring(ctx, B.x, B.y, (G.rT || 18) + 4 + pr * 12 * sc, 1.6 * sc, rgba(PAL.poison.core, 0.45 * (1 - pr) * wa), 4);
+      });
+      for (var d = 0; d < 8; d++) {
+        var an = d / 8 * TAU, x = B.x + Math.cos(an) * ((G.rT || 18) + 2), y = B.y + Math.sin(an) * ((G.rT || 18) + 2);
+        ctx.beginPath(); ctx.arc(x, y, (d % 3 ? 2 : 3) * sc, 0, TAU);
+        ctx.fillStyle = rgba(PAL.poison.pox, 0.9 * wa); ctx.fill();
+      }
+      var Sg = { x: B.x + (G.rT || 18) * 0.72, y: B.y - (G.rT || 18) * 0.72 };
+      ctx.beginPath(); ctx.arc(Sg.x, Sg.y, 8 * sc, 0, TAU);
+      ctx.fillStyle = rgba(PAL.poison.dark, 0.85 * wa); ctx.fill();
+      ctx.lineWidth = 1.3 * sc; ctx.strokeStyle = rgba(PAL.poison.pox, wa); ctx.stroke();
+      for (var q = 0; q < 3; q++) {
+        var aq = q / 3 * TAU - Math.PI / 2;
+        ctx.beginPath(); ctx.arc(Sg.x + Math.cos(aq) * 3.4 * sc, Sg.y + Math.sin(aq) * 3.4 * sc, 1.7 * sc, 0, TAU);
+        ctx.fillStyle = rgba(PAL.poison.hot, (0.7 + 0.3 * pu) * wa); ctx.fill();
+      }
+      if (!idle && t < 900) flash(ctx, B, lt - 360, 420, G.cell * 0.7, PAL.poison.glow, PAL.poison.hot);
+    }
+    function specterShape(ctx, x, y, s) {
+      ctx.beginPath();
+      ctx.moveTo(x - 0.13 * s, y); ctx.lineTo(x - 0.12 * s, y - 0.15 * s);
+      ctx.quadraticCurveTo(x, y - 0.19 * s, x + 0.12 * s, y - 0.15 * s); ctx.lineTo(x + 0.13 * s, y);
+      ctx.lineTo(x + 0.28 * s, y + 0.02 * s); ctx.lineTo(x + 0.12 * s, y + 0.08 * s);
+      ctx.lineTo(x + 0.34 * s, y + 1.05 * s);
+      ctx.lineTo(x, y + 0.92 * s);
+      ctx.lineTo(x - 0.34 * s, y + 1.05 * s);
+      ctx.lineTo(x - 0.12 * s, y + 0.08 * s); ctx.lineTo(x - 0.28 * s, y + 0.02 * s);
+      ctx.closePath();
+    }
+    function phantasm(ctx, lt, G) {
+      var B = primary(G); if (!B) return;
+      var A = G.A || G.S || B, sc = scOf(G);
+      if (G.mode === "clear") {
+        var lift = clamp(lt / 320);
+        drawSpecter(ctx, B, G, 1 - lift, lt, -lift * 16 * sc);
+        clearPop(ctx, B, G.cell * 0.85, lt);
+        return;
+      }
+      if (G.mode === "tick") {
+        var u = clamp(lt / 520);
+        add(ctx, function () { ring(ctx, B.x, B.y, (G.rT || 18) + easeOut(u) * G.cell * 0.6, 3 * (1 - u) + 0.4, rgba(PAL.psychic.core, 1 - u), 10); });
+        return;
+      }
+      if (G.mode !== "idle" && lt < 480) {
+        var p = easeOut(clamp(lt / 320)), a = 1 - clamp((lt - 320) / 200), n = norm(A, B), pts = [];
+        for (var s = 0; s <= 18; s++) {
+          var uu = s / 18 * p, w = Math.sin(uu * 10) * 6 * Math.sin(Math.PI * uu);
+          pts.push({ x: lerp(A.x, B.x, uu) - n.y * w, y: lerp(A.y, B.y, uu) + n.x * w });
+        }
+        add(ctx, function () {
+          stroke(ctx, pts, 5 * sc, rgba(PAL.psychic.glow, 0.4 * a), 10);
+          stroke(ctx, pts, 1.4 * sc, rgba(PAL.psychic.core, 0.9 * a));
+        });
+      }
+      var rise = G.mode === "idle" ? 1 : easeOut(clamp((lt - 200) / 400));
+      if (rise <= 0) return;
+      drawSpecter(ctx, B, G, rise, lt, (1 - rise) * 14 * sc);
+      if (G.mode !== "idle") flash(ctx, B, lt - 280, 360, G.cell * 0.7, PAL.psychic.glow, PAL.psychic.hot);
+    }
+    function drawSpecter(ctx, B, G, a, lt, lift) {
+      if (a <= 0) return;
+      var s = G.cell * 1.35, sc = scOf(G);
+      var x = B.x + G.cell * 0.28 + Math.sin(lt / 900) * 2 * sc;
+      var y = B.y - G.cell * 0.95 + lift + Math.sin(lt / 640) * 2 * sc;
+      specterShape(ctx, x, y, s);
+      var g = ctx.createLinearGradient(x, y - 0.2 * s, x, y + s);
+      g.addColorStop(0, rgba("128,122,134", 0.62 * a));
+      g.addColorStop(1, rgba("92,88,98", 0));
+      ctx.fillStyle = g; ctx.fill();
+      add(ctx, function () {
+        ctx.lineWidth = 1.2 * sc; ctx.strokeStyle = rgba(PAL.psychic.core, 0.4 * a);
+        specterShape(ctx, x, y, s); ctx.stroke();
+        glow(ctx, x - 0.04 * s, y + 0.16 * s, 3.2 * sc, [[0, rgba(PAL.psychic.hot, 0.8 * a)], [1, rgba(PAL.psychic.glow, 0)]]);
+        glow(ctx, x + 0.04 * s, y + 0.16 * s, 3.2 * sc, [[0, rgba(PAL.psychic.hot, 0.8 * a)], [1, rgba(PAL.psychic.glow, 0)]]);
+      });
+      add(ctx, function () { ring(ctx, B.x, B.y, (G.rT || 18) + 2, 1.3 * sc, rgba(PAL.psychic.core, 0.4 * a), 5); });
+    }
+    function harmUnder(ctx, lt, G) {
+      var A = G.A || G.S, B = primary(G); if (!A || !B) return;
+      var p = easeIn(clamp(lt / 300)), a = env(lt, 0, 40, 300, 900), r = rng(5);
+      for (var k = 0; k < 10; k++) {
+        var u = r() * p, P = lp(A, B, u), age = clamp((lt - u * 300) / 600);
+        glow(ctx, P.x, P.y - age * 8, 8 + age * 10, [[0, "rgba(30,18,32," + (0.4 * (1 - age) * a) + ")"], [1, "rgba(30,18,32,0)"]]);
+      }
+    }
+    function harm(ctx, lt, G) {
+      var A = G.A || G.S, B = primary(G); if (!A || !B) return;
+      var sc = scOf(G);
+      if (lt < 480) {
+        var p = easeIn(clamp(lt / 300)), a = 1 - clamp((lt - 300) / 180), H = lp(A, B, p), n = norm(A, B), L = dist(A, B);
+        for (var k = 0; k < 14; k++) {
+          var u = k / 13, back = u * Math.min(L * 0.5, L * p);
+          var wob = Math.sin(lt / 40 + k) * 4 * sc * u;
+          var P = { x: H.x - n.x * back - n.y * wob, y: H.y - n.y * back + n.x * wob };
+          var rr = (26 - 12 * u) * sc;
+          glow(ctx, P.x, P.y, rr, [[0, rgba(PAL.necrotic.black, 0.72 * a * (1 - u * 0.5))], [0.65, "rgba(30,14,34," + (0.45 * a) + ")"], [1, "rgba(30,14,34,0)"]]);
+        }
+        add(ctx, function () { glow(ctx, H.x, H.y, 16 * sc, [[0, rgba(PAL.necrotic.glow, 0.55 * a)], [1, rgba(PAL.necrotic.glow, 0)]]); });
+      }
+      var t = lt - 300; if (t < 0) return;
+      collapse(ctx, B, t, G.cell * 1.6, (G.rT || 16) * 0.4, 21);
+      collapse(ctx, B, t - 70, G.cell * 1.1, (G.rT || 16) * 0.35, 22);
+      var ta = t - 360;
+      if (ta >= 0 && ta < 480) {
+        var u = ta / 480;
+        add(ctx, function () {
+          glow(ctx, B.x, B.y, G.cell * (0.5 + 0.5 * u), [[0, rgba(PAL.necrotic.bone, 0.85 * (1 - u))], [0.5, rgba(PAL.necrotic.ash, 0.4 * (1 - u))], [1, rgba(PAL.necrotic.ash, 0)]]);
+          ring(ctx, B.x, B.y, (G.rT || 16) * (1 + u * 0.6), 2 * (1 - u) + 0.4, rgba(PAL.necrotic.bone, 1 - u), 6);
+        });
+      }
+    }
+    function collapse(ctx, B, t, R0, R1, seed) {
+      if (!B || t < 0) return;
+      if (t < 400) {
+        var u = easeOut(t / 400), R = lerp(R0, R1, u);
+        add(ctx, function () { ring(ctx, B.x, B.y, R, 4 * (1 - u) + 1, rgba(PAL.necrotic.hex, 0.9 * (1 - u * 0.5)), 10); });
+        glow(ctx, B.x, B.y, Math.max(4, R), [[0, rgba(PAL.necrotic.black, 0.55 * u)], [1, rgba(PAL.necrotic.black, 0)]]);
+      }
+      var r = rng(seed);
+      for (var q = 0; q < 12; q++) {
+        var t0 = r() * 400, age = (t - t0) / 800, an = r() * TAU, rad = R1 * (0.5 + r());
+        if (age < 0 || age > 1) continue;
+        ctx.fillStyle = rgba(PAL.necrotic.ash, 0.85 * (1 - age));
+        ctx.fillRect(B.x + Math.cos(an) * rad - 1.5, B.y + Math.sin(an) * rad - 1.5, 3, 3);
+      }
+    }
+    function waveUnder(ctx, lt, G) {
+      var S = G.S || G.A; if (!S) return;
+      var a = env(lt, 0, 30, 420, 1000), R = (G.zr || 6) * G.cell * easeOut(clamp(lt / 320)), r = rng(50);
+      glow(ctx, S.x, S.y, Math.max(4, R), [[0, rgba(PAL.thunder.dust, 0.22 * a)], [1, rgba(PAL.thunder.dust, 0)]]);
+      for (var k = 0; k < 8; k++) {
+        var an = r() * TAU, L = G.cell * (0.4 + r() * 0.8) * easeOut(clamp(lt / 140));
+        stroke(ctx, jag({ x: S.x, y: S.y }, { x: S.x + Math.cos(an) * L, y: S.y + Math.sin(an) * L }, 3, 2, k), 1.4, "rgba(25,18,12," + (0.65 * a) + ")");
+      }
+    }
+    function wave(ctx, lt, G) {
+      var S = G.S || G.A; if (!S) return;
+      var R0 = (G.zr || 6) * G.cell, R = R0 * easeOut(clamp(lt / 320)), a = env(lt, 0, 20, 320, 780);
+      var sk = G.skin === "radiant" ? PAL.radiant : PAL.necrotic, sc = scOf(G);
+      if (lt < 180) add(ctx, function () { glow(ctx, S.x, S.y, G.cell * (0.6 + lt / 180), [[0, rgba(PAL.thunder.core, 0.85 * (1 - lt / 180))], [1, rgba(PAL.thunder.glow, 0)]]); });
+      if (a > 0 && R > 2) {
+        ring(ctx, S.x, S.y, R, G.cell * 0.28, rgba(PAL.thunder.dust, 0.45 * a));
+        add(ctx, function () {
+          ring(ctx, S.x, S.y, R, 2.2 * sc, rgba(PAL.thunder.core, a), 6);
+          ring(ctx, S.x, S.y, R + G.cell * 0.16, 7 * sc, rgba(sk.glow, 0.55 * a), 12);
+          ring(ctx, S.x, S.y, R + G.cell * 0.16, 1.5 * sc, rgba(G.skin === "radiant" ? sk.core : PAL.necrotic.hex, 0.9 * a), 5);
+        });
+        if (G.skin !== "radiant") ring(ctx, S.x, S.y, R + G.cell * 0.16, 4 * sc, rgba(PAL.necrotic.black, 0.55 * a));
+      }
+      victims(G).forEach(function (B, i) {
+        var reach = clamp(dist(S, B) / Math.max(1, R0));
+        var tb = lt - 320 * (1 - Math.cbrt(1 - reach));
+        if (tb < 0 || tb > 520) return;
+        flash(ctx, B, tb, 360, G.cell * 0.5, PAL.thunder.glow, PAL.thunder.core);
+        add(ctx, function () { glow(ctx, B.x, B.y, G.cell * 0.35, [[0, rgba(G.skin === "radiant" ? sk.core : PAL.necrotic.hex, 0.55 * (1 - tb / 520))], [1, rgba(sk.glow, 0)]]); });
+      });
+    }
+    function coldUnder(ctx, lt, G) {
+      var S = G.S || G.A; if (!S) return;
+      var c = coneGeom(G), front = c.L * easeOut(clamp(lt / 360));
+      var ra = clamp(lt / 160) * (1 - clamp((lt - 1500) / 600));
+      if (ra <= 0) return;
+      ctx.save(); conePath(ctx, S, c.ang, front, c.half); ctx.clip();
+      var g = ctx.createRadialGradient(S.x, S.y, G.rS || 8, S.x, S.y, Math.max(8, c.L));
+      g.addColorStop(0, rgba(PAL.cold.core, 0.24 * ra));
+      g.addColorStop(1, rgba(PAL.cold.mist, 0.04 * ra));
+      ctx.fillStyle = g; ctx.fillRect(S.x - c.L, S.y - c.L, c.L * 2, c.L * 2);
+      var r = rng(19);
+      for (var k = 0; k < 70; k++) {
+        var an = c.ang + (r() * 2 - 1) * c.half, d = (G.rS || 8) + r() * Math.max(1, front - (G.rS || 8));
+        ctx.fillStyle = rgba(PAL.cold.hot, 0.45 * ra);
+        ctx.fillRect(S.x + Math.cos(an) * d, S.y + Math.sin(an) * d, 2, 2);
+      }
+      ctx.restore();
+    }
+    function cold(ctx, lt, G) {
+      var S = G.S || G.A; if (!S) return;
+      var c = coneGeom(G), front = c.L * easeOut(clamp(lt / 360)), a = env(lt, 0, 30, 900, 1500), r = rng(29), sc = scOf(G);
+      if (a > 0) {
+        add(ctx, function () {
+          ctx.save(); conePath(ctx, S, c.ang, front, c.half); ctx.clip();
+          var g = ctx.createRadialGradient(S.x, S.y, 0, S.x, S.y, Math.max(8, c.L));
+          g.addColorStop(0, rgba(PAL.cold.hot, 0.4 * a));
+          g.addColorStop(0.45, rgba(PAL.cold.core, 0.2 * a));
+          g.addColorStop(1, rgba(PAL.cold.glow, 0));
+          ctx.fillStyle = g; ctx.fillRect(S.x - c.L, S.y - c.L, c.L * 2, c.L * 2);
+          for (var k = 0; k < 40; k++) {
+            var an = c.ang + (r() * 2 - 1) * c.half * 0.95, sp = 0.65 + r() * 0.5;
+            var d = (G.rS || 8) + ((lt * sp + r() * c.L) % Math.max(8, front));
+            if (d > front) continue;
+            var n = { x: Math.cos(an), y: Math.sin(an) }, Ls = (7 + 8 * r()) * sc;
+            stroke(ctx, [{ x: S.x + n.x * d, y: S.y + n.y * d }, { x: S.x + n.x * (d + Ls), y: S.y + n.y * (d + Ls) }], 1.2 * sc, rgba(PAL.cold.hot, 0.55 * a));
+          }
+          ctx.restore();
+        });
+      }
+      var r2 = rng(31);
+      for (var q = 0; q < 16; q++) {
+        var an2 = c.ang + (r2() * 2 - 1) * c.half * 0.85, tq = lt - r2() * 200, d2 = (G.rS || 8) + tq * (0.8 + r2() * 0.4);
+        if (tq < 0 || d2 > c.L) continue;
+        add(ctx, function () { shard(ctx, S.x + Math.cos(an2) * d2, S.y + Math.sin(an2) * d2, an2, 8 * sc, 2 * sc, rgba(PAL.cold.core, 0.8)); });
+      }
+      victims(G).forEach(function (B, i) {
+        var tb = lt - 360 * clamp((dist(S, B) - (G.rS || 0)) / Math.max(1, c.L)) * 0.6;
+        flash(ctx, B, tb, 420, G.cell * 0.55, PAL.cold.glow, PAL.cold.hot);
+      });
+    }
+    function mockery(ctx, lt, G) {
+      var A = G.A || G.S, B = primary(G); if (!A || !B) return;
+      var n = norm(A, B), px = -n.y, py = n.x, p = easeOut(clamp(lt / 240)), a = 1 - clamp((lt - 300) / 280), sc = scOf(G);
+      if (a > 0) {
+        add(ctx, function () {
+          for (var l = -1; l <= 1; l++) {
+            var pts = [], segs = 8;
+            for (var s = 0; s <= segs; s++) {
+              var u = s / segs * p, z = (s % 2 ? 1 : -1) * 5 * sc * Math.sin(Math.PI * u) + l * 6 * sc;
+              pts.push({ x: lerp(A.x, B.x, u) + px * z, y: lerp(A.y, B.y, u) + py * z });
+            }
+            stroke(ctx, pts, 3.5 * sc, rgba(PAL.psychic.glow, 0.28 * a), 6);
+            stroke(ctx, pts, 1.3 * sc, rgba(PAL.psychic.core, 0.8 * a));
+          }
+        });
+      }
+      for (var k = 0; k < 6; k++) {
+        var t = lt - k * 40, u = easeOut(clamp(t / 300));
+        if (t < 0) continue;
+        var na = 1 - clamp((t - 380) / 280);
+        if (na <= 0) continue;
+        var w = Math.sin(t / 55 + k) * 8 * sc + (k % 2 ? 8 : -8) * sc;
+        noteGlyph(ctx, lerp(A.x, B.x, u * 0.92) + px * w, lerp(A.y, B.y, u * 0.92) + py * w, k % 3 === 1 ? 1 : 0, 13 * sc, Math.sin(t / 80 + k) * 0.5, na);
+      }
+      var th = lt - 240; if (th < 0) return;
+      flash(ctx, B, th, 400, G.cell * 0.7, PAL.psychic.glow, PAL.psychic.hot);
+      var ca = env(th, 0, 30, 400, 700);
+      if (ca > 0) {
+        var C0 = { x: B.x - (G.rT || 16) * 0.2, y: B.y - (G.rT || 16) * 0.8 };
+        var C1 = { x: B.x + (G.rT || 16) * 0.9, y: B.y + (G.rT || 16) * 0.15 };
+        add(ctx, function () { stroke(ctx, jag(C0, C1, 4, 3, 3), 2.4 * sc, rgba(PAL.psychic.core, ca), 6); });
+        for (var v = 0; v < 2; v++) {
+          var cx = B.x + (G.rT || 16) + 8 * sc, cy = B.y + v * 6 * sc;
+          stroke(ctx, [{ x: cx - 4 * sc, y: cy - 3 * sc }, { x: cx, y: cy + 2 * sc }, { x: cx + 4 * sc, y: cy - 3 * sc }], 1.6 * sc, rgba(PAL.psychic.core, ca));
+        }
+      }
+    }
+    function whispers(ctx, lt, G) {
+      var A = G.A || G.S, B = primary(G); if (!A || !B) return;
+      var n = norm(A, B), p = easeOut(clamp(lt / 380)), a = 1 - clamp((lt - 460) / 340), sc = scOf(G);
+      var E = { x: A.x + n.x * ((G.rS || 18) + 4), y: A.y + n.y * ((G.rS || 18) + 4) };
+      if (a > 0) {
+        add(ctx, function () {
+          for (var w = 0; w < 4; w++) {
+            var pts = [];
+            for (var s = 0; s <= 16; s++) {
+              var u = s / 16 * p, o = Math.sin(u * 8 + w) * (4 + w) * sc * Math.sin(Math.PI * u);
+              pts.push({ x: lerp(E.x, B.x, u) - n.y * o, y: lerp(E.y, B.y, u) + n.x * o });
+            }
+            stroke(ctx, pts, 2.6 * sc, rgba(PAL.psychic.wisp, 0.28 * a), 8);
+            stroke(ctx, pts, 1 * sc, rgba(PAL.psychic.wisp, 0.75 * a));
+          }
+        });
+      }
+      var th = lt - 380;
+      flash(ctx, B, th, 400, G.cell * 0.65, PAL.psychic.wisp, PAL.psychic.hot);
+      var fa = env(th, 40, 120, 500, 800);
+      if (fa > 0) {
+        for (var c = 0; c < 3; c++) {
+          var d = (G.rT || 16) + (8 + c * 7) * sc, P = { x: B.x + n.x * d, y: B.y + n.y * d }, qx = -n.y, qy = n.x;
+          add(ctx, function () {
+            stroke(ctx, [
+              { x: P.x - n.x * 4 * sc + qx * 4 * sc, y: P.y - n.y * 4 * sc + qy * 4 * sc },
+              P,
+              { x: P.x - n.x * 4 * sc - qx * 4 * sc, y: P.y - n.y * 4 * sc - qy * 4 * sc }
+            ], 1.5 * sc, rgba(PAL.psychic.wisp, 0.75 * fa), 4);
+          });
+        }
+      }
+    }
+    function verbalUnder(ctx, lt, G) {
+      var B = primary(G), A = G.A || G.S; if (!A || !B) return;
+      var t = lt - 420, a = env(t, 20, 80, 700, 1100);
+      if (a <= 0) return;
+      var n = norm(A, B), f = easeInOut(clamp((t - 40) / 420));
+      var from = B, to = { x: B.x + n.x * G.cell * f, y: B.y + n.y * G.cell * f };
+      var px = -n.y * (G.rT || 16) * 0.4, py = n.x * (G.rT || 16) * 0.4;
+      ctx.beginPath();
+      ctx.moveTo(from.x + px, from.y + py); ctx.lineTo(to.x + px, to.y + py);
+      ctx.lineTo(to.x - px, to.y - py); ctx.lineTo(from.x - px, from.y - py);
+      ctx.closePath(); ctx.fillStyle = rgba(PAL.dust, 0.35 * a); ctx.fill();
+    }
+
+    var PAINT = {
+      barrage: barrage, volley: volley, charged: lightningArrow, hail: hail, ensnare: ensnare,
+      fever: contagion, specter: phantasm, harm: harm, stomp: wave, coldcone: cold, mockery: mockery, whispers: whispers
+    };
+    var UNDER = {
+      barrage: barrageUnder, volley: volleyUnder, charged: lightningUnder, hail: hailUnder, ensnare: ensnareUnder,
+      harm: harmUnder, stomp: waveUnder, coldcone: coldUnder, whispers: verbalUnder
+    };
+    function tokenState(key, lt, id, G) {
+      var s = { dx: 0, dy: 0, grey: 0, tint: null };
+      if (id && id !== "target") return s;
+      var B = primary(G), S = G.S || G.A;
+      if (key === "ensnare" && G.mode === "cast") {
+        if (lt > 0 && lt < 200) s.dx = Math.sin(lt / 22) * 2.2 * (1 - lt / 200);
+        s.tint = { col: PAL.briar.vine, a: 0.1 };
+      }
+      if (key === "ensnare" && G.mode === "idle") s.tint = { col: PAL.briar.vine, a: 0.08 };
+      if (key === "fever") {
+        var ca = G.mode === "clear" ? 1 - clamp(lt / 320) : (G.mode === "idle" || lt > 360 ? 1 : 0);
+        if (ca > 0) s.tint = { col: PAL.poison.pox, a: (0.16 + 0.06 * Math.sin(lt / 180)) * ca };
+      }
+      if (key === "specter") {
+        var pa = G.mode === "clear" ? 1 - clamp(lt / 320) : (G.mode === "idle" || lt > 280 ? 1 : 0);
+        if (pa > 0) s.tint = { col: "60,40,70", a: 0.16 * pa };
+      }
+      if (key === "harm") s.grey = env(lt, 480, 700, 1100, 1500);
+      if (key === "stomp" && B && S) {
+        var n = norm(S, B), reach = clamp(dist(S, B) / Math.max(1, (G.zr || 6) * G.cell));
+        var t = lt - 320 * (1 - Math.cbrt(1 - reach));
+        var pt = t < 0 ? 0 : easeOut(clamp(t / 160)) * (1 - easeInOut(clamp((t - 180) / 280)));
+        s.dx = n.x * G.cell * 0.22 * pt; s.dy = n.y * G.cell * 0.22 * pt;
+      }
+      if (key === "coldcone") {
+        var fa = env(lt, 200, 400, 1400, 1900);
+        if (fa > 0) s.tint = { col: PAL.cold.mist, a: 0.32 * fa };
+      }
+      if (key === "mockery") {
+        var ma = env(lt, 240, 300, 640, 900);
+        if (ma > 0) s.tint = { col: PAL.psychic.core, a: 0.18 * ma };
+      }
+      if (key === "whispers" && B && S && G.mode !== "clear") {
+        var f = easeInOut(clamp((lt - 440) / 420)), n2 = norm(S, B);
+        s.dx = n2.x * G.cell * f; s.dy = n2.y * G.cell * f;
+      }
+      return s;
+    }
+    function shakeOf(key, lt) {
+      function sh(t0, mag, dur) {
+        var t = lt - t0;
+        if (t < 0 || t > dur) return { x: 0, y: 0 };
+        var k = mag * (1 - t / dur);
+        return { x: Math.sin(t * 0.9) * k, y: Math.cos(t * 1.3) * k };
+      }
+      if (key === "charged") return sh(200, 2, 180);
+      if (key === "harm") return sh(660, 2.4, 200);
+      if (key === "stomp") return sh(20, 4.5, 280);
+      if (key === "coldcone") return sh(30, 1.5, 240);
+      if (key === "volley") return sh(250, 1.1, 360);
+      return { x: 0, y: 0 };
+    }
+    return {
+      paint: function (ctx, key, lt, G) { if (PAINT[key] && lt >= 0 && G) PAINT[key](ctx, lt, G); },
+      paintUnder: function (ctx, key, lt, G) {
+        if (!UNDER[key] || lt < 0 || !G) return;
+        if (G.mode === "tick" || G.mode === "clear") return;
+        UNDER[key](ctx, lt, G);
+      },
+      tokenState: tokenState,
+      shakeOf: shakeOf
+    };
+  })();
+
   var C1_LOOKS = {
     "witch-bolt": 1, "scorching-ray": 1, "guiding-bolt": 1, "sacred-flame": 1, "chill-touch": 1,
     "acid-arrow": 1, "poison-spray": 1, "chain-lightning": 1, "disintegrate": 1
@@ -5086,6 +5893,53 @@ function beadsPaint(ctx, A, B, lt, seed) {
     Chunk4Fx.paintUnder(ctx, key, lt, G);
     Chunk4Fx.paint(ctx, key, lt, G);
   }
+  function c5Geom(look, g, spec) {
+    g = g || {};
+    spec = spec || {};
+    var S = g.S || g.A;
+    var A = g.A || S;
+    var cell = g.cell || 70;
+    var center = g.T || g.B || g.Z || S || A;
+    if (!center && !S) return null;
+    var key = chunk5Key(look, spec);
+    if (!key) return null;
+    var face = Number(spec.facing);
+    if (!isFinite(face)) face = Number(g.facing);
+    if (!isFinite(face) && A && center) face = Math.atan2(center.y - A.y, center.x - A.x);
+    if (!isFinite(face)) face = 0;
+    var mode = spec.garnish === "clear" ? "clear" : (spec.pulse || g.pulse ? "tick" : (g.quiet ? "idle" : "cast"));
+    var targets = [];
+    function push(p) {
+      if (!p || !isFinite(Number(p.x)) || !isFinite(Number(p.y))) return;
+      var i;
+      for (i = 0; i < targets.length; i++) {
+        if (Math.hypot(targets[i].x - p.x, targets[i].y - p.y) < 6) return;
+      }
+      targets.push({ x: Number(p.x), y: Number(p.y) });
+    }
+    push(center);
+    (g.hops || []).forEach(push);
+    if (!targets.length && (S || A)) push(S || A);
+    var len = key === "barrage" || key === "coldcone" ? 12 : 0;
+    var zr = key === "volley" ? 8 : (key === "stomp" ? 6 : (key === "hail" ? 1 : 0));
+    if (Number(g.zr) > 0 && (key === "volley" || key === "stomp")) zr = Number(g.zr);
+    var aim = key === "volley" ? (g.Z || center) : (S || A || center);
+    return {
+      A: A || center, S: S || A || center, T: targets,
+      rT: g.rT || cell * 0.42, rS: g.rS || cell * 0.42, cell: cell,
+      Z: aim, zr: zr, facing: face,
+      cone: { ang: face, L: len },
+      mode: mode, skin: key === "stomp" ? chunk5Skin(spec) : "",
+      quiet: mode === "idle"
+    };
+  }
+  function chunk5Paint(ctx, look, lt, g, spec) {
+    var G = c5Geom(look, g, spec);
+    if (!G) return;
+    var key = chunk5Key(look, spec || {});
+    Chunk5Fx.paintUnder(ctx, key, lt, G);
+    Chunk5Fx.paint(ctx, key, lt, G);
+  }
   function zoneLayer(ctx, spec, lt, g, layer) {
     var look = lookOf(spec || {});
     if (!chunk4Spell(look, spec)) return;
@@ -5097,6 +5951,11 @@ function beadsPaint(ctx, A, B, lt, seed) {
   }
   function tokenNudge(spec, lt, g) {
     var look = lookOf(spec || {});
+    if (chunk5Spell(look, spec)) {
+      var G5 = c5Geom(look, g, spec || {});
+      if (!G5) return { dx: 0, dy: 0, grey: 0, tint: null };
+      return Chunk5Fx.tokenState(chunk5Key(look, spec), lt, "target", G5);
+    }
     if (chunk4Spell(look, spec)) {
       var G4 = c4Geom(look, g, spec || {});
       if (!G4) return { dx: 0, dy: 0, grey: 0 };
@@ -5133,6 +5992,19 @@ function beadsPaint(ctx, A, B, lt, seed) {
       if (!held) return;
       held.quiet = true;
       Chunk3Fx.paint(ctx, look, 480 + (phase % 900), held);
+      return;
+    }
+    if (look === "ensnare" || look === "fever" || look === "specter") {
+      var wrapName = look === "ensnare" ? "Ensnaring Strike" : (look === "fever" ? "Contagion" : "Phantasmal Killer");
+      var heldWrap = c5Geom(look, {
+        A: { x: x, y: y }, S: { x: x, y: y }, T: { x: x, y: y },
+        rT: r || 18, rS: r || 18, cell: Math.max(48, (r || 18) * 2.4), quiet: true
+      }, { spell: wrapName });
+      if (!heldWrap) return;
+      heldWrap.mode = "idle";
+      heldWrap.quiet = true;
+      Chunk5Fx.paintUnder(ctx, look, 900 + (phase % 1200), heldWrap);
+      Chunk5Fx.paint(ctx, look, 900 + (phase % 1200), heldWrap);
       return;
     }
     if (look === "cage" || look === "rime" || C2_LOOKS[look]) {
@@ -5200,11 +6072,16 @@ function beadsPaint(ctx, A, B, lt, seed) {
       }
       return;
     }
+    /* Chunk 5 before the shared-key painters. Hail of Thorns is not the Thorn Whip vine.
+       Harm is not the Finger of Death ray. */
+    if (chunk5Spell(look, spec)) {
+      return chunk5Paint(ctx, look, lt, g || { A: A, B: B, T: B, S: A, cell: 70, rT: 18, rS: 18 }, spec || {});
+    }
     /* Chunk 3 named looks, plus the shared-key spells that must not steal the older painter. */
     if (chunk3Spell(look, spec)) {
       return chunk3Paint(ctx, look, lt, g || { A: A, B: B, T: B, S: A, cell: 70, rT: 18, rS: 18 }, spec || {});
     }
-    /* Hail of Thorns shares the thorn key. It stays on the stub ring. Thorn Whip gets the vine. */
+    /* Thorn Whip gets the vine. Hail of Thorns already returned above. */
     if (C2_LOOKS[look] && !(look === "thorn" && /hail of thorns/.test(spellName))) {
       return chunk2Paint(ctx, look, lt, g || { A: A, B: B, T: B, S: A, cell: 70, rT: 18, rS: 18 }, spec || {});
     }
@@ -5589,7 +6466,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
     TIMING: TIMING, configure: configure, TYPES: TYPES,
     classify: classify, resultOf: resultOf, plan: plan, sanitize: sanitize, request: request,
     lookOf: lookOf, lookSelf: lookSelf, lookTime: lookTime, shakeOf: shakeOf,
-    stickyLook: stickyLook, chunkColor: chunkColor, tileOf: tileOf, namedLook: namedLook,
+    stickyLook: stickyLook, wrapLook: wrapLook, chunkColor: chunkColor, tileOf: tileOf, namedLook: namedLook,
     paint: paint, paintRider: paintRider, paintGuidePop: paintGuidePop, zoneLayer: zoneLayer,
     erodeToken: erodeToken, erodeFront: function (lt) { return Chunk1Fx.erodeFront(lt); },
     nudge: tokenNudge, retort: function (ctx, look, lt, g) { Chunk2Fx.retort(ctx, look, lt, g); },
