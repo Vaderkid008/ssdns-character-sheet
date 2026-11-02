@@ -1,6 +1,8 @@
-/* Item-driven light plus placed spell emitters (sheet 0.3.212).
+/* Item-driven light plus placed spell emitters (sheet 0.3.213).
    Held lights stay on the token. A spell that shines somewhere else is a map emitter,
    not a glow stuck on the caster. No burn-time clock. rules.js is not touched.
+   L0226 stack: ambient, painted regions, emitters (brightest wins),
+   magical darkness stub (tip 4 owns the wash), then this viewer's darkvision.
    L0215: belt lantern is locked at bright 15 / dim 15, trinket, hands-free. Oil is fictional.
    Held torch, lamp, candle, hooded lamp, and bullseye take Pistol L, Pistol R, or Melee. */
 (function (root) {
@@ -299,6 +301,48 @@
     if (raw === "dim") return "bright";
     if (raw === "dark") return "dim";
     return raw;
+  }
+  function normLevel(v) {
+    return v === "bright" || v === "dim" ? v : "dark";
+  }
+  /* A painted region replaces the map ambient inside its box. Later paint wins. */
+  function regionContains(region, gx, gy) {
+    if (!region) return false;
+    var x = num(region.x), y = num(region.y);
+    var w = num(region.w), h = num(region.h);
+    if (!(w > 0) || !(h > 0)) return false;
+    return gx >= x && gy >= y && gx < x + w && gy < y + h;
+  }
+  function regionBase(gx, gy, regions, ambient) {
+    var level = normLevel(ambient);
+    (regions || []).forEach(function (r) {
+      if (regionContains(r, gx, gy)) level = normLevel(r.level);
+    });
+    return level;
+  }
+  /* L0227–L0230. The slot stays in the stack. Tip 4 paints the wash; this does not. */
+  function applyMagicalDarkness(level, gx, gy, zones) {
+    return normLevel(level);
+  }
+  function viewerInDarkvision(gx, gy, viewer) {
+    if (!viewer) return false;
+    var r = squares(viewer.darkvision);
+    if (!(r > 0)) return false;
+    return Math.hypot(gx - num(viewer.x), gy - num(viewer.y)) <= r + 0.001;
+  }
+  /* L0226. ambient → regions → emitters (brightest wins) → magical darkness stub → one viewer's darkvision. */
+  function stackLevel(gx, gy, opts) {
+    opts = opts || {};
+    var base = regionBase(gx, gy, opts.regions, opts.ambient);
+    var level = rawLevel(gx, gy, opts.emitters || opts.lights, base);
+    level = applyMagicalDarkness(level, gx, gy, opts.darkness);
+    var viewers = [];
+    if (opts.viewer) viewers.push(opts.viewer);
+    if (opts.viewers && opts.viewers.length) viewers = viewers.concat(opts.viewers);
+    for (var i = 0; i < viewers.length; i++) {
+      if (viewerInDarkvision(gx, gy, viewers[i])) return applyDarkvision(level, true);
+    }
+    return level;
   }
   function perceptionNote(level, skulker) {
     if (level === "bright") return "Bright light. Sight is normal.";
@@ -680,6 +724,8 @@
     wallLightPoints: wallLightPoints,
     knownNames: knownNames, spellKey: spellKey, knowsOwlEyes: knowsOwlEyes, darkvisionFeet: darkvisionFeet,
     hasSkulker: hasSkulker, hasDevilsSight: hasDevilsSight, tokenProfile: tokenProfile, squares: squares, rawLevel: rawLevel, seenLevel: seenLevel,
-    applyDarkvision: applyDarkvision, perceptionNote: perceptionNote, paintBox: paintBox
+    applyDarkvision: applyDarkvision, perceptionNote: perceptionNote, paintBox: paintBox,
+    normLevel: normLevel, regionContains: regionContains, regionBase: regionBase,
+    applyMagicalDarkness: applyMagicalDarkness, stackLevel: stackLevel
   };
 })(typeof window !== "undefined" ? window : globalThis);

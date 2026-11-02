@@ -1,7 +1,7 @@
 /**
  * Fog-aware player targeting (Jessey 2026-10-20 9:52 PM): with fog on, a player's Target list only holds tokens that
- * player can see (party sight by default: every party bubble plus lights; scene.visionMode "own" keeps
- * the viewer's token only; DM reveal/hide shapes; hidden / veiled out), using
+ * player can see (own token by default, plus a live square any ally still sees; scene.visionMode
+ * "party" is full shared party sight; DM reveal/hide shapes; hidden / veiled out), using
  * the same test the token draw loop uses. Past the picked weapon's long range: listed, disabled, "out of range, N ft",
  * token greyed. The DM's map refuses a shot at a token the shooter can't see.
  *   node tools/test-map-fogtarget.mjs
@@ -44,6 +44,7 @@ function makeWindow() {
         if (typeof p !== "string") return undefined;
         return function (...args) {
           w.__calls.push([p, args]);
+          if (p === "createRadialGradient" || p === "createLinearGradient") return { addColorStop() {} };
           return bag;
         };
       },
@@ -113,12 +114,13 @@ await flush(60);
 const drawn = new Set(w.__calls.filter((c) => c[0] === "fillText").map((c) => String(c[1][0])));
 const seen = (id) => player.targetSight(id);
 check("sight.near", seen("en_near") && seen("en_near").visible === true);
-check("sight.dark", seen("en_dark") && seen("en_dark").visible === true, "party sight includes the token beside Pal");
+check("sight.dark", seen("en_dark") && seen("en_dark").visible === false, "own token does not target the creature only Pal sees");
+check("sight.live", player.squareShown(5.5, 13.5) === true, "Pal's square shows while Pal still sees it");
 check("sight.lit", seen("en_lit") && seen("en_lit").visible === true, "a torch lights its own 8 squares");
 check("sight.fog", seen("en_rev") && seen("en_rev").visible === false);
 check("sight.revealBox", seen("en_box") && seen("en_box").visible === true);
 check("sight.hidden", !seen("en_hid") || seen("en_hid").visible === false, "players never get a hidden token");
-check("draw.sameTest", drawn.has("Near") && drawn.has("Lit") && drawn.has("Boxed") && drawn.has("Dark") && drawn.has("Pal") && !drawn.has("Rev") && !drawn.has("Hid"), [...drawn].join(","));
+check("draw.sameTest", drawn.has("Near") && drawn.has("Lit") && drawn.has("Boxed") && !drawn.has("Dark") && !drawn.has("Pal") && !drawn.has("Rev") && !drawn.has("Hid"), [...drawn].join(","));
 check("range.lit", seen("en_lit").outOfRange === true && seen("en_lit").feet === 100, JSON.stringify(seen("en_lit")));
 check("range.near", seen("en_near").outOfRange === false);
 check("range.long", seen("en_box").outOfRange === false && seen("en_box").band === "long", JSON.stringify(seen("en_box")));
@@ -126,11 +128,11 @@ check("range.long", seen("en_box").outOfRange === false && seen("en_box").band =
 const sel = el.querySelector('[data-act="actionSlot"] select');
 const opts = sel ? [...sel.options].map((o) => ({ v: o.value, t: o.textContent, off: o.disabled })) : [];
 const ids = opts.map((o) => o.v);
-check("list.onlySeen", sel && ids.includes("en_near") && ids.includes("en_box") && ids.includes("en_lit") && ids.includes("en_dark") && !ids.includes("en_rev"), JSON.stringify(ids));
+check("list.onlySeen", sel && ids.includes("en_near") && ids.includes("en_box") && ids.includes("en_lit") && !ids.includes("en_dark") && !ids.includes("en_rev"), JSON.stringify(ids));
 check("list.freeShot", ids[0] === "__free");
 const lit = opts.find((o) => o.v === "en_lit");
 check("list.outOfRange", lit && lit.off === true && /out of range, 100 ft/.test(lit.t), JSON.stringify(lit));
-check("list.pal", ids.includes("u_pal"), "Pal is inside the shared party sight");
+check("list.pal", !ids.includes("u_pal"), "Pal is outside own-token sight");
 check("draw.greyWash", w.__calls.some((c) => c[0] === "fillStyle" && c[1][0] === "rgba(110,110,110,0.45)"));
 
 /* weapon switch: a longer gun brings Lit into reach and the list follows */
@@ -145,6 +147,13 @@ check("switch.listUpdates", lit2 && !lit2.disabled && !/out of range/.test(lit2.
 
 /* movement: step next to Dark and it shows up */
 const mover = w.SSDNSMapFirebase.memory({ role: "dm", store, bus });
+await mover.write("map/public/tokens/tok_pal", Object.assign({}, store.pub["map/public/tokens/tok_pal"].value, { pos: { x: 20, y: 20, by: "dm", seq: Date.now() } }), { seq: Date.now(), by: "dm" });
+await flush(120);
+check("live.closes", player.squareShown(5.5, 13.5) === false, "the square closes when Pal walks away");
+const sceneRow = store.pub["map/public/scenes/" + SC].value;
+check("live.unstored", !sceneRow.revealedCells && !sceneRow.explored && !sceneRow.exploredFog);
+await mover.write("map/public/tokens/tok_pal", Object.assign({}, store.pub["map/public/tokens/tok_pal"].value, { pos: { x: 5, y: 12, by: "dm", seq: Date.now() } }), { seq: Date.now(), by: "dm" });
+await flush(80);
 await mover.write("map/public/tokens/tok_me", Object.assign({}, store.pub["map/public/tokens/tok_me"].value, { pos: { x: 5, y: 11, by: "dm", seq: Date.now() } }), { seq: Date.now(), by: "dm" });
 await flush(120);
 const movedSeen = seen("en_dark");
@@ -164,15 +173,15 @@ const dm = w.SSDNSMap.create({ el: dmEl, role: "dm", uid: "dm", adapter: dad, ho
   options: { scene, tokens: { tokens: {} }, assetBase: "", players: () => [], room: { table: { initiative: { order: [], turn: 0 } } } } });
 await flush(120);
 check("dm.sees", dm.canPlayerSee("u_me", "en_near") === true && dm.canPlayerSee("u_me", "en_box") === true);
-check("dm.partySeesDark", dm.canPlayerSee("u_me", "en_dark") === true, "Me sees Dark through Pal");
+check("dm.ownHidesDark", dm.canPlayerSee("u_me", "en_dark") === false, "own token does not target through Pal");
 check("dm.refuses", dm.canPlayerSee("u_me", "en_hid") === false);
 check("dm.palSees", dm.canPlayerSee("u_pal", "en_dark") === true, "Pal stands next to Dark");
 check("dm.unknown", dm.canPlayerSee("u_me", "en_nowhere") === null && dm.canPlayerSee("u_me", "__free") === null);
 check("dm.viewUnchanged", typeof dm.targetSight === "function" && dm.targetSight("en_dark") === null);
 dm.destroy && dm.destroy();
 
-/* Option B: scene.visionMode "own" drops Pal's bubble, so Me no longer sees Dark */
-store.pub["map/public/scenes/" + SC].value.visionMode = "own";
+/* Shared party sight: Me targets the token beside Pal. */
+store.pub["map/public/scenes/" + SC].value.visionMode = "party";
 const ownEl = w.document.createElement("div");
 w.document.body.appendChild(ownEl);
 const ownPad = w.SSDNSMapFirebase.memory({ role: "player", store, bus });
@@ -182,16 +191,47 @@ own.requestDraw && own.requestDraw();
 await flush(60);
 const ownDark = own.targetSight("en_dark");
 const ownNear = own.targetSight("en_near");
-check("own.darkHidden", ownDark && ownDark.visible === false, JSON.stringify(ownDark));
-check("own.nearStill", ownNear && ownNear.visible === true, JSON.stringify(ownNear));
+check("party.darkSeen", ownDark && ownDark.visible === true, JSON.stringify(ownDark));
+check("party.nearStill", ownNear && ownNear.visible === true, JSON.stringify(ownNear));
 own.destroy && own.destroy();
 delete store.pub["map/public/scenes/" + SC].value.visionMode;
+
+/* L0226: a dim room in the dark is visible. A dark room in bright light is not, until a light wins. */
+addScript(w, "assets/js/lighting.js");
+Object.keys(store.pub).forEach((k) => {
+  const row = store.pub[k] && store.pub[k].value;
+  if (row && row.ownerUid === "u_me") row.pos = { x: 5, y: 5 };
+});
+store.pub["map/public/scenes/" + SC].value.ambient = "dark";
+store.pub["map/public/scenes/" + SC].value.lightRegions = [{ id: "dimroom", level: "dim", kind: "box", x: 8, y: 4, w: 4, h: 3 }];
+const regEl = w.document.createElement("div");
+w.document.body.appendChild(regEl);
+const reg = w.SSDNSMap.create({ el: regEl, role: "player", uid: "u_me", adapter: w.SSDNSMapFirebase.memory({ role: "player", store, bus }), host, options: { scene, assetBase: "", room: { table: { initiative: { order: [], turn: 0 } } } } });
+await flush(120);
+const revLit = reg.targetSight("en_rev");
+check("region.dimShows", revLit && revLit.visible === true && reg.lightAt(9.5, 5.5) === "dim", JSON.stringify(revLit));
+reg.destroy && reg.destroy();
+store.pub["map/public/scenes/" + SC].value.ambient = "bright";
+store.pub["map/public/scenes/" + SC].value.lightRegions = [{ id: "darkroom", level: "dark", kind: "box", x: 8, y: 4, w: 4, h: 3 }];
+const darkEl = w.document.createElement("div");
+w.document.body.appendChild(darkEl);
+const darkRoom = w.SSDNSMap.create({ el: darkEl, role: "player", uid: "u_me", adapter: w.SSDNSMapFirebase.memory({ role: "player", store, bus }), host, options: { scene, assetBase: "", room: { table: { initiative: { order: [], turn: 0 } } } } });
+await flush(120);
+const revDark = darkRoom.targetSight("en_rev");
+const nearBright = darkRoom.targetSight("en_near");
+check("region.darkHides", revDark && revDark.visible === false && darkRoom.lightAt(9.5, 5.5) === "dark", JSON.stringify(revDark));
+check("region.brightOutside", nearBright && nearBright.visible === true && darkRoom.lightAt(6.5, 5.5) === "bright", JSON.stringify(nearBright));
+darkRoom.destroy && darkRoom.destroy();
+delete store.pub["map/public/scenes/" + SC].value.ambient;
+delete store.pub["map/public/scenes/" + SC].value.lightRegions;
 
 /* DMCC: a player attack request at a token the shooter can't see is refused before any damage */
 {
   const ledger = [];
   const sandbox = { console, Math, Date, JSON, parseInt, isFinite, Number, String, Object, Array, URL, encodeURIComponent, Promise, setTimeout, clearTimeout };
   sandbox.globalThis = sandbox; sandbox.window = sandbox;
+  sandbox.addEventListener = function () {};
+  sandbox.removeEventListener = function () {};
   sandbox.localStorage = { getItem() { return null; }, setItem() {} };
   sandbox.document = { getElementById() { return null; }, addEventListener() {}, querySelector() { return null; }, querySelectorAll() { return []; },
     createElement() { return { className: "", innerHTML: "", dataset: {}, addEventListener() {}, querySelector() { return { addEventListener() {} }; }, querySelectorAll() { return []; }, setAttribute() {} }; },
