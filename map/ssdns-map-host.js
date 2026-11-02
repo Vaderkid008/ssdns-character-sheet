@@ -1258,6 +1258,16 @@
       try { map.setSpellZones(zones || [], opts || {}); }
       catch (e) {}
     },
+    placeSpellLight: function (opts) {
+      if (!map || typeof map.placeSpellLight !== "function") return Promise.resolve(null);
+      try { return map.placeSpellLight(opts || {}); }
+      catch (e) { return Promise.resolve(null); }
+    },
+    undoSpellLight: function (undo) {
+      if (!map || typeof map.undoSpellLight !== "function") return;
+      try { map.undoSpellLight(undo); }
+      catch (e) {}
+    },
     tokensInBlast: function (area, origins, facing, excludeId) {
       if (!map || typeof map.tokensInBlast !== "function") return [];
       try { return map.tokensInBlast(area, origins, facing, excludeId) || []; }
