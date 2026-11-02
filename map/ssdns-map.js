@@ -1499,7 +1499,8 @@ function fxFrame() {
       if (!e.spec || !FXA || !FXA.lookOf) return;
       const look = FXA.lookOf(e.spec);
       if ((e.spec.dust || e.spec.crumbOnly) && look === "disintegrate") erodeLive = true;
-      if (look === "thorn" || look === "enfeeble") bodyLive = true;
+      const spellName = String((e.spec && (e.spec.spell || e.spec.weapon)) || "");
+      if (look === "thorn" || look === "enfeeble" || look === "deathray" || look === "sickray" || (look === "cold" && /ray of frost/i.test(spellName))) bodyLive = true;
     });
     if (shook || was || erodeLive || bodyLive) { try { draw(); } catch (e) {} }
     if (fxCtx.setTransform) fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1552,7 +1553,11 @@ function fxPublic(spec) {
   if (spec.crumbOnly) pub.crumbOnly = true;
   if (spec.pulse) pub.pulse = true;
   if (spec.saved) pub.saved = true;
-  if (spec.mode === "chill" || spec.mode === "warm") pub.mode = spec.mode;
+    if (spec.mode === "chill" || spec.mode === "warm") pub.mode = spec.mode;
+    if (spec.beat != null && isFinite(Number(spec.beat))) pub.beat = Math.max(0, Math.min(7, Math.round(Number(spec.beat))));
+    if (spec.killed) pub.killed = true;
+    if (spec.rise) pub.rise = true;
+    if (spec.garnish === "place" || spec.garnish === "swipe" || spec.garnish === "clear") pub.garnish = spec.garnish;
   if (spec.id) pub.id = spec.id;
   if (T) pub.target = T.id;
   const sc = fxCenter(S);
@@ -1587,7 +1592,9 @@ function fxSpecFromReq(row) {
     heard: req.heard === false ? [] : [row.from],
     hops: req.hops, rays: req.rays,
     dust: !!req.dust, crumbOnly: !!req.crumbOnly, pulse: !!req.pulse, saved: !!req.saved,
-    mode: req.mode === "chill" || req.mode === "warm" ? req.mode : ""
+    mode: req.mode === "chill" || req.mode === "warm" ? req.mode : "",
+    beat: req.beat, killed: !!req.killed, rise: !!req.rise,
+    garnish: req.garnish === "place" || req.garnish === "swipe" || req.garnish === "clear" ? req.garnish : ""
   };
 }
 /** DM: draw locally with full knowledge, then publish the cleaned row. Returns the public fx (or null). */
@@ -2017,10 +2024,12 @@ function fxCoversLook(t, look) {
     if (!e || !e.spec || !e.geo) continue;
     const got = FXA.lookOf(e.spec);
     const mode = e.spec.mode || "";
+    const spellName = String((e.spec && (e.spec.spell || e.spec.weapon)) || "");
     const same = got === look
       || (look === "rime" && got === "fireshield" && mode === "chill")
       || (look === "fireshield" && got === "fireshield" && mode !== "chill")
-      || (look === "cage" && got === "shocking-grasp");
+      || (look === "cage" && got === "shocking-grasp")
+      || (look === "frostray" && got === "cold" && /ray of frost/i.test(spellName));
     if (!same) continue;
     const ids = [e.geo.tokT, e.geo.tokS];
     if (ids.some(one => one && (one === t || one.id === t.id))) return true;
@@ -2058,7 +2067,8 @@ function paintStickyMarks(ctx, t, s, r) {
     seen[look] = 1;
     const rich = look === "guiding-bolt" || look === "chill-touch" || look === "cage"
       || look === "hex" || look === "brand" || look === "heat" || look === "fireshield"
-      || look === "rime" || look === "flameblade" || look === "enfeeble";
+      || look === "rime" || look === "flameblade" || look === "enfeeble"
+      || look === "produceflame" || look === "frostray" || look === "sickray";
     if (rich && FX.paintRider) {
       if (!fxCoversLook(t, look)) FX.paintRider(ctx, look, s.x, s.y, r, (typeof performance !== "undefined" ? performance.now() : Date.now()));
       return;
@@ -2101,7 +2111,9 @@ function syncSpellPieces() {
     if (!row || row.kind !== "token") return;
     want[String(z.id)] = { zone: z, row: row };
   });
-  const drop = (state.tokens || []).filter(t => t && t.spellPiece && t.zoneId && !want[String(t.zoneId)]).map(t => t.id);
+  const dropping = (state.tokens || []).filter(t => t && t.spellPiece && t.zoneId && !want[String(t.zoneId)]);
+  dropping.forEach(t => { if (t.spellPiece === "guardian of faith") guardianGarnish(t, t, "clear"); });
+  const drop = dropping.map(t => t.id);
   if (drop.length) removeMapTokens(drop, { silent: true, keepOwner: true });
   Object.keys(want).forEach(id => {
     const z = want[id].zone;
@@ -2124,6 +2136,7 @@ function syncSpellPieces() {
       });
       if (existing && existing.image) loadTokenImage(existing);
       if (existing) saveToken(existing.id);
+      if (existing && existing.spellPiece === "guardian of faith") guardianGarnish(existing, existing, "place");
       return;
     }
     const dragging = state.drag && state.drag.token && state.drag.token.id === existing.id;
@@ -2148,8 +2161,42 @@ function paintTokenAura(zone, px) {
   const squares = (row && row.squares) || Number(zone.footprint) || 1;
   const wx = (Number(zone.origin.x) + squares / 2) * px;
   const wy = (Number(zone.origin.y) + squares / 2) * px;
-  if (aura > 0) strokeRing(wx, wy, (aura / 5) * px, "rgba(255,220,140,0.8)", "rgba(255,220,140,0.06)");
+  if (aura > 0) {
+    if (row && row.key === "guardian of faith") paintGuardianAura(wx, wy, (aura / 5) * px);
+    else strokeRing(wx, wy, (aura / 5) * px, "rgba(255,220,140,0.8)", "rgba(255,220,140,0.06)");
+  }
   paintZonePulse(zone, px);
+}
+/* Faint gold dashed 10-ft ring. The guardian token art is the body; this is only the aura. */
+function paintGuardianAura(wx, wy, radiusWorld) {
+  const c = worldToScreen(wx, wy);
+  const z = state.view.zoom || 1;
+  const r = Math.max(1, radiusWorld * z);
+  const pulse = 0.26 + 0.16 * (0.5 + 0.5 * Math.sin(Date.now() / 520));
+  ctx.save();
+  ctx.setLineDash([9, 7]);
+  ctx.lineDashOffset = -Date.now() / 60;
+  ctx.strokeStyle = "rgba(255,232,170," + pulse.toFixed(3) + ")";
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+function guardianGarnish(from, to, garnish) {
+  if (!FXA || !from) return;
+  const spec = {
+    type: "spell",
+    spell: "Guardian of Faith",
+    weapon: "Guardian of Faith",
+    shooter: from.id,
+    target: (to && to.id) || from.id,
+    self: !to || to.id === from.id,
+    result: "hit",
+    garnish: garnish
+  };
+  if (role === "dm") dmFx(spec);
+  else startFx(spec, { local: true });
 }
 function zoneStyle(key) {
   const styles = {
@@ -2225,13 +2272,16 @@ function zoneLoopLive() {
   const zones = spellZoneList() || [];
   const live = {};
   let hit = false;
+  let guard = false;
   zones.forEach(z => {
-    if (!z || z.key !== "wall of fire") return;
+    if (!z) return;
+    if (z.key === "guardian of faith") guard = true;
+    if (z.key !== "wall of fire") return;
     live[zoneFxId(z)] = 1;
     hit = true;
   });
   Object.keys(zoneFxBorn).forEach(id => { if (!live[id]) delete zoneFxBorn[id]; });
-  return hit;
+  return hit || guard;
 }
 function wallScreen(ox, oy, fx, fy, lx, ly, alongFt, latFt, ft) {
   return worldToScreen(ox + (fx * alongFt + lx * latFt) * ft, oy + (fy * alongFt + ly * latFt) * ft);
@@ -2699,6 +2749,11 @@ function dispatchZoneTicks(ticks, mover, from, to) {
   const tokenId = (mover && (mover.combatantId || mover.ownerUid || mover.id)) || "";
   const fresh = !turnKey || !Z || !Z.once ? ticks : ticks.filter(t => Z.once(state.zoneSeen, t, (t && t.targetId) || tokenId, turnKey));
   if (!fresh.length) return;
+  fresh.forEach(tick => {
+    if (!tick || !/guardian of faith/i.test(String(tick.spell || "")) || !mover) return;
+    const guard = (state.tokens || []).find(t => t && t.spellPiece === "guardian of faith" && (!tick.zoneId || String(t.zoneId) === String(tick.zoneId)));
+    if (guard) guardianGarnish(guard, mover, "swipe");
+  });
   try {
     window.dispatchEvent(new CustomEvent("ssdns-zone-tick", {
       detail: { ticks: fresh, tokenId: mover && mover.id, ownerUid: mover && mover.ownerUid, from: from, to: to }
@@ -3740,6 +3795,14 @@ function draw() {
       ctx.beginPath();
       ctx.arc(s.x, s.y, Math.max(1, r - 2), 0, Math.PI * 2);
       ctx.fillStyle = "rgba(90,70,100," + (0.28 * portraitGrey) + ")";
+      ctx.fill();
+      ctx.restore();
+    }
+    if (nudge && nudge.tint && nudge.tint.a > 0 && nudge.tint.col) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, Math.max(1, r - 2), 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(" + nudge.tint.col + "," + Math.max(0, Math.min(0.55, nudge.tint.a)) + ")";
       ctx.fill();
       ctx.restore();
     }

@@ -5936,10 +5936,29 @@ function spellMapFx(shooter, target, name, known, result, extra) {
   if (extra.crumbOnly) body.crumbOnly = true;
   if (extra.pulse) body.pulse = true;
   if (extra.saved) body.saved = true;
+  if (extra.rise) body.rise = true;
+  if (extra.killed) body.killed = true;
+  if (extra.beat != null && isFinite(Number(extra.beat))) body.beat = Math.max(0, Math.min(7, Math.round(Number(extra.beat))));
+  if (extra.garnish === "place" || extra.garnish === "swipe" || extra.garnish === "clear") body.garnish = extra.garnish;
   const mode = String(extra.mode || "").toLowerCase();
   if (mode === "chill" || mode === "warm") body.mode = mode;
   if (body.dust) coverDustFx();
+  if (/produce flame/i.test(name || "")) holdProduceFlame(shooter);
   return mapFx(body);
+}
+function holdProduceFlame(shooter) {
+  const R = window.SSDNSSpellRiders;
+  if (!R || !R.arm) return;
+  const row = findCombatant({ id: shooter, playerId: shooter, mapTokenId: shooter });
+  if (!row) return;
+  const armed = R.arm(row.spellMarks, {
+    name: "Produce Flame",
+    row: { name: "Produce Flame" },
+    slot: 0,
+    casterId: row.id || shooter,
+    targetId: row.id || shooter
+  });
+  row.spellMarks = armed.bag;
 }
 /* Area, wall, cone, and line casts. The lasting zone is separate. This is the one-shot at the placed point. */
 function areaMapFx(shooter, name, known, placed) {
@@ -5967,8 +5986,12 @@ function areaMapFx(shooter, name, known, placed) {
     spellMapFx(shooter, shooter, name, known, "hit");
     return;
   }
-  points.slice(0, 4).forEach((p) => {
-    mapFx({
+  const crowd = (placed.tokens || []).map((t) => {
+    const size = Number(t && t.size) || 1;
+    return { x: Number(t.x) + size / 2, y: Number(t.y) + size / 2 };
+  }).filter((p) => isFinite(p.x) && isFinite(p.y));
+  points.slice(0, 4).forEach((p, i) => {
+    const body = {
       type: "spell",
       shooter: shooter,
       self: false,
@@ -5979,7 +6002,10 @@ function areaMapFx(shooter, name, known, placed) {
       spell: name || "",
       dmg: dmg,
       heard: []
-    });
+    };
+    if (/meteor swarm/i.test(name || "")) body.beat = i;
+    if (/sunbeam|prismatic spray/i.test(name || "") && crowd.length) body.hops = crowd;
+    mapFx(body);
   });
 }
 function fxArrowType(note) {
@@ -8647,6 +8673,9 @@ function applyPlayerHit(meta) {
     });
   }
   if (!heal && meta.from && row && row.kind === "enemy") row.lastAttackerId = meta.from;
+  if (!heal && after <= 0 && /finger of death/i.test(String((meta && (meta.label || meta.weapon)) || ""))) {
+    spellMapFx(meta.from, meta.targetId, "Finger of Death", { type: "necrotic" }, "hit", { rise: true });
+  }
   const dustHit = !heal && after <= 0 && meta.zeroHp === "disintegrated";
   if (dustHit) {
     if (row) row.disintegrated = true;

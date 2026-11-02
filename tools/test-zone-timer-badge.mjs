@@ -1,5 +1,5 @@
 /**
- * Zone timer badges (sheet 0.3.203 / DMCC 0.2.216).
+ * Zone timer badges (sheet 0.3.204 / DMCC 0.2.217).
  *   node tools/test-zone-timer-badge.mjs
  * DM plate reads the shared roundsLeft. Two copies of one spell get a number
  * and a caster on the badge and the Clear row. Hover uses pulseZoneId.
@@ -92,10 +92,10 @@ check("css.ember", css.includes(".ssm-zb.is-low") && css.includes("#d0602a"));
 check("wire.caster", read("dm/assets/js/v2.js").includes("casterName:"));
 
 const ver = JSON.parse(read("version.json"));
-check("ver.tip", ver.sheet === "0.3.203" && ver.dmcc === "0.2.216" && ver.sheetBuild === "sheet-playtest-v03203" && ver.dmccBuild === "dmcc-playtest-v02216", JSON.stringify(ver));
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.203"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.216"'));
+check("ver.tip", ver.sheet === "0.3.204" && ver.dmcc === "0.2.217" && ver.sheetBuild === "sheet-playtest-v03204" && ver.dmccBuild === "dmcc-playtest-v02217", JSON.stringify(ver));
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.204"') && read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.217"'));
 const rules = read("assets/data/rules.js");
-check("rules.clean", !rules.includes("0.3.203") && !rules.includes("0.2.216") && !read("database.rules.json").includes("0.3.203"));
+check("rules.clean", !rules.includes("0.3.204") && !rules.includes("0.2.217") && !read("database.rules.json").includes("0.3.204"));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");
