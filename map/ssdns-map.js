@@ -1528,7 +1528,7 @@ function fxFrame() {
       const look = FXA.lookOf(e.spec);
       if ((e.spec.dust || e.spec.crumbOnly) && look === "disintegrate") erodeLive = true;
       const spellName = String((e.spec && (e.spec.spell || e.spec.weapon)) || "");
-      if (look === "thorn" || look === "enfeeble" || look === "deathray" || look === "sickray" || look === "sunburst" || look === "icebomb" || look === "void" || (look === "cold" && /ray of frost/i.test(spellName))) bodyLive = true;
+      if (look === "thorn" || look === "enfeeble" || look === "deathray" || look === "sickray" || look === "sunburst" || look === "icebomb" || look === "void" || look === "massword" || look === "masscure" || look === "healcolumn" || (look === "cold" && /ray of frost/i.test(spellName))) bodyLive = true;
     });
     if (shook || was || erodeLive || bodyLive) { try { draw(); } catch (e) {} }
     if (fxCtx.setTransform) fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1586,6 +1586,7 @@ function fxPublic(spec) {
     if (spec.killed) pub.killed = true;
     if (spec.rise) pub.rise = true;
     if (spec.garnish === "place" || spec.garnish === "swipe" || spec.garnish === "clear" || spec.garnish === "detonate") pub.garnish = spec.garnish;
+  if (spec.cleared) pub.cleared = true;
   if (spec.id) pub.id = spec.id;
   if (T) pub.target = T.id;
   const sc = fxCenter(S);
@@ -1622,7 +1623,8 @@ function fxSpecFromReq(row) {
     dust: !!req.dust, crumbOnly: !!req.crumbOnly, pulse: !!req.pulse, saved: !!req.saved,
     mode: req.mode === "chill" || req.mode === "warm" ? req.mode : "",
     beat: req.beat, killed: !!req.killed, rise: !!req.rise,
-    garnish: req.garnish === "place" || req.garnish === "swipe" || req.garnish === "clear" || req.garnish === "detonate" ? req.garnish : ""
+    garnish: req.garnish === "place" || req.garnish === "swipe" || req.garnish === "clear" || req.garnish === "detonate" ? req.garnish : "",
+    cleared: !!req.cleared
   };
 }
 /** DM: draw locally with full knowledge, then publish the cleaned row. Returns the public fx (or null). */
@@ -2064,12 +2066,35 @@ function fxCoversLook(t, look) {
   }
   return false;
 }
+function fxHealSlot(e, t) {
+  if (!e || !e.spec || !t || !FXA || !FXA.lookOf) return -1;
+  const look = FXA.lookOf(e.spec);
+  if (look !== "massword" && look !== "masscure" && look !== "healcolumn") return -1;
+  if (e.geo && e.geo.tokT && (e.geo.tokT === t || e.geo.tokT.id === t.id)) return 0;
+  const hops = e.spec.hops || [];
+  for (let i = 0; i < hops.length; i++) {
+    const id = hops[i] && hops[i].id;
+    if (!id) continue;
+    const hop = fxRef(id) || fxTokenRaw(id);
+    if (hop && (hop === t || hop.id === t.id)) return i + 1;
+  }
+  return -1;
+}
 function fxBodyNudge(t) {
   if (!FXA || !FXA.nudge || !t || !fxLive.length) return null;
   const now = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
   for (let i = 0; i < fxLive.length; i++) {
     const e = fxLive[i];
-    if (!e || !e.geo || !e.geo.tokT) continue;
+    if (!e || !e.spec) continue;
+    const slot = fxHealSlot(e, t);
+    if (slot >= 0) {
+      const screen = fxScreen(e);
+      screen.healIndex = slot;
+      const n = FXA.nudge(e.spec, now - e.t0, screen);
+      if (n && (n.dx || n.dy || n.grey || (n.tint && n.tint.a))) return n;
+      continue;
+    }
+    if (!e.geo || !e.geo.tokT) continue;
     if (e.geo.tokT !== t && e.geo.tokT.id !== t.id) continue;
     const n = FXA.nudge(e.spec, now - e.t0, fxScreen(e));
     if (n && (n.dx || n.dy || n.grey || (n.tint && n.tint.a))) return n;

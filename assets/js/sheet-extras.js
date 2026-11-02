@@ -2757,7 +2757,9 @@
       rolled.attack = false;
       rolled.heal = true;
       rolled.selfHeal = !!selfHeal;
-      postSpellLook(spellName, selfHeal ? "" : (tgt && tgt.id), "hit", row);
+      var healPicks = (castSpellAttackNow._picks || []).filter(function (p) { return p && p.id; });
+      var healId = healPicks.length ? healPicks[0].id : (selfHeal ? "" : (tgt && tgt.id));
+      postSpellLook(spellName, healId, "hit", row, null, null, healFxExtra(spellName, healId, row));
     } else if (tgt && tgt.name && row && row.kind !== "heal") {
       rolled.text += " · vs " + tgt.name;
       rolled.detail = rolled.text;
@@ -4212,6 +4214,33 @@
     L.setSpell(c, key, true);
     if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function () {});
   }
+  /* Heal's teal sparkles ride the cast only when this client already knows a listed clear is on the target. */
+  function healTargetHas(id, names) {
+    var want = {};
+    (names || []).forEach(function (n) { if (n) want[String(n).toLowerCase()] = 1; });
+    function hit(list) {
+      return (list || []).some(function (c) {
+        var name = typeof c === "string" ? c : (c && c.name);
+        return name && want[String(name).toLowerCase().trim()];
+      });
+    }
+    var c = ch();
+    var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+    if (!id || (uid && id === uid) || (c && id === c.id)) {
+      if (hit(c && c.activeConditions)) return true;
+    }
+    var rows = [];
+    try { rows = listedTargets(); } catch (e) { rows = []; }
+    var found = rows.filter(function (r) { return r && r.id === id; })[0];
+    return !!(found && hit(found.conditions));
+  }
+  function healFxExtra(spellName, primaryId, row) {
+    var extra = {};
+    var picks = ((castSpellAttackNow && castSpellAttackNow._picks) || []).filter(function (p) { return p && p.id; });
+    if (picks.length > 1) extra.hops = picks.slice(1).map(function (p) { return { id: p.id }; });
+    if (/^heal$/i.test(String(spellName || "").trim()) && row && row.clears && row.clears.length && healTargetHas(primaryId, row.clears)) extra.cleared = true;
+    return extra;
+  }
   /* One-shot map paint. Attack rolls already call sheetMapFx. Area and save casts land here.
      A placed token (look "token") is the visual for that spell, not a beam. */
   function postSpellLook(name, targetId, result, row, at, fxId, extra) {
@@ -4246,6 +4275,7 @@
     if (extra.killed) req.killed = true;
     if (extra.rise) req.rise = true;
     if (extra.garnish === "place" || extra.garnish === "swipe" || extra.garnish === "clear" || extra.garnish === "detonate") req.garnish = extra.garnish;
+    if (extra.cleared) req.cleared = true;
     if (extra.facing != null && isFinite(Number(extra.facing))) req.facing = Number(extra.facing);
     var pickedMode = String(extra.mode || (castSpellAttackNow && castSpellAttackNow._mode) || "").toLowerCase();
     if (pickedMode === "chill" || pickedMode === "warm" || pickedMode === "radiant" || pickedMode === "necrotic") req.mode = pickedMode;
