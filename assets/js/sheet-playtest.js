@@ -767,6 +767,9 @@
     if (haveAc && !crit && hitTotal < Number(meleeCover.ac)) miss = true;
     var ride = meleeRider(!miss);
     if (ride && ride.riders.length && !miss) total += ride.total;
+    if (!miss && ride && ride.riders && tgt && tgt.id && root.SSDNSSheet && root.SSDNSSheet.paintSmiteFx) {
+      ride.riders.forEach(function (r) { root.SSDNSSheet.paintSmiteFx((r && (r.spell || r.label)) || "", tgt.id); });
+    }
     var dmgTxt = (!miss && detail) ? (" · " + formula + (ride && ride.text ? " " + ride.text : "") + " = " + total) : "";
     var verdict = (miss || haveAc) ? (miss ? "MISS" : "HIT") : "";
     var modeWord = chosen === "dis" ? " · disadvantage" : (chosen === "adv" ? " · advantage" : "");

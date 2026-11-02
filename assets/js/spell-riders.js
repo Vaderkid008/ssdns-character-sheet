@@ -304,7 +304,7 @@
       out.noInit = true;
       out.squares = 1;
     }
-    if (key === "flame blade") {
+    if (key === "flame blade" || key === "produce flame") {
       out.createToken = false;
       out.heldFx = true;
     }
@@ -577,6 +577,12 @@
         chip: "Flame blade", heldFx: true, createToken: false
       });
       logs.push("(C) · held flame blade on the caster · not a token");
+    } else if (key === "produce flame") {
+      addMark({
+        spell: name, conc: false, kind: "held", targetId: opts.casterId || "self",
+        chip: "Produce flame", heldFx: true, createToken: false
+      });
+      logs.push("held flame in the hand · 10 min · not a token");
     } else if (key === "bless" || key === "bane") {
       var Buffs = root.SSDNSSpellBuffs;
       var cap = Buffs && Buffs.targetCap ? Buffs.targetCap(slot) : (3 + Math.max(0, slot - 1));

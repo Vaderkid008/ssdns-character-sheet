@@ -2653,7 +2653,7 @@
         self: !!hidAim.self,
         weapon: spellName || "",
         spell: spellName || "",
-        dmg: (row && row.type) || damageType || "",
+        dmg: spellFxDmg(row, damageType),
         nat: rolled.nat,
         crit: Number(rolled.nat) === 20,
         result: Number(rolled.nat) === 1 ? "miss" : (Number(rolled.nat) === 20 ? "crit" : "hit")
@@ -2802,7 +2802,7 @@
       postAppear(spellName, placedBlast, v.spellDC, rollId);
       var blastPts = blastAimPoints(placedBlast);
       if (blastPts.length) {
-        blastPts.forEach(function (p, i) { postSpellLook(spellName, "", "hit", row, p, rollId + "_fx" + i); });
+        blastPts.forEach(function (p, i) { postSpellLook(spellName, "", "hit", row, p, rollId + "_fx" + i, areaFxExtra(spellName, placedBlast, i)); });
       } else {
         postSpellLook(spellName, "", "hit", row);
       }
@@ -2886,13 +2886,25 @@
         self: aimedFx ? !!aim.self : false,
         weapon: spellName || "",
         spell: spellName || "",
-        dmg: (row && row.type) || damageType || "",
+        dmg: spellFxDmg(row, damageType),
         sfx: spellCueName(),
         nat: rolled.nat,
         result: (rolled.nat === 1 || (acForRoll != null && Number(rolled.nat) !== 20 && Number(rolled.result) < acForRoll)) ? "miss" : (Number(rolled.nat) === 20 ? "crit" : "hit"),
         crit: Number(rolled.nat) === 20
       };
       sheetMapFx(Object.assign({ id: rollId }, spellFx));
+      if (/produce flame/i.test(spellName || "") && c && root.SSDNSSpellRiders && root.SSDNSSpellRiders.arm) {
+        var heldFlame = root.SSDNSSpellRiders.arm(c.spellMarks, {
+          name: "Produce Flame",
+          row: row || { name: "Produce Flame" },
+          slot: slot,
+          casterId: root.SSDNSDmJoin && root.SSDNSDmJoin.uid ? root.SSDNSDmJoin.uid() : "self",
+          targetId: root.SSDNSDmJoin && root.SSDNSDmJoin.uid ? root.SSDNSDmJoin.uid() : "self"
+        });
+        c.spellMarks = heldFlame.bag;
+        publishChips(heldFlame.chips, false);
+        adoptOwnChips(heldFlame);
+      }
     }
     if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postRoll) {
       root.SSDNSDmJoin.postRoll({
@@ -3314,6 +3326,21 @@
     return { terms: terms, flat: flatHit ? flat : 0 };
   }
   /* SAMPLE trackers: Sneak Attack / Smite Lead are armed BEFORE the attack; SSDNSTrackers.rider() resolves them once per attack. */
+  function paintSmiteFx(label, targetId) {
+    var name = String(label || "");
+    var table = {
+      "searing smite": "Searing Smite",
+      "branding smite": "Branding Smite",
+      "thunderous smite": "Thunderous Smite",
+      "wrathful smite": "Wrathful Smite",
+      "blinding smite": "Blinding Smite"
+    };
+    var key = name.toLowerCase();
+    var spell = "";
+    Object.keys(table).forEach(function (k) { if (!spell && key.indexOf(k) >= 0) spell = table[k]; });
+    if (!spell || !targetId) return;
+    postSpellLook(spell, targetId, "hit", { type: spell === "Searing Smite" ? "fire" : (spell === "Thunderous Smite" ? "thunder" : (spell === "Branding Smite" || spell === "Blinding Smite" ? "radiant" : "")) }, null, "", {});
+  }
   function takeRiders(ctx) {
     var T = root.SSDNSTrackers;
     ctx = ctx || {};
@@ -3327,6 +3354,7 @@
         var label = String((r && (r.label || r.spell)) || "");
         if (/hex/i.test(label)) postSpellLook("Hex", ctx.targetId, "hit", { type: "necrotic" }, null, "", { pulse: true });
         if (/marked/i.test(label)) postSpellLook("Hunter's Mark", ctx.targetId, "hit", null, null, "", { pulse: true });
+        paintSmiteFx(label, ctx.targetId);
       });
     }
     return got;
@@ -4138,6 +4166,26 @@
     });
     return out.slice(0, 4);
   }
+  function spellFxDmg(row, picked) {
+    var p = String(picked || "").toLowerCase().replace(/[^a-z]/g, "");
+    if (/^(acid|cold|fire|lightning|poison|thunder)$/.test(p)) return p;
+    var raw = String((row && row.type) || "");
+    var r = raw.toLowerCase().replace(/[^a-z]/g, "");
+    if (/^(acid|cold|fire|lightning|poison|thunder)$/.test(r)) return r;
+    return raw || picked || "";
+  }
+  function areaFxExtra(name, placed, index) {
+    var extra = {};
+    var key = String(name || "").toLowerCase();
+    if (/meteor swarm/.test(key)) extra.beat = index || 0;
+    if (/sunbeam|prismatic spray/.test(key) && placed && placed.tokens) {
+      extra.hops = placed.tokens.map(function (t) {
+        var size = Number(t && t.size) || 1;
+        return { x: Number(t.x) + size / 2, y: Number(t.y) + size / 2 };
+      }).filter(function (p) { return isFinite(p.x) && isFinite(p.y); });
+    }
+    return extra;
+  }
   /* Turn on a carried spell light (Light, including Light Shell) once the cast actually lands. */
   function noteSpellLight(spellName) {
     var L = root.SSDNSLighting;
@@ -4178,6 +4226,10 @@
     if (extra.crumbOnly) req.crumbOnly = true;
     if (extra.pulse) req.pulse = true;
     if (extra.saved) req.saved = true;
+    if (extra.beat != null && isFinite(Number(extra.beat))) req.beat = Math.max(0, Math.min(7, Math.round(Number(extra.beat))));
+    if (extra.killed) req.killed = true;
+    if (extra.rise) req.rise = true;
+    if (extra.garnish === "place" || extra.garnish === "swipe" || extra.garnish === "clear") req.garnish = extra.garnish;
     var pickedMode = String(extra.mode || (castSpellAttackNow && castSpellAttackNow._mode) || "").toLowerCase();
     if (pickedMode === "chill" || pickedMode === "warm") req.mode = pickedMode;
     if (pointed) req.at = { x: Math.round(Number(at.x) * 10) / 10, y: Math.round(Number(at.y) * 10) / 10 };
@@ -4891,7 +4943,7 @@
         var crowd = placed.tokens || [];
         text += " · " + ((placed.area && placed.area.label) || "area") + ": " + (crowd.length ? crowd.map(function (t) { return t.name || "token"; }).join(", ") : "nobody in the area");
         var altPts = blastAimPoints(placed);
-        if (altPts.length) altPts.forEach(function (p, i) { postSpellLook(spellName, "", "hit", row, p, rollId + "_fx" + i); });
+        if (altPts.length) altPts.forEach(function (p, i) { postSpellLook(spellName, "", "hit", row, p, rollId + "_fx" + i, areaFxExtra(spellName, placed, i)); });
         else postSpellLook(spellName, "", "hit", row);
       }
       addLog({ id: "roll:" + rollId, kind: "roll", text: text, label: rolled.label || spellName, formula: rolled.formula, attack: !!rolled.attack, nat: rolled.nat, crit: !!rolled.crit });
@@ -5001,6 +5053,7 @@
       paintFollowups();
     },
     paintFollowups: paintFollowups,
+    paintSmiteFx: paintSmiteFx,
     ensureAttackTarget: ensureAttackTarget,
     clearLog: clearLog,
     mergeLog: mergeLog,

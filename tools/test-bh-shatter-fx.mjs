@@ -180,7 +180,13 @@ check("shatter.clears", trace(FX, { spell: "Shatter" }, 2000, geo(point)).length
 check("hands.clears", trace(FX, { spell: "Burning Hands" }, 2000, geo(east)).length === 0);
 
 const smite = trace(FX, { spell: "Thunderous Smite", dmg: "thunder" }, 80, geo(point));
-check("thunder.stays", FX.lookOf({ type: "spell", spell: "Thunderous Smite" }) === "thunder" && !!coneOf(smite, palm) && !smite.some((op) => /200,\s*225,\s*250/.test(op.fillStyle)));
+const bareThunder = trace(FX, { spell: "", dmg: "thunder" }, 80, geo(point));
+const smiteBoom = trace(FX, { spell: "Thunderous Smite", dmg: "thunder" }, 220, geo(point));
+check("thunder.stays", FX.lookOf({ type: "spell", spell: "Thunderous Smite" }) === "thunder"
+  && !coneOf(smite, palm)
+  && !!coneOf(bareThunder, palm)
+  && smiteBoom.some((op) => /235,\s*215,\s*170|95,\s*80,\s*60/.test((op.fillStyle || "") + (op.strokeStyle || "")))
+  && !smite.some((op) => /200,\s*225,\s*250/.test(op.fillStyle || "")));
 
 const porch = trace(FX, { spell: "Porch Boom", dmg: "thunder", facing: 0 }, 220, geo(east));
 const porchSquare = porch.map((op) => (op.op === "fill" ? classify(op.pts) : null)).filter((row) => row && row.kind === "square")
@@ -204,7 +210,7 @@ check("shake.shatter", mag(FX, { spell: "Shatter" }, 80) < 0.01 && shatterShake 
 check("shake.others", mag(FX, { spell: "Color Spray" }, 40) < 0.01 && mag(FX, { spell: "Thunderous Smite" }, 40) < 0.01 && mag(FX, { spell: "Wall of Fire" }, 80) < 0.01);
 
 const ver = JSON.parse(read("version.json"));
-check("ver.tip", ver.sheet === "0.3.203" && ver.dmcc === "0.2.216" && ver.sheetBuild === "sheet-playtest-v03203" && ver.dmccBuild === "dmcc-playtest-v02216", JSON.stringify(ver));
+check("ver.tip", ver.sheet === "0.3.204" && ver.dmcc === "0.2.217" && ver.sheetBuild === "sheet-playtest-v03204" && ver.dmccBuild === "dmcc-playtest-v02217", JSON.stringify(ver));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/", pretendToBeVisual: true, runScripts: "dangerously" });
 const w = dom.window;

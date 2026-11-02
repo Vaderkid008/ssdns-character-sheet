@@ -60,6 +60,12 @@
       name: "Flame Blade",
       createToken: false,
       follows: "caster"
+    },
+    "produce flame": {
+      kind: "held",
+      name: "Produce Flame",
+      createToken: false,
+      follows: "caster"
     }
   };
 
