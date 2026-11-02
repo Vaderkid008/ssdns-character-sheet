@@ -303,8 +303,38 @@
     return upsert(cur, { name: "Unconscious", subjectId: subjectId || "", by: "hp" });
   }
 
-  /* Condition symbols (Jessey 2026-10-20 9:22 PM): one small icon per condition, shared by map tokens,
-     the sheet portrait, the paper doll and the condition chips. Unknown names get a dot. */
+  /* Condition symbols (Jessey 2026-10-20 9:22 PM): one small icon per condition for the sheet portrait,
+     the paper doll, and condensed turn chips. Map tokens use pillWord instead (word pills, not these symbols).
+     Unknown names get a dot. */
+  function pillWord(raw, opts) {
+    var tight = !!(opts && opts.tight);
+    var text = "";
+    if (raw && typeof raw === "object") text = label(raw) || chipLabel(raw);
+    else text = chipLabel(raw);
+    text = String(text || "").replace(/\s+/g, " ").trim();
+    if (!text) return "";
+    var exh = /^(?:exhaustion|exh)\b(?:\s+(\d+))?/i.exec(text);
+    if (exh) {
+      var n = exh[1];
+      if (!n && raw && typeof raw === "object") {
+        var lv = parseInt(raw.level, 10);
+        if (lv >= 1 && lv <= 6) n = String(lv);
+      }
+      return (tight ? "EXH" : "EXHAUSTION") + (n ? " " + n : "");
+    }
+    return text.toUpperCase();
+  }
+  /* Full EXHAUSTION N unless measure(full) is wider than budget. budget is the same unit measure returns
+     (text width, not the padded pill). A missing measure keeps the longer, more readable word. */
+  function pillWordFit(raw, measure, budget) {
+    var full = pillWord(raw, { tight: false });
+    if (!full || !/^EXHAUSTION\b/.test(full)) return full;
+    var cap = Number(budget);
+    if (!(cap > 0) || typeof measure !== "function") return full;
+    var w = Number(measure(full));
+    if (isFinite(w) && w > cap) return pillWord(raw, { tight: true });
+    return full;
+  }
   var ICONS = {
     blinded: "\u{1F648}", charmed: "\u{1F498}", deafened: "\u{1F507}", frightened: "\u{1F631}", grappled: "\u270A",
     incapacitated: "\u{1F6AB}", invisible: "\u{1F47B}", paralyzed: "\u26A1", petrified: "\u{1F5FF}", poisoned: "\u2620\uFE0F",
@@ -325,6 +355,8 @@
   root.SSDNSConditions = {
     icon: icon,
     iconName: iconName,
+    pillWord: pillWord,
+    pillWordFit: pillWordFit,
     ICONS: ICONS,
     catalog: catalog,
     textFor: textFor,

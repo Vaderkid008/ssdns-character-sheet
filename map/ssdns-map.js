@@ -3322,15 +3322,10 @@ function currentRangeChoices() {
   });
   return list;
 }
-const MAP_COND_ICONS = { unconscious: '\u{1F4A4}', paralyzed: '\u26A1', poisoned: '\u2620\uFE0F', stunned: '\u{1F4AB}', prone: '\u2B07\uFE0F' };
-function condIcon(name) {
-  const C = window.SSDNSConditions;
-  if (C && typeof C.icon === 'function') return C.icon(name);
-  return MAP_COND_ICONS[String(name || '').toLowerCase()] || '\u25CF';
-}
 /* Every condition on a token: the map's own toolbar list + the linked combatant's tracked conditions (initiative
-   copy; masked for hidden enemies on the player side) + the player's own sheet for their own token. */
-function tokenConditions(t) {
+   copy; masked for hidden enemies on the player side) + the player's own sheet for their own token.
+   Raws keep exhaustion level for the word pill. tokenConditions still returns the same name strings. */
+function tokenConditionRaws(t) {
   if (!t) return [];
   const out = [];
   const seen = {};
@@ -3338,9 +3333,16 @@ function tokenConditions(t) {
     const name = String((raw && typeof raw === 'object' ? (raw.name || raw.label) : raw) || '').trim();
     if (!name) return;
     const key = name.toLowerCase().replace(/\s+\d+r?$/, '');
-    if (seen[key]) return;
-    seen[key] = 1;
-    out.push(name);
+    const prev = seen[key];
+    if (prev) {
+      const cur = out[prev - 1];
+      const curLv = cur && typeof cur === 'object' ? (Number(cur.level) || 0) : 0;
+      const nextLv = raw && typeof raw === 'object' ? (Number(raw.level) || 0) : 0;
+      if (nextLv > curLv) out[prev - 1] = raw;
+      return;
+    }
+    seen[key] = out.length + 1;
+    out.push(raw);
   };
   (t.conditions || []).forEach(add);
   if (t.hidden && role !== 'dm') return out;
@@ -3355,6 +3357,77 @@ function tokenConditions(t) {
     } catch (e) {}
   }
   return out;
+}
+function tokenConditions(t) {
+  return tokenConditionRaws(t).map(raw => String((raw && typeof raw === 'object' ? (raw.name || raw.label) : raw) || '').trim()).filter(Boolean);
+}
+function condTextWidth(ctx, txt) {
+  try {
+    const m = ctx && ctx.measureText ? ctx.measureText(txt) : null;
+    if (m && m.width) return m.width;
+  } catch (e) {}
+  return String(txt || '').length * 7.2;
+}
+/* Word pills on the token (player Map and DMCC Map share this paint). Option B size lock (~1.65×, #190):
+   pill height ~28px on a medium token — the old symbol disc was Math.max(22, r * 0.97), icon ~16px, 2px ring.
+   Exhaustion uses EXHAUSTION N until that word is wider than POISONED at this size, then EXH N. */
+function paintCondWordPills(ctx, s, r, raws) {
+  if (!ctx || !raws || !raws.length || !s) return;
+  const shown = raws.slice(0, 2);
+  const extra = raws.length - shown.length;
+  const rows = shown.length + (extra > 0 ? 1 : 0);
+  const gap = 3;
+  let pillH = Math.max(22, Math.min(28, r * 0.97));
+  const budgetH = Math.max(pillH, r * 2);
+  if (rows * pillH + (rows - 1) * gap > budgetH) {
+    pillH = Math.max(18, Math.floor((budgetH - (rows - 1) * gap) / rows));
+  }
+  const fontPx = Math.max(10, Math.round(pillH * 0.46));
+  const padX = Math.max(8, Math.round(pillH * 0.5));
+  ctx.save();
+  ctx.font = 'bold ' + fontPx + 'px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const textW = (txt) => condTextWidth(ctx, txt);
+  const fitBudget = Math.max(textW('POISONED'), r * 2.35 - padX * 2);
+  const C = window.SSDNSConditions;
+  const words = shown.map(raw => {
+    if (C && typeof C.pillWordFit === 'function') return C.pillWordFit(raw, textW, fitBudget);
+    if (C && typeof C.pillWord === 'function') return C.pillWord(raw);
+    const name = String((raw && typeof raw === 'object' ? (raw.name || raw.label) : raw) || '').trim();
+    return name.toUpperCase();
+  }).filter(Boolean);
+  if (extra > 0) words.push('+' + extra);
+  if (!words.length) { ctx.restore(); return; }
+  const totalH = words.length * pillH + (words.length - 1) * gap;
+  let top = s.y - r + Math.max(2, pillH * 0.12);
+  const limit = s.y + r * 0.62;
+  if (top + totalH > limit) top = Math.max(s.y - r - pillH * 0.2, limit - totalH);
+  words.forEach((txt, i) => {
+    const w = Math.max(pillH, textW(txt) + padX * 2);
+    const cy = top + pillH / 2 + i * (pillH + gap);
+    const x = s.x;
+    const rad = pillH / 2;
+    const left = x - w / 2;
+    const right = x + w / 2;
+    const y0 = cy - pillH / 2;
+    const y1 = cy + pillH / 2;
+    ctx.beginPath();
+    ctx.moveTo(left + rad, y0);
+    ctx.arcTo(right, y0, right, y1, rad);
+    ctx.arcTo(right, y1, left, y1, rad);
+    ctx.arcTo(left, y1, left, y0, rad);
+    ctx.arcTo(left, y0, right, y0, rad);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(110,36,48,0.94)';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(232,220,200,0.92)';
+    ctx.stroke();
+    ctx.fillStyle = '#fff8f4';
+    ctx.fillText(txt, x, cy + 0.5);
+  });
+  ctx.restore();
 }
 function paintRangeControls() {
   const on = !!state.showRange;
@@ -4150,38 +4223,6 @@ function draw() {
       hpCur = barHp.cur;
       hpMax = barHp.max;
     }
-    // condition badges stay inside the token's alpha, so a hidden token stays dim
-    /* condition symbols (Jessey 2026-10-20 9:22 PM): the lit condition chips the sheet / DMCC track now reach the
-       token too (before, only the map toolbar's own Condition list did). Players read the masked initiative copy,
-       so a hidden enemy never shows them anything. */
-    const condList = tokenConditions(t);
-    if (condList.length) {
-      /* Option B: ~28px on a medium token (was ~18px from r * 0.62). Icon ~16px, 2px ring. */
-      const size = Math.max(22, r * 0.97);
-      const shown = condList.slice(0, 4);
-      const extra = condList.length - shown.length;
-      ctx.font = `${Math.round(size * 0.57)}px system-ui, "Noto Color Emoji", "Apple Color Emoji", sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      const step = size * 1.02;
-      const count = shown.length + (extra > 0 ? 1 : 0);
-      let badgeX = s.x - ((count - 1) * step) / 2;
-      const badgeY = s.y - r + size * 0.15;
-      const disc = (txt) => {
-        ctx.fillStyle = 'rgba(20,12,6,0.82)';
-        ctx.beginPath();
-        ctx.arc(badgeX, badgeY, size * 0.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(232,220,200,0.85)';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.fillStyle = '#fff';
-        ctx.fillText(txt, badgeX, badgeY + 1);
-        badgeX += step;
-      };
-      shown.forEach((c) => disc(condIcon(c)));
-      if (extra > 0) disc('+' + extra);
-    }
     const downMark = String(t.status || '').toLowerCase() === 'down' || (role === 'dm' && hpCur != null && hpCur <= 0);
     // red X if downed. Players only see it from the public status, never from an HP number.
     if (downMark) {
@@ -4205,7 +4246,9 @@ function draw() {
     const nameY = s.y + r + 4;
     ctx.fillText(t.label || t.name.slice(0, 8), s.x, nameY);
     paintAssetChip(ctx, t, s, r);
-    /* B2: DM-only link badge. Players never reach a hidden token, and this mark is role-gated too. */
+    const condRaws = tokenConditionRaws(t);
+    /* B2: DM-only link badge. Players never reach a hidden token, and this mark is role-gated too.
+       A word pill sits on the top of the token, so the mark drops to the lower corner while a condition is showing. */
     if (role === 'dm' && !t.spellPiece && t.kind !== 'asset') {
       const linkedSheet = !!(t.ownerUid && partyList().some(p => p && (p.uid || p.id) === t.ownerUid));
       const mark = linkedSheet ? '⛓' : '⚠';
@@ -4213,7 +4256,7 @@ function draw() {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const bx = s.x + r * 0.72;
-      const by = s.y - r * 0.72;
+      const by = condRaws.length ? (s.y + r * 0.72) : (s.y - r * 0.72);
       ctx.beginPath();
       ctx.arc(bx, by, Math.max(7, r * 0.28), 0, Math.PI * 2);
       ctx.fillStyle = linkedSheet ? 'rgba(40, 90, 48, 0.95)' : 'rgba(120, 72, 16, 0.95)';
@@ -4224,6 +4267,10 @@ function draw() {
       ctx.fillStyle = '#fff8e8';
       ctx.fillText(mark, bx, by + 0.5);
     }
+    /* Word pills stay inside this token's alpha, so a hidden token stays dim. The sheet / DMCC conditions
+       reach the token (players read the masked initiative copy, so a hidden enemy shows them nothing).
+       Painted after the link badge so the word is not covered. */
+    paintCondWordPills(ctx, s, r, condRaws);
     if (state.selected && state.selected.id === t.id && host.rounds) {
       let rows = [];
       try {
