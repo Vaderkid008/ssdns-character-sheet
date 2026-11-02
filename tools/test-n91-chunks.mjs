@@ -18,10 +18,10 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.207" && version.sheetBuild === "sheet-playtest-v03207");
-check("ver.dmcc", version.dmcc === "0.2.220" && version.dmccBuild === "dmcc-playtest-v02220");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.207"') && read("assets/js/app.js").includes("sheet-playtest-v03207"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.220"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02220"));
+check("ver.sheet", version.sheet === "0.3.209" && version.sheetBuild === "sheet-playtest-v03209");
+check("ver.dmcc", version.dmcc === "0.2.222" && version.dmccBuild === "dmcc-playtest-v02222");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.209"') && read("assets/js/app.js").includes("sheet-playtest-v03209"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.222"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02222"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
@@ -131,7 +131,7 @@ const sfx = JSON.parse(read("assets/sfx/spell-sfx.json"));
 check("sfx.guiding", Audio.spellFile("Guiding Bolt") === "magic/The_sound_of_superhe-1793461504161.mp3");
 check("sfx.guiding-json", sfx.spells["guiding bolt"].file === "magic/The_sound_of_superhe-1793461504161.mp3" && sfx.spells["guiding bolt"].file.indexOf("179333") < 0);
 check("sfx.sacred-same", Audio.spellFile("Guiding Bolt") === Audio.spellFile("Sacred Flame"));
-check("sfx.count", sfx.count === 85);
+check("sfx.count", sfx.count === 88);
 check("html.admit", read("index.html").includes("spell-cast-admit.js") && read("dm/index.html").includes("spell-cast-admit.js"));
 check("cast.lightHost", read("map/ssdns-map-host.js").includes("setSpellZones: function") && read("assets/js/sheet-extras.js").includes("function noteSpellLight"));
 check("cast.holdWrap", read("dm/assets/js/v2.js").includes("function pushTokenConditions") && read("map/ssdns-map.js").includes("Lasting wrap"));
