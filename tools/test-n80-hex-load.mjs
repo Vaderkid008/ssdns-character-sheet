@@ -2,7 +2,7 @@
  * N80 — a Hexslinger chamber stores the spell that was picked.
  * Cantrips refuse + Hex shell and do not write a nameless k:hex token.
  * Unload (and a weapon change) refunds the slot the load spent. Cycle does not.
- * Sheet 0.3.205 / DMCC 0.2.218. rules.js stays untouched.
+ * Sheet 0.3.206 / DMCC 0.2.219. rules.js stays untouched.
  *   node tools/test-n80-hex-load.mjs
  */
 import fs from "node:fs";
@@ -20,9 +20,9 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.205" && version.sheetBuild === "sheet-playtest-v03205");
-check("ver.dmcc", version.dmcc === "0.2.218" && version.dmccBuild === "dmcc-playtest-v02218");
-check("ver.rules", !read("assets/data/rules.js").includes("0.3.205") && !read("assets/data/rules.js").includes("0.2.218") && !read("database.rules.json").includes("0.3.205"));
+check("ver.sheet", version.sheet === "0.3.206" && version.sheetBuild === "sheet-playtest-v03206");
+check("ver.dmcc", version.dmcc === "0.2.219" && version.dmccBuild === "dmcc-playtest-v02219");
+check("ver.rules", !read("assets/data/rules.js").includes("0.3.206") && !read("assets/data/rules.js").includes("0.2.219") && !read("database.rules.json").includes("0.3.206"));
 
 const html = read("index.html").replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "");
 const dom = new JSDOM(html, { url: "http://127.0.0.1:8765/index.html", pretendToBeVisual: true, runScripts: "dangerously" });

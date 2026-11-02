@@ -96,7 +96,9 @@ check("paint.grasp", hasColor(grasp, "85,120,240") && hasColor(grasp, "232,236,2
 const vine = trace({ spell: "Thorn Whip" }, 160, Object.assign({}, g, { yank: { x: -140, y: 0 }, ghost: { x: T.x, y: T.y } }));
 check("paint.thorn", hasColor(vine, "40,38,18") && hasColor(vine, "90,95,45"));
 const hail = trace({ spell: "Hail of Thorns" }, 160, g);
-check("paint.hail.stub", !hasColor(hail, "40,38,18"));
+check("paint.hail.burst", hasColor(hail, "40,38,18") || hasColor(hail, "150,175,80"));
+const hailNudge = FX.nudge({ type: "spell", spell: "Hail of Thorns", result: "hit" }, 400, Object.assign({}, g, { yank: { x: -140, y: 0 } }));
+check("paint.hail.noyank", hailNudge.dx === 0 && hailNudge.dy === 0, JSON.stringify(hailNudge));
 const rebuke = trace({ spell: "Hellish Rebuke", dmg: "fire" }, 520, g);
 check("paint.rebuke", hasColor(rebuke, "255,125,35") || hasColor(rebuke, "200,60,15"));
 const blade = trace({ spell: "Flame Blade", self: true }, 500, Object.assign({}, g, { T: S, B: S }));
@@ -132,9 +134,9 @@ check("sanitize.mode", kept && kept.mode === "chill" && kept.spell === "Fire Shi
 const req = FX.request({ type: "spell", spell: "Ray of Enfeeblement", saved: true, mode: "warm" });
 check("request.saved", req.saved === true && req.mode === "warm" && req.spell === "Ray of Enfeeblement", JSON.stringify(req));
 
-check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.205-c2") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.218-c2"));
+check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.206-c2") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.219-c2"));
 check("src.map", read("map/ssdns-map.js").includes("fxBodyNudge") && read("map/ssdns-map.js").includes("tokenIsEnfeebled") && read("map/ssdns-map.js").includes("yankOrigin"));
-check("ver", JSON.parse(read("version.json")).sheet === "0.3.205" && JSON.parse(read("version.json")).dmcc === "0.2.218");
+check("ver", JSON.parse(read("version.json")).sheet === "0.3.206" && JSON.parse(read("version.json")).dmcc === "0.2.219");
 
 console.log(failures.length ? "\n" + failures.length + " FAILED" : "\nall chunk2 fx checks passed");
 process.exit(failures.length ? 1 : 0);
