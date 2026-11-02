@@ -613,8 +613,10 @@
       });
     }
     (c.cantrips || []).forEach(function (name) { pushSpell(0, name); });
-    Object.keys(c.spells || {}).forEach(function (lvl) {
-      (c.spells[lvl] || []).forEach(function (sp) {
+    var book = c.spells || {};
+    if (c.calling === "lawman" && c.lawlessSpells && c.lawlessSpells.seeded) book = c.lawlessSpells;
+    Object.keys(book).forEach(function (lvl) {
+      (book[lvl] || []).forEach(function (sp) {
         if (sp && sp.prepared && sp.name) pushSpell(lvl, sp.name);
       });
     });
@@ -634,9 +636,25 @@
       else attacks.push({ id: t.id, name: t.label, arm: true, enabled: t.enabled !== false, title: t.title || "" });
     });
     var nameInput = $("charName");
+    var slots = {};
+    var lvN;
+    for (lvN = 1; lvN <= 9; lvN++) {
+      var slotTotal = (computed.hex && computed.hex[lvN]) || 0;
+      if (c.overrides && c.overrides["hex." + lvN] !== undefined && c.overrides["hex." + lvN] !== "") slotTotal = parseInt(c.overrides["hex." + lvN], 10) || 0;
+      if (!slotTotal) continue;
+      var spentN = 0;
+      var marks = (c.hexLead && c.hexLead[lvN]) || [];
+      var bi;
+      for (bi = 0; bi < slotTotal; bi++) if (marks[bi]) spentN++;
+      slots[lvN] = { total: slotTotal, spent: spentN };
+    }
     return {
       name: (nameInput && nameInput.value) || c.name || "",
       kind: "pc",
+      calling: c.calling || "",
+      init: computed.initiative,
+      conc: (c.spellMarks && c.spellMarks.conc) || "",
+      slots: slots,
       ac: computed.ac,
       /* L0188: exhaustion halves speed (2) / zeroes it (5) and halves HP max (4) */
       hp: { cur: c.hpCurrent, max: (root.SSDNSSheet && root.SSDNSSheet.effHpMax && c.hpMax !== "" && c.hpMax != null) ? root.SSDNSSheet.effHpMax(Number(c.hpMax)) : c.hpMax, temp: c.hpTemp || 0 },

@@ -1101,29 +1101,84 @@ if (role === 'dm') {
     <div class="ssm-card-head" data-act="playerCardHead">
       <button type="button" data-act="playerCardMin" aria-expanded="true" title="Collapse card"><span class="ssm-dock-label" data-act="playerDockLabel">My token</span> <span data-act="playerCaret" aria-hidden="true">◂</span></button>
       <b data-act="playerName">My token</b>
+      <span class="n62-pill" data-act="n62Call" hidden></span>
       <button type="button" data-act="playerDock" title="Dock to the side" hidden>Dock</button>
     </div>
-    <div class="ssm-card-body">
-      <div class="ssm-tools">
-        <button type="button" data-act="playerPingBtn">Ping</button>
-        <button type="button" data-act="playerRulerBtn">Ruler</button>
-        <div class="ssm-lights" data-act="playerLights">No light in hand</div>
-        <button type="button" data-act="addMineBtn" hidden>Add my token</button>
+    <div class="ssm-card-body n62">
+      <div class="n62-zone">
+        <div class="n62-zlabel">1 · Identity</div>
+        <div class="ssm-stat" data-act="playerStats"></div>
+        <div data-act="n62Conds"></div>
       </div>
-      <label class="ssm-range"><input type="checkbox" data-act="showRange"> Show my range</label>
-      <select data-act="rangeWeapon" aria-label="Equipped weapon" hidden></select>
-      <div class="ssm-stat" data-act="playerStats"></div>
-      <div data-act="actionSlot"></div>
-      <details class="ssm-settings" data-act="playerSettings">
-        <summary>Settings</summary>
-        <label>Label <input data-act="playerLabel" placeholder="My label" aria-label="My label"></label>
-        <div class="ssm-colorpick">
-          <span class="ssm-swatch" data-act="playerSwatch"></span>
-          <select data-act="playerColorBtn" aria-label="My color"></select>
+      <div data-act="n62Full">
+        <div class="n62-econ" data-act="n62Econ"></div>
+        <div class="n62-tabsbar" data-act="n62Tabs">
+          <button type="button" data-n62-tab="fight" class="on">Fight</button>
+          <button type="button" data-n62-tab="gear">Gear</button>
+          <button type="button" data-n62-tab="more">More</button>
         </div>
-        <input data-act="playerColorCustom" type="color" value="#4a90d9" hidden aria-label="Custom color">
-        <button type="button" data-act="playerHiddenBtn">Hidden: OFF</button>
-      </details>
+        <div data-n62-pane="fight">
+          <div class="n62-zone">
+            <div class="n62-zlabel">2 · Primary — one card height</div>
+            <div class="n62-arms" data-act="n62Arms"></div>
+            <div class="n62-switch" data-act="n62Switch"></div>
+            <div data-act="actionSlot" data-n62-bind="1"></div>
+          </div>
+          <div class="n62-zone">
+            <div class="n62-zlabel">3 · Overflow</div>
+            <details class="n62-acc" data-n62-acc="cond">
+              <summary>Conditions <small data-act="n62CondSum">none</small></summary>
+              <div class="n62-accbody" data-act="n62CondBody"></div>
+            </details>
+            <details class="n62-acc" data-n62-acc="cover">
+              <summary>Cover &amp; range <small>Show range</small></summary>
+              <div class="n62-accbody">
+                <label class="ssm-range"><input type="checkbox" data-act="showRange"> Show my range</label>
+                <select data-act="rangeWeapon" aria-label="Equipped weapon" hidden></select>
+              </div>
+            </details>
+            <details class="n62-acc" data-n62-acc="link">
+              <summary>Link · lights · vision</summary>
+              <div class="n62-accbody">
+                <div class="ssm-lights" data-act="playerLights">No light in hand</div>
+              </div>
+            </details>
+            <details class="n62-acc" data-n62-acc="extras">
+              <summary>Gear extras <small>reload · consumables</small></summary>
+              <div class="n62-accbody" data-act="n62Extras"></div>
+            </details>
+          </div>
+          <button type="button" class="n62-end" data-act="n62End">End turn ▸</button>
+        </div>
+        <div data-n62-pane="gear" hidden>
+          <div class="n62-zone">
+            <div class="n62-zlabel">Gear</div>
+            <div class="ssm-tools">
+              <button type="button" data-act="playerPingBtn">Ping</button>
+              <button type="button" data-act="playerRulerBtn">Ruler</button>
+              <button type="button" data-act="addMineBtn" hidden>Add my token</button>
+            </div>
+            <div data-act="n62GearList"></div>
+          </div>
+        </div>
+        <div data-n62-pane="more" hidden>
+          <div class="n62-zone">
+            <div class="n62-zlabel">More</div>
+            <div data-act="n62MoreList"></div>
+            <details class="ssm-settings" data-act="playerSettings">
+              <summary>Settings</summary>
+              <label>Label <input data-act="playerLabel" placeholder="My label" aria-label="My label"></label>
+              <div class="ssm-colorpick">
+                <span class="ssm-swatch" data-act="playerSwatch"></span>
+                <select data-act="playerColorBtn" aria-label="My color"></select>
+              </div>
+              <input data-act="playerColorCustom" type="color" value="#4a90d9" hidden aria-label="Custom color">
+              <button type="button" data-act="playerHiddenBtn">Hidden: OFF</button>
+            </details>
+          </div>
+        </div>
+      </div>
+      <div data-act="n62Compact" hidden></div>
     </div>
   `;
   el.appendChild(card);
@@ -9244,6 +9299,11 @@ if (role === 'dm') {
   paintAddMine();
   renderActions();
   bindRangeUi();
+  const n62Card = q('playerCard');
+  if (n62Card && !n62Card.dataset.n62) {
+    n62Card.dataset.n62 = '1';
+    n62Card.addEventListener('click', (e) => { n62OnClick(e, () => paintPlayerFight()); });
+  }
 }
 
 // --- scene images ---
@@ -9579,6 +9639,7 @@ async function loadSceneImage(sceneId, opts) {
       const hadTurn = prevId != null || prevStarted;
       if (hadTurn) exitMoveMode('turn');
       if (prevStarted && !state.initiative.started) clearLocalAim();
+      if (state.n62 && state.currentTurnId !== prevId) state.n62.peek = false;
       if (fightOn() && state.currentTurnId && state.currentTurnId !== prevId) {
         const T = window.SSDNSTurn;
         const cur = T && T.current ? T.current(state.initiative) : order[turn];
@@ -10590,9 +10651,481 @@ async function loadSceneImage(sceneId, opts) {
     const rounds = cap ? '<span class="ssm-rounds">' + loaded + '/' + cap + '</span>' : '';
     return '<div class="cylinder-row' + crossClass(a) + '"><span class="cyl-name">' + esc(a.name || 'Gun') + '</span>' + dotsHtml + rounds + select + lockup + reload + tr + cycle + clean + unjam + reopen + extras + '</div>';
   }
+  /* N62: one Fight surface for the player Map card and the DM PC drawer.
+     Identity, a single primary card (cast graphic or signature weapon; the Caster Gun for Hexslinger),
+     then overflow. Spell buttons are not dumped under the card. */
+  function n62Ensure() {
+    if (!state.n62 || typeof state.n62 !== 'object') state.n62 = {};
+    const ui = state.n62;
+    if (!ui.tab) ui.tab = 'fight';
+    if (!ui.prim) ui.prim = 'cast';
+    if (ui.open == null) ui.open = '';
+    if (ui.hot == null) ui.hot = '';
+    if (!ui.acc) ui.acc = {};
+    return ui;
+  }
+  function n62For(id) {
+    const ui = n62Ensure();
+    const key = String(id || (role === 'player' ? 'me' : ''));
+    if (ui.for !== key) {
+      ui.for = key;
+      ui.open = '';
+      ui.hot = '';
+      ui.peek = false;
+      ui.tab = 'fight';
+      ui.prim = 'cast';
+      ui.acc = {};
+    }
+    return ui;
+  }
+  function n62IsHex(card) {
+    return !!(card && card.calling === 'hexslinger');
+  }
+  function n62CallPretty(card) {
+    const id = card && card.calling;
+    if (!id) return (card && card.kind) || '';
+    return String(id).split('-').filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+  function n62Mine(tokenId) {
+    if (role === 'player') {
+      if (!fightLive()) return true;
+      const Lock = window.SSDNSTurnLock;
+      return !!(Lock && Lock.myTurn && Lock.myTurn());
+    }
+    const init = state.initiative;
+    if (!init || !init.started || !state.currentTurnId) return true;
+    const cur = String(state.currentTurnId);
+    if (tokenId && cur === String(tokenId)) return true;
+    const tok = (state.tokens || []).find(t => t && String(t.id) === String(tokenId));
+    if (!tok) return false;
+    return cur === String(tok.id) || (!!tok.combatantId && cur === String(tok.combatantId)) || (!!tok.ownerUid && cur === String(tok.ownerUid));
+  }
+  function n62FullNow(tokenId) {
+    if (n62Mine(tokenId)) return true;
+    return !!n62Ensure().peek;
+  }
+  function n62ActorName() {
+    const id = state.currentTurnId;
+    if (!id) return 'Someone';
+    const order = (state.initiative && state.initiative.order) || [];
+    const row = order.find(o => o && (o.id === id || o.playerId === id));
+    if (row && row.name) return row.name;
+    const tok = (state.tokens || []).find(t => t && (t.id === id || t.combatantId === id || t.ownerUid === id));
+    return (tok && (tok.name || tok.label)) || 'Someone';
+  }
+  function n62Meta(sp) {
+    const P = window.SSDNSActionPips;
+    const cost = P && P.spellCost ? P.spellCost(sp && sp.name) : '';
+    return [cost, sp && sp.kind && sp.kind !== 'none' ? sp.kind : '', sp && sp.concentration ? 'conc.' : ''].filter(Boolean).join(' · ');
+  }
+  function n62Quick(card) {
+    if (!card || card.calling !== 'pact-seeker') return [];
+    const spells = card.spells || [];
+    const out = [];
+    const pact = spells.find(s => s && (s.id === 'pact' || /pact shot/i.test(s.name || '')));
+    if (pact) out.push(Object.assign({}, pact, { first: true, sub: 'signature · action' }));
+    spells.forEach(s => {
+      if (!s || s === pact) return;
+      if (!(Number(s.level) > 0) && /eldritch|blast/i.test(s.name || '')) out.push(Object.assign({}, s, { sub: 'cantrip · ready' }));
+    });
+    const hex = spells.find(s => s && /^hex\b/i.test(s.name || '') && Number(s.level) === 1);
+    if (hex) out.push(Object.assign({}, hex, { sub: 'L1 · bonus · conc.' }));
+    return out;
+  }
+  function n62Pack(card) {
+    const spells = (card && card.spells) || [];
+    const cantrips = [];
+    const by = {};
+    spells.forEach(s => {
+      if (!s) return;
+      const lv = Number(s.level) || 0;
+      const copy = Object.assign({}, s, { meta: n62Meta(s) });
+      if (lv <= 0) { if (s.id !== 'pact') cantrips.push(copy); }
+      else (by[lv] || (by[lv] = [])).push(copy);
+    });
+    const slots = (card && card.slots) || {};
+    const keys = {};
+    Object.keys(slots).forEach(k => { const n = Number(k); if (n > 0) keys[n] = true; });
+    Object.keys(by).forEach(k => { keys[Number(k)] = true; });
+    const levels = Object.keys(keys).map(Number).filter(n => n > 0).sort((a, b) => a - b).map(lv => {
+      const slot = slots[lv] || slots[String(lv)] || {};
+      let total = Number(slot.total != null ? slot.total : slot.max);
+      if (!isFinite(total) || total < 0) total = 0;
+      let spent = Number(slot.spent);
+      if (!isFinite(spent)) spent = (slot.left != null && total) ? Math.max(0, total - Number(slot.left)) : 0;
+      if (!total && by[lv]) total = by[lv].length;
+      return total > 0 ? { level: lv, total: total, spent: Math.min(spent, total), spells: by[lv] || [] } : null;
+    }).filter(Boolean);
+    return { cantrips: cantrips, levels: levels, quick: n62Quick(card) };
+  }
+  function n62HasCast(card) {
+    if (!card || n62IsHex(card)) return false;
+    const Skins = window.SSDNSCastSkins;
+    if (!Skins || !Skins.skinFor || !Skins.skinFor(card.calling) || !Skins.drawerCard) return false;
+    const packed = n62Pack(card);
+    return !!(packed.levels.length || packed.cantrips.length || packed.quick.length);
+  }
+  function n62Mode(card) {
+    if (n62IsHex(card)) return 'gun';
+    if (n62HasCast(card) && n62Ensure().prim !== 'weapon') return 'cast';
+    return 'weapon';
+  }
+  function n62CastAttr(sp, dm) {
+    if (!sp) return 'disabled';
+    const id = esc(sp.id || '');
+    const kind = esc(sp.kind || '');
+    if (dm) return 'data-sid="' + id + '" data-skind="' + kind + '"';
+    return 'data-act="playerSpell" data-id="' + id + '"' + (sp.enabled === false ? ' disabled' : '');
+  }
+  function n62CastCard(card, dm) {
+    const Skins = window.SSDNSCastSkins;
+    if (!n62HasCast(card)) return '';
+    const ui = n62Ensure();
+    const packed = n62Pack(card);
+    const skin = Skins.skinFor(card.calling);
+    return Skins.drawerCard({
+      calling: card.calling,
+      focus: skin && skin.focus,
+      cantrips: packed.cantrips,
+      levels: packed.levels,
+      quick: packed.quick,
+      open: ui.open,
+      hot: ui.hot,
+      dm: !!dm,
+      castAttr: (sp) => n62CastAttr(sp, dm)
+    }, ui.open);
+  }
+  function n62ActiveName(card) {
+    const list = (card && card.attacks) || [];
+    const id = activeWeaponId(card, role === 'dm' ? state.drawerTokenId : ((state.selected && state.selected.id) || ''));
+    const hit = list.find(a => a && String(a.id) === String(id) && !a.arm) || list.find(a => a && !a.arm) || list[0];
+    return (hit && (hit.name || hit.id)) || 'Weapon';
+  }
+  function n62WeaponCard(card, hitHtml, cylinders, bars) {
+    return '<section class="n62-wcard" data-n62-card="1"><div class="n61-tag">Signature weapon</div>' +
+      '<div class="n62-wart"><div>' + esc(n62ActiveName(card)) + '<small>signature weapon</small></div></div>' +
+      (bars || '') +
+      (hitHtml ? '<div class="n62-attacks">' + hitHtml + '</div>' : '<span class="n62-none">No attack on this card.</span>') +
+      (cylinders || '') +
+      '<p class="n61-who">Same card height as the cast surface. Swap with ✧ Cast / Weapon.</p></section>';
+  }
+  function n62HexCard(card, hitHtml, cylinders, bars, dm) {
+    const gun = ((card && card.attacks) || []).find(a => a && (a.caster || (a.ammo && a.ammo.cap))) || null;
+    const capN = gun && gun.ammo ? (Number(gun.ammo.cap) || 0) : 0;
+    const loaded = gun && gun.ammo ? (Number(gun.ammo.loaded) || 0) : 0;
+    const hexN = gun ? loadedHexNames(gun).length : 0;
+    const line = gun ? attackLine(gun) : 'Caster Gun';
+    const chips = ((card && card.spells) || []).filter(s => s && !(Number(s.level) > 0) && s.id !== 'pact').slice(0, 3).map(s => {
+      return '<button type="button" class="n61-chip' + (dm ? ' ssm-atk' : '') + '" ' + n62CastAttr(s, dm) + '>✧ ' + esc(s.name) + '<i>dry fire</i></button>';
+    }).join('');
+    return '<section class="n61-card bg-hex gun" data-calling="hexslinger" data-n62-card="1">' +
+      '<div class="n61-tag">Hexslinger · signature card</div>' +
+      '<div class="n62-sigrow"><h2>Caster Gun</h2><span><b>' + loaded + '/' + (capN || 6) + '</b> · ' + hexN + ' hex lead</span></div>' +
+      '<div class="n62-sigrow"><span>' + esc(line) + '</span>' + (chips ? '<span class="n61-chips">' + chips + '</span>' : '') + '</div>' +
+      (bars || '') +
+      '<div class="n62-cylhost">' + (cylinders || '') + '</div>' +
+      '<div class="n62-legend"><span><i class="n62-dot" style="background:#e8bf62;box-shadow:0 0 6px #3fb8a8"></i>hex lead = slot</span>' +
+      '<span><i class="n62-dot" style="background:#c99434"></i>plain round</span>' +
+      '<span><i class="n62-dot" style="background:#050506;border:1px solid #555"></i>empty</span></div>' +
+      '<p class="n61-gunnote"><b>Cylinder stays on the gun.</b> Hex lead chambers are the slots. This card does not add a second token wall. Load a hex lead, then cast. Cantrips dry-fire.</p>' +
+      (hitHtml ? '<div class="n62-attacks">' + hitHtml + '</div>' : '') +
+      '<p class="n61-cap">Tap a hex chamber to cast the loaded lead. Tap a plain round to fire. <em>The only gun in the system.</em></p></section>';
+  }
+  function n62SwitchHtml(card) {
+    if (n62IsHex(card) || !n62HasCast(card)) return '';
+    const prim = n62Ensure().prim === 'weapon' ? 'weapon' : 'cast';
+    return '<button type="button" data-n62-prim="cast"' + (prim === 'cast' ? ' class="on"' : '') + '>✧ Cast</button>' +
+      '<button type="button" data-n62-prim="weapon"' + (prim === 'weapon' ? ' class="on"' : '') + '>Weapon</button>';
+  }
+  function n62PrimaryHtml(card, parts, dm) {
+    const mode = n62Mode(card);
+    if (mode === 'gun') return n62HexCard(card, parts.hitHtml, parts.cylinders, parts.bars, dm);
+    if (mode === 'cast') {
+      const cast = n62CastCard(card, dm);
+      if (cast) return cast;
+    }
+    return n62WeaponCard(card, parts.hitHtml, parts.cylinders, parts.bars);
+  }
+  function n62Identity(card) {
+    const hp = (card && card.hp) || {};
+    const maxHp = Number(hp.max);
+    const curHp = Number(hp.cur);
+    const have = isFinite(maxHp) && maxHp > 0 && isFinite(curHp);
+    const hpPct = have ? Math.max(0, Math.min(100, (curHp / maxHp) * 100)) : 0;
+    const cur = hp.cur != null && hp.cur !== '' ? hp.cur : '—';
+    const max = hp.max != null && hp.max !== '' ? hp.max : '—';
+    let init = '';
+    if (card && card.init != null && card.init !== '') {
+      const n = Number(card.init);
+      init = ' · Init ' + (isFinite(n) && n >= 0 ? '+' + n : card.init);
+    }
+    const temp = hp.temp ? ('Temp ' + hp.temp) : 'Temp 0';
+    const bar = have ? '<div class="ssm-hpbar" role="meter" aria-label="HP" aria-valuenow="' + esc(curHp) + '" aria-valuemax="' + esc(maxHp) + '"><span style="width:' + hpPct + '%"></span></div>' : '';
+    return '<div class="n62-identrow"><div class="n62-stat"><b>' + esc(card && card.ac != null ? card.ac : '—') + '</b><small>AC</small></div>' +
+      '<div class="n62-hp"><div class="n62-hprow"><span>HP</span><b>' + esc(cur) + ' / ' + esc(max) + '</b></div>' + bar +
+      '<div class="n62-hprow n62-sub"><span>' + esc(speedLabel(card && card.speed)) + esc(init) + '</span><span>' + esc(temp) + '</span></div></div></div>';
+  }
+  function n62EconHtml() {
+    const P = window.SSDNSActionPips;
+    const st = P && P.state ? P.state() : {};
+    const chip = (key, label, used) => '<button type="button" class="n62-ec' + (used ? ' used' : '') + '" data-n62-pip="' + key + '">' + label + '</button>';
+    const moveUsed = !!(st && Number(st.moveUsed) > 0);
+    return chip('action', 'Action', !!(st && st.action)) + chip('bonus', 'Bonus', !!(st && st.bonus)) + chip('reaction', 'React', !!(st && st.reaction)) +
+      '<span class="n62-ec' + (moveUsed ? ' used' : '') + '">Move</span>';
+  }
+  function n62ReactionSpell(card) {
+    const P = window.SSDNSActionPips;
+    return ((card && card.spells) || []).find(s => s && P && P.spellCost && P.spellCost(s.name) === 'reaction') || null;
+  }
+  function n62PeekHtml(card, dm) {
+    const labels = { scholar: 'Ledger', 'pact-seeker': 'Sigil rail', hexslinger: 'Caster Gun', lawman: 'Badges' };
+    const label = labels[card && card.calling] || (n62IsHex(card) ? 'Caster Gun' : 'Slots');
+    let mini = '';
+    if (n62IsHex(card)) {
+      const gun = ((card.attacks) || []).find(a => a && a.ammo && a.ammo.cap);
+      const flags = gun && gun.ammo && Array.isArray(gun.ammo.chambers) ? gun.ammo.chambers : [];
+      const capN = gun && gun.ammo ? Number(gun.ammo.cap) || 0 : 0;
+      for (let i = 0; i < capN; i++) {
+        const raw = String(flags[i] || '');
+        const hex = raw.indexOf('hex') >= 0;
+        const empty = !raw || raw === 'empty' || raw === '0' || raw === 'false';
+        const bg = hex ? '#e8bf62' : (empty ? '#050506' : '#c99434');
+        mini += '<i class="n62-dot" style="background:' + bg + ';border:1px solid #555"></i>';
+      }
+    } else {
+      n62Pack(card).levels.forEach(row => {
+        mini += '<b style="color:#d8a948;font-size:10px">L' + row.level + '</b>';
+        for (let i = 0; i < row.total; i++) mini += '<i class="n62-pip' + (i < row.spent ? ' spent' : '') + '" style="width:9px;height:9px"></i>';
+      });
+    }
+    const react = n62ReactionSpell(card);
+    const reactBtn = react
+      ? (dm
+        ? '<button type="button" class="n62-react ssm-atk" data-sid="' + esc(react.id) + '" data-skind="' + esc(react.kind || '') + '">⚡ Reaction ready — ' + esc(react.name) + '</button>'
+        : '<button type="button" class="n62-react" data-act="playerSpell" data-id="' + esc(react.id) + '">⚡ Reaction ready — ' + esc(react.name) + '</button>')
+      : '<button type="button" class="n62-react" data-act="n62ReactNone">⚡ Reaction ready</button>';
+    return '<div class="n62-wait"><b>Waiting</b> — ' + esc(n62ActorName()) + ' is acting. Drawer stays compact until your turn.</div>' +
+      '<button type="button" class="n62-peek" data-act="n62Peek"><span>✧ ' + esc(label) + ' — slots</span><span class="n62-mini">' + mini + '</span><span style="color:#d8a948">▸</span></button>' +
+      reactBtn;
+  }
+  function n62PlayerConds() {
+    const names = [];
+    const add = (c) => {
+      const n = condLabel(c);
+      if (n && names.indexOf(n) < 0) names.push(n);
+    };
+    try {
+      const c = window.SSDNSApp && window.SSDNSApp.doc && window.SSDNSApp.doc().character;
+      ((c && c.activeConditions) || []).forEach(add);
+      if (c && c.spellMarks && c.spellMarks.conc) add('Concentrating · ' + c.spellMarks.conc);
+    } catch (e) {}
+    const me = (state.tokens || []).find(t => t && t.ownerUid && t.ownerUid === uid);
+    if (me) {
+      try { tokenConditions(me).forEach(add); } catch (e2) {}
+    }
+    return names;
+  }
+  function n62Sync(root, tokenId) {
+    if (!root) return;
+    const ui = n62Ensure();
+    const full = n62FullNow(tokenId);
+    root.querySelectorAll('[data-n62-tab]').forEach(b => b.classList.toggle('on', b.getAttribute('data-n62-tab') === ui.tab));
+    root.querySelectorAll('[data-n62-pane]').forEach(p => { p.hidden = p.getAttribute('data-n62-pane') !== ui.tab; });
+    const fullEl = root.querySelector('[data-act="n62Full"]');
+    const compEl = root.querySelector('[data-act="n62Compact"]');
+    if (fullEl) fullEl.hidden = !full;
+    if (compEl) compEl.hidden = !!full;
+  }
+  function n62LooseHtml(card, dm) {
+    return ((card && card.spells) || []).filter(s => s && String(s.id || '').indexOf('sig:') === 0).map(s => {
+      return '<button type="button" class="ssm-atk" ' + n62CastAttr(s, dm) + '>' + esc(s.name || s.id) + '</button>';
+    }).join('');
+  }
+  function n62FallbackHtml(card, dm) {
+    if (n62HasCast(card) || n62IsHex(card)) return '';
+    return ((card && card.spells) || []).filter(s => s && String(s.id || '').indexOf('sig:') !== 0).map(s => {
+      return '<button type="button" class="ssm-atk" ' + n62CastAttr(s, dm) + '>' + esc(s.name || s.id) + (Number(s.level) > 0 ? ' (L' + Number(s.level) + ')' : '') + '</button>';
+    }).join('');
+  }
+  function n62PaintPlayer(card, parts) {
+    n62For('me');
+    const root = q('playerCard');
+    if (!root) return;
+    const stats = q('playerStats');
+    if (stats) stats.innerHTML = n62Identity(card);
+    const pill = q('n62Call');
+    if (pill) {
+      const label = n62CallPretty(card);
+      pill.hidden = !label;
+      pill.textContent = label;
+    }
+    const names = n62PlayerConds();
+    const conds = q('n62Conds');
+    if (conds) conds.innerHTML = names.length ? names.map(n => '<span class="ssm-cond">' + esc(n) + '</span>').join(' ') : '<span class="n62-none">No conditions</span>';
+    const sum = q('n62CondSum');
+    if (sum) sum.textContent = names.length ? (names.length + ' active') : 'none';
+    const condBody = q('n62CondBody');
+    if (condBody) condBody.innerHTML = names.length ? names.map(n => '<div class="n62-li"><span>' + esc(n) + '</span></div>').join('') : '<span class="n62-none">No conditions</span>';
+    const econ = q('n62Econ');
+    if (econ) econ.innerHTML = n62EconHtml();
+    const arms = q('n62Arms');
+    if (arms) arms.innerHTML = (parts.armHtml || '') + n62LooseHtml(card, false);
+    const sw = q('n62Switch');
+    if (sw) {
+      const buttons = n62SwitchHtml(card);
+      sw.innerHTML = buttons;
+      sw.hidden = !buttons;
+    }
+    const mode = n62Mode(card);
+    const bars = '<label class="ssm-act">Target <select data-act="n62Target" aria-label="Target">' + (parts.targetHtml || '') + '</select></label>';
+    const slot = q('actionSlot');
+    if (slot) slot.innerHTML = n62PrimaryHtml(card, { hitHtml: parts.hitHtml, cylinders: mode === 'cast' ? '' : parts.cylinders, bars: bars }, false);
+    const extras = q('n62Extras');
+    if (extras) {
+      const fallback = n62FallbackHtml(card, false);
+      const cyl = (mode === 'cast' && parts.cylinders) ? parts.cylinders : '<span class="n62-none">Reload, tactical reload, and the cylinder live on the primary card.</span>';
+      extras.innerHTML = cyl + (fallback ? '<div class="n62-attacks">' + fallback + '</div>' : '');
+    }
+    const gear = q('n62GearList');
+    if (gear) gear.innerHTML = parts.itemRows || '<span class="n62-none">Nothing in hand.</span>';
+    const more = q('n62MoreList');
+    if (more) {
+      const rows = ((card && card.spells) || []).map(s => '<div class="n62-li"><span>' + esc(s.name || s.id) + '</span><small>' + (Number(s.level) > 0 ? ('L' + s.level) : 'cantrip') + '</small></div>').join('');
+      more.innerHTML = rows || '<span class="n62-none">No spells on this sheet.</span>';
+    }
+    const compact = q('n62Compact');
+    if (compact) compact.innerHTML = n62PeekHtml(card, false);
+    n62Sync(root, null);
+  }
+  function n62DmHtml(bag) {
+    const card = bag.card;
+    n62For(bag.tokenId);
+    const mode = n62Mode(card);
+    const ui = n62Ensure();
+    const primary = n62PrimaryHtml(card, {
+      hitHtml: bag.attacks,
+      cylinders: mode === 'cast' ? '' : bag.cylinders,
+      bars: bag.bars
+    }, true);
+    const accOpen = (key) => (ui.acc && ui.acc[key]) ? ' open' : '';
+    const names = ((card.conditions) || []).map(condLabel).filter(Boolean);
+    if (card.conc && !names.some(n => String(n).indexOf(card.conc) >= 0)) names.unshift('Concentrating · ' + card.conc);
+    const condLine = names.length ? names.map(n => '<span class="ssm-cond">' + esc(n) + '</span>').join(' ') : '<span class="n62-none">No conditions</span>';
+    const spellList = ((card.spells) || []).map(s => '<div class="n62-li"><span>' + esc(s.name || s.id) + '</span><small>' + (Number(s.level) > 0 ? ('L' + s.level) : 'cantrip') + '</small></div>').join('') || '<span class="n62-none">No spells on this card.</span>';
+    const items = window.SSDNSItems && card.items && card.items.length
+      ? window.SSDNSItems.drawerRows(card.items, { name: card.name || '', dm: true })
+      : '<span class="n62-none">No items on the snapshot.</span>';
+    const rangeHtml = '<label class="ssm-act ssm-range"><input type="checkbox" data-act="drawerRange"' + (state.showRange ? ' checked' : '') + '> Show range</label>' +
+      '<label class="ssm-act">Range: <select data-act="rangeOverride" aria-label="Range: Auto">' +
+      '<option value="auto"' + (rangeOverrideNow() === 'auto' ? ' selected' : '') + '>Auto</option>' +
+      '<option value="ignore"' + (rangeOverrideNow() === 'ignore' ? ' selected' : '') + '>Ignore range</option>' +
+      '<option value="force"' + (rangeOverrideNow() === 'force' ? ' selected' : '') + '>Force DIS</option>' +
+      '<option value="adv"' + (rangeOverrideNow() === 'adv' ? ' selected' : '') + '>Force ADV</option>' +
+      '</select></label><select data-act="drawerRangeWeapon" aria-label="Token weapon" hidden></select>';
+    const sw = n62SwitchHtml(card);
+    const extras = (mode === 'cast' && bag.cylinders ? bag.cylinders : '<span class="n62-none">Reload and the cylinder live on the primary card.</span>') +
+      (n62FallbackHtml(card, true) ? '<div class="n62-attacks">' + n62FallbackHtml(card, true) + '</div>' : '') +
+      (n62LooseHtml(card, true) ? '<div class="n62-attacks">' + n62LooseHtml(card, true) + '</div>' : '') +
+      '<div class="ssm-row"><select data-act="weaponPick" aria-label="Weapon">' + bag.weaponOptions + '</select>' +
+      '<button type="button" data-act="reloadBtn">Reload</button><button type="button" data-act="unloadBtn">Unload</button></div>';
+    const full = n62FullNow(bag.tokenId);
+    const tab = (id, label) => '<button type="button" data-n62-tab="' + id + '"' + (ui.tab === id ? ' class="on"' : '') + '>' + label + '</button>';
+    const pane = (id, inner) => '<div data-n62-pane="' + id + '"' + (ui.tab === id ? '' : ' hidden') + '>' + inner + '</div>';
+    return drawerHeadHtml(card.name || bag.tokenId, n62CallPretty(card), { gear: true }) +
+      '<div class="ssm-drawer-body n62">' +
+      (bag.bomb || '') + (bag.pending || '') +
+      '<div class="n62-zone"><div class="n62-zlabel">1 · Identity</div>' + n62Identity(card) + (bag.death || '') +
+      '<div class="n62-conds">' + condLine + '</div>' +
+      (bag.tactics ? '<div class="ssm-tactics">' + esc(bag.tactics) + '</div>' : '') + '</div>' +
+      '<div data-act="n62Full"' + (full ? '' : ' hidden') + '>' +
+      '<div class="n62-econ">' + (bag.markerRow || '') + '</div>' +
+      '<div class="n62-tabsbar">' + tab('fight', 'Fight') + tab('gear', 'Gear') + tab('more', 'More') + '</div>' +
+      pane('fight',
+        '<div class="n62-zone"><div class="n62-zlabel">2 · Primary — one card height</div>' +
+        (sw ? '<div class="n62-switch">' + sw + '</div>' : '') + primary + '</div>' +
+        '<div class="n62-zone"><div class="n62-zlabel">3 · Overflow</div>' +
+        '<details class="n62-acc" data-n62-acc="cond"' + accOpen('cond') + '><summary>Conditions <small>' + (names.length ? names.length + ' active' : 'none') + '</small></summary><div class="n62-accbody">' +
+        (bag.conds ? '<div class="ssm-conds">' + bag.conds + '</div>' : '') +
+        '<div class="ssm-row"><input data-act="hpAmt" type="number" value="1" min="0" aria-label="HP amount">' +
+        '<button type="button" data-act="hpMinus">− HP</button><button type="button" data-act="hpPlus">+ HP</button>' +
+        '<button type="button" data-act="hpSet">Set HP</button><button type="button" data-act="downCard">Down</button></div>' +
+        '<div class="ssm-row"><select data-act="condPick" aria-label="Condition">' + bag.condOptions + '</select><button type="button" data-act="condBtn">Condition</button></div>' +
+        '</div></details>' +
+        '<details class="n62-acc" data-n62-acc="cover"' + accOpen('cover') + '><summary>Cover &amp; range</summary><div class="n62-accbody">' + (bag.coverRow || '') + '</div></details>' +
+        '<details class="n62-acc" data-n62-acc="link"' + accOpen('link') + '><summary>Link · lights · vision <small>DM</small></summary><div class="n62-accbody">' + (bag.light || '') + rangeHtml + '</div></details>' +
+        '<details class="n62-acc" data-n62-acc="extras"' + accOpen('extras') + '><summary>Gear extras <small>reload · consumables</small></summary><div class="n62-accbody">' + extras + '</div></details>' +
+        '</div>') +
+      pane('gear', '<div class="n62-zone"><div class="n62-zlabel">Gear</div>' + items + (bag.gear || '') + '</div>') +
+      pane('more', '<div class="n62-zone"><div class="n62-zlabel">More</div>' + (bag.actToggle || '') +
+        '<div class="ssm-row"><button type="button" data-act="deathBtn">Death save</button><button type="button" data-act="undoBtnD">Undo</button></div>' +
+        '<div class="ssm-row"><button type="button" data-act="robBtn"' + (bag.grabAttr || '') + '>Rob/Disarm</button></div>' +
+        '<button type="button" data-act="imageBtn">Replace image</button>' +
+        '<div class="n62-zlabel">Spells</div>' + spellList + '</div>') +
+      '</div>' +
+      '<div data-act="n62Compact"' + (full ? ' hidden' : '') + '>' + n62PeekHtml(card, true) +
+      '<details class="n62-acc"><summary>Conditions <small>' + (names.length ? names.length + ' active' : 'none') + '</small></summary><div class="n62-accbody">' + condLine + '</div></details></div></div>';
+  }
+  function n62OnClick(e, repaint) {
+    const t = e.target && e.target.closest ? e.target : null;
+    if (!t || !t.closest) return false;
+    const tab = t.closest('[data-n62-tab]');
+    if (tab) { e.preventDefault(); n62Ensure().tab = tab.getAttribute('data-n62-tab') || 'fight'; repaint(); return true; }
+    const prim = t.closest('[data-n62-prim]');
+    if (prim) {
+      e.preventDefault();
+      const ui = n62Ensure();
+      ui.prim = prim.getAttribute('data-n62-prim') || 'cast';
+      ui.open = '';
+      ui.hot = '';
+      repaint();
+      return true;
+    }
+    const slotBtn = t.closest('[data-n62-slot]');
+    if (slotBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (slotBtn.disabled) return true;
+      const id = slotBtn.getAttribute('data-n62-slot') || '';
+      const ui = n62Ensure();
+      ui.open = ui.open === id ? '' : id;
+      ui.hot = '';
+      repaint();
+      return true;
+    }
+    const pick = t.closest('[data-n62-pick]');
+    if (pick) { e.preventDefault(); e.stopPropagation(); n62Ensure().hot = pick.getAttribute('data-n62-pick') || ''; repaint(); return true; }
+    const close = t.closest('[data-n62-x]');
+    if (close) { e.preventDefault(); e.stopPropagation(); n62Ensure().open = ''; n62Ensure().hot = ''; repaint(); return true; }
+    const peek = t.closest('[data-act="n62Peek"]');
+    if (peek) { e.preventDefault(); n62Ensure().peek = true; repaint(); return true; }
+    const pip = t.closest('[data-n62-pip]');
+    if (pip) {
+      e.preventDefault();
+      const P = window.SSDNSActionPips;
+      if (P && P.toggle) P.toggle(pip.getAttribute('data-n62-pip'));
+      repaint();
+      return true;
+    }
+    const gear = t.closest('[data-act="n62Gear"]');
+    if (gear) {
+      e.preventDefault();
+      const hostEl = gear.closest('.ssm-drawer, .ssdns-playercard');
+      const box = hostEl && hostEl.querySelector('[data-n62-acc="link"]');
+      if (box) box.open = !box.open;
+      return true;
+    }
+    const end = t.closest('[data-act="n62End"]');
+    if (end) { e.preventDefault(); if (role === 'player') runPlayer('endturn'); return true; }
+    const none = t.closest('[data-act="n62ReactNone"]');
+    if (none) { e.preventDefault(); toast('No reaction spell is prepared.'); return true; }
+    return false;
+  }
+
   function paintPlayerFight() {
     const slot = q('actionSlot');
     if (!slot) return;
+    const n62on = slot.hasAttribute('data-n62-bind');
+    const root = n62on ? (q('playerCard') || slot) : slot;
     const card = playerFightModel();
     const nameEl = q('playerName');
     if (nameEl && card.name) nameEl.textContent = card.name;
@@ -10601,7 +11134,7 @@ async function loadSceneImage(sceneId, opts) {
     paintAddMine();
     paintRoleBadge();
     const stats = q('playerStats');
-    if (stats) {
+    if (stats && !n62on) {
       const hp = card.hp || {};
       const has = card.ac != null || hp.cur != null || hp.max != null || card.speed != null;
       const maxHp = Number(hp.max);
@@ -10614,6 +11147,8 @@ async function loadSceneImage(sceneId, opts) {
       const bar = hpPct == null ? '' : '<div class="ssm-hpbar" role="meter" aria-label="HP" aria-valuenow="' + esc(curHp) + '" aria-valuemax="' + esc(maxHp) + '"><span style="width:' + hpPct + '%"></span></div>';
       stats.innerHTML = line + bar;
     }
+    let armHtml = '';
+    let hitHtml = '';
     const targetHtml = playerTargetOptions().map(o => {
       const on = String(o.id) === String(state.playerTarget || '') ? ' selected' : '';
       const off = o.disabled ? ' disabled' : '';
@@ -10628,8 +11163,12 @@ async function loadSceneImage(sceneId, opts) {
       else if (verdict && verdict.button) text = attackLine(a) + ' · ' + verdict.button;
       if (a.enabled === false) off = ' disabled'; /* 0.3.73: e.g. Fan before a pistol attack this turn */
       const tip = a.title ? ' title="' + esc(a.title) + '"' : '';
-      if (a.arm) return '<button type="button" class="ssm-atk ssm-arm' + (a.armed ? ' on' : '') + '" data-act="playerAttack" data-id="' + esc(a.id) + '" aria-pressed="' + (a.armed ? 'true' : 'false') + '"' + (a.enabled === false ? ' disabled' : '') + tip + '>' + esc(a.name || a.id) + '</button>';
-      return '<button type="button" class="ssm-atk' + (a.fan ? ' ssm-fan' : '') + '" data-act="playerAttack" data-id="' + esc(a.id) + '"' + off + tip + '>' + esc(text) + disMark(verdict) + '</button>';
+      const btn = a.arm
+        ? '<button type="button" class="ssm-atk ssm-arm' + (a.armed ? ' on' : '') + '" data-act="playerAttack" data-id="' + esc(a.id) + '" aria-pressed="' + (a.armed ? 'true' : 'false') + '"' + (a.enabled === false ? ' disabled' : '') + tip + '>' + esc(a.name || a.id) + '</button>'
+        : '<button type="button" class="ssm-atk' + (a.fan ? ' ssm-fan' : '') + '" data-act="playerAttack" data-id="' + esc(a.id) + '"' + off + tip + '>' + esc(text) + disMark(verdict) + '</button>';
+      if (a.arm) armHtml += btn;
+      else hitHtml += btn;
+      return btn;
     }).join('');
     const cylinders = (card.attacks || []).filter(a => (a.ammo && a.ammo.cap) || a.reloadId || a.trId).map(a => {
       const chosen = (state.rowTargets && (state.rowTargets[a.id] || state.rowTargets[a.reloadId])) || state.playerTarget || '';
@@ -10661,20 +11200,21 @@ async function loadSceneImage(sceneId, opts) {
     const itemRows = window.SSDNSItems && card.items && card.items.length
       ? '<div class="ssm-section">Items</div>' + window.SSDNSItems.drawerRows(card.items, { name: card.name || '' })
       : '';
-    slot.innerHTML =
+    if (n62on) n62PaintPlayer(card, { armHtml: armHtml, hitHtml: hitHtml, cylinders: cylinders, itemRows: itemRows, targetHtml: targetHtml });
+    else slot.innerHTML =
       (attacks ? '<div class="ssm-section">Attacks</div>' + attacks : '') +
       (cylinders ? '<div class="ssm-section">Cylinder</div>' + cylinders : '') +
       spells +
       itemRows;
-    bindSpellFold(slot);
-    slot.querySelectorAll('[data-act="useItem"]').forEach(b => {
+    bindSpellFold(root);
+    root.querySelectorAll('[data-act="useItem"]').forEach(b => {
       b.addEventListener('click', () => playerUseItem(b.getAttribute('data-uid')));
     });
-    slot.querySelectorAll('[data-act="playerAttack"], [data-act="playerSpell"], [data-act="playerReload"], [data-act="playerTr"], [data-act="playerClean"], [data-act="playerUnjam"], [data-act="playerReopen"], [data-act="playerUnload"]').forEach(b => {
+    root.querySelectorAll('[data-act="playerAttack"], [data-act="playerSpell"], [data-act="playerReload"], [data-act="playerTr"], [data-act="playerClean"], [data-act="playerUnjam"], [data-act="playerReopen"], [data-act="playerUnload"]').forEach(b => {
       b.addEventListener('click', () => runPlayer(b.getAttribute('data-id') || b.getAttribute('data-wid')));
     });
     const appGun = () => window.SSDNSApp || null;
-    slot.querySelectorAll('[data-act="playerPool"]').forEach(sel => {
+    root.querySelectorAll('[data-act="playerPool"]').forEach(sel => {
       sel.addEventListener('change', () => {
         const app = appGun();
         if (app && app.setAmmoPool) app.setAmmoPool(Number(sel.getAttribute('data-gun')), sel.value);
@@ -10689,17 +11229,17 @@ async function loadSceneImage(sceneId, opts) {
         paintPlayerFight();
       });
     };
-    slot.querySelectorAll('[data-act="playerAdv"]').forEach(b => bindMode(b, 'adv'));
-    slot.querySelectorAll('[data-act="playerDis"]').forEach(b => bindMode(b, 'dis'));
-    slot.querySelectorAll('[data-act="playerHexLvl"]').forEach(sel => {
+    root.querySelectorAll('[data-act="playerAdv"]').forEach(b => bindMode(b, 'adv'));
+    root.querySelectorAll('[data-act="playerDis"]').forEach(b => bindMode(b, 'dis'));
+    root.querySelectorAll('[data-act="playerHexLvl"]').forEach(sel => {
       sel.addEventListener('change', () => rememberGun(sel, 'hex', sel.value));
     });
-    slot.querySelectorAll('[data-act="playerHex"]').forEach(b => {
+    root.querySelectorAll('[data-act="playerHex"]').forEach(b => {
       b.addEventListener('click', () => {
         const gi = b.getAttribute('data-gun');
-        const lvl = slot.querySelector('[data-act="playerHexLvl"][data-gun="' + gi + '"]');
-        const spell = slot.querySelector('[data-act="playerCastSpell"][data-gun="' + gi + '"]');
-        const slotSel = slot.querySelector('[data-act="playerCastSlot"][data-gun="' + gi + '"]');
+        const lvl = root.querySelector('[data-act="playerHexLvl"][data-gun="' + gi + '"]');
+        const spell = root.querySelector('[data-act="playerCastSpell"][data-gun="' + gi + '"]');
+        const slotSel = root.querySelector('[data-act="playerCastSlot"][data-gun="' + gi + '"]');
         const spellVal = spell && spell.value || '';
         const spellLv = parseInt(String(spellVal).split(':')[0], 10) || 0;
         const hexLv = parseInt(lvl && lvl.value, 10) || 1;
@@ -10710,22 +11250,22 @@ async function loadSceneImage(sceneId, opts) {
         paintPlayerFight();
       });
     });
-    slot.querySelectorAll('[data-act="playerCastSpell"], [data-act="playerCastSlot"]').forEach(sel => {
+    root.querySelectorAll('[data-act="playerCastSpell"], [data-act="playerCastSlot"]').forEach(sel => {
       sel.addEventListener('change', () => {
         rememberGun(sel, sel.getAttribute('data-act') === 'playerCastSpell' ? 'spell' : 'slot', sel.value);
         const app = appGun();
         const gi = sel.getAttribute('data-gun');
-        const spell = slot.querySelector('[data-act="playerCastSpell"][data-gun="' + gi + '"]');
-        const slotSel = slot.querySelector('[data-act="playerCastSlot"][data-gun="' + gi + '"]');
+        const spell = root.querySelector('[data-act="playerCastSpell"][data-gun="' + gi + '"]');
+        const slotSel = root.querySelector('[data-act="playerCastSlot"][data-gun="' + gi + '"]');
         if (app && app.prepareGunCast) app.prepareGunCast(Number(gi), spell && spell.value, slotSel && slotSel.value);
         paintPlayerFight();
       });
     });
-    slot.querySelectorAll('[data-act="playerCast"]').forEach(b => {
+    root.querySelectorAll('[data-act="playerCast"]').forEach(b => {
       b.addEventListener('click', () => {
         const gi = b.getAttribute('data-gun');
-        const spell = slot.querySelector('[data-act="playerCastSpell"][data-gun="' + gi + '"]');
-        const slotSel = slot.querySelector('[data-act="playerCastSlot"][data-gun="' + gi + '"]');
+        const spell = root.querySelector('[data-act="playerCastSpell"][data-gun="' + gi + '"]');
+        const slotSel = root.querySelector('[data-act="playerCastSlot"][data-gun="' + gi + '"]');
         const row = b.closest('.cylinder-row');
         const cyl = row && row.querySelector('[data-act="cylTarget"]');
         if (cyl && host.setSheetTarget) host.setSheetTarget(cyl.value);
@@ -10735,7 +11275,7 @@ async function loadSceneImage(sceneId, opts) {
         paintPlayerFight();
       });
     });
-    slot.querySelectorAll('[data-act="playerChamber"]').forEach(b => {
+    root.querySelectorAll('[data-act="playerChamber"]').forEach(b => {
       b.addEventListener('click', (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
@@ -10760,7 +11300,7 @@ async function loadSceneImage(sceneId, opts) {
         runPlayer(wid, { chamber: k, targetId: targetId });
       });
     });
-    slot.querySelectorAll('[data-act="playerSpin"]').forEach(b => {
+    root.querySelectorAll('[data-act="playerSpin"]').forEach(b => {
       b.addEventListener('click', (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
@@ -10772,7 +11312,7 @@ async function loadSceneImage(sceneId, opts) {
         paintPlayerFight();
       });
     });
-    slot.querySelectorAll('[data-act="playerCycle"]').forEach(b => {
+    root.querySelectorAll('[data-act="playerCycle"]').forEach(b => {
       b.addEventListener('click', (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
@@ -10781,13 +11321,21 @@ async function loadSceneImage(sceneId, opts) {
         paintPlayerFight();
       });
     });
-    slot.querySelectorAll('[data-act="cylTarget"]').forEach(sel => {
+    root.querySelectorAll('[data-act="cylTarget"]').forEach(sel => {
       sel.addEventListener('change', () => {
         const row = sel.closest('.cylinder-row');
         const gunBtn = row && row.querySelector('[data-act="playerReload"], [data-act="playerChamber"]');
         const wid = gunBtn ? (gunBtn.getAttribute('data-wid') || gunBtn.getAttribute('data-id') || '') : '';
         state.rowTargets = state.rowTargets || {};
         if (wid) state.rowTargets[wid] = sel.value;
+        state.playerTarget = sel.value;
+        if (host.setSheetTarget) host.setSheetTarget(sel.value);
+        paintPlayerFight();
+        requestDraw();
+      });
+    });
+    root.querySelectorAll('[data-act="n62Target"]').forEach(sel => {
+      sel.addEventListener('change', () => {
         state.playerTarget = sel.value;
         if (host.setSheetTarget) host.setSheetTarget(sel.value);
         paintPlayerFight();
@@ -11028,6 +11576,7 @@ async function loadSceneImage(sceneId, opts) {
     applyTokenDock(d);
     bindTokenDrag(d);
     on(d, 'click', (e) => {
+      if (n62OnClick(e, () => renderDrawer())) return;
       /* turn order PR 2 (items 8, 9): the DM page's own handler changes the player's markers; repaint after it */
       const pip = e.target.closest && e.target.closest('[data-dm-pip], [data-pip-reset], [data-dm-move], [data-dm-act]');
       if (pip && d.contains(pip)) { setTimeout(() => renderDrawer(), 30); return; }
@@ -11057,11 +11606,13 @@ async function loadSceneImage(sceneId, opts) {
       });
     }
   }
-  function drawerHeadHtml(title, kind) {
-    const kindHtml = kind ? ' <span class="ssm-kind">' + esc(kind) + '</span>' : '';
+  function drawerHeadHtml(title, kind, opts) {
+    opts = opts || {};
+    const kindHtml = kind ? ' <span class="' + (opts.gear ? 'n62-pill' : 'ssm-kind') + '">' + esc(kind) + '</span>' : '';
+    const gear = opts.gear ? '<button type="button" data-act="n62Gear" class="n62-gear" title="Link, lights, darkvision, show range">⚙</button>' : '';
     return '<div class="ssm-drawer-head">' +
       '<button type="button" data-act="drawerCollapse" aria-expanded="true" title="Collapse card"><span class="ssm-dock-label">' + esc(title || 'Card') + '</span> <span data-act="drawerCaret" aria-hidden="true">▸</span></button>' +
-      '<b>' + esc(title || 'Card') + '</b>' + kindHtml +
+      '<b>' + esc(title || 'Card') + '</b>' + kindHtml + gear +
       '<button type="button" data-act="drawerDock" title="Dock to the side" hidden>Dock</button>' +
       '<button type="button" data-act="drawerReset" title="Reset card position" aria-label="Reset card position">Reset</button>' +
       '<button type="button" data-act="drawerClose">×</button></div>';
@@ -11110,6 +11661,7 @@ async function loadSceneImage(sceneId, opts) {
       el.appendChild(d);
       bindDmCard(d);
     }
+    d.classList.remove('n62');
     const tokenId = state.drawerTokenId;
     const assetTok = state.tokens.find(t => t && t.id === tokenId && t.kind === 'asset');
     if (assetTok) {
@@ -11395,7 +11947,28 @@ async function loadSceneImage(sceneId, opts) {
     const revealHpRow = (!isPc && !noHpPool)
       ? '<label class="ssm-act" title="Players see this token\'s HP bar on the map. Name, AC, and the stat block stay as they are."><input type="checkbox" data-act="revealHp"' + (card.revealHp ? ' checked' : '') + '> Reveal HP</label>'
       : '';
-    d.innerHTML =
+    d.classList.toggle('n62', !!isPc);
+    const n62Bars = weaponBar + targetBar + offhandToggle(isPc && canAct && (card.attacks || []).length) + fanToggle(isPc && canAct && card.pistolero === true && (card.attacks || []).length);
+    d.innerHTML = isPc ? n62DmHtml({
+      card: card,
+      tokenId: tokenId,
+      attacks: attacks,
+      cylinders: cylinders,
+      bars: n62Bars,
+      weaponOptions: weaponOptions,
+      condOptions: condOptions,
+      conds: conds,
+      coverRow: coverRow,
+      death: deathLine,
+      tactics: card.tactics || '',
+      markerRow: markerRow,
+      actToggle: actToggle,
+      bomb: window.SSDNSInteract ? window.SSDNSInteract.bombPanelHtml(state.tokens.find(t => t && t.id === tokenId)) : '',
+      pending: pendingBannerHtml(tokenId),
+      light: lightDrawerHtml(state.tokens.find(t => t && t.id === tokenId)),
+      gear: gearDrawerHtml(card),
+      grabAttr: grabAttr
+    }) : (
       drawerHeadHtml(card.name || tokenId, card.kind || '') +
       '<div class="ssm-drawer-body">' +
       lightDrawerHtml(state.tokens.find(t => t && t.id === tokenId)) +
@@ -11443,8 +12016,15 @@ async function loadSceneImage(sceneId, opts) {
         '<button type="button" data-act="robBtn"' + grabAttr + '>Rob/Disarm</button>' +
       '</div>' +
       '<button type="button" data-act="imageBtn">Replace image</button>' +
-      '</div>';
+      '</div>');
     bindSpellFold(d);
+    d.querySelectorAll('details[data-n62-acc]').forEach(box => {
+      box.addEventListener('toggle', () => {
+        const ui = n62Ensure();
+        ui.acc = ui.acc || {};
+        ui.acc[box.getAttribute('data-n62-acc') || ''] = !!box.open;
+      });
+    });
     bindBomb(d, state.tokens.find(t => t && t.id === tokenId));
     const readHp = () => {
       const elAmt = d.querySelector('[data-act="hpAmt"]');

@@ -11027,6 +11027,20 @@ function mapDrawerCard(row) {
       dmActsAs: row.kind === "player" ? !!row.dmActsAs : false,
       lastWeaponId: row.lastWeaponId || "",
       calling: snapFeats.calling || snapFeats.callingId || "",
+      init: snapFeats.initBonus != null ? snapFeats.initBonus : "",
+      conc: snapFeats.concSpell || "",
+      slots: (function () {
+        const bag = (snapFeats.spells && snapFeats.spells.slots) || {};
+        const spentBag = (snapFeats.spells && snapFeats.spells.spent) || {};
+        const out = {};
+        Object.keys(bag).forEach((lv) => {
+          const total = Number(bag[lv]) || 0;
+          if (!total) return;
+          out[lv] = { total: total, spent: Number(spentBag[lv]) || 0 };
+        });
+        return out;
+      })(),
+      items: row.kind === "player" ? ((snapFeats.items) || []) : [],
       /* B8: DM drawer only. SSDNSMapCards.get is not called for a player. */
       inventory: row.kind === "player" ? [] : (Array.isArray(row.inventory) ? row.inventory.map((item) => Object.assign({}, item)) : []),
       lootDropped: row.kind === "player" ? "" : (row.lootDropped || ""),
