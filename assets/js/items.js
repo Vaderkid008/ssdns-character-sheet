@@ -1569,7 +1569,10 @@
     if (Lgt && Lgt.specFor && Lgt.specFor(item) && !view.blank) {
       var lsp = Lgt.specFor(item);
       var lr = Lgt.radii(item);
-      if (lsp.slot === "hand") lightBtns += '<button type="button" class="btn xs' + (item.lightHeld ? " btn-primary" : "") + '" data-light-hold="' + esc(item.uid) + '" title="A torch, lamp, or candle takes one hand. A two-handed gun, or a shield plus a weapon, can fill both hands.">' + (item.lightHeld ? "In hand ✓" : "Hold (uses a hand)") + "</button> ";
+      if (lsp.slot === "hand") {
+        var slotLabel = item.lightHeld && Lgt.slotName ? Lgt.slotName(item.lightSlot) : "";
+        lightBtns += '<button type="button" class="btn xs' + (item.lightHeld ? " btn-primary" : "") + '" data-light-hold="' + esc(item.uid) + '" title="Takes one hand: Pistol L, Pistol R, or Melee on the paper doll. A two-handed gun, or a shield plus a weapon, can fill both hands.">' + (item.lightHeld ? "In hand" + (slotLabel ? " · " + esc(slotLabel) : "") + " ✓" : "Hold (uses a hand)") + "</button> ";
+      }
       if (lsp.hood) lightBtns += '<button type="button" class="btn xs' + (item.hoodDown ? " btn-primary" : "") + '" data-light-hood="' + esc(item.uid) + '">' + (item.hoodDown ? "Hood down · 5 ft dim" : "Hood up · 30/30") + "</button> ";
       if (item.lightOut) lightBtns += '<span class="item-tag">Out</span> ';
       if (lr) lightBtns += '<span class="item-tag item-light" data-item-light>' + (lr.bright ? lr.bright + " ft bright / " + lr.dim + " ft dim" : lr.dim + " ft dim only") + (lr.cone ? " · cone" : "") + (lsp.placeholder ? " · PENDING Encounter Bot" : "") + "</span> ";
@@ -2449,6 +2452,7 @@
       else hr = root.SSDNSLighting.hold(character(), holdId, flip);
       if (hr && !hr.ok && root.SSDNSSheet && root.SSDNSSheet.showNotice) root.SSDNSSheet.showNotice(hr.reason);
       paintSheet();
+      if (hr && hr.ok && root.SSDNSDoll && root.SSDNSDoll.paint) root.SSDNSDoll.paint();
       return;
     }
     var hoodId = t.getAttribute("data-light-hood");
