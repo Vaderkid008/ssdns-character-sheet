@@ -3649,11 +3649,20 @@ function applyAssignedBeams(row, name, rolled, picks, rollId) {
     if (b.push) bit += " · push " + b.push + " ft";
     return bit;
   });
-  (resolved.beams || []).forEach((b) => {
-    if (!b || !b.targetId) return;
-    const knownBeam = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(name) : null;
-    spellMapFx(row && row.id, b.targetId, name, knownBeam, b.hit ? (b.crit ? "crit" : "hit") : "miss");
-  });
+  const knownBeam = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(name) : null;
+  if (/scorching ray/i.test(name || "")) {
+    const rays = (resolved.beams || []).filter((b) => b && b.targetId).map((b) => ({
+      id: b.targetId,
+      result: b.hit ? (b.crit ? "crit" : "hit") : "miss",
+      miss: !b.hit
+    }));
+    if (rays.length) spellMapFx(row && row.id, rays[0].id, name, knownBeam, rays[0].result, { rays: rays });
+  } else {
+    (resolved.beams || []).forEach((b) => {
+      if (!b || !b.targetId) return;
+      spellMapFx(row && row.id, b.targetId, name, knownBeam, b.hit ? (b.crit ? "crit" : "hit") : "miss");
+    });
+  }
   (resolved.groups || []).forEach((g, idx) => {
     if (!g || !g.id || !(g.total > 0)) return;
     if (fight.damageMode === "approve") return;
@@ -3668,7 +3677,7 @@ function applyAssignedBeams(row, name, rolled, picks, rollId) {
   const totalLine = resolved.totalLine ? ((name || "Spell") + " total: " + resolved.totalLine) : "";
   return { notes, totalLine, resolved };
 }
-function noteDust(row, spellName) {
+function noteDust(row, spellName, fromId) {
   if (!row || noHpPoolRow(row)) return;
   const R = window.SSDNSSpellRiders;
   const spec = R && R.zeroState ? R.zeroState({ name: spellName || "Disintegrate", zeroHp: "disintegrated" }) : { status: "Disintegrated", chip: "Disintegrated", log: "disintegrated (dust)" };
@@ -3689,6 +3698,7 @@ function noteDust(row, spellName) {
   DM.toast(line);
   DM.pushLedger({ who: "DM", playerId: row.kind === "player" ? subjectId : "all", type: "condition", what: line, oldVal: null, newVal: spec.chip || "Disintegrated", flag: false });
   rememberCondition({ id: DM.state.uid || "dm", name: "DM", kind: "player" }, row, spec.chip || "Disintegrated", null, { spell: spellName || "Disintegrate" }).catch(() => {});
+  queueDustFx(fromId, subjectId, spellName || "Disintegrate");
 }
 function applyDartGroups(row, name, rolled, picks, rollId) {
   const Area = window.SSDNSSpellArea;
@@ -5325,6 +5335,10 @@ function onEnemySheetClick(e) {
           rollId: DM.uid("spell"), targetId: one.id, targetName: one.name, amount: rolled.damageTotal || 0,
           from: row.id, characterName: row.name, label: spellName, type: "damage"
         });
+        if (/witch bolt/i.test(spellName || "")) {
+          const knownPulse = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(spellName) : null;
+          spellMapFx(row.id, one.id, spellName, knownPulse, "hit", { pulse: true });
+        }
         DM.toast(rolled.text);
         return;
       }
@@ -5878,13 +5892,30 @@ function mapFx(spec) {
 }
 /* Locked spell looks. Ribbon stays on the attack line that already calls mapFx.
    Named and utility looks fire here when a cast did not already draw a line. */
-function spellMapFx(shooter, target, name, known, result) {
+let dustFxWait = null;
+function coverDustFx() {
+  if (dustFxWait) { clearTimeout(dustFxWait); dustFxWait = null; }
+}
+function queueDustFx(fromId, targetId, spellName) {
+  coverDustFx();
+  dustFxWait = setTimeout(() => {
+    dustFxWait = null;
+    const known = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(spellName || "Disintegrate") : null;
+    spellMapFx(fromId || targetId, targetId, spellName || "Disintegrate", known, "hit", { crumbOnly: true, dust: true });
+  }, 50);
+}
+function targetDusted(id) {
+  const t = resolveStrikeTarget(id);
+  return !!(t && (t.disintegrated || /disintegrat/i.test(String(t.status || ""))));
+}
+function spellMapFx(shooter, target, name, known, result, extra) {
   const FX = window.SSDNSMapFx;
   const dmg = (known && known.type) || "";
   const look = FX && FX.lookOf ? FX.lookOf({ type: "spell", spell: name, dmg: dmg }) : "";
   if (!look || look === "token") return null;
   const self = !target || target === shooter;
-  return mapFx({
+  extra = extra || {};
+  const body = {
     type: "spell",
     shooter: shooter,
     target: self ? "" : (target || shooter),
@@ -5894,7 +5925,14 @@ function spellMapFx(shooter, target, name, known, result) {
     spell: name || "",
     dmg: dmg,
     heard: []
-  });
+  };
+  if (extra.hops && extra.hops.length) body.hops = extra.hops;
+  if (extra.rays && extra.rays.length) body.rays = extra.rays;
+  if (extra.dust) body.dust = true;
+  if (extra.crumbOnly) body.crumbOnly = true;
+  if (extra.pulse) body.pulse = true;
+  if (body.dust) coverDustFx();
+  return mapFx(body);
 }
 /* Area, wall, cone, and line casts. The lasting zone is separate. This is the one-shot at the placed point. */
 function areaMapFx(shooter, name, known, placed) {
@@ -6278,6 +6316,8 @@ async function rollSpellAt(row, spellId, targetId) {
     }
   } else if (kind === "save" && (target || (multiPicks && multiPicks.length))) {
     const saveList = multiPicks && multiPicks.length ? multiPicks : [target];
+    const chainCast = /chain lightning/i.test(name || "");
+    const chainIds = [];
     let nSave = 0;
     for (const one of saveList) {
       const whoT = resolveStrikeTarget(one.id) || one;
@@ -6307,7 +6347,15 @@ async function rollSpellAt(row, spellId, targetId) {
           failed: !!(save.failed && !save.blocked)
         });
       }
-      spellMapFx(row.id, whoT.id, name, known, "hit");
+      if (chainCast) chainIds.push(whoT.id);
+      else spellMapFx(row.id, whoT.id, name, known, "hit", {
+        dust: /disintegrat/i.test(name || "") && targetDusted(whoT.id)
+      });
+    }
+    if (chainCast && chainIds.length) {
+      spellMapFx(row.id, chainIds[0], name, known, "hit", {
+        hops: chainIds.slice(1).map((hopId) => ({ id: hopId }))
+      });
     }
   } else if (kind === "heal" && (target || (multiPicks && multiPicks.length)) && fight.damageMode !== "approve") {
     const healList = multiPicks && multiPicks.length ? multiPicks : [target];
@@ -8571,7 +8619,7 @@ function applyPlayerHit(meta) {
   const dustHit = !heal && after <= 0 && meta.zeroHp === "disintegrated";
   if (dustHit) {
     if (row) row.disintegrated = true;
-    noteDust(row || { kind: snap ? "player" : "enemy", playerId: meta.targetId, id: (row && row.id) || meta.targetId, name: name, hp: 0 }, meta.label || meta.weapon || "Disintegrate");
+    noteDust(row || { kind: snap ? "player" : "enemy", playerId: meta.targetId, id: (row && row.id) || meta.targetId, name: name, hp: 0 }, meta.label || meta.weapon || "Disintegrate", meta.from || "");
   } else if (after <= 0) noteUnconscious(row || { kind: snap ? "player" : "enemy", playerId: meta.targetId, id: (row && row.id) || meta.targetId, name: name, hp: 0 });
   else if (row && after > 0) clearDown(row);
   if (!heal && row && row.kind !== "player") {
