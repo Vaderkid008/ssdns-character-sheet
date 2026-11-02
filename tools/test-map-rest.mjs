@@ -1,5 +1,5 @@
 /**
- * Map toolbar Short / Long rest (sheet 0.3.201 / DMCC 0.2.214).
+ * Map toolbar Short / Long rest (sheet 0.3.202 / DMCC 0.2.215).
  * Player buttons call SSDNSSheet.applyRest. DM buttons call the same rest as the Fight tab.
  *   node tools/test-map-rest.mjs
  */
@@ -18,12 +18,12 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.201" && version.sheetBuild === "sheet-playtest-v03201");
-check("ver.dmcc", version.dmcc === "0.2.214" && version.dmccBuild === "dmcc-playtest-v02214");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.201"') && read("assets/js/app.js").includes("sheet-playtest-v03201"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.214"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02214"));
-check("html.sheet", read("index.html").includes("map/ssdns-map.js?v=0.3.201-encounter") && read("index.html").includes("assets/js/app.js?v=0.3.201-encounter"));
-check("html.dm", read("dm/index.html").includes("../map/ssdns-map.js?v=0.2.214-encounter") && read("dm/index.html").includes("assets/js/v2.js?v=0.2.214-encounter") && read("dm/index.html").includes("assets/js/dmcc.js?v=0.2.214-encounter"));
+check("ver.sheet", version.sheet === "0.3.202" && version.sheetBuild === "sheet-playtest-v03202");
+check("ver.dmcc", version.dmcc === "0.2.215" && version.dmccBuild === "dmcc-playtest-v02215");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.202"') && read("assets/js/app.js").includes("sheet-playtest-v03202"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.215"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02215"));
+check("html.sheet", read("index.html").includes("map/ssdns-map.js?v=0.3.202-c1") && read("index.html").includes("assets/js/app.js?v=0.3.202-c1"));
+check("html.dm", read("dm/index.html").includes("../map/ssdns-map.js?v=0.2.215-c1") && read("dm/index.html").includes("assets/js/v2.js?v=0.2.215-c1") && read("dm/index.html").includes("assets/js/dmcc.js?v=0.2.215-c1"));
 
 const mapSrc = read("map/ssdns-map.js");
 const toolbar = mapSrc.slice(mapSrc.indexOf("toolbar.innerHTML"), mapSrc.indexOf("el.appendChild(toolbar)"));

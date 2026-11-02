@@ -99,6 +99,8 @@
       var timing = lookTime(look);
       p.impactAt = timing.grow;
       p.duration = timing.grow + timing.hold + timing.fade + 180;
+      if (look === "witch-bolt" && info.pulse) { p.impactAt = 80; p.duration = 720; }
+      if (look === "disintegrate" && info.crumbOnly) { p.impactAt = 40; p.duration = 2300; }
       p.look = look;
     }
     else if (type === "boom") {
@@ -113,6 +115,29 @@
 
   /* ---------- public row: only these fields ever leave the DM's client ---------- */
   function num1(v) { var n = Number(v); return isFinite(n) ? Math.round(n * 10) / 10 : null; }
+  function packList(list, limit) {
+    if (!Array.isArray(list)) return null;
+    var out = [];
+    list.forEach(function (item) {
+      if (out.length >= limit) return;
+      if (item == null) return;
+      if (typeof item === "string" || typeof item === "number") {
+        var rawId = String(item).trim();
+        if (/^[A-Za-z0-9_-]{1,80}$/.test(rawId)) out.push({ id: rawId });
+        return;
+      }
+      if (typeof item !== "object") return;
+      var row = {};
+      if (item.id && /^[A-Za-z0-9_-]{1,80}$/.test(String(item.id))) row.id = String(item.id);
+      var x = num1(item.x), y = num1(item.y);
+      if (x != null && y != null) { row.x = x; row.y = y; }
+      var res = item.result ? resultOf(item.result) : "";
+      if (res) row.result = res;
+      if (item.miss || res === "miss") row.miss = true;
+      if (row.id || (row.x != null && row.y != null)) out.push(row);
+    });
+    return out.length ? out : null;
+  }
   function sanitize(spec) {
     if (!spec || typeof spec !== "object") return null;
     var out = { v: 1, type: TYPES.indexOf(spec.type) >= 0 ? spec.type : "gun", result: resultOf(spec.result) };
@@ -133,6 +158,13 @@
     if (spec.facing != null && isFinite(face)) out.facing = Math.round(face * 1000) / 1000;
     if (spec.weaponId) out.weaponId = String(spec.weaponId).replace(/[^a-z0-9-]/gi, "").slice(0, 60);
     if (spec.scene) out.scene = String(spec.scene).slice(0, 60);
+    var hops = packList(spec.hops, 6);
+    if (hops) out.hops = hops;
+    var rays = packList(spec.rays, 8);
+    if (rays) out.rays = rays;
+    if (spec.dust) out.dust = true;
+    if (spec.crumbOnly) out.crumbOnly = true;
+    if (spec.pulse) out.pulse = true;
     var nat = Number(spec.nat);
     if (spec.nat != null && isFinite(nat) && nat >= 1 && nat <= 20) out.nat = Math.round(nat);
     if (spec.crit) out.crit = true;
@@ -161,6 +193,13 @@
       r.at = { x: Math.round(Number(info.at.x) * 10) / 10, y: Math.round(Number(info.at.y) * 10) / 10 };
     }
     if (info.weaponId) r.weaponId = String(info.weaponId).replace(/[^a-z0-9-]/gi, "").slice(0, 60);
+    var reqHops = packList(info.hops, 6);
+    if (reqHops) r.hops = reqHops;
+    var reqRays = packList(info.rays, 8);
+    if (reqRays) r.rays = reqRays;
+    if (info.dust) r.dust = true;
+    if (info.crumbOnly) r.crumbOnly = true;
+    if (info.pulse) r.pulse = true;
     if (info.arrow) r.arrow = String(info.arrow).replace(/[^a-z-]/gi, "").slice(0, 20);
     var n = Number(info.nat);
     if (info.nat != null && isFinite(n) && n >= 1 && n <= 20) r.nat = Math.round(n);
@@ -378,7 +417,10 @@
   /* Locked palette (specs/spell-fx/spell-fx-palette.json). The six v5 types use those locked colours.
      Fireball is its own powder-keg sphere (not the Fire Bolt beam). Thunderwave is a cube off the caster.
      Burning Hands is a 15-ft blast off the palm, not the chunk cone chip. Shatter is a wedge plus a 10-ft burst.
-     Witch Bolt stays on lightning. Grease, Light, Daylight, and Wall of Fire are zones, not beams. */
+     Chunk 1 Phase 1 paints named outlines for Witch Bolt, Scorching Ray, Guiding Bolt, Sacred Flame,
+     Chill Touch, Acid Arrow, Poison Spray, Chain Lightning, and Disintegrate.
+     Shocking Grasp and Lightning Bolt stay on lightning. Fire Bolt stays on fire. Acid Splash stays on acid.
+     Spiritual Weapon stays a token. Grease, Light, Daylight, and Wall of Fire are zones, not beams. */
   var LOOK_TIME = {
     ribbon: { grow: 220, hold: 140, fade: 450 },
     fire: { grow: 300, hold: 0, fade: 280 },
@@ -407,7 +449,17 @@
     heal: { grow: 200, hold: 280, fade: 500 },
     bless: { grow: 180, hold: 400, fade: 500 },
     fog: { grow: 400, hold: 600, fade: 500 },
-    hand: { grow: 280, hold: 200, fade: 400 }
+    hand: { grow: 280, hold: 200, fade: 400 },
+    /* Chunk 1 Phase 1 clocks. They follow the Love-it outlines, not the short damage-type beams. */
+    "witch-bolt": { grow: 70, hold: 2930, fade: 700 },
+    "scorching-ray": { grow: 110, hold: 520, fade: 400 },
+    "guiding-bolt": { grow: 230, hold: 1500, fade: 280 },
+    "sacred-flame": { grow: 360, hold: 1100, fade: 600 },
+    "chill-touch": { grow: 300, hold: 750, fade: 700 },
+    "acid-arrow": { grow: 380, hold: 2920, fade: 800 },
+    "poison-spray": { grow: 150, hold: 500, fade: 650 },
+    "chain-lightning": { grow: 260, hold: 2400, fade: 700 },
+    "disintegrate": { grow: 60, hold: 1740, fade: 1100 }
   };
   var SELF_LOOKS = { shield: 1, magearmor: 1, pwt: 1, invis: 1, flameblade: 1, fireshield: 1, produceflame: 1, agathys: 1, tintype: 1, haze: 1 };
   /* N85 Chunks 2–6 named looks. Damage-type keys already locked by tests stay on lookOf's later pass. */
@@ -496,7 +548,17 @@
     "wind wall": "gale",
     "banishment": "rift",
     "black tentacles": "tentacles",
-    "polymorph": "morph"
+    "polymorph": "morph",
+    /* Chunk 1 Phase 1 named looks. Damage-type painters stay for the other spells on those types. */
+    "witch bolt": "witch-bolt",
+    "scorching ray": "scorching-ray",
+    "guiding bolt": "guiding-bolt",
+    "sacred flame": "sacred-flame",
+    "chill touch": "chill-touch",
+    "acid arrow": "acid-arrow",
+    "poison spray": "poison-spray",
+    "chain lightning": "chain-lightning",
+    "disintegrate": "disintegrate"
   };
   var CHUNK_KIND = {
     briar: "zone", foxfire: "wrap", chloroform: "shot", jinx: "wrap", agathys: "held",
@@ -635,18 +697,18 @@
       if (/^bless$/.test(name)) return "bless";
       if (/fog cloud/.test(name)) return "fog";
       if (/mage hand/.test(name)) return "hand";
-      if (/^acid splash$|^acid arrow$/.test(name)) return "acid";
-      if (/^poison spray$|^cloudkill$/.test(name)) return "poison";
-      if (/^chill touch$|^inflict wounds$|^blight$/.test(name)) return "necrotic";
-      if (/^sacred flame$|^guiding bolt$|^moonbeam$|^spirit guardians$/.test(name)) return "radiant";
+      if (/^acid splash$/.test(name)) return "acid";
+      if (/^cloudkill$/.test(name)) return "poison";
+      if (/^inflict wounds$|^blight$/.test(name)) return "necrotic";
+      if (/^moonbeam$|^spirit guardians$/.test(name)) return "radiant";
       /* Shatter is the wedge-plus-burst. Thunderous Smite and a bare thunder damage type stay on thunderPaint. */
       if (/^shatter$/.test(name)) return "shatter";
       /* Zones paint themselves. An empty look must not fall through to a fire beam. */
       if (/^grease$|^light$|^daylight$|^wall of fire$/.test(name)) return "";
       /* Attack spells whose only look was the damage-type pass. An empty dmg (hidden AC pending resolve) used to paint the purple ribbon. */
-      if (/^fire bolt$|^scorching ray$/.test(name)) return "fire";
+      if (/^fire bolt$/.test(name)) return "fire";
       if (/^ray of frost$/.test(name)) return "cold";
-      if (/^shocking grasp$|^witch bolt$/.test(name)) return "lightning";
+      if (/^shocking grasp$/.test(name)) return "lightning";
     }
     var dmg = low(spec.dmg || spec.dmgType || spec.damageType);
     if (/(^|[^a-z])fire([^a-z]|$)/.test(dmg)) return "fire";
@@ -1267,6 +1329,10 @@ function blastShake(lt, amp, dur) {
 }
 function shakeOf(spec, lt) {
   var look = lookOf(spec || {});
+  if (C1_LOOKS[look]) {
+    if (look === "witch-bolt" && spec && spec.pulse) return { x: 0, y: 0 };
+    return Chunk1Fx.shakeOf(look, lt);
+  }
   if (look === "thundercube") return blastShake(lt, 8, 760);
   if (look === "fireball") return blastShake(lt - LOOK_TIME.fireball.grow, 11, 1000);
   if (look === "firecone") return blastShake(lt, 4, 420);
@@ -1977,10 +2043,653 @@ function beadsPaint(ctx, A, B, lt, seed) {
     }
     ctx.restore();
   }
+  /* Chunk 1 Phase 1 Love-it outlines. Shape + clear effect, ported from the demo painters.
+     Ground marks share this overlay (above tokens) so they stay on the same clock as the beam.
+     The scripted ally shot in Guiding Bolt only runs when G.pop is set by a later real hit. */
+  var Chunk1Fx = (function () {
+
+  var TAU = Math.PI * 2;
+  var PAL = {
+    lightning: { glow: '85,120,240', core: '232,236,255', hot: '255,255,255' },
+    force: { teal: '95,220,205', deep: '30,140,140', violet: '150,50,230' },
+    fire: { glow: '200,60,15', core: '255,125,35', hot: '255,225,160', burst: '255,140,45' },
+    radiant: { glow: '230,175,70', core: '255,232,170', hot: '255,250,230' },
+    necrotic: { glow: '95,45,100', black: '6,3,8', bone: '185,170,180', ash: '120,112,118' },
+    acid: { glow: '80,135,25', core: '125,180,40', dark: '30,40,10', hot: '200,240,120' },
+    poison: { glow: '150,140,70', core: '195,185,110', dark: '40,42,18' },
+    disint: { core: '60,200,90', hot: '200,255,200', ash: '120,115,105' }
+  };
+  function clamp(v, a, b) { a = a === undefined ? 0 : a; b = b === undefined ? 1 : b; return Math.max(a, Math.min(b, v)); }
+  function rgba(c, a) { return 'rgba(' + c + ',' + clamp(a) + ')'; }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function lp(A, B, t) { return { x: lerp(A.x, B.x, t), y: lerp(A.y, B.y, t) }; }
+  function easeOut(t) { return 1 - Math.pow(1 - clamp(t), 3); }
+  // envelope: 0 before a, ramps to 1 by b, holds to c, ramps to 0 by d
+  function env(t, a, b, c, d) { if (t < a || t > d) return 0; if (t < b) return (t - a) / Math.max(1, b - a); if (t <= c) return 1; return 1 - (t - c) / Math.max(1, d - c); }
+  function rng(seed) { var s = (seed * 2654435761) >>> 0; return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+  function dist(A, B) { return Math.hypot(B.x - A.x, B.y - A.y); }
+  function norm(A, B) { var d = dist(A, B) || 1; return { x: (B.x - A.x) / d, y: (B.y - A.y) / d }; }
+  function edge(A, B, r) { var n = norm(A, B); return { x: A.x + n.x * r, y: A.y + n.y * r }; }
+
+  function jag(A, B, segs, amp, seed) {
+    var r = rng(seed), n = norm(A, B), px = -n.y, py = n.x, pts = [];
+    for (var i = 0; i <= segs; i++) {
+      var u = i / segs, o = (i === 0 || i === segs) ? 0 : (r() - 0.5) * 2 * amp;
+      pts.push({ x: lerp(A.x, B.x, u) + px * o, y: lerp(A.y, B.y, u) + py * o });
+    }
+    return pts;
+  }
+  function partial(pts, p) { // first p fraction of a polyline
+    if (p >= 1) return pts; var n = pts.length - 1, f = p * n, k = Math.floor(f), out = pts.slice(0, k + 1);
+    if (k < n) out.push(lp(pts[k], pts[k + 1], f - k)); return out;
+  }
+  function poly(ctx, pts) { ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y); }
+  function stroke(ctx, pts, w, col, blur, blurCol) {
+    if (pts.length < 2) return; ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = w; ctx.strokeStyle = col;
+    if (blur) { ctx.shadowBlur = blur; ctx.shadowColor = blurCol || col; } poly(ctx, pts); ctx.stroke(); ctx.restore();
+  }
+  function glow(ctx, x, y, r, stops) {
+    if (r <= 0.5) return; var g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    for (var i = 0; i < stops.length; i++) g.addColorStop(stops[i][0], stops[i][1]);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  }
+  function add(ctx, fn) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; fn(); ctx.restore(); }
+  function ring(ctx, x, y, r, w, col, blur) { if (r <= 0) return; ctx.save(); ctx.lineWidth = w; ctx.strokeStyle = col; if (blur) { ctx.shadowBlur = blur; ctx.shadowColor = col; } ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); ctx.restore(); }
+  // lightning bolt body (locked jag look): glow + mid + white core
+  function bolt(ctx, pts, a, thick) {
+    var k = thick || 1;
+    add(ctx, function () {
+      stroke(ctx, pts, 14 * k, rgba(PAL.lightning.glow, 0.28 * a), 18, rgba(PAL.lightning.glow, a));
+      stroke(ctx, pts, 5 * k, rgba(PAL.lightning.glow, 0.75 * a));
+      stroke(ctx, pts, 2.2 * k, rgba(PAL.lightning.core, a));
+      stroke(ctx, pts, 0.9 * k, rgba(PAL.lightning.hot, a));
+    });
+  }
+  // particles: deterministic burst
+  function sparks(ctx, x, y, t, n, seed, speed, life, col, size, grav) {
+    if (t < 0 || t > life) return; var r = rng(seed), u = t / life;
+    add(ctx, function () {
+      for (var i = 0; i < n; i++) {
+        var a = r() * TAU, v = speed * (0.4 + r() * 0.8), d = v * (1 - Math.pow(1 - u, 2)) * life / 1000 * 0.6;
+        var px = x + Math.cos(a) * d, py = y + Math.sin(a) * d + (grav || 0) * u * u;
+        ctx.fillStyle = rgba(col, (1 - u) * (0.6 + r() * 0.4)); ctx.beginPath(); ctx.arc(px, py, size * (1 - u * 0.5), 0, TAU); ctx.fill();
+      }
+    });
+  }
+
+  /* ---------- 1. WITCH BOLT ---------- */
+  var WB = { strike: 70, zap: 1900, snap: 3000 };
+  function witchBolt(ctx, lt, G) {
+    var A = G.A, B = G.T[0], rT = G.rT, S = G.S;
+    if (lt < 0) return;
+    var held = env(lt, 0, 150, WB.snap, WB.snap + 260);
+    // caster concentration ring
+    ring(ctx, S.x, S.y, G.rS + 7 + Math.sin(lt / 180) * 1.2, 2, rgba(PAL.force.teal, 0.75 * held), 8);
+    // strike-in
+    if (lt < WB.snap) {
+      var bucket = Math.floor(lt / 70), pts = jag(A, B, 12, 9, 11 + bucket);
+      var p = clamp(lt / WB.strike), zap = env(lt, WB.zap, WB.zap + 40, WB.zap + 260, WB.zap + 420);
+      var flick = 0.75 + 0.25 * rng(bucket * 7 + 3)();
+      var a = lt < 260 ? 1 : (0.55 * flick + 0.45 * zap);
+      bolt(ctx, partial(pts, p), a, lt < 260 ? 1.15 : 0.8 + 0.4 * zap);
+      // teal force rope: two strands spiralling round the beam
+      if (p >= 1) {
+        var n = norm(A, B), px = -n.y, py = n.x, L = dist(A, B), rope = clamp((lt - 70) / 220);
+        for (var s = 0; s < 2; s++) {
+          var st = [];
+          for (var i = 0; i <= 60; i++) {
+            var u = i / 60; if (u > rope) break; var taper = Math.sin(Math.PI * u) * 0.6 + 0.4;
+            var o = Math.sin(u * L / 16 - lt / 90 + s * Math.PI) * 10 * taper;
+            st.push({ x: A.x + n.x * u * L + px * o, y: A.y + n.y * u * L + py * o });
+          }
+          add(ctx, function () {
+            stroke(ctx, st, 4, rgba(PAL.force.violet, 0.25 * held), 6);
+            stroke(ctx, st, 2.6, rgba(s ? PAL.force.deep : PAL.force.teal, 0.95 * held), 4);
+          });
+        }
+      }
+      // re-zap pulse runs down the tether
+      if (lt >= WB.zap && lt < WB.zap + 220) {
+        var q = lp(A, B, (lt - WB.zap) / 220);
+        add(ctx, function () { glow(ctx, q.x, q.y, 20, [[0, rgba(PAL.lightning.hot, 1)], [0.35, rgba(PAL.force.teal, 0.8)], [1, rgba(PAL.force.teal, 0)]]); });
+      }
+    }
+    // hit flashes (strike + re-zap)
+    [[WB.strike, 1.5], [WB.zap + 220, 1.0]].forEach(function (h) {
+      var t = lt - h[0]; if (t < 0 || t > 320) return; var u = t / 320;
+      add(ctx, function () {
+        glow(ctx, B.x, B.y, G.cell * h[1] * (0.6 + 0.4 * u), [[0, rgba(PAL.lightning.hot, 0.9 * (1 - u))], [0.4, rgba(PAL.lightning.glow, 0.5 * (1 - u))], [1, rgba(PAL.lightning.glow, 0)]]);
+        ring(ctx, B.x, B.y, rT + 4 + u * G.cell * 0.9 * h[1], 3 * (1 - u) + 0.5, rgba(PAL.lightning.core, 1 - u), 10);
+      });
+    });
+    // crackling teal/violet cage ring on target
+    var cage = env(lt, WB.strike, WB.strike + 180, WB.snap, WB.snap + 260);
+    if (cage > 0) {
+      var cb = Math.floor(lt / 80), rr = rT + 6;
+      add(ctx, function () {
+        ring(ctx, B.x, B.y, rr, 2, rgba(PAL.force.teal, 0.85 * cage), 10);
+        var r = rng(cb * 13 + 5);
+        for (var k = 0; k < 6; k++) {
+          var a0 = r() * TAU, a1 = a0 + 0.5 + r() * 0.5, arc = [];
+          for (var j = 0; j <= 6; j++) { var aa = lerp(a0, a1, j / 6), rad = rr + (j % 2 ? 1 : -1) * (2 + r() * 3); arc.push({ x: B.x + Math.cos(aa) * rad, y: B.y + Math.sin(aa) * rad }); }
+          stroke(ctx, arc, 1.6, rgba(k % 2 ? PAL.force.violet : PAL.lightning.core, 0.9 * cage), 6);
+        }
+      });
+    }
+    // snap: tether breaks into fading sparks
+    var ts = lt - WB.snap;
+    if (ts >= 0 && ts < 700) {
+      var r2 = rng(77), L2 = dist(A, B), nn = norm(A, B), u2 = ts / 700;
+      add(ctx, function () {
+        for (var i = 0; i < 46; i++) {
+          var u = r2(), base = lp(A, B, u), a = r2() * TAU, v = 20 + r2() * 50, d = v * easeOut(u2) ;
+          var x = base.x + Math.cos(a) * d, y = base.y + Math.sin(a) * d;
+          ctx.fillStyle = rgba(i % 3 ? PAL.force.teal : PAL.lightning.core, (1 - u2) * 0.9);
+          ctx.beginPath(); ctx.arc(x, y, 1.8 * (1 - u2 * 0.6), 0, TAU); ctx.fill();
+        }
+        // two snapped halves retracting
+        var half = 0.5 * (1 - easeOut(clamp(ts / 260)));
+        if (half > 0.01) {
+          bolt(ctx, partial(jag(A, B, 12, 9, 999), half), 0.6 * (1 - ts / 260), 0.6);
+          bolt(ctx, partial(jag(B, A, 12, 9, 998), half), 0.6 * (1 - ts / 260), 0.6);
+        }
+      });
+    }
+  }
+
+  /* ---------- 2. SCORCHING RAY ---------- */
+  var SR = { gap: 90, travel: 110, hold: 170, fade: 300 };
+  function rayEnd(G, i) { // ray i -> target i; G.miss[i] means fizzle past
+    var B = G.T[i]; if (!G.miss || !G.miss[i]) return B;
+    var n = norm(G.A, B); return { x: B.x + n.x * G.cell * 1.6 - n.y * G.cell * 0.95, y: B.y + n.y * G.cell * 1.6 + n.x * G.cell * 0.95 };
+  }
+  function scorchingUnder(ctx, lt, G) {
+    for (var i = 0; i < G.T.length; i++) {
+      var t = lt - i * SR.gap - SR.travel; if (t < 0) continue;
+      var E = rayEnd(G, i), a = clamp(t / 200) * 0.5, A = edge(G.A, E, 4);
+      var B = (G.miss && G.miss[i]) ? lp(A, E, 0.8) : edge(E, A, G.rT);
+      stroke(ctx, [A, B], 3, 'rgba(20,10,4,' + a + ')');
+      stroke(ctx, [A, B], 1, 'rgba(90,40,10,' + a * 0.7 + ')');
+    }
+  }
+  function scorching(ctx, lt, G) {
+    for (var i = 0; i < G.T.length; i++) {
+      var t = lt - i * SR.gap; if (t < 0) continue;
+      var E = rayEnd(G, i), miss = G.miss && G.miss[i], A = G.A;
+      var head = clamp(t / SR.travel), tail = clamp((t - SR.travel - SR.hold) / SR.fade);
+      var a = 1 - clamp((t - SR.travel - SR.hold) / SR.fade) * 0.6;
+      if (tail < 1) {
+        var H = lp(A, E, easeOut(head)), Tl = lp(A, E, easeOut(tail) * 0.97);
+        if (miss) { H = lp(A, E, Math.min(easeOut(head), 0.86)); }
+        var flick = 0.85 + 0.15 * Math.sin(t / 23 + i);
+        add(ctx, function () {
+          stroke(ctx, [Tl, H], 11, rgba(PAL.fire.glow, 0.35 * a), 14, rgba(PAL.fire.glow, 0.9));
+          stroke(ctx, [Tl, H], 4.5 * flick, rgba(PAL.fire.core, 0.95 * a));
+          stroke(ctx, [Tl, H], 1.6, rgba(PAL.fire.hot, a));
+          glow(ctx, H.x, H.y, 9, [[0, rgba(PAL.fire.hot, a)], [1, rgba(PAL.fire.core, 0)]]);
+        });
+        // short ember trail along the ray
+        var r = rng(31 + i);
+        add(ctx, function () {
+          for (var k = 0; k < 16; k++) {
+            var u = r(), age = t - u * SR.travel; if (age < 0 || u > easeOut(head)) continue;
+            var P = lp(A, E, u), off = (r() - 0.5) * 2 * (3 + age / 40), life = clamp(age / 500);
+            var n = norm(A, E);
+            ctx.fillStyle = rgba(PAL.fire.burst, (1 - life) * 0.8);
+            ctx.beginPath(); ctx.arc(P.x - n.y * off, P.y + n.x * off - age / 60, 1.4, 0, TAU); ctx.fill();
+          }
+        });
+      }
+      var th = t - SR.travel;
+      if (!miss) { // small Fire Bolt burst + embers on hit
+        if (th >= 0 && th < 520) {
+          var u = th / 520, B = G.T[i];
+          add(ctx, function () {
+            glow(ctx, B.x, B.y, G.cell * (0.35 + 0.45 * easeOut(clamp(th / 140))), [[0, rgba(PAL.fire.hot, 0.95 * (1 - u))], [0.35, rgba(PAL.fire.core, 0.75 * (1 - u))], [1, rgba(PAL.fire.glow, 0)]]);
+          });
+          sparks(ctx, B.x, B.y, th, 14, 50 + i, 140, 520, PAL.fire.burst, 1.6, -10);
+        }
+      } else if (th > -40 && th < 600) { // fizzle into embers past target
+        var F = lp(A, E, 0.86);
+        sparks(ctx, F.x, F.y, Math.max(0, th), 18, 90 + i, 70, 600, PAL.fire.core, 1.3, 14);
+        add(ctx, function () { glow(ctx, F.x, F.y, 12, [[0, rgba(PAL.fire.core, 0.5 * (1 - clamp(th / 300)))], [1, rgba(PAL.fire.glow, 0)]]); });
+      }
+    }
+  }
+
+  /* ---------- 3. GUIDING BOLT ---------- */
+  var GB = { travel: 230, pop: 2600 };
+  function guiding(ctx, lt, G) {
+    var A = G.A, B = G.T[0], n = norm(A, B), L = dist(A, B), rT = G.rT;
+    var C = { x: (A.x + B.x) / 2 - n.y * L * 0.18, y: (A.y + B.y) / 2 + n.x * L * 0.18 };
+    function qb(u) { var v = 1 - u; return { x: v * v * A.x + 2 * v * u * C.x + u * u * B.x, y: v * v * A.y + 2 * v * u * C.y + u * u * B.y }; }
+    if (lt >= 0 && lt < GB.travel + 160) {
+      var p = clamp(lt / GB.travel), trailA = 1 - clamp((lt - GB.travel) / 160), tr = [];
+      for (var i = 0; i <= 24; i++) { var u = Math.max(0, p - 0.45) + (p - Math.max(0, p - 0.45)) * i / 24; tr.push(qb(u)); }
+      add(ctx, function () {
+        stroke(ctx, tr, 6, rgba(PAL.radiant.glow, 0.3 * trailA), 10);
+        stroke(ctx, tr, 2, rgba(PAL.radiant.core, 0.8 * trailA));
+        if (p < 1) { var M = qb(p); glow(ctx, M.x, M.y, 16, [[0, rgba(PAL.radiant.hot, 1)], [0.3, rgba(PAL.radiant.core, 0.9)], [1, rgba(PAL.radiant.glow, 0)]]);
+          var r = rng(Math.floor(lt / 30)); for (var k = 0; k < 4; k++) { var q = qb(Math.max(0, p - r() * 0.3)); ctx.fillStyle = rgba(PAL.radiant.hot, 0.9); ctx.fillRect(q.x + (r() - .5) * 8, q.y + (r() - .5) * 8, 1.6, 1.6); } }
+      });
+    }
+    var th = lt - GB.travel;
+    if (th >= 0 && th < 420) { var u2 = th / 420; add(ctx, function () {
+      glow(ctx, B.x, B.y, G.cell * (0.7 + 0.6 * u2), [[0, rgba(PAL.radiant.hot, (1 - u2))], [0.35, rgba(PAL.radiant.core, 0.6 * (1 - u2))], [1, rgba(PAL.radiant.glow, 0)]]);
+      ring(ctx, B.x, B.y, rT + u2 * G.cell, 3 * (1 - u2) + .5, rgba(PAL.radiant.hot, 1 - u2), 10); }); }
+    // the mark: gold halo ring + star, held until the next attack pops it
+    var mark = env(lt, GB.travel + 120, GB.travel + 420, GB.pop + 60, GB.pop + 60);
+    var tp = lt - GB.pop - 60;
+    if (mark > 0) {
+      var pulse = 0.75 + 0.25 * Math.sin(lt / 260);
+      add(ctx, function () {
+        glow(ctx, B.x, B.y, rT + 16, [[0.6, rgba(PAL.radiant.glow, 0)], [0.8, rgba(PAL.radiant.glow, 0.45 * mark * pulse)], [1, rgba(PAL.radiant.glow, 0)]]);
+        ring(ctx, B.x, B.y, rT + 6, 3.5, rgba(PAL.radiant.core, 0.95 * mark * pulse), 14);
+        ring(ctx, B.x, B.y, rT + 11, 1.2, rgba(PAL.radiant.core, 0.6 * mark), 0);
+        star(ctx, B.x + rT * 0.95, B.y - rT * 0.95, 12 + Math.sin(lt / 200) * 1.5, mark, lt / 900);
+      });
+    }
+    // next attack lands: plain tracer from the ally, mark pops
+    if (G.pop && G.P && G.P.jp) {
+      var J = G.P.jp, tt = lt - GB.pop;
+      if (tt >= 0 && tt < 200) { var a = 1 - tt / 200, H = lp(J, B, clamp(tt / 60)); stroke(ctx, [lp(J, B, Math.max(0, clamp(tt / 60) - 0.25)), H], 2, 'rgba(255,240,210,' + a + ')', 6); }
+    }
+    if (G.pop && tp >= 0 && tp < 420) { var u3 = tp / 420; add(ctx, function () {
+      ring(ctx, B.x, B.y, rT + 5 + easeOut(u3) * G.cell * 0.9, 3 * (1 - u3), rgba(PAL.radiant.core, 1 - u3), 12);
+      star(ctx, B.x + rT * 0.95, B.y - rT * 0.95, 12 + u3 * 16, 1 - u3, 0);
+      glow(ctx, B.x, B.y, G.cell * 0.8, [[0, rgba(PAL.radiant.hot, 0.7 * (1 - u3))], [1, rgba(PAL.radiant.glow, 0)]]); });
+      sparks(ctx, B.x, B.y, tp, 16, 404, 120, 420, PAL.radiant.core, 1.5, 0);
+    }
+  }
+  function star(ctx, x, y, r, a, rot) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot || 0); ctx.beginPath();
+    for (var i = 0; i < 8; i++) { var rr = i % 2 ? r * 0.3 : r, an = i / 8 * TAU; ctx.lineTo(Math.cos(an) * rr, Math.sin(an) * rr); }
+    ctx.closePath(); ctx.fillStyle = rgba(PAL.radiant.hot, a); ctx.shadowBlur = 10; ctx.shadowColor = rgba(PAL.radiant.glow, a); ctx.fill(); ctx.restore();
+  }
+
+  /* ---------- 4. SACRED FLAME ---------- */
+  var SF = { glance: 220, drop: 240, land: 360, hold: 1000, fade: 1500, pool: 2000 };
+  function sacredUnder(ctx, lt, G) {
+    var B = G.T[0], pa = env(lt, SF.land, SF.land + 120, SF.hold + 300, SF.pool), R = G.cell * 0.95;
+    if (pa <= 0) return;
+    add(ctx, function () {
+      glow(ctx, B.x, B.y, R * 1.25, [[0, rgba(PAL.radiant.core, 0.55 * pa)], [0.6, rgba(PAL.radiant.glow, 0.35 * pa)], [1, rgba(PAL.radiant.glow, 0)]]);
+      ctx.save(); ctx.translate(B.x, B.y); ctx.rotate(lt / 1600);
+      ring(ctx, 0, 0, R, 2.2, rgba(PAL.radiant.core, 0.9 * pa), 8); ring(ctx, 0, 0, R * 0.78, 1, rgba(PAL.radiant.core, 0.7 * pa), 0);
+      ctx.strokeStyle = rgba(PAL.radiant.hot, 0.85 * pa); ctx.lineWidth = 2;
+      for (var i = 0; i < 12; i++) { var an = i / 12 * TAU, l = i % 2 ? 6 : 11; ctx.beginPath(); ctx.moveTo(Math.cos(an) * (R + 2), Math.sin(an) * (R + 2)); ctx.lineTo(Math.cos(an) * (R + 2 + l), Math.sin(an) * (R + 2 + l)); ctx.stroke(); }
+      ctx.restore();
+    });
+  }
+  function sacred(ctx, lt, G) {
+    var A = G.A, B = G.T[0], rT = G.rT;
+    // dotted gold glance (marks target, no missile)
+    var ga = env(lt, 0, 40, SF.glance + 80, SF.glance + 380);
+    if (ga > 0) { var n = Math.floor(dist(A, B) / 12), shown = clamp(lt / SF.glance) * n;
+      add(ctx, function () { for (var i = 1; i < shown; i++) { var P = lp(A, B, i / n); glow(ctx, P.x, P.y, 4, [[0, rgba(PAL.radiant.hot, 0.9 * ga)], [1, rgba(PAL.radiant.glow, 0)]]); } }); }
+    // column of radiant flame drops from above
+    var top = -20, dropP = clamp((lt - SF.drop) / (SF.land - SF.drop)), ca = env(lt, SF.drop, SF.drop + 30, SF.hold, SF.fade);
+    if (ca > 0) {
+      var headY = lerp(top, B.y, easeOut(dropP)), w = 1 + 0.12 * Math.sin(lt / 30);
+      var col = [{ x: B.x, y: top }, { x: B.x, y: headY }];
+      add(ctx, function () {
+        stroke(ctx, col, 30 * w, rgba(PAL.radiant.glow, 0.22 * ca), 20, rgba(PAL.radiant.glow, 0.8));
+        stroke(ctx, col, 12 * w, rgba(PAL.radiant.core, 0.6 * ca));
+        stroke(ctx, col, 4, rgba(PAL.radiant.hot, 0.95 * ca));
+        // flame tongues wavering along the column
+        var r = rng(Math.floor(lt / 50));
+        for (var k = 0; k < 10; k++) { var y = lerp(top, headY, r()), ox = (r() - 0.5) * 18 * w; glow(ctx, B.x + ox, y, 7 + r() * 6, [[0, rgba(PAL.radiant.core, 0.45 * ca)], [1, rgba(PAL.radiant.glow, 0)]]); }
+        if (dropP >= 1) glow(ctx, B.x, B.y, G.cell * 0.9, [[0, rgba(PAL.radiant.hot, 0.8 * ca)], [0.4, rgba(PAL.radiant.core, 0.45 * ca)], [1, rgba(PAL.radiant.glow, 0)]]);
+      });
+    }
+    // flame tongues licking the pool rim + motes rising
+    var pa = env(lt, SF.land, SF.land + 120, SF.hold + 300, SF.pool);
+    if (pa > 0) {
+      add(ctx, function () {
+        var R = G.cell * 0.95;
+        for (var i = 0; i < 12; i++) {
+          var an = i / 12 * TAU + lt / 1600, h = 8 + 6 * (0.5 + 0.5 * Math.sin(lt / 70 + i * 2.1));
+          var bx = B.x + Math.cos(an) * R, by = B.y + Math.sin(an) * R;
+          ctx.save(); ctx.translate(bx, by); ctx.rotate(an + Math.PI / 2 + Math.PI / 2);
+          ctx.beginPath(); ctx.moveTo(-4, 0); ctx.quadraticCurveTo(0, -h * 1.4, 0, -h * 1.6); ctx.quadraticCurveTo(0, -h * 1.4, 4, 0); ctx.closePath();
+          ctx.fillStyle = rgba(PAL.radiant.core, 0.6 * pa); ctx.fill(); ctx.restore();
+        }
+        var r = rng(321);
+        for (var k = 0; k < 22; k++) { var t0 = SF.land + r() * 900, age = (lt - t0) / 900; if (age < 0 || age > 1) continue;
+          var an2 = r() * TAU, rad = r() * R; ctx.fillStyle = rgba(PAL.radiant.hot, (1 - age) * pa);
+          ctx.beginPath(); ctx.arc(B.x + Math.cos(an2) * rad, B.y + Math.sin(an2) * rad - age * 34, 1.6, 0, TAU); ctx.fill(); }
+      });
+    }
+  }
+
+  /* ---------- 5. CHILL TOUCH (necrotic ray) ---------- */
+  var CT = { grow: 300, hold: 650, fade: 1050 };
+  function tendrilPts(A, B, lt, prog, tail) {
+    var n = norm(A, B), px = -n.y, py = n.x, L = dist(A, B), pts = [];
+    for (var i = 0; i <= 64; i++) { var u = i / 64; if (u > prog) break; if (u < tail) continue;
+      var o = (Math.sin(u * Math.PI * 2.4 - lt / 140) + 0.35 * Math.sin(u * Math.PI * 6.1 + lt / 90)) * Math.sin(Math.PI * u) * L * 0.08;
+      pts.push({ x: A.x + n.x * u * L + px * o, y: A.y + n.y * u * L + py * o }); }
+    return pts;
+  }
+  function chill(ctx, lt, G) {
+    var A = G.A, B = G.T[0], rT = G.rT;
+    if (lt < 0) return;
+    var prog = easeOut(clamp(lt / CT.grow)), tail = clamp((lt - CT.hold) / (CT.fade - CT.hold));
+    if (tail < 1) {
+      var pts = tendrilPts(A, B, lt, prog, easeOut(tail)), a = 1 - tail * 0.5;
+      stroke(ctx, pts, 18, rgba(PAL.necrotic.black, 0.35 * a), 10, rgba(PAL.necrotic.black, 0.8));
+      stroke(ctx, pts, 9, rgba(PAL.necrotic.black, 0.55 * a));
+      for (var q = 0; q < pts.length; q += 3) { var P = pts[q], rr = 9 + 6 * (0.5 + 0.5 * Math.sin(q * 1.7 + lt / 110)), dy = -((lt / 25 + q * 3) % 14);
+        glow(ctx, P.x + Math.sin(q + lt / 200) * 4, P.y + dy * 0.6, rr, [[0, rgba(PAL.necrotic.black, 0.45 * a)], [1, rgba(PAL.necrotic.black, 0)]]); }
+      add(ctx, function () { stroke(ctx, pts, 12, rgba(PAL.necrotic.glow, 0.35 * a), 14);
+        for (var q = 1; q < pts.length; q += 4) glow(ctx, pts[q].x, pts[q].y, 11, [[0, rgba(PAL.necrotic.glow, 0.35 * a)], [1, rgba(PAL.necrotic.glow, 0)]]);
+        stroke(ctx, pts, 1.6, rgba(PAL.necrotic.bone, 0.95 * a)); });
+      if (pts.length) { var H = pts[pts.length - 1]; if (lt < CT.grow) glow(ctx, H.x, H.y, 12, [[0, rgba(PAL.necrotic.black, 0.8)], [1, rgba(PAL.necrotic.black, 0)]]); }
+    }
+    // inward collapse on hit
+    var th = lt - CT.grow;
+    if (th >= 0 && th < 380) { var u = easeOut(th / 380), R = lerp(G.cell * 1.4, rT * 0.6, u);
+      add(ctx, function () { ring(ctx, B.x, B.y, R, 4 * (1 - u) + 1, rgba(PAL.necrotic.glow, 0.9 * (1 - u * 0.6)), 14); });
+      glow(ctx, B.x, B.y, R, [[0, rgba(PAL.necrotic.black, 0.55 * u)], [1, rgba(PAL.necrotic.black, 0)]]); }
+    // ash flakes drifting down
+    var r = rng(55);
+    for (var k = 0; k < 26; k++) { var t0 = CT.grow + r() * 700, age = (lt - t0) / 1100, an = r() * TAU, rad = rT * (0.4 + r() * 1.2);
+      if (age < 0 || age > 1) continue; var x = B.x + Math.cos(an) * rad + Math.sin(age * 6 + k) * 4, y = B.y + Math.sin(an) * rad + age * 22;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(age * 5 + k); ctx.fillStyle = rgba(PAL.necrotic.ash, 0.85 * (1 - age)); ctx.fillRect(-1.6, -1, 3.2, 2); ctx.restore(); }
+    // ghostly hand mark lingers = "no healing" cue
+    var ha = clamp((lt - CT.grow - 150) / 300);
+    if (ha > 0) hand(ctx, B.x, B.y, rT * 1.25, ha * (0.7 + 0.3 * Math.sin(lt / 300)));
+  }
+  function hand(ctx, x, y, s, a) {
+    ctx.save(); ctx.translate(x, y + s * 0.15); ctx.rotate(-0.2); var k = s / 20;
+    ctx.beginPath();
+    ctx.ellipse(0, 4 * k, 7.5 * k, 8 * k, 0, 0, TAU);
+    var fingers = [[-6, -9, 9], [-2, -12, 11], [2.2, -12, 11], [6, -9, 9]];
+    fingers.forEach(function (f) { ctx.moveTo(f[0] * k + 1.7 * k, f[1] * k); ctx.ellipse(f[0] * k, f[1] * k + f[2] * k * 0.2, 1.7 * k, f[2] * k * 0.55, 0, 0, TAU); });
+    ctx.moveTo(-6 * k, 6 * k); ctx.ellipse(-10 * k, 1 * k, 1.8 * k, 5 * k, -0.9, 0, TAU);
+    ctx.shadowBlur = 12; ctx.shadowColor = rgba(PAL.necrotic.glow, a);
+    ctx.fillStyle = rgba(PAL.necrotic.bone, 0.22 * a); ctx.fill();
+    ctx.lineWidth = 1.4; ctx.strokeStyle = rgba('230,220,235', 0.85 * a); ctx.stroke();
+    ctx.restore();
+  }
+
+  /* ---------- 6. ACID ARROW ---------- */
+  var AA = { travel: 380, flare: 2500, off: 3300 };
+  function blob(ctx, x, y, r, seed, t, fill, line) {
+    ctx.beginPath(); for (var i = 0; i <= 18; i++) { var an = i / 18 * TAU, rr = r * (1 + 0.16 * Math.sin(an * 3 + seed + t / 120) + 0.08 * Math.sin(an * 5 - t / 90)); ctx.lineTo(x + Math.cos(an) * rr, y + Math.sin(an) * rr); }
+    ctx.closePath(); if (fill) { ctx.fillStyle = fill; ctx.fill(); } if (line) { ctx.strokeStyle = line; ctx.lineWidth = 1.5; ctx.stroke(); }
+  }
+  function acidUnder(ctx, lt, G) {
+    var A = G.A, B = G.T[0];
+    // drips that fell during flight
+    for (var i = 0; i < 9; i++) { var td = i * 40 + 30; if (lt < td + 120 || td > AA.travel) continue; var P = lp(A, B, td / AA.travel), a = 0.6 * (1 - clamp((lt - td - 120) / 1400));
+      ctx.fillStyle = rgba(PAL.acid.dark, a); ctx.beginPath(); ctx.arc(P.x + (i % 2 ? 3 : -3), P.y + 3, 2.4, 0, TAU); ctx.fill(); }
+    var th = lt - AA.travel; if (th < 0) return;
+    var pa = clamp(th / 180) * (1 - clamp((lt - AA.off) / 700));
+    blob(ctx, B.x + 4, B.y + 6, G.cell * 0.72 * easeOut(clamp(th / 200)), 2, 0, rgba(PAL.acid.dark, 0.6 * pa));
+    add(ctx, function () { blob(ctx, B.x + 4, B.y + 6, G.cell * 0.72 * easeOut(clamp(th / 200)), 2, 0, null, rgba(PAL.acid.core, 0.5 * pa)); });
+  }
+  function acid(ctx, lt, G) {
+    var A = G.A, B = G.T[0], rT = G.rT;
+    if (lt < 0) return;
+    if (lt < AA.travel) { var p = lt / AA.travel, P = lp(A, B, p), h = Math.sin(Math.PI * p) * 34, rr = 7 + Math.sin(Math.PI * p) * 3;
+      ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(P.x, P.y + 2, rr, rr * 0.6, 0, 0, TAU); ctx.fill();
+      blob(ctx, P.x, P.y - h, rr, 1, lt, rgba(PAL.acid.dark, 0.9));
+      add(ctx, function () { blob(ctx, P.x, P.y - h, rr * 0.8, 1, lt, rgba(PAL.acid.core, 0.9)); glow(ctx, P.x, P.y - h, rr * 2.4, [[0, rgba(PAL.acid.hot, 0.6)], [1, rgba(PAL.acid.glow, 0)]]); });
+      for (var i = 0; i < 9; i++) { var td = i * 40 + 30, age = lt - td; if (age < 0 || age > 120) continue; var Q = lp(A, B, td / AA.travel), hh = Math.sin(Math.PI * td / AA.travel) * 34 * (1 - age / 120);
+        ctx.fillStyle = rgba(PAL.acid.core, 0.9); ctx.beginPath(); ctx.arc(Q.x + (i % 2 ? 3 : -3), Q.y - hh, 1.8, 0, TAU); ctx.fill(); }
+      return; }
+    var th = lt - AA.travel;
+    // splash burst + splatter
+    if (th < 500) { var u = th / 500;
+      add(ctx, function () { glow(ctx, B.x, B.y, G.cell * (0.5 + 0.6 * easeOut(clamp(th / 150))), [[0, rgba(PAL.acid.hot, 0.8 * (1 - u))], [0.4, rgba(PAL.acid.core, 0.55 * (1 - u))], [1, rgba(PAL.acid.glow, 0)]]); });
+      var r = rng(66); for (var k = 0; k < 18; k++) { var an = r() * TAU, d = (rT + 4) + easeOut(clamp(th / 260)) * G.cell * (0.4 + r() * 0.6);
+        var x = B.x + Math.cos(an) * d, y = B.y + Math.sin(an) * d, s = 2 + r() * 2.5;
+        ctx.fillStyle = rgba(PAL.acid.core, 0.95 * (1 - u)); ctx.beginPath(); ctx.arc(x, y, s, 0, TAU); ctx.fill();
+        stroke(ctx, [{ x: B.x + Math.cos(an) * rT, y: B.y + Math.sin(an) * rT }, { x: x, y: y }], 1.2, rgba(PAL.acid.core, 0.5 * (1 - u))); } }
+    // clinging glob: sizzles, bubbles, fumes; re-flares next turn, then drips off
+    var ga = clamp(th / 150) * (1 - clamp((lt - AA.off) / 500)), slide = easeOut(clamp((lt - AA.off + 200) / 700)) * 16;
+    if (ga > 0) {
+      var gx = B.x - rT * 0.45, gy = B.y + rT * 0.2 + slide, fl = env(lt, AA.flare, AA.flare + 80, AA.flare + 200, AA.flare + 600);
+      blob(ctx, gx, gy, 10 * (1 - slide / 40), 4, lt, rgba(PAL.acid.dark, 0.9 * ga));
+      add(ctx, function () {
+        blob(ctx, gx, gy, 8 * (1 - slide / 40), 4, lt, rgba(PAL.acid.core, (0.7 + 0.3 * fl) * ga));
+        glow(ctx, gx, gy, 20 + fl * G.cell * 0.9, [[0, rgba(PAL.acid.hot, (0.35 + 0.65 * fl) * ga)], [1, rgba(PAL.acid.glow, 0)]]);
+        var r2 = rng(Math.floor(lt / 110)); for (var b = 0; b < 3 + fl * 6; b++) { ctx.strokeStyle = rgba(PAL.acid.hot, 0.8 * ga); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(gx + (r2() - .5) * 14, gy + (r2() - .5) * 12, 1 + r2() * 2.5, 0, TAU); ctx.stroke(); }
+      });
+      // pale fumes
+      var r3 = rng(88); for (var f = 0; f < 8; f++) { var t0 = r3() * 900, age = ((lt - AA.travel - t0) % 900) / 900; if (lt - AA.travel - t0 < 0) continue;
+        var fx = gx + (r3() - .5) * 10 + Math.sin(age * 5 + f) * 4, fy = gy - age * 30;
+        glow(ctx, fx, fy, 5 + age * 8, [[0, 'rgba(200,215,170,' + 0.35 * (1 - age) * ga + ')'], [1, 'rgba(200,215,170,0)']]); }
+      if (lt > AA.off - 200) for (var dI = 0; dI < 4; dI++) { var dt = (lt - AA.off + 200 - dI * 120) / 500; if (dt < 0 || dt > 1) continue;
+        ctx.fillStyle = rgba(PAL.acid.core, 0.9 * (1 - dt)); ctx.beginPath(); ctx.arc(gx + (dI - 1.5) * 4, gy + 8 + dt * 18, 1.8, 0, TAU); ctx.fill(); }
+    }
+  }
+
+  /* ---------- 7. POISON SPRAY ---------- */
+  var PS = { reach: 150, swallow: 650, gone: 1250 };
+  function poison(ctx, lt, G) {
+    var A = G.A, B = G.T[0], rT = G.rT, n = norm(A, B), px = -n.y, py = n.x, L = Math.min(dist(A, B), G.cell * 2.2);
+    if (lt < 0) return;
+    var r = rng(17);
+    // stubby puff from the hand: soft blobs along a short cone
+    for (var i = 0; i < 22; i++) { var u = r(), side = (r() - .5) * 2, t0 = u * PS.reach, age = (lt - t0) / 480; if (age < 0 || age > 1) { r(); continue; }
+      var d = u * L, w = d * 0.35 * side, x = A.x + n.x * d + px * w, y = A.y + n.y * d + py * w, rad = 6 + d * 0.25 + age * 10, a = (1 - age) * 0.7;
+      glow(ctx, x, y, rad, [[0, rgba(PAL.poison.glow, 0.13 * a)], [1, rgba(PAL.poison.dark, 0)]]);
+      add(ctx, function () { glow(ctx, x, y, rad * 0.7, [[0, rgba(PAL.poison.core, 0.1 * a)], [1, rgba(PAL.poison.glow, 0)]]); }); r(); }
+    // miasma swallows the target, then thins (flat falloff, no rings)
+    var ma = env(lt, PS.reach - 30, PS.reach + 150, PS.swallow, PS.gone), sp = 1 + clamp((lt - PS.reach) / (PS.gone - PS.reach)) * 0.5;
+    if (ma > 0) {
+      // one soft olive body (token stays readable through the middle) + a few lumpy lobes round the edge
+      glow(ctx, B.x, B.y, G.cell * 1.15 * sp, [[0, rgba(PAL.poison.glow, 0.16 * ma)], [0.55, rgba(PAL.poison.glow, 0.32 * ma)], [0.8, rgba(PAL.poison.dark, 0.22 * ma)], [1, rgba(PAL.poison.dark, 0)]]);
+      add(ctx, function () { glow(ctx, B.x, B.y, G.cell * 1.0 * sp, [[0, rgba(PAL.poison.core, 0.10 * ma)], [0.6, rgba(PAL.poison.core, 0.16 * ma)], [1, rgba(PAL.poison.glow, 0)]]); });
+      var r2 = rng(29);
+      for (var k = 0; k < 9; k++) { var an = r2() * TAU + lt / 1800, rr = G.cell * (0.75 + r2() * 0.3) * sp, x2 = B.x + Math.cos(an) * rr, y2 = B.y + Math.sin(an) * rr, R = G.cell * (0.35 + r2() * 0.2) * sp;
+        glow(ctx, x2, y2, R, [[0, rgba(PAL.poison.glow, 0.22 * ma)], [1, rgba(PAL.poison.dark, 0)]]); }
+      // spores
+      add(ctx, function () { var r3 = rng(41); for (var s = 0; s < 34; s++) { var an = r3() * TAU, rr = r3() * G.cell * 1.1 * sp; ctx.fillStyle = rgba(PAL.poison.core, 0.9 * ma);
+        ctx.beginPath(); ctx.arc(B.x + Math.cos(an + lt / 900) * rr, B.y + Math.sin(an + lt / 900) * rr - (lt - PS.reach) / 80, 1.3, 0, TAU); ctx.fill(); } });
+      // curling wisps
+      var r4 = rng(53);
+      for (var w2 = 0; w2 < 4; w2++) { var base = r4() * TAU + lt / (700 + w2 * 150) * (w2 % 2 ? -1 : 1), cx = B.x + (r4() - .5) * G.cell * 0.9, cy = B.y + (r4() - .5) * G.cell * 0.9, sweep = 1.2 + r4() * 1.4, pts = [];
+        for (var j = 0; j <= 12; j++) { var tt = j / 12, an2 = base + tt * sweep * (w2 % 2 ? -1 : 1), rad2 = (6 + tt * G.cell * 0.45) * sp; pts.push({ x: cx + Math.cos(an2) * rad2, y: cy + Math.sin(an2) * rad2 - tt * 6 }); }
+        add(ctx, function () { stroke(ctx, pts, 1.6, rgba(PAL.poison.core, 0.28 * ma), 4); }); }
+    }
+  }
+
+  /* ---------- 8. CHAIN LIGHTNING ---------- */
+  var CL = { primary: 80, hop: 60, hold: 380, fade: 320 };
+  function chainSegs(G) { var s = [[G.A, G.T[0]]]; for (var i = 1; i < G.T.length; i++) s.push([edge(G.T[i - 1], G.T[i], G.rT * 0.6), G.T[i]]); return s; }
+  function segStart(i) { return i === 0 ? 0 : CL.primary + (i - 1) * CL.hop; }
+  function chainUnder(ctx, lt, G) {
+    for (var i = 0; i < G.T.length; i++) { var t = lt - segStart(i) - (i ? CL.hop : CL.primary); if (t < 0) continue;
+      var B = G.T[i], a = clamp(t / 120) * 0.55 * (1 - clamp((lt - 2600) / 700)), r = rng(200 + i);
+      for (var k = 0; k < (i ? 3 : 5); k++) { var an = r() * TAU, len = G.cell * (i ? 0.55 : 0.85) * (0.6 + r() * 0.5);
+        var E = { x: B.x + Math.cos(an) * len, y: B.y + Math.sin(an) * len }, pts = jag(edge(B, E, G.rT * 0.7), E, 5, 4, 300 + i * 10 + k);
+        stroke(ctx, pts, 2.2, 'rgba(15,12,14,' + a + ')'); } }
+  }
+  function chain(ctx, lt, G) {
+    var segs = chainSegs(G);
+    for (var i = 0; i < segs.length; i++) {
+      var t = lt - segStart(i), dur = i ? CL.hop : CL.primary; if (t < 0) continue;
+      var a = 1 - clamp((t - dur - CL.hold) / CL.fade); if (a <= 0) continue;
+      var bk = Math.floor(lt / 50), pts = jag(segs[i][0], segs[i][1], i ? 9 : 13, i ? 7 : 11, 40 + i * 17 + bk);
+      var flick = 0.7 + 0.3 * rng(bk * 3 + i)();
+      bolt(ctx, partial(pts, clamp(t / dur)), a * (t < dur + 120 ? 1 : flick), i ? 0.75 : 1.35);
+      if (i === 0 && t > dur) { var r = rng(bk + 9); for (var f = 0; f < 3; f++) { var k = 2 + Math.floor(r() * (pts.length - 4)), P = pts[k], an = Math.atan2(segs[0][1].y - segs[0][0].y, segs[0][1].x - segs[0][0].x) + (r() > .5 ? 1 : -1) * (0.5 + r() * 0.6);
+        bolt(ctx, jag(P, { x: P.x + Math.cos(an) * 26, y: P.y + Math.sin(an) * 26 }, 4, 4, bk * 5 + f), a * 0.6 * flick, 0.45); } }
+      var th = t - dur, B = segs[i][1], big = i === 0;
+      if (th >= 0 && th < 420) { var u = th / 420;
+        add(ctx, function () {
+          glow(ctx, B.x, B.y, G.cell * (big ? 1.4 : 0.8), [[0, rgba(PAL.lightning.hot, 0.95 * (1 - u))], [0.35, rgba(PAL.lightning.glow, 0.55 * (1 - u))], [1, rgba(PAL.lightning.glow, 0)]]);
+          ring(ctx, B.x, B.y, G.rT + easeOut(u) * G.cell * (big ? 1.2 : 0.7), (big ? 4 : 2.5) * (1 - u) + .5, rgba(PAL.lightning.core, 1 - u), 10); });
+        sparks(ctx, B.x, B.y, th, big ? 22 : 12, 70 + i, big ? 200 : 140, 420, PAL.lightning.core, 1.4, 0); }
+    }
+  }
+
+  /* ---------- 9. DISINTEGRATE ---------- */
+  var DI = { ray: 60, hold: 300, fade: 520, c0: 340, c1: 1500, ashLife: 1300 };
+  function wind(G) { var n = norm(G.S, G.T[0]); var w = { x: n.x * 0.8 + 0.25, y: n.y * 0.8 - 0.45 }; var d = Math.hypot(w.x, w.y); return { x: w.x / d, y: w.y / d }; }
+  function front(lt) { return clamp((lt - DI.c0) / (DI.c1 - DI.c0)); }
+  function cellNoise(i, j) { var v = Math.sin(i * 12.9898 + j * 78.233) * 43758.5453; return v - Math.floor(v); }
+  function disintUnder(ctx, lt, G) {
+    if (!G.dust) return;
+    var B = G.T[0], wd = wind(G), pa = clamp((lt - 800) / 900); if (pa <= 0) return;
+    var cx = B.x + wd.x * 6, cy = B.y + wd.y * 6 + 4, R = G.cell * 0.36;
+    ctx.save(); ctx.fillStyle = rgba(PAL.disint.ash, 0.85 * pa); ctx.beginPath(); for (var b = 0; b <= 16; b++) { var ab = b / 16 * TAU, rb = R * (1 + 0.22 * Math.sin(ab * 3 + 1) + 0.12 * Math.sin(ab * 5)); ctx.lineTo(cx + Math.cos(ab) * rb, cy + Math.sin(ab) * rb * 0.62); } ctx.fill();
+    ctx.fillStyle = 'rgba(70,66,60,' + 0.8 * pa + ')'; ctx.beginPath(); ctx.ellipse(cx + 2, cy + 2, R * 0.55, R * 0.35, 0.2, 0, TAU); ctx.fill();
+    var r = rng(5); for (var k = 0; k < 30; k++) { var an = r() * TAU, rr = r() * R * 1.4; ctx.fillStyle = 'rgba(150,145,135,' + 0.8 * pa + ')'; ctx.fillRect(cx + Math.cos(an) * rr, cy + Math.sin(an) * rr * 0.7, 1.5, 1.5); }
+    ctx.restore();
+  }
+  // erode a token drawn on an offscreen ctx (its own coordinates: cx,cy,r). Called by the page for the killed token.
+  function erode(oc, lt, G, cx, cy, r) {
+    if (!G || !G.dust) return;
+    var f = front(lt); if (f <= 0) return; var wd = wind(G), step = 3, R = r + 12;
+    oc.save(); oc.globalCompositeOperation = 'destination-out'; oc.fillStyle = '#000';
+    for (var x = -R; x <= R; x += step) for (var y = -R; y <= R; y += step) {
+      var proj = (x * wd.x + y * wd.y + R) / (2 * R), nz = (cellNoise(x, y) - 0.5) * 0.22;
+      if (proj + nz < f * 1.25 - 0.05) oc.fillRect(cx + x - 1, cy + y - 1, step + 1, step + 1);
+    }
+    oc.restore();
+  }
+  function disint(ctx, lt, G) {
+    var A = G.A, B = G.T[0], rT = G.rT;
+    if (lt < 0) return;
+    var a = 1 - clamp((lt - DI.hold) / (DI.fade - DI.hold));
+    if (a > 0) { var H = lp(A, B, clamp(lt / DI.ray)), w = a;
+      add(ctx, function () {
+        stroke(ctx, [A, H], 10 * w, rgba(PAL.disint.core, 0.3 * a), 12, rgba(PAL.disint.core, 0.9));
+        stroke(ctx, [A, H], 3 * w + 0.5, rgba(PAL.disint.core, 0.95 * a));
+        stroke(ctx, [A, H], 1.2, rgba(PAL.disint.hot, a));
+        var r = rng(Math.floor(lt / 40)), n = norm(A, B);
+        for (var k = 0; k < 8; k++) { var P = lp(A, H, r()), s = (r() > .5 ? 1 : -1) * (3 + r() * 6); ctx.fillStyle = rgba(PAL.disint.hot, a); ctx.fillRect(P.x - n.y * s, P.y + n.x * s, 1.5, 1.5); }
+      }); }
+    var th = lt - DI.ray;
+    if (th >= 0 && th < 520) { var u = th / 520; add(ctx, function () {
+      glow(ctx, B.x, B.y, G.cell * (0.6 + 0.5 * u), [[0, rgba(PAL.disint.hot, 0.95 * (1 - u))], [0.35, rgba(PAL.disint.core, 0.6 * (1 - u))], [1, rgba(PAL.disint.core, 0)]]); }); }
+    if (!G.dust) return;
+    // crumble: ash + grit blown downwind, green-edged embers at the breaking edge
+    var wd = wind(G), f = front(lt), R = rT + 4;
+    if (f > 0 && f < 1) { var off = (f * 1.25 - 0.05) * 2 * R - R, px = -wd.y, py = wd.x;
+      add(ctx, function () { var r = rng(Math.floor(lt / 45)); for (var k = 0; k < 18; k++) { var s = (r() - 0.5) * 2 * R; if (Math.abs(s) > Math.sqrt(Math.max(0, R * R - off * off))) continue;
+        var x = B.x + wd.x * off + px * s + (r() - .5) * 4, y = B.y + wd.y * off + py * s + (r() - .5) * 4;
+        glow(ctx, x, y, 4, [[0, rgba(PAL.disint.hot, 0.9)], [1, rgba(PAL.disint.core, 0)]]); } }); }
+    var r2 = rng(123);
+    for (var i = 0; i < 160; i++) { var t0 = lerp(DI.c0, DI.c1, r2()), s2 = (r2() - 0.5) * 2, age = (lt - t0) / DI.ashLife, sz = 1.3 + r2() * 2.8, tw = r2() * TAU;
+      if (age < 0 || age > 1) continue; var fo = ((t0 - DI.c0) / (DI.c1 - DI.c0) * 1.25 - 0.05) * 2 * R - R, half = Math.sqrt(Math.max(0, R * R - fo * fo));
+      var x0 = B.x + wd.x * fo - wd.y * s2 * half, y0 = B.y + wd.y * fo + wd.x * s2 * half, d = easeOut(age) * (60 + sz * 22);
+      var x = x0 + wd.x * d + Math.sin(age * 7 + tw) * 5, y = y0 + wd.y * d + Math.cos(age * 6 + tw) * 4 + age * 6;
+      ctx.fillStyle = (i % 7 === 0) ? rgba(PAL.disint.core, 0.9 * (1 - age)) : rgba(PAL.disint.ash, 0.9 * (1 - age));
+      ctx.fillRect(x, y, sz, sz); }
+  }
+
+  var PAINT = { 'witch-bolt': witchBolt, 'scorching-ray': scorching, 'guiding-bolt': guiding, 'sacred-flame': sacred, 'chill-touch': chill, 'acid-arrow': acid, 'poison-spray': poison, 'chain-lightning': chain, 'disintegrate': disint };
+  var UNDER = { 'scorching-ray': scorchingUnder, 'sacred-flame': sacredUnder, 'acid-arrow': acidUnder, 'chain-lightning': chainUnder, 'disintegrate': disintUnder };
+  function shakeOf(look, lt) {
+    function sh(t0, mag, dur) { var t = lt - t0; if (t < 0 || t > dur) return { x: 0, y: 0 }; var k = mag * (1 - t / dur); return { x: Math.sin(t * 0.9) * k, y: Math.cos(t * 1.3) * k }; }
+    if (look === 'witch-bolt') { var s = sh(WB.strike, 3, 180); var z = sh(WB.zap + 220, 2, 150); return { x: s.x + z.x, y: s.y + z.y }; }
+    if (look === 'chain-lightning') return sh(CL.primary, 5, 260);
+    return { x: 0, y: 0 };
+  }
+  return {
+    looks: Object.keys(PAINT),
+    paint: function (ctx, look, lt, G) { if (PAINT[look] && lt >= 0) PAINT[look](ctx, lt, G); },
+    paintUnder: function (ctx, look, lt, G) { if (UNDER[look] && lt >= 0) UNDER[look](ctx, lt, G); },
+    erode: function (oc, look, lt, G, cx, cy, r) { if (look === 'disintegrate') erode(oc, lt, G, cx, cy, r); },
+    erodeFront: function (lt) { return front(lt); },
+    shakeOf: shakeOf
+  };
+  })();
+  var C1_LOOKS = {
+    "witch-bolt": 1, "scorching-ray": 1, "guiding-bolt": 1, "sacred-flame": 1, "chill-touch": 1,
+    "acid-arrow": 1, "poison-spray": 1, "chain-lightning": 1, "disintegrate": 1
+  };
+  function c1Geom(look, g, spec) {
+    g = g || {};
+    spec = spec || {};
+    var A = g.A;
+    var center = g.T || g.B || A;
+    if (!A || !center) return null;
+    var cell = g.cell || 70;
+    var targets = [];
+    var miss = [];
+    function pushPoint(p, isMiss) {
+      if (!p || !isFinite(Number(p.x)) || !isFinite(Number(p.y))) return;
+      targets.push({ x: Number(p.x), y: Number(p.y) });
+      miss.push(!!isMiss);
+    }
+    if (look === "scorching-ray" && g.rays && g.rays.length) {
+      g.rays.forEach(function (p) { pushPoint(p, p.miss || resultOf(p.result) === "miss"); });
+    } else if (look === "scorching-ray") {
+      var d = dirOf(A, center), px = -d.y, py = d.x;
+      var missed = resultOf(spec.result) === "miss";
+      [0, 0.42, -0.33].forEach(function (s) {
+        pushPoint({ x: center.x + px * cell * s, y: center.y + py * cell * s }, missed);
+      });
+    } else {
+      pushPoint(center, resultOf(spec.result) === "miss");
+      (g.hops || []).forEach(function (p) { pushPoint(p, false); });
+    }
+    if (!targets.length) return null;
+    return {
+      A: A, S: g.S || A, T: targets,
+      rT: g.rT || cell * 0.42, rS: g.rS || cell * 0.42, cell: cell, miss: miss,
+      dust: !!(spec.dust || g.dust || spec.crumbOnly || g.crumbOnly),
+      pop: !!g.pop
+    };
+  }
+  function chunk1Paint(ctx, look, lt, g, spec) {
+    var G = c1Geom(look, g, spec);
+    if (!G) return;
+    var drawLt = lt;
+    if (look === "witch-bolt" && (spec.pulse || (g && g.pulse))) drawLt = 1900 + Math.min(Math.max(0, lt), 480);
+    else if (look === "disintegrate" && (spec.crumbOnly || (g && g.crumbOnly))) drawLt = lt + 640;
+    Chunk1Fx.paintUnder(ctx, look, drawLt, G);
+    Chunk1Fx.paint(ctx, look, drawLt, G);
+  }
+  function paintRider(ctx, look, x, y, r, lt) {
+    if (!ctx || !isFinite(x) || !isFinite(y)) return;
+    var key = look === "chill-touch" ? "chill-touch" : "guiding-bolt";
+    var when = key === "chill-touch" ? 980 : 900;
+    var G = {
+      A: { x: x, y: y }, S: { x: x, y: y }, T: [{ x: x, y: y }],
+      rT: r || 18, rS: r || 18, cell: Math.max(48, (r || 18) * 2.4),
+      miss: [false], dust: false, pop: false
+    };
+    Chunk1Fx.paint(ctx, key, when + ((Number(lt) || 0) % 1600), G);
+  }
+  function guidePop(ctx, x, y, r, lt, cell) {
+    if (!ctx || lt < 0 || lt > 420 || !isFinite(x) || !isFinite(y)) return;
+    var G = {
+      A: { x: x, y: y }, S: { x: x, y: y }, T: [{ x: x, y: y }],
+      rT: r || 18, rS: r || 18, cell: cell || 70, miss: [false], dust: false, pop: true
+    };
+    Chunk1Fx.paint(ctx, "guiding-bolt", 2660 + lt, G);
+  }
+  function paintGuidePop(ctx, fx, lt, g) {
+    if (!g || !g.pop || !g.T) return;
+    var res = resultOf(fx && fx.result);
+    if (res !== "hit" && res !== "crit") return;
+    if (lookOf(fx) === "guiding-bolt") return;
+    guidePop(ctx, g.T.x, g.T.y, g.rT || 18, lt, g.cell || 70);
+  }
+  function erodeToken(oc, lt, cx, cy, r, from, to) {
+    if (!oc) return;
+    var G = {
+      A: from || { x: cx - 30, y: cy },
+      S: from || { x: cx - 30, y: cy },
+      T: [to || { x: cx + 8, y: cy - 6 }],
+      rT: r || 18, rS: r || 18, cell: Math.max(48, (r || 18) * 2),
+      miss: [false], dust: true, pop: false
+    };
+    Chunk1Fx.erode(oc, "disintegrate", lt, G, cx, cy, r);
+  }
+
   function spellPaint(ctx, A, B, lt, seed, spec, g) {
     var look = lookOf(spec);
     /* Grease, Light, Daylight, and Wall of Fire return "" on purpose. An empty look must not fall through to the purple ribbon. */
     if (!look || look === "token") return;
+    if (C1_LOOKS[look]) return chunk1Paint(ctx, look, lt, g || { A: A, B: B, T: B, S: A, cell: 70, rT: 18, rS: 18 }, spec || {});
     var T = g && (g.T || g.S);
     var r = (g && (g.rT || g.rS)) || 18;
     if (look === "fire") return firePaint(ctx, A, B, lt, seed);
@@ -2192,6 +2901,8 @@ function beadsPaint(ctx, A, B, lt, seed) {
   function stickyLook(label) {
     var s = low(label);
     if (!s) return "";
+    if (/^guided\b/.test(s)) return "guiding-bolt";
+    if (/no healing/.test(s)) return "chill-touch";
     if (/^baned\b/.test(s)) return "jinx";
     if (/outlined|foxfire/.test(s)) return "foxfire";
     if (/paralyzed/.test(s)) return "lasso";
@@ -2350,7 +3061,9 @@ function beadsPaint(ctx, A, B, lt, seed) {
     classify: classify, resultOf: resultOf, plan: plan, sanitize: sanitize, request: request,
     lookOf: lookOf, lookSelf: lookSelf, lookTime: lookTime, shakeOf: shakeOf,
     stickyLook: stickyLook, chunkColor: chunkColor, tileOf: tileOf, namedLook: namedLook,
-    paint: paint, hash: hash, dirOf: dirOf
+    paint: paint, paintRider: paintRider, paintGuidePop: paintGuidePop,
+    erodeToken: erodeToken, erodeFront: function (lt) { return Chunk1Fx.erodeFront(lt); },
+    hash: hash, dirOf: dirOf
   };
   root.SSDNSMapFX = root.SSDNSMapFx; /* alias: both spellings work */
 })(typeof window !== "undefined" ? window : globalThis);

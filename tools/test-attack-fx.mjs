@@ -163,10 +163,10 @@ check("paint.fireBoltCue", FX.classify({ weapon: "Fire Bolt", sfx: "spellfile-fi
 check("paint.zoneBlank", paintOps({ type: "spell", spell: "Grease" }) === 0 && paintOps({ type: "spell", spell: "Light" }) === 0 && paintOps({ type: "spell", spell: "Daylight" }) === 0);
 check("look.fireBoltShell.empty", FX.lookOf({ type: "spell", spell: "Fire Bolt Shell" }) === "fire" && FX.lookOf({ type: "spell", weapon: "Fire Bolt (Powder Spark)" }) === "fire");
 check("look.frost.empty", FX.lookOf({ type: "spell", spell: "Ray of Frost" }) === "cold" && FX.lookOf({ type: "spell", spell: "Ray of Frost Shell" }) === "cold");
-check("look.lightning.empty", FX.lookOf({ type: "spell", spell: "Shocking Grasp" }) === "lightning" && FX.lookOf({ type: "spell", spell: "Witch Bolt" }) === "lightning" && FX.lookOf({ type: "spell", spell: "Shocking Grasp Shell" }) === "lightning");
-check("look.scorch.empty", FX.lookOf({ type: "spell", spell: "Scorching Ray" }) === "fire" && FX.lookOf({ type: "spell", spell: "Scorching Ray Shell" }) === "fire");
+check("look.lightning.empty", FX.lookOf({ type: "spell", spell: "Shocking Grasp" }) === "lightning" && FX.lookOf({ type: "spell", spell: "Witch Bolt" }) === "witch-bolt" && FX.lookOf({ type: "spell", spell: "Shocking Grasp Shell" }) === "lightning");
+check("look.scorch.empty", FX.lookOf({ type: "spell", spell: "Scorching Ray" }) === "scorching-ray" && FX.lookOf({ type: "spell", spell: "Scorching Ray Shell" }) === "scorching-ray");
 check("resolve.fireBolt.empty", resolveLook({ spell: true, spellName: "Fire Bolt" }) === "fire" && resolveLook({ spell: true, spellName: "Fire Bolt Shell", dmgType: "" }) === "fire");
-check("resolve.siblings.empty", resolveLook({ spell: true, spellName: "Ray of Frost" }) === "cold" && resolveLook({ spell: true, spellName: "Shocking Grasp" }) === "lightning" && resolveLook({ spell: true, spellName: "Witch Bolt" }) === "lightning" && resolveLook({ spell: true, spellName: "Scorching Ray" }) === "fire");
+check("resolve.siblings.empty", resolveLook({ spell: true, spellName: "Ray of Frost" }) === "cold" && resolveLook({ spell: true, spellName: "Shocking Grasp" }) === "lightning" && resolveLook({ spell: true, spellName: "Witch Bolt" }) === "witch-bolt" && resolveLook({ spell: true, spellName: "Scorching Ray" }) === "scorching-ray");
 check("look.hexShell", FX.lookOf({ type: "spell", spell: "Fire Bolt Shell", dmg: "fire" }) === "fire" && FX.lookOf({ type: "spell", spell: "Fireball Shell", dmg: "fire" }) === "fireball" && FX.lookOf({ type: "spell", spell: "Acid Splash Shell" }) === "acid" && FX.lookOf({ type: "spell", spell: "Wall of Fire Shell", dmg: "fire" }) === "");
 check("look.wish", FX.lookOf({ type: "spell", spell: "Wish" }) === "ribbon");
 check("look.blank", FX.lookOf({ type: "spell" }) === "ribbon");
@@ -183,10 +183,10 @@ check("look.wall", FX.lookOf({ type: "spell", spell: "Wall of Fire", dmg: "fire"
 check("look.bolt", FX.lookOf({ type: "spell", spell: "Lightning Bolt", dmg: "lightning" }) === "lightning");
 check("look.ice", FX.lookOf({ type: "spell", spell: "Ice Storm", dmg: "bludgeoning and cold" }) === "cold");
 check("look.cloud", FX.lookOf({ type: "spell", spell: "Cloudkill", dmg: "poison" }) === "poison");
-check("look.acid", FX.lookOf({ type: "spell", spell: "Acid Splash", dmg: "acid" }) === "acid" && FX.lookOf({ type: "spell", spell: "Acid Arrow" }) === "acid");
-check("look.necro", FX.lookOf({ type: "spell", spell: "Chill Touch" }) === "necrotic" && FX.lookOf({ type: "spell", spell: "Inflict Wounds" }) === "necrotic" && FX.lookOf({ type: "spell", spell: "Blight" }) === "necrotic");
-check("look.radiant", FX.lookOf({ type: "spell", spell: "Sacred Flame" }) === "radiant" && FX.lookOf({ type: "spell", spell: "Guiding Bolt" }) === "radiant" && FX.lookOf({ type: "spell", spell: "Moonbeam" }) === "radiant" && FX.lookOf({ type: "spell", spell: "Spirit Guardians" }) === "radiant");
-check("look.poison", FX.lookOf({ type: "spell", spell: "Poison Spray" }) === "poison");
+check("look.acid", FX.lookOf({ type: "spell", spell: "Acid Splash", dmg: "acid" }) === "acid" && FX.lookOf({ type: "spell", spell: "Acid Arrow" }) === "acid-arrow");
+check("look.necro", FX.lookOf({ type: "spell", spell: "Chill Touch" }) === "chill-touch" && FX.lookOf({ type: "spell", spell: "Inflict Wounds" }) === "necrotic" && FX.lookOf({ type: "spell", spell: "Blight" }) === "necrotic");
+check("look.radiant", FX.lookOf({ type: "spell", spell: "Sacred Flame" }) === "sacred-flame" && FX.lookOf({ type: "spell", spell: "Guiding Bolt" }) === "guiding-bolt" && FX.lookOf({ type: "spell", spell: "Moonbeam" }) === "radiant" && FX.lookOf({ type: "spell", spell: "Spirit Guardians" }) === "radiant");
+check("look.poison", FX.lookOf({ type: "spell", spell: "Poison Spray" }) === "poison-spray" && FX.lookOf({ type: "spell", spell: "Cloudkill", dmg: "poison" }) === "poison");
 check("look.thunder", FX.lookOf({ type: "spell", spell: "Thunderwave" }) === "thundercube" && FX.lookOf({ type: "spell", spell: "Thunderwave Shell" }) === "thundercube" && FX.lookOf({ type: "spell", spell: "Thunderous Smite" }) === "thunder" && FX.lookOf({ type: "spell", dmg: "thunder" }) === "thunder");
 check("look.shatter", FX.lookOf({ type: "spell", spell: "Shatter" }) === "shatter" && FX.lookOf({ type: "spell", spell: "Shatter", dmg: "thunder" }) === "shatter" && FX.lookOf({ type: "spell", spell: "Shatter (Resonance)" }) === "shatter");
 check("look.hands", FX.lookOf({ type: "spell", spell: "Burning Hands", dmg: "fire" }) === "firecone" && FX.lookOf({ type: "spell", spell: "Fire Bolt", dmg: "fire" }) === "fire" && FX.lookOf({ type: "spell", spell: "Burning Hands" }) !== "fire");
@@ -459,8 +459,8 @@ check("spell.fireBoltCuePaints", !!cuePub && cuePub.type === "spell" && cuePub.w
 const sibCases = [
   ["Ray of Frost", "spellfile-ray-of-frost", "cold"],
   ["Shocking Grasp", "spellfile-shocking-grasp", "lightning"],
-  ["Witch Bolt", "spellfile-witch-bolt", "lightning"],
-  ["Scorching Ray", "spellfile-scorching-ray", "fire"]
+  ["Witch Bolt", "spellfile-witch-bolt", "witch-bolt"],
+  ["Scorching Ray", "spellfile-scorching-ray", "scorching-ray"]
 ];
 for (const [name, sfx, wantLook] of sibCases) {
   const pubSib = dm.fx({ id: "sib_" + wantLook + name.length, shooter: "c_out", target: "p1", result: "hit", weapon: name, sfx: sfx });

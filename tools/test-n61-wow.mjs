@@ -71,7 +71,7 @@ check("fx.eb", look("Eldritch Blast") === "scurve");
 check("fx.pact", look("Eldritch Blast (Pact Shot)") === "bullet" && look("Hellshot", "fire") === "bullet");
 check("fx.mm", look("Magic Missile", "force") === "beads");
 check("fx.shield", look("Shield") === "shield" && look("Mage Armor") === "magearmor");
-check("fx.acidRibbon", look("Acid Splash", "acid") === "acid" && look("Poison Spray", "poison") === "poison");
+check("fx.acidRibbon", look("Acid Splash", "acid") === "acid" && look("Poison Spray", "poison") === "poison-spray");
 check("fx.utility", look("Cure Wounds") === "heal" && look("Bless") === "bless" && look("Fog Cloud") === "fog" && look("Mage Hand") === "hand" && look("Pass without Trace") === "pwt" && look("Invisibility") === "invis");
 check("fx.self", FX.lookSelf({ spell: "Shield" }) === true && FX.lookSelf({ spell: "Fire Bolt", dmg: "fire" }) === false);
 const plan = FX.plan("spell", "hit", { spell: "Fire Bolt", dmg: "fire" });

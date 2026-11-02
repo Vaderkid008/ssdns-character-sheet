@@ -204,7 +204,7 @@ check("shake.shatter", mag(FX, { spell: "Shatter" }, 80) < 0.01 && shatterShake 
 check("shake.others", mag(FX, { spell: "Color Spray" }, 40) < 0.01 && mag(FX, { spell: "Thunderous Smite" }, 40) < 0.01 && mag(FX, { spell: "Wall of Fire" }, 80) < 0.01);
 
 const ver = JSON.parse(read("version.json"));
-check("ver.tip", ver.sheet === "0.3.201" && ver.dmcc === "0.2.214" && ver.sheetBuild === "sheet-playtest-v03201" && ver.dmccBuild === "dmcc-playtest-v02214", JSON.stringify(ver));
+check("ver.tip", ver.sheet === "0.3.202" && ver.dmcc === "0.2.215" && ver.sheetBuild === "sheet-playtest-v03202" && ver.dmccBuild === "dmcc-playtest-v02215", JSON.stringify(ver));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/", pretendToBeVisual: true, runScripts: "dangerously" });
 const w = dom.window;

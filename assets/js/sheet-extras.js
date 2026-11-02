@@ -2997,6 +2997,12 @@
           releaseHealTarget();
         }
       } else if (rolled.assigned && joined() && !whisperOn() && root.SSDNSDmJoin) {
+        if (/scorching ray/i.test(spellName || "")) {
+          var rayLooks = (rolled.assigned.beams || []).filter(function (b) { return b && b.targetId; }).map(function (b) {
+            return { id: b.targetId, result: b.hit ? (b.crit ? "crit" : "hit") : "miss", miss: !b.hit };
+          });
+          if (rayLooks.length) postSpellLook(spellName, rayLooks[0].id, rayLooks[0].result, row, null, rollId + "_rays", { rays: rayLooks });
+        }
         rolled.assigned.groups.forEach(function (g, idx) {
           if (!g || !g.id) return;
           if (g.pending) {
@@ -3034,7 +3040,7 @@
             rollId: rollId + "_b" + idx,
             push: g.pushes || 0
           });
-          postSpellLook(spellName, g.id, "hit", row);
+          if (!/scorching ray/i.test(spellName || "")) postSpellLook(spellName, g.id, "hit", row);
         });
       } else if (rolled.autoDarts && pendingDarts && root.SSDNSSpellArea && root.SSDNSSpellArea.assignDarts) {
         root.SSDNSSpellArea.assignDarts(rolled.darts, pendingDarts).forEach(function (g) {
@@ -3113,7 +3119,11 @@
             });
           });
         }
-        postSpellLook(spellName, tgt && tgt.id, "hit", row);
+        if (/chain lightning/i.test(spellName || "") && saveTargets.length) {
+          postSpellLook(spellName, saveTargets[0].id, "hit", row, null, rollId + "_chain", {
+            hops: saveTargets.slice(1).map(function (sp) { return { id: sp.id }; })
+          });
+        } else postSpellLook(spellName, tgt && tgt.id, "hit", row);
       } else if (!rolled.heal && row && row.kind === "auto" && !rolled.autoDarts && tgt && tgt.id && !whisperOn() && root.SSDNSDmJoin.postDamage) {
         var autoAmt = Number(rolled.damageTotal != null ? rolled.damageTotal : rolled.result) || 0;
         if (rolled.applyNow === false) autoAmt = 0;
@@ -4128,7 +4138,7 @@
   }
   /* One-shot map paint. Attack rolls already call sheetMapFx. Area and save casts land here.
      A placed token (look "token") is the visual for that spell, not a beam. */
-  function postSpellLook(name, targetId, result, row, at, fxId) {
+  function postSpellLook(name, targetId, result, row, at, fxId, extra) {
     if (whisperOn()) return;
     var dmg = (row && row.type) || "";
     var FX = root.SSDNSMapFx;
@@ -4138,6 +4148,7 @@
     var self = !pointed && (!targetId || look === "shield" || look === "magearmor" || look === "pwt" || look === "invis" || !!(FX && FX.lookSelf && FX.lookSelf({ type: "spell", spell: name, dmg: dmg })));
     var aim = self ? { target: "", self: true } : (pointed ? { target: "", self: false } : fxAim(targetId));
     var id = fxId || ("fxr_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+    extra = extra || {};
     var req = {
       fxId: id,
       type: "spell",
@@ -4148,6 +4159,11 @@
       dmg: dmg,
       result: result || "hit"
     };
+    if (extra.rays && extra.rays.length) req.rays = extra.rays;
+    if (extra.hops && extra.hops.length) req.hops = extra.hops;
+    if (extra.dust) req.dust = true;
+    if (extra.crumbOnly) req.crumbOnly = true;
+    if (extra.pulse) req.pulse = true;
     if (pointed) req.at = { x: Math.round(Number(at.x) * 10) / 10, y: Math.round(Number(at.y) * 10) / 10 };
     sheetMapFx(Object.assign({ id: id }, req));
     if (!joined() || !root.SSDNSDmJoin || !root.SSDNSDmJoin.postFx) return;
