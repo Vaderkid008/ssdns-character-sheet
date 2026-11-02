@@ -943,7 +943,7 @@ body.map-fullscreen #mapMount > .ssm-drawer.placed {
   top: 52px;
   right: 12px;
   z-index: 16;
-  width: 280px;
+  width: min(392px, calc(100% - 16px));
   max-height: calc(100% - 70px);
   overflow: auto;
   background: rgba(20, 16, 12, 0.96);
@@ -2005,3 +2005,156 @@ body.map-fullscreen #mapMount:has(> .ssm-turnstrip:not([hidden])) .ssdns-toolbar
     display: none;
   }
 }
+
+/* N62 — Fight surface. Identity, one primary card, overflow accordions. */
+.n62-zlabel {
+  font-size: 9.5px; letter-spacing: 1.4px; text-transform: uppercase; color: #6f6b62;
+  margin: 8px 0 5px; display: flex; align-items: center; gap: 6px;
+}
+.n62-zlabel::after { content: ""; flex: 1; border-top: 1px dashed #2d333c; }
+.n62-identrow { display: flex; align-items: center; gap: 10px; }
+.n62-stat {
+  background: #12151a; border: 1px solid #2d333c; border-radius: 8px;
+  padding: 4px 8px; text-align: center; min-width: 50px;
+}
+.n62-stat b { display: block; font-size: 16px; color: #f3d27a; line-height: 1.1; }
+.n62-stat small { font-size: 9.5px; color: #8d8a82; letter-spacing: 1px; text-transform: uppercase; }
+.n62-hp { flex: 1; min-width: 0; }
+.n62-hprow { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+.n62-hprow b { color: #e8f4e8; }
+.n62-sub { margin-top: 3px; color: #8d8a82; font-size: 11px; }
+.n62-pill {
+  font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: #7fe0d2;
+  border: 1px solid #3fb8a8; border-radius: 999px; padding: 1px 7px; white-space: nowrap;
+}
+.n62-gear {
+  width: 30px; height: 30px; min-width: 30px; min-height: 30px; padding: 0;
+  border-radius: 7px; border: 1px solid #2d333c; background: #22262d; color: #cfc8b8; cursor: pointer;
+}
+.n62-tabsbar { display: flex; margin-top: 8px; border: 1px solid #2d333c; border-radius: 9px; overflow: hidden; }
+.n62-tabsbar button {
+  flex: 1; background: #14181c; color: #cfc8b8; border: 0; border-right: 1px solid #2d333c;
+  padding: 7px 0; font: 600 12px system-ui, sans-serif; cursor: pointer; letter-spacing: .4px;
+}
+.n62-tabsbar button:last-child { border-right: 0; }
+.n62-tabsbar button.on { background: linear-gradient(180deg, #3a2c12, #241b0c); color: #f3d27a; }
+.n62-switch { display: flex; gap: 6px; margin-bottom: 7px; }
+.n62-switch button {
+  flex: 1; border: 1px solid #2d333c; background: #14181c; color: #cfc8b8;
+  border-radius: 7px; padding: 4px 0; cursor: pointer; font: 12px system-ui, sans-serif;
+}
+.n62-switch button.on { border-color: #3fb8a8; background: #12302c; color: #7fe0d2; }
+.n62-econ { display: flex; gap: 6px; margin-top: 8px; }
+.n62-ec {
+  flex: 1; text-align: center; font-size: 10.5px; padding: 4px 0; border-radius: 7px;
+  border: 1px solid #2d333c; background: #14181c; color: #cfc8b8;
+}
+.n62-ec.used { color: #4a463e; text-decoration: line-through; background: #111316; }
+.n62-acc { border: 1px solid #2d333c; border-radius: 9px; background: #14171b; margin-top: 7px; }
+.n62-acc > summary {
+  list-style: none; cursor: pointer; padding: 8px 10px;
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  font-size: 12.5px; color: #d9d3c4;
+}
+.n62-acc > summary::-webkit-details-marker { display: none; }
+.n62-acc > summary::after { content: "▸"; color: #d8a948; }
+.n62-acc[open] > summary::after { transform: rotate(90deg); }
+.n62-acc > summary small { color: #8d8a82; font-size: 10.5px; margin-left: auto; }
+.n62-accbody { padding: 0 10px 10px; display: grid; gap: 6px; }
+.n62-wcard {
+  background: linear-gradient(180deg, #1e2229, #171a1f);
+  border: 1px solid #5a4a26; border-radius: 12px; padding: 12px;
+  min-height: 280px; display: flex; flex-direction: column; gap: 8px;
+}
+.n62-wart {
+  min-height: 72px; border-radius: 9px; border: 1px dashed #6b5a35;
+  display: grid; place-items: center; color: #f3d27a; font-size: 13px; text-align: center;
+  background: repeating-linear-gradient(135deg, #221c12 0 10px, #1c170f 10px 20px);
+}
+.n62-wart small { display: block; color: #8d8a82; font-size: 10px; }
+.n62-attacks { display: grid; gap: 4px; }
+.n62-wait {
+  margin-top: 10px; border: 1px dashed #2f5a54; border-radius: 10px;
+  padding: 10px; background: #101a19; color: #cfc8b8; font-size: 12px;
+}
+.n62-wait b { color: #7fe0d2; }
+.n62-peek, .n62-react, .n62-end {
+  width: 100%; margin-top: 8px; border-radius: 8px; padding: 8px; cursor: pointer;
+  font: 600 12.5px system-ui, sans-serif;
+}
+.n62-peek { display: flex; justify-content: space-between; align-items: center; gap: 8px; background: #14181c; border: 1px solid #2d333c; color: #e7e2d6; text-align: left; }
+.n62-peek .n62-mini { display: flex; gap: 4px; align-items: center; margin-left: auto; }
+.n62-react { border: 1px solid #3fb8a8; background: #12302c; color: #7fe0d2; }
+.n62-end { background: #22262d; border: 1px solid #2d333c; color: #cfc8b8; }
+.n62-li, .n62-none { font-size: 12px; color: #cfc8b8; }
+.n62-li { display: flex; justify-content: space-between; padding: 7px 9px; border: 1px solid #2d333c; border-radius: 8px; background: #14181c; margin-top: 6px; }
+.n62-li small, .n62-none { color: #8d8a82; }
+.n62-arms { display: grid; gap: 4px; margin-bottom: 6px; }
+.ssdns-playercard .n62 .n62-tabsbar button,
+.ssdns-playercard .n62 .n62-switch button,
+.ssdns-playercard .n62 .n62-tab,
+.ssdns-playercard .n62 .n62-sigil,
+.ssdns-playercard .n62 .n62-tok,
+.ssdns-playercard .n62 .n62-peek,
+.ssdns-playercard .n62 .n62-react,
+.ssdns-playercard .n62 .n62-end,
+.ssm-drawer.n62 .n62-tabsbar button,
+.ssm-drawer.n62 .n62-switch button,
+.ssm-drawer.n62 .n62-tab,
+.ssm-drawer.n62 .n62-sigil,
+.ssm-drawer.n62 .n62-tok {
+  width: auto;
+  min-height: 0;
+}
+.ssdns-playercard .n62 .n62-tabsbar button,
+.ssm-drawer.n62 .n62-tabsbar button,
+.ssdns-playercard .n62 .n62-switch button,
+.ssm-drawer.n62 .n62-switch button,
+.ssdns-playercard .n62 .n62-peek,
+.ssdns-playercard .n62 .n62-react,
+.ssdns-playercard .n62 .n62-end,
+.ssm-drawer.n62 .n62-peek,
+.ssm-drawer.n62 .n62-react,
+.ssm-drawer.n62 .n62-end { width: 100%; }
+.ssdns-playercard .n62 button.n62-tab,
+.ssm-drawer.n62 button.n62-tab {
+  width: 24px; flex: 0 0 24px; height: 34px; min-height: 34px; padding: 0;
+  background: linear-gradient(180deg, #f4e7c6, #d9c493);
+  border: 1px solid #8a7347; border-bottom: none; border-radius: 5px 5px 0 0;
+  box-shadow: 0 0 6px #f3d27a44;
+}
+.ssdns-playercard .n62 button.n62-tab.spent,
+.ssm-drawer.n62 button.n62-tab.spent {
+  height: 22px; min-height: 22px;
+  background: linear-gradient(180deg, #4a4235, #3a342a);
+  box-shadow: none; border-color: #5a503f;
+}
+.ssdns-playercard .n62 button.n62-sigil,
+.ssm-drawer.n62 button.n62-sigil {
+  width: 12px; height: 12px; min-height: 12px; flex: 0 0 12px; padding: 0;
+  background: #7fe0d2; border: 0; border-radius: 2px; transform: rotate(45deg);
+  box-shadow: 0 0 6px #3fb8a8;
+}
+.ssdns-playercard .n62 button.n62-sigil.spent,
+.ssm-drawer.n62 button.n62-sigil.spent { background: #2a3331; box-shadow: inset 0 0 0 1px #3d4a47; }
+.ssdns-playercard .n62 button.n62-tok,
+.ssm-drawer.n62 button.n62-tok {
+  width: 34px; height: 38px; min-height: 38px; flex: 0 0 34px; padding: 0;
+  background: #1b1f25; color: #f3d27a; border: 1px solid #8a7347; border-radius: 8px;
+}
+.ssdns-playercard .n62 button.n62-tok.spent,
+.ssm-drawer.n62 button.n62-tok.spent { color: #4a463e; background: #15171a; border-color: #2e2c28; box-shadow: none; }
+.ssdns-playercard .n62 button.n62-react,
+.ssm-drawer.n62 button.n62-react {
+  background: #12302c; color: #7fe0d2; border: 1px solid #3fb8a8;
+}
+.ssdns-playercard .n62 .n61-spell,
+.ssm-drawer.n62 .n61-spell { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ssdns-playercard .n62 .n61-spell small,
+.ssm-drawer.n62 .n61-spell small { color: #8d8a82; font-size: 10px; }
+.ssdns-playercard .n62 .n62-tabsbar button.on,
+.ssm-drawer.n62 .n62-tabsbar button.on { background: linear-gradient(180deg, #3a2c12, #241b0c); color: #f3d27a; border-color: transparent; }
+.ssdns-playercard .n62 .n62-switch button.on,
+.ssm-drawer.n62 .n62-switch button.on { background: #12302c; color: #7fe0d2; border-color: #3fb8a8; }
+.ssm-drawer.n62 { width: min(392px, calc(100% - 16px)); background: linear-gradient(180deg, #1b1e24, #14161a); border-color: #3a3124; }
+.ssdns-playercard .ssm-card-head .n62-pill { flex: none; }

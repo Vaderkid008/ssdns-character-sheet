@@ -87,3 +87,141 @@ body.n61-picker #page-hex .sp-line > [data-spell-cast] {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;
 }
 .enemy-card .n61 { margin-bottom: 10px; }
+
+/* N62 drawer primary — mock shapes. Scoped so the sheet #castSkin card stays as N61 shipped it. */
+.n62 .n61-card { overflow: visible; min-height: 280px; display: flex; flex-direction: column; }
+.n62 .n61-card .n61-cap { margin-top: auto; }
+.n62 .n61-cap em { color: #f3d27a; font-style: normal; }
+.n62 .n62-book {
+  background: linear-gradient(90deg, #3a2414, #5a3a1e 8%, #4a2f18);
+  border-radius: 6px 10px 10px 6px;
+  padding: 8px 8px 6px 16px;
+  position: relative;
+  border: 1px solid #6b4a24;
+  margin-bottom: 6px;
+}
+.n62 .n62-book::before {
+  content: "";
+  position: absolute;
+  left: 5px; top: 6px; bottom: 6px; width: 4px;
+  background: repeating-linear-gradient(180deg, #f3d27a 0 3px, transparent 3px 9px);
+  border-radius: 2px;
+}
+.n62 .n62-lvl { display: flex; align-items: flex-end; gap: 8px; margin: 5px 0 0; }
+.n62 .n62-lvl > b { width: 22px; font-size: 11.5px; color: #d8a948; letter-spacing: .5px; padding-bottom: 4px; }
+.n62 .n62-tabs, .n62 .n62-row { display: flex; gap: 5px; flex-wrap: wrap; align-items: flex-end; min-height: 28px; }
+.n62 .n62-tab {
+  width: 24px; height: 34px; padding: 0;
+  background: linear-gradient(180deg, #f4e7c6, #d9c493);
+  border-radius: 5px 5px 0 0;
+  border: 1px solid #8a7347; border-bottom: none;
+  box-shadow: 0 0 6px #f3d27a44;
+  cursor: pointer;
+}
+.n62 .n62-tab.spent { height: 22px; background: linear-gradient(180deg, #4a4235, #3a342a); box-shadow: none; border-color: #5a503f; cursor: default; }
+.n62 .n62-tab.sel { outline: 2px solid #7fe0d2; outline-offset: 2px; }
+.n62 .n62-pageedge { height: 5px; background: repeating-linear-gradient(90deg, #efe2c0 0 2px, #cdb98a 2px 3px); border-radius: 0 0 3px 3px; margin: 0 0 3px 30px; }
+.n62 .n62-spine { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; font-size: 10.5px; color: #8d8a82; margin-top: 6px; }
+.n62 .n62-spine b { color: #d8a948; margin-left: 4px; font-size: 10.5px; }
+.n62 .n62-pip { width: 11px; height: 11px; border-radius: 50%; background: #f3d27a; box-shadow: 0 0 6px #d8a948; display: inline-block; }
+.n62 .n62-pip.spent { background: #3a3832; box-shadow: inset 0 0 0 1px #5a5448; }
+.n62 .n62-iron {
+  min-height: 58px; border-radius: 9px 9px 0 0; border: 1px dashed #3fb8a888;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 10px; color: #7fe0d2;
+  background: radial-gradient(ellipse at 50% 60%, #16332f, #101413 70%);
+}
+.n62 .n62-iron small { display: block; color: #8d8a82; font-size: 10px; }
+.n62 .n62-thin {
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+  background: #101a19; border: 1px solid #2f5a54; border-top: none;
+  border-radius: 0 0 9px 9px; padding: 7px 10px; margin-bottom: 8px;
+}
+.n62 .n62-thin span { font-size: 10px; color: #8d8a82; margin: 0 2px 0 4px; }
+.n62 .n62-sigil {
+  width: 12px; height: 12px; padding: 0; border: 0; border-radius: 2px;
+  transform: rotate(45deg); background: #7fe0d2; box-shadow: 0 0 6px #3fb8a8; cursor: pointer;
+}
+.n62 .n62-sigil.spent { background: #2a3331; box-shadow: inset 0 0 0 1px #3d4a47; cursor: default; }
+.n62 .n62-sigil.sel { outline: 2px solid #f3d27a; outline-offset: 2px; }
+.n62 .n62-tok {
+  width: 34px; height: 38px; padding: 0; border-radius: 8px;
+  display: grid; place-items: center; cursor: pointer; color: #f3d27a;
+  background: radial-gradient(circle at 50% 40%, #ffffff12, transparent 70%), #1b1f25;
+  border: 1px solid #8a7347; box-shadow: 0 0 9px #d8a94866;
+}
+.n62 .n62-tok svg { width: 22px; height: 22px; }
+.n62 .n62-tok.spent { color: #4a463e; border-color: #2e2c28; box-shadow: none; background: #15171a; cursor: default; }
+.n62 .n62-tok.sel { outline: 2px solid #7fe0d2; outline-offset: 2px; box-shadow: 0 0 14px #3fb8a8; }
+.n62 .bg-law .n62-tok { color: #f3d27a; }
+.n62 .bg-preach .n62-tok { color: #e9d7a6; }
+.n62 .bg-nature .n62-tok { color: #8fd68a; }
+.n62 .bg-scout .n62-tok { color: #7fe0d2; }
+.n62 .bg-story .n62-tok { color: #f3d27a; }
+.n62 .bg-martial .n62-tok { color: #e08a5a; }
+.n62 .n61-pop h4 { display: flex; justify-content: space-between; align-items: center; }
+.n62 .n61-pop h4 button { background: transparent; border: 0; color: #8d8a82; cursor: pointer; padding: 0 2px; width: auto; min-height: 0; }
+.n62 .n62-sigrow { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; color: #cfc8b8; margin: 2px 0 6px; }
+.n62 .n62-sigrow h2 { margin: 0; }
+.n62 .n62-sigrow b { color: #f3d27a; }
+.n62 .n62-legend { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; font-size: 10.5px; color: #8d8a82; margin: 4px 0; }
+.n62 .n62-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 3px; vertical-align: -1px; }
+.n62 .n61-gunnote b { color: #f3d27a; }
+.n62 .bg-scholar::before {
+  background:
+    linear-gradient(90deg, transparent 21px, #c0503a1c 21px 22px, transparent 22px),
+    repeating-linear-gradient(180deg, transparent 0 17px, #d9c4930f 17px 18px),
+    linear-gradient(90deg, #5a3a1e1a, transparent 18%);
+}
+.n62 .bg-pact::before {
+  background:
+    radial-gradient(ellipse at 50% 85%, #3fb8a822, transparent 60%);
+}
+.n62 .bg-hex::before { background: radial-gradient(circle at 80% 70%, #d8a94822, transparent 55%); }
+.n62 .bg-law::before { background: radial-gradient(ellipse at 80% 80%, #d8a94828, transparent 55%); }
+.ssdns-playercard .n62 .n61-card button,
+.ssm-drawer.n62 .n61-card button,
+.ssdns-playercard .n62 .n62-switch button,
+.ssm-drawer.n62 .n62-switch button,
+.ssdns-playercard .n62 .n62-tabsbar button,
+.ssm-drawer.n62 .n62-tabsbar button {
+  width: auto;
+  min-height: 0;
+}
+.ssdns-playercard .n62 .n61-go,
+.ssm-drawer.n62 .n61-go {
+  width: 100%;
+  background: linear-gradient(180deg, #f3d27a, #b8862f);
+  color: #2a1c06;
+  border: 0;
+  font-weight: 800;
+}
+.ssdns-playercard .n62 .n61-chip,
+.ssm-drawer.n62 .n61-chip {
+  width: auto;
+  background: #12302c;
+  color: #7fe0d2;
+  border: 1px dashed #3fb8a8;
+}
+.ssdns-playercard .n62 .n61-qc,
+.ssm-drawer.n62 .n61-qc {
+  width: 100%;
+  background: #14181c;
+  color: #e7e2d6;
+  border: 1px solid #2d333c;
+}
+.ssdns-playercard .n62 .n61-qc.first,
+.ssm-drawer.n62 .n61-qc.first {
+  border-color: #d8a948;
+  background: linear-gradient(90deg, #3a2c12, #1a1610);
+  color: #f3d27a;
+}
+.ssdns-playercard .n62 .n61-spell,
+.ssm-drawer.n62 .n61-spell {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  color: #e7e2d6;
+}
+.ssdns-playercard .n62 .n61-spell.hot,
+.ssm-drawer.n62 .n61-spell.hot { background: #1d4a43; color: #fff; }

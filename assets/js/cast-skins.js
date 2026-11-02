@@ -188,6 +188,134 @@
     }
     return { calling: c.calling, cantrips: cantrips, levels: levels, quick: quick };
   }
+  function prettyCalling(id) {
+    return String(id || "").split("-").filter(Boolean).map(function (w) {
+      return w.charAt(0).toUpperCase() + w.slice(1);
+    }).join(" ");
+  }
+  function levelWord(level) {
+    level = Number(level);
+    if (level === 1) return "1st";
+    if (level === 2) return "2nd";
+    if (level === 3) return "3rd";
+    return level + "th";
+  }
+  /**
+   * N62 drawer primary. Same taps as the sheet card, drawn the way the map mock locks them:
+   * Scholar ledger, Pact sigil rail, badge/token rows for every other non-gun calling.
+   * Hexslinger is not drawn here — the live Caster Gun cylinder is the signature card.
+   * model: { calling, focus, cantrips, levels, quick, open, hot, dm, castAttr }
+   */
+  function drawerCard(model, open) {
+    model = model || {};
+    var skin = skinFor(model.calling);
+    if (!skin || skin.gun) return "";
+    open = open || model.open || "";
+    var openLevel = open ? String(open).split(":")[0] : "";
+    var hot = model.hot || "";
+    var dm = !!model.dm;
+    function attr(sp) {
+      if (!sp) return "disabled";
+      if (typeof model.castAttr === "function") return model.castAttr(sp) || "disabled";
+      var id = esc(sp.id || sp.cast || (sp.level + ":" + sp.name));
+      if (dm) return 'data-sid="' + id + '" data-skind="' + esc(sp.kind || "") + '"';
+      return 'data-act="playerSpell" data-id="' + id + '"';
+    }
+    function goClass() { return "n61-go" + (dm ? " ssm-atk" : ""); }
+    function chipClass() { return "n61-chip" + (dm ? " ssm-atk" : ""); }
+    var chips = (model.cantrips || []).map(function (sp) {
+      return '<button type="button" class="' + chipClass() + '" ' + attr(sp) + ">✧ " + esc(sp.name) + "<i>always ready</i></button>";
+    }).join("");
+    var focusName = model.focus || skin.focus;
+    var focus = '<div class="' + (skin.id === "pact" ? "n62-iron" : "n61-focus") + '"><div>' + esc(focusName) +
+      "<small>focus art</small></div>" +
+      (chips ? '<div class="n61-chips">' + chips + "</div>" : '<span class="n61-chip dry">Cantrip <i>always ready</i></span>') +
+      "</div>";
+    function pop(level, spells) {
+      if (openLevel !== String(level)) return "";
+      var list = spells || [];
+      var hotSp = null;
+      list.forEach(function (sp) {
+        if (!hotSp && hot && (sp.id === hot || sp.name === hot)) hotSp = sp;
+      });
+      if (!hotSp) hotSp = list[0] || null;
+      var rows = list.map(function (sp) {
+        var id = sp.id || sp.name || "";
+        var on = hotSp && (hotSp.id || hotSp.name) === id ? " hot" : "";
+        var meta = sp.meta || "";
+        return '<button type="button" class="n61-spell' + on + '" data-n62-pick="' + esc(id) + '"><span>' + esc(sp.name) + "</span>" +
+          (meta ? "<small>" + esc(meta) + "</small>" : "") + "</button>";
+      }).join("");
+      if (!rows) rows = '<p class="n61-empty">No prepared spell at this level.</p>';
+      return '<div class="n61-pop" data-n62-pop="' + level + '"><h4>Prepared · ' + levelWord(level) +
+        ' level <button type="button" data-n62-x aria-label="Close">✕</button></h4>' + rows +
+        '<button type="button" class="' + goClass() + '" ' + attr(hotSp) + ">Cast ▸</button></div>";
+    }
+    function slotBtn(kind, level, index, spent, sel) {
+      var cls = kind === "tab" ? "n62-tab" : (kind === "sigil" ? "n62-sigil" : "n62-tok");
+      if (spent) cls += " spent";
+      else if (sel) cls += " sel";
+      var inner = kind === "tok" ? icon(skin.token) : "";
+      return '<button type="button" class="' + cls + '" data-n62-slot="' + level + ":" + index + '"' +
+        (spent ? " disabled" : "") + ' aria-label="Level ' + level + " slot " + (index + 1) +
+        (spent ? ", spent" : ", charged") + '">' + inner + "</button>";
+    }
+    var levels = (model.levels || []).filter(function (row) { return row && row.total > 0; });
+    var kind = skin.id === "scholar" ? "tab" : (skin.id === "pact" ? "sigil" : "tok");
+    var body = "";
+    var cap = "Tap a charged token, pick the spell, cast. Cantrips spend no token.";
+    if (skin.id === "scholar") {
+      var book = levels.map(function (row) {
+        var tabs = "";
+        var i;
+        for (i = 0; i < row.total; i++) tabs += slotBtn("tab", row.level, i, i < (row.spent || 0), open === (row.level + ":" + i));
+        return '<div class="n62-lvl"><b>L' + row.level + '</b><div class="n62-tabs">' + tabs + "</div></div>" +
+          '<div class="n62-pageedge"></div>' + pop(row.level, row.spells);
+      }).join("");
+      var spine = levels.map(function (row) {
+        var pips = "";
+        var n;
+        for (n = 0; n < row.total; n++) pips += '<i class="n62-pip' + (n < (row.spent || 0) ? " spent" : "") + '"></i>';
+        return "<b>L" + row.level + "</b>" + pips;
+      }).join("");
+      body = focus + '<div class="n62-book">' + book + '</div><div class="n62-spine">Spine: ' + spine + "</div>";
+      cap = "Tap a bright page tab → <em>turn to prepared spell</em> → Cast ▸";
+    } else if (skin.id === "pact") {
+      var rail = levels.map(function (row) {
+        var sigs = "";
+        var j;
+        for (j = 0; j < row.total; j++) sigs += slotBtn("sigil", row.level, j, j < (row.spent || 0), open === (row.level + ":" + j));
+        return "<span>L" + row.level + "</span>" + sigs;
+      }).join("");
+      var pops = levels.map(function (row) { return pop(row.level, row.spells); }).join("");
+      var quick = "";
+      if (model.quick && model.quick.length) {
+        quick = '<div class="n61-quick">' + model.quick.map(function (q) {
+          var cls = "n61-qc" + (q.first ? " first" : "") + (dm ? " ssm-atk" : "");
+          return '<button type="button" class="' + cls + '" ' + attr(q) + "><b>" + esc(q.name) + "</b>" +
+            (q.sub ? "<small>" + esc(q.sub) + "</small>" : "") + "</button>";
+        }).join("") + "</div>";
+      }
+      body = focus + '<div class="n62-thin">' + rail + "</div>" + pops + quick;
+      cap = "Pact Shot first. <em>Sigil rail, not a magazine.</em>";
+    } else {
+      var rails = levels.map(function (row) {
+        var toks = "";
+        var k;
+        for (k = 0; k < row.total; k++) toks += slotBtn(kind, row.level, k, k < (row.spent || 0), open === (row.level + ":" + k));
+        return '<div class="n62-lvl"><b>L' + row.level + '</b><div class="n62-row">' + toks + "</div></div>" + pop(row.level, row.spells);
+      }).join("");
+      body = focus + (rails ? '<div class="n62-slots">' + rails + "</div>" : "");
+      cap = skin.id === "law"
+        ? "Tap a shining badge → pick → <em>Cast ▸</em>. Badge dulls when spent."
+        : "Tap a charged token → pick → <em>Cast ▸</em>. Cantrips spend no token.";
+    }
+    var tag = prettyCalling(model.calling) + " · cast";
+    return '<section class="n61-card ' + skin.bg + '" data-calling="' + esc(model.calling) + '" data-n62-card="1">' +
+      '<div class="n61-tag">' + esc(tag) + "</div><h2>" + esc(skin.title) + "</h2>" +
+      '<p class="n61-who">' + esc(skin.who) + "</p>" + body +
+      '<p class="n61-cap">' + cap + "</p></section>";
+  }
   function paintSheet() {
     var host = root.document && root.document.getElementById("castSkin");
     if (!host) return;
@@ -265,6 +393,7 @@
     skinFor: skinFor,
     hidesLineCast: hidesLineCast,
     html: html,
+    drawerCard: drawerCard,
     enemyHtml: enemyHtml,
     sheetModel: sheetModel,
     paintSheet: paintSheet
