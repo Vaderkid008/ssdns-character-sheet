@@ -1066,6 +1066,11 @@ if (role === 'dm') {
         <option value="bright">Bright</option>
       </select>
     </label>
+    <div class="ssm-light-legend" data-act="lightLegend" data-ambient="dark" aria-label="Light: Bright, Dim, Dark">
+      <span data-level="bright">Bright</span>
+      <span data-level="dim">Dim</span>
+      <span data-level="dark">Dark</span>
+    </div>
     <label class="ssm-range" title="Test overlay. Players never see these rings."><input type="checkbox" data-act="showLightRings"> Light rings</label>
     <label class="ssm-ambient">Sight
       <select data-act="visionSel" aria-label="Player sight">
@@ -1073,6 +1078,7 @@ if (role === 'dm') {
         <option value="own">Own token</option>
       </select>
     </label>
+    <button type="button" data-act="testLightBtn" aria-pressed="false" title="Drop a torch on a square. Click the same square to put it out, then again to pick it up. Bright 20 ft, dim 20 ft.">Test light</button>
     <button type="button" data-act="dmDouseBtn">Douse lights</button>
     <button type="button" data-act="dmRelightBtn">Relight</button>
     <select data-act="condSelect">
@@ -1141,6 +1147,11 @@ if (role === 'dm') {
               <summary>Link · lights · vision</summary>
               <div class="n62-accbody">
                 <div class="ssm-lights" data-act="playerLights">No light in hand</div>
+                <div class="ssm-light-legend" data-act="lightLegend" data-ambient="dark" aria-label="Light: Bright, Dim, Dark">
+                  <span data-level="bright">Bright</span>
+                  <span data-level="dim">Dim</span>
+                  <span data-level="dark">Dark</span>
+                </div>
               </div>
             </details>
             <details class="n62-acc" data-n62-acc="extras">
@@ -2028,6 +2039,7 @@ function buildSight(viewerUid, sceneId, forceMode) {
     out.bubbles.push(bubble);
     if (mine) { out.center = { x: bubble.x, y: bubble.y }; out.radius = radius; }
   }
+  testLightRows(sd).forEach(ls => out.lights.push(ls));
   return out;
 }
 function sightFor(viewerUid, sceneId) { return buildSight(viewerUid, sceneId, ''); }
@@ -3887,16 +3899,20 @@ function draw() {
       ctx.fillRect(0, 0, box.w, box.h);
       (viewSight.bubbles || []).forEach(b => drawVisible(b.x * px, b.y * px, b.radius * px));
       for (const ls of lightSources) drawVisible(ls.x, ls.y, ls.radius * px, ls);
+      paintLightGlow(lightSources, px, viewSight);
+      paintTestLightMarks(px, viewSight);
       paintPlayerFog(img, cols, rows, px, box);
     } else if (role === 'player') {
       const topLeft = worldToScreen(0, 0);
       ctx.drawImage(img, topLeft.x, topLeft.y, cols * px * state.view.zoom, rows * px * state.view.zoom);
       if (viewSight.ambient === 'dim') {
-        ctx.fillStyle = 'rgba(18, 24, 48, 0.42)';
+        ctx.fillStyle = 'rgba(16, 16, 20, 0.72)';
         ctx.fillRect(0, 0, box.w, box.h);
         for (const ls of lightSources) if (ls.bright > 0) drawVisible(ls.x, ls.y, ls.bright * px, ls);
         (viewSight.bubbles || []).forEach(b => { if (b.darkvision) drawVisible(b.x * px, b.y * px, b.radius * px); });
       }
+      paintLightGlow(lightSources, px, viewSight);
+      paintTestLightMarks(px, viewSight);
       paintPlayerFog(img, cols, rows, px, box);
     } else {
       // DM always sees the full map
@@ -3904,10 +3920,11 @@ function draw() {
       ctx.drawImage(img, topLeft.x, topLeft.y, cols * px * state.view.zoom, rows * px * state.view.zoom);
 
       /* Show Player FOV follows the ambient the players are under. Bright: no wash.
-         Dim: blue wash, bright light and darkvision punched back. Dark: black fog. */
+         Dim: darker desaturated wash, bright core punched back, dim ring and dim-only lights glow.
+         Dark: black fog, same glow. */
       if (role === 'dm' && state.showPlayerFov && img && viewSight.ambient !== 'bright') {
         if (viewSight.ambient === 'dim') {
-          ctx.fillStyle = 'rgba(18, 24, 48, 0.42)';
+          ctx.fillStyle = 'rgba(16, 16, 20, 0.72)';
           ctx.fillRect(0, 0, box.w, box.h);
           for (const ls of lightSources) if (ls.bright > 0) drawVisible(ls.x, ls.y, ls.bright * px, ls);
           (viewSight.bubbles || []).forEach(b => { if (b.darkvision) drawVisible(b.x * px, b.y * px, b.radius * px); });
@@ -3920,7 +3937,13 @@ function draw() {
       }
     }
   }
+  if (role !== 'player') {
+    paintLightGlow(lightSources, px, viewSight);
+    paintTestLightMarks(px, viewSight);
+  }
   paintLightRings(viewSight, px);
+  paintLightLegend(viewSight.ambient);
+  notePartyDark(viewSight);
 
   // walls
   if (sceneData().walls.length && role === 'dm' && state.showWalls) {
@@ -4405,7 +4428,7 @@ function iconCursor(emoji) {
 }
 function applyCursor() {
   if (state.blast || state.placeAsset) { canvas.style.cursor = 'crosshair'; return; }
-  if (state.tool === 'reveal' || state.tool === 'hide' || state.tool === 'erase' || state.tool === 'wall' || state.tool === 'room' || state.tool === 'door' || state.tool === 'window') canvas.style.cursor = 'crosshair';
+  if (state.tool === 'reveal' || state.tool === 'hide' || state.tool === 'erase' || state.tool === 'wall' || state.tool === 'room' || state.tool === 'door' || state.tool === 'window' || state.tool === 'testlight') canvas.style.cursor = 'crosshair';
   else if (state.tool === 'ruler') canvas.style.cursor = iconCursor('📏');
   else if (state.tool === 'ping') canvas.style.cursor = iconCursor('📡');
   else if (state.offline) canvas.style.cursor = iconCursor('👻');
@@ -4465,6 +4488,7 @@ function armFog(op) {
   clearToolButtons();
   paintSecretBtn();
   paintFogTools();
+  paintTestLightBtn();
   applyCursor();
   draw();
 }
@@ -4481,6 +4505,7 @@ function setTool(tool) {
   markDoorTool();
   paintSecretBtn();
   paintFogTools();
+  paintTestLightBtn();
   applyCursor();
   draw();
 }
@@ -4498,6 +4523,7 @@ function armSecretDoor() {
   markDoorTool();
   paintSecretBtn();
   paintFogTools();
+  paintTestLightBtn();
   applyCursor();
   draw();
 }
@@ -7618,6 +7644,13 @@ function onPointerDown(e) {
       draw();
       return;
     }
+    if (role === 'dm' && state.tool === 'testlight') {
+      e.preventDefault();
+      const w = pointerWorld(e);
+      const cellPx = state.scene.grid.px;
+      dropTestTorch({ x: w.x / cellPx, y: w.y / cellPx });
+      return;
+    }
     if (state.tool === 'ping') {
       const w = pointerWorld(e);
       const myToken = state.tokens.find(t => t.ownerUid === uid);
@@ -8228,6 +8261,229 @@ function strokeCone(wx, wy, radiusWorld, facing, stroke) {
   ctx.lineWidth = 2;
   ctx.stroke();
   ctx.restore();
+}
+function testLightRows(sd) {
+  const list = sd && Array.isArray(sd.testLights) ? sd.testLights : [];
+  const rows = [];
+  list.forEach(l => {
+    if (!l || l.out) return;
+    const bright = Number(l.bright) || 0;
+    const dim = Number(l.dim) || 0;
+    rows.push({
+      x: (Number(l.x) || 0) + 0.5,
+      y: (Number(l.y) || 0) + 0.5,
+      bright: bright,
+      dim: dim,
+      radius: (bright + dim) / 5,
+      cone: false,
+      facing: 0,
+      name: l.name || 'Torch',
+      id: l.id || 'test-torch',
+      catalogId: l.catalogId || 'torch-pitch-stick',
+      test: true
+    });
+  });
+  return rows;
+}
+function torchSpec() {
+  const T = window.SSDNSLighting && window.SSDNSLighting.TABLE && window.SSDNSLighting.TABLE['torch-pitch-stick'];
+  return {
+    bright: T && T.bright != null ? Number(T.bright) : 20,
+    dim: T && T.dim != null ? Number(T.dim) : 20,
+    name: (T && T.name) || 'Torch'
+  };
+}
+/* Drop a torch on a square. Second click puts it out. Third click picks it up. */
+function dropTestTorch(cell) {
+  if (role !== 'dm' || !state.scene) return;
+  const scene = sceneData();
+  const g = state.scene.grid || { cols: 1, rows: 1 };
+  const x = Math.max(0, Math.min((g.cols || 1) - 1, Math.floor(Number(cell.x) || 0)));
+  const y = Math.max(0, Math.min((g.rows || 1) - 1, Math.floor(Number(cell.y) || 0)));
+  const list = scene.testLights;
+  const hit = list.find(l => l && l.x === x && l.y === y);
+  if (!hit) {
+    const spec = torchSpec();
+    list.push({
+      id: 'tl_' + Date.now().toString(36),
+      x: x, y: y,
+      bright: spec.bright, dim: spec.dim,
+      name: spec.name,
+      catalogId: 'torch-pitch-stick',
+      out: false
+    });
+    toast('Torch on ' + x + ',' + y);
+  } else if (!hit.out) {
+    hit.out = true;
+    toast('Torch out');
+  } else {
+    scene.testLights = list.filter(l => l !== hit);
+    toast('Torch picked up');
+  }
+  saveScene();
+  draw();
+}
+function paintTestLightBtn() {
+  const b = q('testLightBtn');
+  if (!b) return;
+  const on = state.tool === 'testlight';
+  b.classList.toggle('active', on);
+  b.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+function paintLightLegend(ambient) {
+  const amb = ambient === 'bright' || ambient === 'dim' ? ambient : 'dark';
+  el.querySelectorAll('[data-act="lightLegend"]').forEach(node => node.setAttribute('data-ambient', amb));
+}
+/* Once, when the scene is Dark and no party token is carrying a light. */
+function notePartyDark(sight) {
+  if (!sight || sight.ambient !== 'dark') { state._partyDarkSig = ''; return; }
+  const party = state.tokens.filter(t => t && t.pos && !t.hidden && (t.ownerUid || t.kind === 'player') && (t.sceneId || 'scn_dustyspur01') === sight.sceneId);
+  if (!party.length) { state._partyDarkSig = ''; return; }
+  const lit = party.some(t => tokenLightList(t).length > 0);
+  const sig = sight.sceneId + (lit ? ':lit' : ':dark');
+  if (state._partyDarkSig === sig) return;
+  state._partyDarkSig = sig;
+  if (!lit) toast('No one in the party is carrying a light.');
+}
+function clipLightDisc(ls, radiusPx) {
+  const pts = raycastVisible(ls.x, ls.y, radiusPx);
+  if (!pts.length) return false;
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.closePath();
+  ctx.clip();
+  if (ls && ls.cone) {
+    const c = worldToScreen(ls.x, ls.y);
+    const z = state.view.zoom || 1;
+    const spread = Math.atan(0.5);
+    const face = Number(ls.facing) || 0;
+    ctx.beginPath();
+    ctx.moveTo(c.x, c.y);
+    ctx.arc(c.x, c.y, Math.max(1, radiusPx * z), face - spread, face + spread);
+    ctx.closePath();
+    ctx.clip();
+  }
+  return true;
+}
+function paintGlowDisc(ls, radiusPx, paint) {
+  ctx.save();
+  if (!clipLightDisc(ls, radiusPx)) { ctx.restore(); return; }
+  const c = worldToScreen(ls.x, ls.y);
+  const z = state.view.zoom || 1;
+  const oR = Math.max(2, radiusPx * z);
+  paint(c, oR, z);
+  ctx.restore();
+}
+/* After a full reveal, darken the dim ring. A dim-only light stays visible, not a hard hole. */
+function paintDarkDimVeil(sources, px) {
+  (sources || []).forEach(ls => {
+    if (!ls || !(ls.radius > 0)) return;
+    const outer = ls.radius * px;
+    const brightPx = Math.max(0, (Number(ls.bright) || 0) * px);
+    paintGlowDisc(ls, outer, (c, oR) => {
+      const bR = Math.min(oR - 0.5, Math.max(0, brightPx * (state.view.zoom || 1)));
+      const g = ctx.createRadialGradient(c.x, c.y, (ls.bright > 0 && bR + 1 < oR) ? bR : 0, c.x, c.y, oR);
+      if (ls.bright > 0 && bR + 1 < oR) {
+        g.addColorStop(0, 'rgba(7, 7, 10, 0)');
+        g.addColorStop(0.16, 'rgba(8, 8, 12, 0.62)');
+        g.addColorStop(1, 'rgba(5, 5, 8, 0.8)');
+      } else {
+        g.addColorStop(0, 'rgba(8, 8, 12, 0.38)');
+        g.addColorStop(1, 'rgba(5, 5, 8, 0.7)');
+      }
+      ctx.fillStyle = g;
+      ctx.fillRect(c.x - oR - 2, c.y - oR - 2, oR * 2 + 4, oR * 2 + 4);
+    });
+  });
+}
+/* In Dim, lift the dim ring and any dim-only source so it reads against the wash. */
+function paintDimLift(sources, px) {
+  (sources || []).forEach(ls => {
+    if (!ls || !(ls.radius > 0)) return;
+    const onlyDim = !(ls.bright > 0);
+    if (!onlyDim && !(ls.radius > ls.bright)) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    const outer = ls.radius * px;
+    if (!clipLightDisc(ls, outer)) { ctx.restore(); return; }
+    const c = worldToScreen(ls.x, ls.y);
+    const z = state.view.zoom || 1;
+    const oR = Math.max(2, outer * z);
+    const bR = Math.max(0, (Number(ls.bright) || 0) * px * z);
+    const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, oR);
+    if (onlyDim) {
+      g.addColorStop(0, 'rgba(0,0,0,0.7)');
+      g.addColorStop(0.72, 'rgba(0,0,0,0.28)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+    } else {
+      const edge = Math.max(0.02, Math.min(0.9, bR / oR));
+      g.addColorStop(0, 'rgba(0,0,0,0)');
+      g.addColorStop(edge, 'rgba(0,0,0,0)');
+      g.addColorStop(Math.min(0.98, edge + 0.06), 'rgba(0,0,0,0.4)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+    }
+    ctx.fillStyle = g;
+    ctx.fillRect(c.x - oR - 2, c.y - oR - 2, oR * 2 + 4, oR * 2 + 4);
+    ctx.restore();
+  });
+}
+function paintTorchHalo(sources, px, amb) {
+  const hot = amb === 'bright' ? 0.28 : 0.5;
+  const dimA = amb === 'bright' ? 0.12 : (amb === 'dim' ? 0.34 : 0.42);
+  (sources || []).forEach(ls => {
+    if (!ls || !(ls.radius > 0)) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const outer = ls.radius * px;
+    if (!clipLightDisc(ls, outer)) { ctx.restore(); return; }
+    const c = worldToScreen(ls.x, ls.y);
+    const z = state.view.zoom || 1;
+    const oR = Math.max(2, outer * z);
+    const bR = Math.max(0, (Number(ls.bright) || 0) * px * z);
+    const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, oR);
+    if (ls.bright > 0 && bR + 1 < oR) {
+      g.addColorStop(0, 'rgba(255, 214, 120, ' + hot + ')');
+      g.addColorStop(Math.max(0.02, Math.min(0.92, bR / oR)), 'rgba(255, 170, 60, ' + (hot * 0.65) + ')');
+      g.addColorStop(1, 'rgba(140, 150, 190, 0)');
+    } else {
+      g.addColorStop(0, 'rgba(255, 206, 130, ' + dimA + ')');
+      g.addColorStop(0.55, 'rgba(180, 170, 140, ' + (dimA * 0.45) + ')');
+      g.addColorStop(1, 'rgba(120, 120, 140, 0)');
+    }
+    ctx.fillStyle = g;
+    ctx.fillRect(c.x - oR - 2, c.y - oR - 2, oR * 2 + 4, oR * 2 + 4);
+    ctx.restore();
+  });
+}
+/* Soft glow: bright core, dim ring. Dim-only lights (Dancing Lights) still show in Dim and Dark. */
+function paintLightGlow(sources, px, sight) {
+  const amb = sight && sight.ambient || 'dark';
+  const washed = amb !== 'bright' && !(role === 'dm' && !state.showPlayerFov);
+  if (!washed && amb === 'bright') {
+    paintTorchHalo(sources, px, amb);
+    return;
+  }
+  if (washed && amb === 'dark') paintDarkDimVeil(sources, px);
+  if (washed && amb === 'dim') paintDimLift(sources, px);
+  paintTorchHalo(sources, px, amb);
+}
+function paintTestLightMarks(px, sight) {
+  let list = [];
+  try { list = (sceneData().testLights || []).slice(); } catch (e) { list = []; }
+  list.forEach(l => {
+    if (!l) return;
+    const gx = (Number(l.x) || 0) + 0.5;
+    const gy = (Number(l.y) || 0) + 0.5;
+    if (role !== 'dm' && !pointInSight(gx, gy, sight)) return;
+    const c = worldToScreen(gx * px, gy * px);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, Math.max(3, 5 * (state.view.zoom || 1)), 0, Math.PI * 2);
+    ctx.fillStyle = l.out ? 'rgba(90, 86, 80, 0.85)' : 'rgba(255, 168, 48, 0.95)';
+    ctx.fill();
+    ctx.restore();
+  });
 }
 function paintLightRings(sight, px) {
   const readout = q('playerLights');
@@ -9147,6 +9403,10 @@ if (role === 'dm') {
     toast(out ? 'Lights out' : 'Lights relit');
     draw();
   }
+  if (q('testLightBtn')) q('testLightBtn').addEventListener('click', () => {
+    setTool('testlight');
+    toast(state.tool === 'testlight' ? 'Click a square to drop a torch' : 'Test light off');
+  });
   if (q('dmDouseBtn')) q('dmDouseBtn').addEventListener('click', () => douseSelected(true));
   if (q('dmRelightBtn')) q('dmRelightBtn').addEventListener('click', () => douseSelected(false));
   q('showFovBtn').addEventListener('click', () => {
@@ -9577,6 +9837,7 @@ function sceneData(id) {
   if (!Array.isArray(scene.walls)) scene.walls = [];
   if (!Array.isArray(scene.fogRects)) scene.fogRects = [];
   if (!Array.isArray(scene.fogPolys)) scene.fogPolys = [];
+  if (!Array.isArray(scene.testLights)) scene.testLights = [];
   if (!Array.isArray(scene.fogShapes)) {
     const shapes = [];
     scene.fogRects.forEach(r => {

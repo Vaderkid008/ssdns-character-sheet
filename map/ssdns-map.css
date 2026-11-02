@@ -973,6 +973,17 @@ body.map-fullscreen #mapMount > .ssm-drawer.placed {
 .ssdns-playercard .ssm-tools { display: flex; flex-wrap: wrap; gap: 4px; }
 .ssdns-playercard .ssm-lights { flex: 1 1 100%; font-size: 12px; font-weight: 700; color: #e8c36a; }
 .ssm-ambient { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: #e8dcc8; }
+.ssm-light-legend { display: flex; gap: 4px; margin: 4px 0 2px; }
+.ssm-light-legend span {
+  flex: 1 1 0; text-align: center; font-size: 10px; letter-spacing: .04em;
+  text-transform: uppercase; padding: 3px 2px; border-radius: 3px; border: 1px solid #5a4e40;
+}
+.ssm-light-legend span[data-level="bright"] { background: #f3e2b0; color: #2b1d10; }
+.ssm-light-legend span[data-level="dim"] { background: #5c584f; color: #f4efe4; }
+.ssm-light-legend span[data-level="dark"] { background: #14110e; color: #c9bfb0; }
+.ssm-light-legend[data-ambient="bright"] span[data-level="bright"],
+.ssm-light-legend[data-ambient="dim"] span[data-level="dim"],
+.ssm-light-legend[data-ambient="dark"] span[data-level="dark"] { outline: 2px solid #e2b33a; outline-offset: 1px; }
 .ssdns-playercard .ssm-tools button {
   width: auto;
   flex: 1 1 calc(50% - 4px);

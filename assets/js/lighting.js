@@ -1,7 +1,9 @@
-/* Item-driven light (sheet 0.3.131). Bright and dim rings, lineage darkvision, DM douse.
+/* Item-driven light (sheet 0.3.211). Bright and dim rings, lineage darkvision, DM douse.
    No burn-time clock: a light stays on until someone stows it or the DM puts it out.
    rules.js is not touched. database.rules.json is not touched.
-   L0215: belt lantern is locked at bright 15 / dim 15, trinket, hands-free. Oil is fictional. */
+   L0215: belt lantern is locked at bright 15 / dim 15, trinket, hands-free. Oil is fictional.
+   Catalog already prices it (750 ES, 1 lb, wear trinket). It does not take a hand.
+   Held torch, lamp, candle, hooded lamp, and bullseye take Pistol L, Pistol R, or Melee. */
 (function (root) {
   "use strict";
   var FT = 5; /* one map square */
@@ -270,18 +272,92 @@
     if (level === "dim") return skulker ? "Dim light. Skulker: no disadvantage on sight Perception." : "Dim light. Disadvantage on Wisdom (Perception) checks that rely on sight.";
     return "Darkness. Heavily obscured: you are effectively blinded.";
   }
-  function hold(c, uid, on) {
+  /* Paper-doll weapon slots a held light may occupy. Long gun stays a two-handed weapon slot. */
+  var LIGHT_SLOTS = ["revolver_1", "revolver_2", "melee"];
+  var LIGHT_SLOT_NAME = { revolver_1: "Pistol L", revolver_2: "Pistol R", melee: "Melee" };
+  function lightSlotOf(item) {
+    var s = item && item.lightSlot;
+    return LIGHT_SLOTS.indexOf(s) >= 0 ? s : "";
+  }
+  function slotName(key) { return LIGHT_SLOT_NAME[key] || ""; }
+  function handLights(c) {
+    return items(c).filter(function (it) {
+      var spec = specFor(it);
+      return !!(spec && spec.slot === "hand");
+    });
+  }
+  function lightInSlot(c, key) {
+    if (LIGHT_SLOTS.indexOf(key) < 0) return null;
+    return items(c).filter(function (it) {
+      if (!it || !it.lightHeld || lightSlotOf(it) !== key) return false;
+      var spec = specFor(it);
+      return !!(spec && spec.slot === "hand");
+    })[0] || null;
+  }
+  function weaponHandsInSlot(c, key) {
+    var D = root.SSDNSDoll;
+    if (!D || !D.weaponRow) return 0;
+    var row = D.weaponRow(c, key);
+    if (!row || row.equipped === false) return 0;
+    var w = row.w;
+    var props = String((w && w.properties) || "");
+    if (row.kind === "gun" && twoHanded(w)) return 2;
+    if (row.kind === "melee" && w && (twoHanded(w) || (row.g && row.g.twoHand && /versatile/i.test(props)))) return 2;
+    return 1;
+  }
+  /* Prefer an empty hand slot. Fall back to one a weapon can be lifted out of. */
+  function pickLightSlot(c, uid, prefer) {
+    if (prefer && LIGHT_SLOTS.indexOf(prefer) >= 0) return prefer;
+    var i, key, busy = "";
+    for (i = 0; i < LIGHT_SLOTS.length; i++) {
+      key = LIGHT_SLOTS[i];
+      if (lightInSlot(c, key) && lightInSlot(c, key).uid !== uid) continue;
+      if (!weaponHandsInSlot(c, key)) return key;
+      if (!busy) busy = key;
+    }
+    return busy;
+  }
+  /* Fill lightSlot for a light that is already in hand, without stealing a weapon. */
+  function ensureSlots(c) {
+    if (!c) return;
+    handLights(c).forEach(function (it) {
+      if (!it.lightHeld || lightSlotOf(it)) return;
+      var slot = pickLightSlot(c, it.uid);
+      if (!slot || weaponHandsInSlot(c, slot)) return;
+      if (lightInSlot(c, slot)) return;
+      it.lightSlot = slot;
+    });
+  }
+  function hold(c, uid, on, slot) {
     var it = items(c).filter(function (x) { return x && x.uid === uid; })[0];
     if (!it) return { ok: false, reason: "No item." };
     var spec = specFor(it);
     if (!spec || spec.slot !== "hand") return { ok: false, reason: "That light isn't held in a hand." };
-    if (!on) { it.lightHeld = false; return { ok: true, item: it, held: false }; }
-    if (handsUsed(c, uid) + 1 > 2) {
+    if (!on) {
+      it.lightHeld = false;
+      it.lightSlot = "";
+      return { ok: true, item: it, held: false, slot: "" };
+    }
+    if (slot && LIGHT_SLOTS.indexOf(slot) < 0) return { ok: false, reason: "A held light goes in Pistol L, Pistol R, or Melee." };
+    var want = pickLightSlot(c, uid, slot);
+    if (!want) return { ok: false, reason: "No free hand. A torch takes a hand, and a two-handed gun or a shield plus a weapon can fill both." };
+    var cost = weaponHandsInSlot(c, want);
+    if (handsUsed(c, uid) - cost + 1 > 2) {
       return { ok: false, reason: "No free hand. A torch takes a hand, and a two-handed gun or a shield plus a weapon can fill both." };
     }
+    var D = root.SSDNSDoll;
+    if (cost && D && D.setWeapon) {
+      var freed = D.setWeapon(c, want, "");
+      if (freed && freed.ok === false) return freed;
+    }
+    items(c).forEach(function (other) {
+      if (!other || other === it) return;
+      if (other.lightSlot === want) { other.lightHeld = false; other.lightSlot = ""; }
+    });
     it.lightHeld = true;
     it.lightOut = false;
-    return { ok: true, item: it, held: true };
+    it.lightSlot = want;
+    return { ok: true, item: it, held: true, slot: want, slotName: slotName(want) };
   }
   function setHood(c, uid, down) {
     var it = items(c).filter(function (x) { return x && x.uid === uid; })[0];
@@ -342,6 +418,7 @@
     }
     if (!box) return;
     if (!c) { box.hidden = true; return; }
+    ensureSlots(c);
     var lights = activeLights(c);
     var dv = darkvisionFeet(c);
     var sk = hasSkulker(c);
@@ -367,6 +444,8 @@
 
   root.SSDNSLighting = {
     FT: FT, TABLE: TABLE, specFor: specFor, radii: radii, handsUsed: handsUsed, hold: hold, setHood: setHood,
+    LIGHT_SLOTS: LIGHT_SLOTS, lightSlotOf: lightSlotOf, slotName: slotName, handLights: handLights,
+    lightInSlot: lightInSlot, ensureSlots: ensureSlots, pickLightSlot: pickLightSlot,
     setSpell: setSpell, douseItem: douseItem, litItem: litItem, activeLights: activeLights, spellLights: spellLights,
     knownNames: knownNames, spellKey: spellKey, knowsOwlEyes: knowsOwlEyes, darkvisionFeet: darkvisionFeet,
     hasSkulker: hasSkulker, hasDevilsSight: hasDevilsSight, tokenProfile: tokenProfile, squares: squares, rawLevel: rawLevel, seenLevel: seenLevel,

@@ -39,7 +39,14 @@ const belt = { uid: "b1", catalogId: "belt-lantern", name: "Belt lantern", wear:
 const c = { items: [torch, hood, belt], guns: [], melee: [], shield: "", lineage: "farmers", feats: [], cantrips: ["Light"], lightOn: {} };
 
 check("torch.needsHand", !L.litItem(torch));
-check("hold.ok", L.hold(c, "t1", true).ok && L.litItem(torch).bright === 20 && L.litItem(torch).dim === 20);
+check("hold.ok", L.hold(c, "t1", true).ok && L.litItem(torch).bright === 20 && L.litItem(torch).dim === 20 && torch.lightSlot === "revolver_1" && L.lightInSlot(c, "revolver_1") === torch);
+check("hold.slotName", L.slotName("revolver_1") === "Pistol L" && L.slotName("melee") === "Melee" && L.LIGHT_SLOTS.join() === "revolver_1,revolver_2,melee");
+const candle = { uid: "c1", catalogId: "candle", name: "Candle" };
+c.items.push(candle);
+check("hold.secondSlot", L.hold(c, "c1", true).ok && candle.lightSlot === "revolver_2" && L.lightInSlot(c, "revolver_2") === candle);
+check("hold.moveMelee", L.hold(c, "c1", true, "melee").ok && candle.lightSlot === "melee" && !L.lightInSlot(c, "revolver_2"));
+check("hold.stow", L.hold(c, "c1", false).ok && candle.lightHeld === false && candle.lightSlot === "" && !L.lightInSlot(c, "melee"));
+check("hold.badSlot", !L.hold(c, "t1", true, "long_gun").ok);
 check("hood.down", L.setHood(c, "h1", true).ok && L.radii(hood).bright === 0 && L.radii(hood).dim === 5);
 L.hold(c, "h1", true);
 check("hood.heldDim", L.litItem(hood).bright === 0 && L.litItem(hood).dim === 5);
@@ -78,6 +85,8 @@ const lights = [{ x: 0, y: 0, bright: 20, dim: 20 }];
 check("level.bright", L.rawLevel(1, 0, lights, "dark") === "bright");
 check("level.dim", L.rawLevel(6, 0, lights, "dark") === "dim");
 check("level.dark", L.rawLevel(10, 0, lights, "dark") === "dark");
+const dance = [{ x: 0, y: 0, bright: 0, dim: 10 }];
+check("level.dimOnly", L.rawLevel(1, 0, dance, "dark") === "dim" && L.rawLevel(1, 0, dance, "dim") === "dim" && L.rawLevel(3, 0, dance, "dark") === "dark");
 check("level.ambient", L.rawLevel(10, 0, [], "bright") === "bright");
 check("dv.up", L.applyDarkvision("dark", true) === "dim" && L.applyDarkvision("dim", true) === "bright");
 
@@ -93,6 +102,54 @@ check("rings.dmOnly", src.includes('data-act="showLightRings"> Light rings') && 
 check("rings.rangeKept", src.includes("function paintRangeRings") && src.includes("paintRangeRings();") && src.includes("function paintMoveReach"));
 check("rings.washStays", src.includes("for (const ls of lightSources) drawVisible(ls.x, ls.y, ls.radius * px, ls)") && src.includes("if (b.darkvision) drawVisible"));
 check("rules.untouched", !read("database.rules.json").includes("dmDoused"));
+check("glow.fn", src.includes("function paintLightGlow") && src.includes("createRadialGradient") && src.includes("function paintDimLift") && src.includes("onlyDim"));
+check("dim.stronger", src.includes("rgba(16, 16, 20, 0.72)") && !src.includes("rgba(18, 24, 48, 0.42)"));
+check("legend", src.includes('data-act="lightLegend"') && src.includes('data-level="bright"') && src.includes('data-level="dim"') && src.includes('data-level="dark"'));
+check("testlight", src.includes('data-act="testLightBtn"') && src.includes("function dropTestTorch") && src.includes("torch-pitch-stick") && src.includes("testLightRows"));
+check("toast.nolight", src.includes("No one in the party is carrying a light."));
+check("viewas.deferred", !src.includes("View as") && !src.includes("viewAsPlayer"));
+const doll = read("assets/js/paper-doll.js");
+const items = read("assets/js/items.js");
+check("doll.light", doll.includes("data-doll-light") && doll.includes("heldLight") && doll.includes("doll-light-on") && doll.includes("doll-light-out"));
+check("doll.sync", doll.includes("Lights.hold(c, blocking.uid, false)") && items.includes("SSDNSDoll.paint") && items.includes("In hand"));
+check("belt.trinket", L.TABLE["belt-lantern"].slot === "trinket" && L.TABLE["belt-lantern"].handsFree === true && !/TODO:.*belt lantern price/i.test(read("assets/js/lighting.js")));
+
+const dollRules = {
+  lineages: [], feats: [], holsters: [], armor: [],
+  firearms: [{ id: "pistol", name: "Pistol", group: "pistol", properties: "light" }],
+  melee: [{ id: "knife", name: "Knife", properties: "" }]
+};
+const db = { console, Math, Number, String, Object, Array, JSON, isFinite, Date };
+db.globalThis = db;
+db.window = db;
+db.SSDNS_RULES = dollRules;
+vm.createContext(db);
+vm.runInContext(read("assets/js/lighting.js"), db);
+vm.runInContext(read("assets/js/paper-doll.js"), db);
+const DL = db.SSDNSLighting;
+const DD = db.SSDNSDoll;
+const pc = {
+  items: [{ uid: "t1", catalogId: "torch-pitch-stick", name: "Torch / pitch stick" }],
+  guns: [{ weapon: "pistol", equipped: true }],
+  melee: [],
+  shield: "",
+  dollWeapons: { revolver_1: 0 },
+  calling: ""
+};
+const held = DL.hold(pc, "t1", true, "revolver_1");
+check("sync.holdFrees", held.ok && held.slot === "revolver_1" && pc.guns[0].equipped === false && DL.lightInSlot(pc, "revolver_1") === pc.items[0] && DD.weaponName(pc, "revolver_1") === "Torch / pitch stick");
+const back = DD.setWeapon(pc, "revolver_1", 0);
+check("sync.weaponStows", back.ok && pc.guns[0].equipped === true && pc.items[0].lightHeld === false && !DL.lightInSlot(pc, "revolver_1"));
+DL.hold(pc, "t1", true, "melee");
+const litHtml = DD.html(pc, { readOnly: true });
+check("sync.dollOn", litHtml.includes("doll-light-on") && litHtml.includes('data-doll-slot="melee"') && litHtml.includes(">On<"));
+pc.items[0].lightOut = true;
+const outHtml = DD.html(pc, { readOnly: true });
+check("sync.dollOut", outHtml.includes("doll-light-out") && outHtml.includes(">Out<"));
+check("sync.picker", DD.pickerHtml(pc, "revolver_2").includes('data-doll-light="t1"') && DD.pickerHtml(pc, "long_gun").indexOf("data-doll-light") < 0);
+const beltDoll = { uid: "b9", catalogId: "belt-lantern", name: "Belt lantern", equipSlot: "accessory_1" };
+const beltHtml = DD.html({ items: [beltDoll], guns: [], melee: [], shield: "", calling: "" }, { readOnly: true });
+check("sync.beltTrinket", beltHtml.includes("doll-light-on") && beltHtml.includes('data-doll-slot="accessory_1"') && !DL.handsUsed({ items: [beltDoll], guns: [], melee: [], shield: "" }));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

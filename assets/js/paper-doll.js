@@ -404,12 +404,16 @@
     }
     var pick = weaponOptions(c, key).filter(function (x) { return String(x.i) === String(ref); })[0];
     if (!pick) return { ok: false, reason: "That weapon doesn't go in the " + WEAPON_SLOTS[key] + " slot." };
+    var Lights = root.SSDNSLighting;
+    var blocking = Lights && Lights.lightInSlot ? Lights.lightInSlot(c, key) : null;
     var prev = weaponRow(c, key);
     if (prev && prev.i !== pick.i && prev.kind === pick.kind && pick.g.equipped === false) {
       if (Equip && Equip.setEquipped) Equip.setEquipped(c, { kind: prev.kind, index: prev.i, equipped: false }); else prev.g.equipped = false;
     }
     if (Equip && Equip.setEquipped) { var r1 = Equip.setEquipped(c, { kind: pick.kind, index: pick.i, equipped: true }); if (r1 && !r1.ok) return r1; }
     else pick.g.equipped = true;
+    /* The weapon takes the hand. The held light leaves with it, on the doll and on Equipment. */
+    if (blocking && Lights.hold) Lights.hold(c, blocking.uid, false);
     Object.keys(c.dollWeapons).forEach(function (k) { if (k !== key && String(c.dollWeapons[k]) === String(pick.i) && (k === "melee") === (pick.kind === "melee")) c.dollWeapons[k] = ""; });
     c.dollWeapons[key] = pick.i;
     return { ok: true, row: pick };
@@ -489,7 +493,7 @@
   }
   function ironSlot(c) {
     if (!c || c.calling !== "pact-seeker" || !borrowedIronItem(c)) return "";
-    var free = function (k) { return !weaponRow(c, k); };
+    var free = function (k) { return !weaponRow(c, k) && !heldLight(c, k); };
     var order = ironSlots(c);
     var want = c.ironSlot;
     if (want && order.indexOf(want) >= 0 && free(want)) return want;
@@ -546,7 +550,7 @@
     /* 0.3.108 (4:51 PM): the iron's weapon class (item.ironClass) follows the Pact */
     if (IA && IA.stampClass && IA.stampClass(c)) changedAny = true;
     if (opts && opts.pactChanged && irons.length) {
-      var free = function (k) { return !weaponRow(c, k); };
+      var free = function (k) { return !weaponRow(c, k) && !heldLight(c, k); };
       var want = ironSlots(c).filter(free)[0] || "";
       if (c.ironSlot !== want) { c.ironSlot = want; changedAny = true; }
       if (!want) c.ironSlotNote = IRON_NO_SLOT; else delete c.ironSlotNote;
@@ -682,6 +686,15 @@
     /* 0.3.108: a real focus item (holy symbol, Ledger, keepsake, badge, land focus) */
     return itemFocusState(c);
   }
+  function heldLight(c, key) {
+    var L = root.SSDNSLighting;
+    if (!L || !L.lightInSlot || !key || key === "focus_borrowed_iron") return null;
+    return L.lightInSlot(c, key);
+  }
+  function lightArt(it) {
+    var src = artFor(it);
+    return isDefaultArt(src) ? "" : src;
+  }
   function weaponName(c, key) {
     var guns = (c && c.guns) || [];
     if (key === "focus_borrowed_iron") {
@@ -691,6 +704,9 @@
       var ins = c && c.instrument && byId(R().storytellerGear && R().storytellerGear.instruments, c.instrument);
       return ins ? ins.name : "";
     }
+    /* A held torch, lamp, candle, hooded lamp, or bullseye occupies this hand. */
+    var hlName = heldLight(c, key);
+    if (hlName) return hlName.name || "Light";
     /* 0.3.101: the plate shows the real iron from the Pact pick ("Butter Repeater"); no Pact yet: "Borrowed Iron" */
     if (ironSlot(c) === key) { var IAn = root.SSDNSIronArt; return (IAn && IAn.nameFor ? IAn.nameFor(c) : "") || "Borrowed Iron"; }
     var row = weaponRow(c, key);
@@ -709,7 +725,10 @@
     }
     /* 0.3.108 (Jessey 2026-10-21 7:47 PM CT: colour tiles in the inventory, b/w engravings on the weapons cards and the
        paper doll): every doll weapon slot draws the 1200x400 engraving (contained in the square Pistol slots, upright in
-       Long gun / Melee). The colour 256 tile is only the fallback for a gun with no engraving. */
+       Long gun / Melee). The colour 256 tile is only the fallback for a gun with no engraving.
+       A held light uses the item tile (or its engraving when one exists). */
+    var hlArt = heldLight(c, key);
+    if (hlArt) return lightArt(hlArt);
     if (ironSlot(c) === key) { var IAe = root.SSDNSIronArt, ie = IAe && IAe.engravingSrc ? IAe.engravingSrc(c) : ""; return ie || borrowedIronArt(c); }
     var row = weaponRow(c, key);
     if (!row || !A || !A.srcFor) return "";
@@ -727,6 +746,8 @@
   var TALL_WEAPON = { long_gun: 1, melee: 1 };
   function isWideArt(src) { return !!src && (/borrowed-iron-long-outline\.svg$/.test(src) || !/\/items\//.test(src) && /assets\/img\/(weapons|dm-only)\//.test(src)); }
   function slotArt(c, key) {
+    var hlSlot = heldLight(c, key);
+    if (hlSlot) return lightArt(hlSlot);
     if (!TALL_WEAPON[key]) return weaponArt(c, key);
     var IA = root.SSDNSIronArt, A = root.SSDNSWeaponArt;
     if (ironSlot(c) === key) {
@@ -791,6 +812,7 @@
   function wideGearSrc(src) { var m = /assets\/img\/items\/gear\/([a-z0-9-]+)\.webp/.exec(String(src || "")); return !!(m && WIDE_GEAR_ART[m[1]]); }
   function html(c, opts) {
     opts = opts || {};
+    if (c && root.SSDNSLighting && root.SSDNSLighting.ensureSlots) root.SSDNSLighting.ensureSlots(c);
     var ro = !!opts.readOnly;
     /* Duster Form frame (Art Bot, Jessey-approved 2026-10-19): the figure is baked into the frame, so there is no separate silhouette layer. */
     var parts = ['<div class="doll' + (ro ? " doll-ro" : "") + '" style="background-image:url(' + img(FRAME) + ')">'];
@@ -826,7 +848,13 @@
             cls += " doll-ledger-away";
           }
         } else {
-          var irs = ironSlot(c) === key ? ironState(c) : null;
+          var hl = heldLight(c, key);
+          if (hl) {
+            cls += hl.lightOut ? " doll-light-out" : " doll-light-on";
+            focusNote = hl.lightOut ? "Out" : (hl.hoodDown ? "On · hood down" : "On");
+            src = "Held light";
+          }
+          var irs = !hl && ironSlot(c) === key ? ironState(c) : null;
           if (irs) {
             focusNote = irs.note;
             cls += " doll-iron" + (irs.away ? " doll-away" : "");
@@ -848,7 +876,15 @@
         if (key === "holster_r" && !it && holR) { name = holR.name; src = "Gear: Holster R"; if (isPair(holR) && holR === holL) cls += " doll-pair doll-pair-r"; }
         if ((key === "holster_l" || key === "holster_r") && it && pairWorn) cls += " doll-pair doll-pair-" + (key === "holster_l" ? "l" : "r");
         if (key === "gunbelt" && !it && (beltRow || (c && c.gunBelt))) { name = beltRow ? beltRow.name : "Gun belt"; src = beltRow ? "Gear: Belt" : "Gear: Gun belt box"; }
-        if (it) { name = it.name; art = artFor(it); src = "Item"; if (it.attune && !it.attuned) cls += " doll-unattuned"; if (wideGearSrc(art)) cls += " doll-wideart"; }
+        if (it) {
+          name = it.name; art = artFor(it); src = "Item"; if (it.attune && !it.attuned) cls += " doll-unattuned"; if (wideGearSrc(art)) cls += " doll-wideart";
+          /* Belt lantern and any other worn light: on/out, still hands-free in a trinket slot. */
+          var wornLight = root.SSDNSLighting && root.SSDNSLighting.specFor && root.SSDNSLighting.specFor(it);
+          if (wornLight) {
+            cls += it.lightOut ? " doll-light-out" : " doll-light-on";
+            focusNote = it.lightOut ? "Out" : "On";
+          }
+        }
         if (isDefaultArt(art)) art = "";
         /* Worn-gear art: the item's own art wins; else the gear map (PHB row or item), else the slot's generic art. */
         if (filledName(name) && !art) {
@@ -943,11 +979,23 @@
       hint = "Your focus is your Calling instrument (or Borrowed Iron). Extra instruments wait in Items.";
     } else {
       var cur = weaponRow(c, key);
+      var Lights = root.SSDNSLighting;
+      var lightHere = Lights && Lights.lightInSlot ? Lights.lightInSlot(c, key) : null;
+      var lightRows = "";
+      if (Lights && Lights.handLights && (key === "revolver_1" || key === "revolver_2" || key === "melee")) {
+        lightRows = Lights.handLights(c).map(function (it) {
+          var on = !!(lightHere && lightHere.uid === it.uid);
+          return btn('data-doll-light="' + esc(it.uid) + '"', it.name + (on ? " · this hand" : " · hold"), on);
+        }).join(" ");
+        if (lightHere) lightRows += " " + btn('data-doll-light=""', "Stow light", false);
+      }
       rows = weaponOptions(c, key).map(function (x) {
-        return btn('data-doll-weapon="' + x.i + '"', x.name + (x.equipped ? "" : " · packed"), !!cur && cur.i === x.i);
+        return btn('data-doll-weapon="' + x.i + '"', x.name + (x.equipped ? "" : " · packed"), !!cur && cur.i === x.i && !lightHere);
       }).join(" ");
       if (cur) rows += " " + btn('data-doll-weapon=""', "Unequip", false);
+      if (lightRows) rows = lightRows + (rows ? " " + rows : "");
       hint = "Picking a weapon here sets it Equipped on Gear.";
+      if (lightRows) hint = "A torch, lamp, candle, hooded lamp, or bullseye takes this hand. Hold on Equipment uses the same slot. " + hint;
       if (!cur && c && c.calling === "pact-seeker" && borrowedIronItem(c) && ironSlots(c).indexOf(key) >= 0) rows += " " + btn('data-doll-ironslot="' + key + '"', "Borrowed Iron here", false);
       /* 0.3.100: say why the iron isn't offered here */
       else if (c && c.calling === "pact-seeker" && borrowedIronItem(c) && ironSlots(c).indexOf(key) < 0) hint += " " + ironOnlyMsg(c);
@@ -1013,7 +1061,7 @@
       }
       var host = document.getElementById("dollHost");
       if (!host || !host.contains(e.target)) return;
-      var t = e.target.closest("[data-doll-slot],[data-doll-put],[data-doll-close],[data-doll-weapon],[data-doll-focus],[data-doll-shield],[data-doll-iron],[data-doll-ironslot],[data-doll-focusitem],[data-doll-focuslost],[data-doll-focusremake]");
+      var t = e.target.closest("[data-doll-slot],[data-doll-put],[data-doll-close],[data-doll-weapon],[data-doll-light],[data-doll-focus],[data-doll-shield],[data-doll-iron],[data-doll-ironslot],[data-doll-focusitem],[data-doll-focuslost],[data-doll-focusremake]");
       if (!t) return;
       if (t.hasAttribute("data-doll-close")) { openKey = ""; paint(); return; }
       var res, key = openKey;
@@ -1023,6 +1071,18 @@
       } else if (t.hasAttribute("data-doll-weapon")) {
         var ref = t.getAttribute("data-doll-weapon");
         commit(function () { res = setWeapon(character(), key, ref); });
+      } else if (t.hasAttribute("data-doll-light")) {
+        var lu = t.getAttribute("data-doll-light");
+        commit(function () {
+          var L = root.SSDNSLighting, ch = character();
+          if (!L || !L.hold) { res = { ok: false, reason: "Lights aren't loaded." }; return; }
+          if (!lu) {
+            var curL = L.lightInSlot ? L.lightInSlot(ch, key) : null;
+            res = curL ? L.hold(ch, curL.uid, false) : { ok: true };
+            return;
+          }
+          res = L.hold(ch, lu, true, key);
+        });
       } else if (t.hasAttribute("data-doll-focus")) {
         var fu = t.getAttribute("data-doll-focus");
         commit(function () { res = makeFocus(character(), fu); });
