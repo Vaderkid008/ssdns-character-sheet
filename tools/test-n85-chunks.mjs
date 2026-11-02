@@ -18,10 +18,10 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.202" && version.sheetBuild === "sheet-playtest-v03202");
-check("ver.dmcc", version.dmcc === "0.2.215" && version.dmccBuild === "dmcc-playtest-v02215");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.202"') && read("assets/js/app.js").includes("sheet-playtest-v03202"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.215"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02215"));
+check("ver.sheet", version.sheet === "0.3.203" && version.sheetBuild === "sheet-playtest-v03203");
+check("ver.dmcc", version.dmcc === "0.2.216" && version.dmccBuild === "dmcc-playtest-v02216");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.203"') && read("assets/js/app.js").includes("sheet-playtest-v03203"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.216"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02216"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 check("rules.no172", !read("assets/data/rules.js").includes("0.3.174") && !read("assets/data/rules.js").includes("0.2.187"));
@@ -114,7 +114,7 @@ check("sfx.barrage-file", onDisk.has("reaction_counter_spe_#2-1793411864281.mp3"
 function look(spell, dmg) { return FX.lookOf({ type: "spell", spell: spell, dmg: dmg || "" }); }
 check("fx.locked-fire", look("Fire Bolt", "fire") === "fire");
 check("fx.locked-cold", look("Ray of Frost", "cold") === "cold");
-check("fx.locked-grasp", look("Shocking Grasp", "lightning") === "lightning");
+check("fx.locked-grasp", look("Shocking Grasp", "lightning") === "shocking-grasp" && look("Lightning Bolt", "lightning") === "lightning");
 check("fx.locked-eb", look("Eldritch Blast") === "scurve");
 check("fx.locked-mm", look("Magic Missile", "force") === "beads");
 check("fx.locked-heal", look("Cure Wounds") === "heal" && look("Healing Word") === "heal");

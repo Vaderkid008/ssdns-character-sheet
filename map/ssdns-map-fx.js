@@ -101,6 +101,9 @@
       p.duration = timing.grow + timing.hold + timing.fade + 180;
       if (look === "witch-bolt" && info.pulse) { p.impactAt = 80; p.duration = 720; }
       if (look === "disintegrate" && info.crumbOnly) { p.impactAt = 40; p.duration = 2300; }
+      if ((look === "hex" || look === "brand" || look === "heat") && info.pulse) { p.impactAt = 40; p.duration = 820; }
+      if (look === "enfeeble" && info.saved) { p.impactAt = 20; p.duration = 560; }
+      if (look === "flameblade" && info.swing) { p.impactAt = 160; p.duration = 1100; }
       p.look = look;
     }
     else if (type === "boom") {
@@ -165,6 +168,8 @@
     if (spec.dust) out.dust = true;
     if (spec.crumbOnly) out.crumbOnly = true;
     if (spec.pulse) out.pulse = true;
+    if (spec.saved) out.saved = true;
+    if (spec.mode === "chill" || spec.mode === "warm") out.mode = spec.mode;
     var nat = Number(spec.nat);
     if (spec.nat != null && isFinite(nat) && nat >= 1 && nat <= 20) out.nat = Math.round(nat);
     if (spec.crit) out.crit = true;
@@ -200,6 +205,8 @@
     if (info.dust) r.dust = true;
     if (info.crumbOnly) r.crumbOnly = true;
     if (info.pulse) r.pulse = true;
+    if (info.saved) r.saved = true;
+    if (info.mode === "chill" || info.mode === "warm") r.mode = info.mode;
     if (info.arrow) r.arrow = String(info.arrow).replace(/[^a-z-]/gi, "").slice(0, 20);
     var n = Number(info.nat);
     if (info.nat != null && isFinite(n) && n >= 1 && n <= 20) r.nat = Math.round(n);
@@ -419,8 +426,10 @@
      Burning Hands is a 15-ft blast off the palm, not the chunk cone chip. Shatter is a wedge plus a 10-ft burst.
      Chunk 1 Phase 1 paints named outlines for Witch Bolt, Scorching Ray, Guiding Bolt, Sacred Flame,
      Chill Touch, Acid Arrow, Poison Spray, Chain Lightning, and Disintegrate.
-     Shocking Grasp and Lightning Bolt stay on lightning. Fire Bolt stays on fire. Acid Splash stays on acid.
-     Spiritual Weapon stays a token. Grease, Light, Daylight, and Wall of Fire are zones, not beams. */
+     Chunk 2 Phase 1 paints Hex, Hunter's Mark, Shocking Grasp, Thorn Whip, Hellish Rebuke,
+     Flame Blade, Heat Metal, Fire Shield, Vampiric Touch, and Ray of Enfeeblement.
+     Lightning Bolt stays on lightning. Fire Bolt stays on fire. Acid Splash stays on acid.
+     Flaming Sphere and Spiritual Weapon stay tokens. Grease, Light, Daylight, and Wall of Fire are zones, not beams. */
   var LOOK_TIME = {
     ribbon: { grow: 220, hold: 140, fade: 450 },
     fire: { grow: 300, hold: 0, fade: 280 },
@@ -459,7 +468,19 @@
     "acid-arrow": { grow: 380, hold: 2920, fade: 800 },
     "poison-spray": { grow: 150, hold: 500, fade: 650 },
     "chain-lightning": { grow: 260, hold: 2400, fade: 700 },
-    "disintegrate": { grow: 60, hold: 1740, fade: 1100 }
+    "disintegrate": { grow: 60, hold: 1740, fade: 1100 },
+    /* Chunk 2 Phase 1 clocks, from the Love-it demo timings. */
+    hex: { grow: 120, hold: 1680, fade: 600 },
+    brand: { grow: 120, hold: 1480, fade: 600 },
+    "shocking-grasp": { grow: 70, hold: 2530, fade: 480 },
+    thorn: { grow: 220, hold: 860, fade: 520 },
+    rebuke: { grow: 400, hold: 1100, fade: 700 },
+    flameblade: { grow: 380, hold: 1100, fade: 500 },
+    heat: { grow: 260, hold: 2300, fade: 650 },
+    fireshield: { grow: 400, hold: 1600, fade: 600 },
+    rime: { grow: 400, hold: 1600, fade: 600 },
+    siphon: { grow: 220, hold: 1680, fade: 700 },
+    enfeeble: { grow: 90, hold: 1900, fade: 600 }
   };
   var SELF_LOOKS = { shield: 1, magearmor: 1, pwt: 1, invis: 1, flameblade: 1, fireshield: 1, produceflame: 1, agathys: 1, tintype: 1, haze: 1 };
   /* N85 Chunks 2–6 named looks. Damage-type keys already locked by tests stay on lookOf's later pass. */
@@ -558,7 +579,9 @@
     "acid arrow": "acid-arrow",
     "poison spray": "poison-spray",
     "chain lightning": "chain-lightning",
-    "disintegrate": "disintegrate"
+    "disintegrate": "disintegrate",
+    /* Chunk 2 Phase 1. Shocking Grasp leaves the generic lightning beam. */
+    "shocking grasp": "shocking-grasp"
   };
   var CHUNK_KIND = {
     briar: "zone", foxfire: "wrap", chloroform: "shot", jinx: "wrap", agathys: "held",
@@ -708,7 +731,6 @@
       /* Attack spells whose only look was the damage-type pass. An empty dmg (hidden AC pending resolve) used to paint the purple ribbon. */
       if (/^fire bolt$/.test(name)) return "fire";
       if (/^ray of frost$/.test(name)) return "cold";
-      if (/^shocking grasp$/.test(name)) return "lightning";
     }
     var dmg = low(spec.dmg || spec.dmgType || spec.damageType);
     if (/(^|[^a-z])fire([^a-z]|$)/.test(dmg)) return "fire";
@@ -1333,6 +1355,7 @@ function shakeOf(spec, lt) {
     if (look === "witch-bolt" && spec && spec.pulse) return { x: 0, y: 0 };
     return Chunk1Fx.shakeOf(look, lt);
   }
+  if (C2_LOOKS[look]) return Chunk2Fx.shakeOf(look, lt);
   if (look === "thundercube") return blastShake(lt, 8, 760);
   if (look === "fireball") return blastShake(lt - LOOK_TIME.fireball.grow, 11, 1000);
   if (look === "firecone") return blastShake(lt, 4, 420);
@@ -2600,9 +2623,461 @@ function beadsPaint(ctx, A, B, lt, seed) {
     shakeOf: shakeOf
   };
   })();
+  /* Chunk 2 Phase 1 Love-it outlines. Shape + clear effect. Thorn dust, the Hunter's Mark hop,
+     Shocking Grasp's metal-armor flare, and the Flaming Sphere ram stay out of this pass.
+     Ground scorch shares this overlay (above tokens), same as Chunk 1. */
+  var Chunk2Fx = (function () {
+  var TAU = Math.PI * 2;
+  var PAL = {
+    lightning: { glow: "85,120,240", core: "232,236,255", hot: "255,255,255" },
+    fire: { glow: "200,60,15", core: "255,125,35", hot: "255,225,160", burst: "255,140,45", ball: "255,242,205" },
+    forge: { white: "255,245,220", orange: "255,150,50" },
+    cold: { glow: "80,125,185", core: "200,225,250", hot: "250,252,255", mist: "150,185,225" },
+    radiant: { glow: "230,175,70", core: "255,232,170", hot: "255,250,230" },
+    necrotic: { glow: "95,45,100", black: "6,3,8", bone: "185,170,180", ash: "120,112,118", hex: "170,90,190" },
+    thorn: { vine: "90,95,45", tip: "150,110,70", dark: "40,38,18", splinter: "200,160,110" },
+    siphon: { ribbon: "225,70,80", drop: "170,20,35", heal: "255,150,160" },
+    enfeeble: { glow: "120,95,120", core: "190,178,190", mote: "150,145,150" }
+  };
+  function clamp(v, a, b) { a = a === undefined ? 0 : a; b = b === undefined ? 1 : b; return Math.max(a, Math.min(b, v)); }
+  function rgba(c, a) { return "rgba(" + c + "," + clamp(a) + ")"; }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function lp(A, B, t) { return { x: lerp(A.x, B.x, t), y: lerp(A.y, B.y, t) }; }
+  function easeOut(t) { return 1 - Math.pow(1 - clamp(t), 3); }
+  function easeInOut(t) { t = clamp(t); return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+  function env(t, a, b, c, d) { if (t < a || t > d) return 0; if (t < b) return (t - a) / Math.max(1, b - a); if (t <= c) return 1; return 1 - (t - c) / Math.max(1, d - c); }
+  function rng(seed) { var s = (seed * 2654435761) >>> 0; return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+  function dist(A, B) { return Math.hypot(B.x - A.x, B.y - A.y); }
+  function norm(A, B) { var d = dist(A, B) || 1; return { x: (B.x - A.x) / d, y: (B.y - A.y) / d }; }
+  function edge(A, B, r) { var n = norm(A, B); return { x: A.x + n.x * r, y: A.y + n.y * r }; }
+  function jag(A, B, segs, amp, seed) {
+    var r = rng(seed), n = norm(A, B), px = -n.y, py = n.x, pts = [];
+    for (var i = 0; i <= segs; i++) {
+      var u = i / segs, o = (i === 0 || i === segs) ? 0 : (r() - 0.5) * 2 * amp;
+      pts.push({ x: lerp(A.x, B.x, u) + px * o, y: lerp(A.y, B.y, u) + py * o });
+    }
+    return pts;
+  }
+  function partial(pts, p) { if (p >= 1) return pts; var n = pts.length - 1, f = p * n, k = Math.floor(f), out = pts.slice(0, k + 1); if (k < n) out.push(lp(pts[k], pts[k + 1], f - k)); return out; }
+  function poly(ctx, pts) { if (!pts || !pts.length) return; ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y); }
+  function stroke(ctx, pts, w, col, blur, blurCol) { if (!pts || pts.length < 2) return; ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = w; ctx.strokeStyle = col; if (blur) { ctx.shadowBlur = blur; ctx.shadowColor = blurCol || col; } poly(ctx, pts); ctx.stroke(); ctx.restore(); }
+  function glow(ctx, x, y, r, stops) { if (r <= 0.5) return; var g = ctx.createRadialGradient(x, y, 0, x, y, r); for (var i = 0; i < stops.length; i++) g.addColorStop(stops[i][0], stops[i][1]); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); }
+  function add(ctx, fn) { ctx.save(); ctx.globalCompositeOperation = "lighter"; fn(); ctx.restore(); }
+  function ring(ctx, x, y, r, w, col, blur) { if (r <= 0) return; ctx.save(); ctx.lineWidth = w; ctx.strokeStyle = col; if (blur) { ctx.shadowBlur = blur; ctx.shadowColor = col; } ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); ctx.restore(); }
+  function bolt(ctx, pts, a, thick) { var k = thick || 1; add(ctx, function () { stroke(ctx, pts, 14 * k, rgba(PAL.lightning.glow, 0.28 * a), 18, rgba(PAL.lightning.glow, a)); stroke(ctx, pts, 5 * k, rgba(PAL.lightning.glow, 0.75 * a)); stroke(ctx, pts, 2.2 * k, rgba(PAL.lightning.core, a)); stroke(ctx, pts, 0.9 * k, rgba(PAL.lightning.hot, a)); }); }
+  function sparks(ctx, x, y, t, n, seed, speed, life, col, size, grav) {
+    if (t < 0 || t > life) return; var r = rng(seed), u = t / life;
+    add(ctx, function () { for (var i = 0; i < n; i++) { var a = r() * TAU, v = speed * (0.4 + r() * 0.8), d = v * (1 - Math.pow(1 - u, 2)) * life / 1000 * 0.6; ctx.fillStyle = rgba(col, (1 - u) * (0.6 + r() * 0.4)); ctx.beginPath(); ctx.arc(x + Math.cos(a) * d, y + Math.sin(a) * d + (grav || 0) * u * u, size * (1 - u * 0.5), 0, TAU); ctx.fill(); } });
+  }
+  function pulse(ctx, A, B, t, dur, col, hot) {
+    if (!A || !B || t < 0 || t > dur + 220) return; var p = easeOut(clamp(t / dur)), a = 1 - clamp((t - dur) / 220);
+    var H = lp(A, B, p), Tl = lp(A, B, Math.max(0, p - 0.45));
+    add(ctx, function () { stroke(ctx, [Tl, H], 5, rgba(col, 0.35 * a), 10); stroke(ctx, [Tl, H], 1.4, rgba(hot, 0.9 * a)); if (p < 1) glow(ctx, H.x, H.y, 9, [[0, rgba(hot, a)], [1, rgba(col, 0)]]); });
+  }
+  function tongue(ctx, w, h, fill) { ctx.beginPath(); ctx.moveTo(-w, 0); ctx.quadraticCurveTo(-w * 0.4, -h * 0.6, 0, -h); ctx.quadraticCurveTo(w * 0.4, -h * 0.6, w, 0); ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); }
+  function flameRing(ctx, x, y, R, n, lt, a, h0, seed) {
+    for (var i = 0; i < n; i++) { var an = i / n * TAU + lt / 2200, h = h0 * (0.55 + 0.45 * (0.5 + 0.5 * Math.sin(lt / 85 + i * 2.3 + seed))); ctx.save(); ctx.translate(x + Math.cos(an) * R, y + Math.sin(an) * R); ctx.rotate(an + Math.PI / 2); tongue(ctx, 4.2, h, rgba(PAL.fire.core, 0.7 * a)); tongue(ctx, 2, h * 0.6, rgba(PAL.fire.hot, 0.8 * a)); ctx.restore(); }
+  }
+  function fireBurst(ctx, B, t, life, R, seed) {
+    if (!B || t < 0 || t > life) return; var u = t / life;
+    add(ctx, function () { glow(ctx, B.x, B.y, R * (0.55 + 0.45 * easeOut(clamp(t / 140))), [[0, rgba(PAL.fire.ball, 0.95 * (1 - u))], [0.3, rgba(PAL.fire.core, 0.8 * (1 - u))], [0.7, rgba(PAL.fire.glow, 0.45 * (1 - u))], [1, rgba(PAL.fire.glow, 0)]]); flameRing(ctx, B.x, B.y, R * 0.55 * (0.7 + 0.3 * easeOut(u)), 12, t, 1 - u, R * 0.45, seed); });
+    sparks(ctx, B.x, B.y, t, 18, seed, 160, life, PAL.fire.burst, 1.6, -18);
+  }
+  function scorchRing(ctx, B, R, a) {
+    if (!B || a <= 0) return; ctx.save(); ctx.fillStyle = "rgba(14,8,4," + (0.55 * a) + ")"; ctx.beginPath(); ctx.arc(B.x, B.y + 3, R, 0, TAU); ctx.arc(B.x, B.y + 3, R * 0.62, 0, TAU, true); ctx.fill("evenodd"); ctx.strokeStyle = "rgba(90,40,10," + (0.6 * a) + ")"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(B.x, B.y + 3, R * 0.98, 0, TAU); ctx.stroke(); ctx.restore();
+  }
+  function star(ctx, x, y, r, n, inner, fill, a, rot, blurCol) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot || 0); ctx.beginPath();
+    for (var i = 0; i < n * 2; i++) { var rr = i % 2 ? r * inner : r, an = i / (n * 2) * TAU - Math.PI / 2; ctx.lineTo(Math.cos(an) * rr, Math.sin(an) * rr); }
+    ctx.closePath(); ctx.fillStyle = rgba(fill, a); if (blurCol) { ctx.shadowBlur = 10; ctx.shadowColor = rgba(blurCol, a); } ctx.fill(); ctx.restore();
+  }
+  function hand(ctx, x, y, s, a, rot) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot || -0.2); var k = s / 20; ctx.beginPath(); ctx.ellipse(0, 4 * k, 7.5 * k, 8 * k, 0, 0, TAU);
+    [[-6, -9, 9], [-2, -12, 11], [2.2, -12, 11], [6, -9, 9]].forEach(function (f) { ctx.moveTo(f[0] * k + 1.7 * k, f[1] * k); ctx.ellipse(f[0] * k, f[1] * k + f[2] * k * 0.2, 1.7 * k, f[2] * k * 0.55, 0, 0, TAU); });
+    ctx.moveTo(-6 * k, 6 * k); ctx.ellipse(-10 * k, 1 * k, 1.8 * k, 5 * k, -0.9, 0, TAU);
+    ctx.shadowBlur = 12; ctx.shadowColor = rgba(PAL.necrotic.glow, a); ctx.fillStyle = rgba(PAL.necrotic.bone, 0.3 * a); ctx.fill();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = rgba("230,220,235", 0.9 * a); ctx.stroke(); ctx.restore();
+  }
+  function meleeSlash(ctx, B, t, r, ang) {
+    if (!B || t < 0 || t > 260) return; var a = 1 - t / 260, p = clamp(t / 80), pts = [];
+    for (var i = 0; i <= 12; i++) { var u = i / 12 * p, an = ang - 0.9 + u * 1.8; pts.push({ x: B.x + Math.cos(an) * r, y: B.y + Math.sin(an) * r }); }
+    stroke(ctx, pts, 3, "rgba(255,245,225," + (0.9 * a) + ")", 6);
+  }
+  function targetOf(G) { return (G && G.T && G.T[0]) || null; }
+
+  var HX = { pulse: 120, flare: 1500 };
+  function hexMark(ctx, B, rT, lt, a, fl) {
+    if (!B || a <= 0) return;
+    var R = rT + 8, rot = lt / 2600, br = 0.55 + 0.15 * Math.sin(lt / 320) + 0.45 * fl, r = rng(9);
+    for (var k = 0; k < 7; k++) { var an = r() * TAU, age = ((lt / 1300 + r()) % 1); glow(ctx, B.x + Math.cos(an) * R * 0.9, B.y + Math.sin(an) * R * 0.9 - age * 14, 7 + age * 6, [[0, rgba(PAL.necrotic.black, 0.4 * a * (1 - age))], [1, rgba(PAL.necrotic.black, 0)]]); }
+    add(ctx, function () {
+      glow(ctx, B.x, B.y, R + 10, [[0.55, rgba(PAL.necrotic.glow, 0)], [0.82, rgba(PAL.necrotic.glow, 0.5 * a * br)], [1, rgba(PAL.necrotic.glow, 0)]]);
+      ctx.save(); ctx.translate(B.x, B.y); ctx.rotate(rot); ctx.beginPath();
+      for (var i = 0; i <= 6; i++) { var an2 = i / 6 * TAU; ctx.lineTo(Math.cos(an2) * R, Math.sin(an2) * R); }
+      ctx.lineWidth = 2.2; ctx.strokeStyle = rgba(PAL.necrotic.hex, 0.9 * a * br); ctx.shadowBlur = 10; ctx.shadowColor = rgba(PAL.necrotic.hex, a); ctx.stroke();
+      ctx.lineWidth = 1; ctx.strokeStyle = rgba(PAL.necrotic.bone, 0.45 * a * br);
+      for (var t2 = 0; t2 < 2; t2++) { ctx.beginPath(); for (var j = 0; j <= 3; j++) { var an3 = j / 3 * TAU + t2 * Math.PI / 3; ctx.lineTo(Math.cos(an3) * R * 0.97, Math.sin(an3) * R * 0.97); } ctx.stroke(); }
+      ctx.lineWidth = 1.6; ctx.strokeStyle = rgba(PAL.necrotic.bone, 0.85 * a * br);
+      for (var g = 0; g < 6; g++) { var ag = g / 6 * TAU, cx = Math.cos(ag) * (R + 6), cy = Math.sin(ag) * (R + 6); ctx.save(); ctx.translate(cx, cy); ctx.rotate(ag); ctx.beginPath(); ctx.moveTo(-3, -3); ctx.lineTo(0, 3); ctx.lineTo(3, -3); if (g % 2) { ctx.moveTo(0, 3); ctx.lineTo(0, -4); } ctx.stroke(); ctx.restore(); }
+      ctx.restore();
+    });
+  }
+  function hexFlare(ctx, B, rT, lt, cell, fl) {
+    if (!B || fl <= 0) return;
+    add(ctx, function () { var u = clamp(lt / 600); ring(ctx, B.x, B.y, rT + 8 + easeOut(u) * cell * 0.6, 2.5 * (1 - u), rgba(PAL.necrotic.hex, 1 - u), 10); glow(ctx, B.x, B.y, cell * 0.8, [[0, rgba(PAL.necrotic.hex, 0.45 * fl)], [1, rgba(PAL.necrotic.glow, 0)]]); });
+  }
+  function hex(ctx, lt, G) {
+    var A = G.A, B = targetOf(G), rT = G.rT; if (!B) return;
+    if (G.pulse) { var flp = env(lt, 0, 60, 160, 600); hexMark(ctx, B, rT, 800 + lt, 1, flp); hexFlare(ctx, B, rT, lt, G.cell, flp); return; }
+    if (G.quiet) { hexMark(ctx, B, rT, lt, 1, 0); return; }
+    pulse(ctx, A, B, lt, HX.pulse, PAL.necrotic.hex, PAL.necrotic.bone);
+    var a = clamp((lt - HX.pulse) / 280), fl = env(lt, HX.flare, HX.flare + 60, HX.flare + 160, HX.flare + 600);
+    if (lt > HX.pulse - 10 && lt < HX.pulse + 380) { var u = (lt - HX.pulse) / 380; add(ctx, function () { ring(ctx, B.x, B.y, lerp(G.cell * 1.1, rT + 8, easeOut(u)), 3 * (1 - u) + 1, rgba(PAL.necrotic.hex, 1 - u * 0.5), 12); }); }
+    if (a > 0) hexMark(ctx, B, rT, lt, a, fl);
+    hexFlare(ctx, B, rT, lt - HX.flare, G.cell, fl);
+  }
+  var BR = { pulse: 120, flare: 1100 };
+  function hmMark(ctx, B, rT, lt, a, fl) {
+    if (!B || a <= 0) return;
+    var br = 0.5 + 0.12 * Math.sin(lt / 280) + 0.5 * fl;
+    add(ctx, function () {
+      ring(ctx, B.x, B.y, rT + 7, 1.6, rgba(PAL.radiant.core, 0.55 * a * br), 8);
+      ctx.save(); ctx.translate(B.x, B.y); ctx.rotate(-lt / 3000); ctx.strokeStyle = rgba(PAL.radiant.hot, 0.6 * a * br); ctx.lineWidth = 1.4;
+      for (var i = 0; i < 8; i++) { var an = i / 8 * TAU; ctx.beginPath(); ctx.arc(0, 0, rT + 7, an + 0.12, an + 0.42); ctx.stroke(); ctx.beginPath(); ctx.moveTo(Math.cos(an) * (rT + 4), Math.sin(an) * (rT + 4)); ctx.lineTo(Math.cos(an) * (rT + 10), Math.sin(an) * (rT + 10)); ctx.stroke(); }
+      ctx.restore();
+      glow(ctx, B.x, B.y, rT * 0.9, [[0, rgba(PAL.radiant.core, 0.35 * a * br)], [1, rgba(PAL.radiant.glow, 0)]]);
+      star(ctx, B.x, B.y, rT * 0.62, 4, 0.22, PAL.radiant.hot, 0.55 * a * br, Math.PI / 4, PAL.radiant.glow);
+      star(ctx, B.x, B.y, rT * 0.42, 4, 0.22, PAL.radiant.core, 0.5 * a * br, 0, PAL.radiant.glow);
+      var r = rng(Math.floor(lt / 90));
+      for (var k = 0; k < 4; k++) { var an3 = r() * TAU, rr = rT * (0.3 + r() * 0.8); ctx.fillStyle = rgba(PAL.radiant.hot, 0.8 * a * br); ctx.fillRect(B.x + Math.cos(an3) * rr, B.y + Math.sin(an3) * rr, 1.6, 1.6); }
+    });
+  }
+  function brand(ctx, lt, G) {
+    var A = G.A, B = targetOf(G), rT = G.rT; if (!B) return;
+    if (G.pulse) { var flp = env(lt, 0, 60, 160, 600); hmMark(ctx, B, rT, 600 + lt, 1, flp); sparks(ctx, B.x, B.y, lt, 14, 62, 130, 500, PAL.radiant.hot, 1.5, 0); add(ctx, function () { var u = clamp(lt / 600); ring(ctx, B.x, B.y, rT + 7 + easeOut(u) * G.cell * 0.6, 2.5 * (1 - u), rgba(PAL.radiant.core, 1 - u), 10); }); return; }
+    if (G.quiet) { hmMark(ctx, B, rT, lt, 1, 0); return; }
+    pulse(ctx, A, B, lt, BR.pulse, PAL.radiant.glow, PAL.radiant.hot);
+    var a = clamp((lt - BR.pulse) / 280), fl = env(lt, BR.flare, BR.flare + 60, BR.flare + 160, BR.flare + 600);
+    if (lt > BR.pulse && lt < BR.pulse + 380) { var u2 = (lt - BR.pulse) / 380; add(ctx, function () { glow(ctx, B.x, B.y, G.cell * (0.6 + 0.5 * u2), [[0, rgba(PAL.radiant.hot, 0.8 * (1 - u2))], [1, rgba(PAL.radiant.glow, 0)]]); }); sparks(ctx, B.x, B.y, lt - BR.pulse, 12, 61, 110, 380, PAL.radiant.core, 1.4, 0); }
+    if (a > 0) hmMark(ctx, B, rT, lt, a, fl);
+    if (fl > 0) { sparks(ctx, B.x, B.y, lt - BR.flare, 14, 62, 130, 500, PAL.radiant.hot, 1.5, 0); add(ctx, function () { var u3 = clamp((lt - BR.flare) / 600); ring(ctx, B.x, B.y, rT + 7 + easeOut(u3) * G.cell * 0.6, 2.5 * (1 - u3), rgba(PAL.radiant.core, 1 - u3), 10); }); }
+  }
+
+  var SG = { spark: 70, hold: 260, fade: 480, cageEnd: 2600 };
+  function sparkCage(ctx, B, rT, lt, cage) {
+    if (!B || cage <= 0) return;
+    var cb = Math.floor(lt / 70), rr = rT + 6;
+    add(ctx, function () {
+      ring(ctx, B.x, B.y, rr, 1.8, rgba(PAL.lightning.glow, 0.8 * cage), 10);
+      var r = rng(cb * 13 + 5);
+      for (var k = 0; k < 7; k++) {
+        var a0 = r() * TAU, a1 = a0 + 0.4 + r() * 0.5, arc = [];
+        for (var j = 0; j <= 6; j++) { var aa = lerp(a0, a1, j / 6), rad = rr + (j % 2 ? 1 : -1) * (2 + r() * 3); arc.push({ x: B.x + Math.cos(aa) * rad, y: B.y + Math.sin(aa) * rad }); }
+        stroke(ctx, arc, 1.6, rgba(k % 2 ? PAL.lightning.glow : PAL.lightning.core, 0.95 * cage), 6);
+      }
+      for (var s = 0; s < 4; s++) { var an = s / 4 * TAU + Math.PI / 4; ctx.strokeStyle = rgba(PAL.lightning.core, 0.6 * cage); ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(B.x + Math.cos(an) * (rr - 5), B.y + Math.sin(an) * (rr - 5)); ctx.lineTo(B.x + Math.cos(an) * (rr + 5), B.y + Math.sin(an) * (rr + 5)); ctx.stroke(); }
+    });
+  }
+  function shocking(ctx, lt, G) {
+    var A = G.A, B = targetOf(G), rT = G.rT; if (!B) return;
+    if (G.quiet) { sparkCage(ctx, B, rT, lt, 0.85); return; }
+    var Bi = edge(B, A, rT * 0.4);
+    var a = 1 - clamp((lt - SG.hold) / (SG.fade - SG.hold));
+    if (a > 0 && A) {
+      var bk = Math.floor(lt / 45), pts = jag(A, Bi, 6, 6, 21 + bk);
+      bolt(ctx, partial(pts, clamp(lt / SG.spark)), a * (0.75 + 0.25 * rng(bk)()), 0.9);
+      if (lt > SG.spark) for (var f = 0; f < 2; f++) { var r = rng(bk * 3 + f), P = pts[2 + f * 2], an = Math.atan2(Bi.y - A.y, Bi.x - A.x) + (f ? 1 : -1) * (0.7 + r() * 0.5); bolt(ctx, jag(P, { x: P.x + Math.cos(an) * 12, y: P.y + Math.sin(an) * 12 }, 3, 3, bk + f * 7), a * 0.6, 0.4); }
+      add(ctx, function () { glow(ctx, A.x, A.y, 12, [[0, rgba(PAL.lightning.hot, 0.8 * a)], [1, rgba(PAL.lightning.glow, 0)]]); });
+    }
+    var th = lt - SG.spark;
+    if (th >= 0 && th < 360) {
+      var u = th / 360;
+      add(ctx, function () { glow(ctx, B.x, B.y, G.cell * (0.7 + 0.4 * u), [[0, rgba(PAL.lightning.hot, 1 * (1 - u))], [0.4, rgba(PAL.lightning.core, 0.55 * (1 - u))], [1, rgba(PAL.lightning.glow, 0)]]); ring(ctx, B.x, B.y, rT + 3 + easeOut(u) * G.cell * 0.5, 3 * (1 - u) + 0.5, rgba(PAL.lightning.core, 1 - u), 10); });
+      sparks(ctx, B.x, B.y, th, 14, 33, 150, 360, PAL.lightning.core, 1.4, 0);
+    }
+    var cage = env(lt, SG.spark + 60, SG.spark + 260, SG.cageEnd, SG.cageEnd + 300);
+    sparkCage(ctx, B, rT, lt, cage);
+  }
+
+  var TW = { shoot: 220, coil: 420, y0: 450, y1: 760, back0: 820, back1: 1080, ghost: 1500 };
+  function yankP(lt) { return easeInOut((lt - TW.y0) / (TW.y1 - TW.y0)); }
+  function vinePts(A, B, lt, prog) {
+    var n = norm(A, B), px = -n.y, py = n.x, L = dist(A, B), s1 = [], s2 = [];
+    for (var i = 0; i <= 50; i++) { var u = i / 50; if (u > prog) break; var o = Math.sin(u * L / 9 + lt / 60) * 3.2; var base = { x: A.x + n.x * u * L, y: A.y + n.y * u * L }; s1.push({ x: base.x + px * o, y: base.y + py * o }); s2.push({ x: base.x - px * o, y: base.y - py * o }); }
+    return [s1, s2];
+  }
+  function thorn(ctx, lt, G) {
+    var A = G.A, live = targetOf(G), rT = G.rT; if (!A || !live) return;
+    var slide = tokenState("thorn", lt, "target", G);
+    var B = { x: live.x + slide.dx, y: live.y + slide.dy };
+    var B0 = G.ghost || live;
+    var gh = G.yank ? env(lt, TW.y0, TW.y0 + 80, TW.y1, TW.ghost) : 0;
+    if (gh > 0) { ctx.save(); ctx.setLineDash([4, 4]); ring(ctx, B0.x, B0.y, rT, 1.6, "rgba(232,220,200," + (0.6 * gh) + ")"); ctx.restore(); glow(ctx, B0.x, B0.y, rT, [[0, "rgba(232,220,200," + (0.12 * gh) + ")"], [1, "rgba(232,220,200,0)"]]); }
+    var prog = easeOut(clamp(lt / TW.shoot)), back = clamp((lt - TW.back0) / (TW.back1 - TW.back0));
+    var tip = back > 0 ? lp(B, A, easeInOut(back)) : B;
+    if (back < 1) {
+      var vs = vinePts(A, tip, lt, back > 0 ? 1 : prog);
+      stroke(ctx, vs[0], 4.5, rgba(PAL.thorn.dark, 0.95)); stroke(ctx, vs[1], 4.5, rgba(PAL.thorn.dark, 0.95));
+      stroke(ctx, vs[0], 2.4, rgba(PAL.thorn.vine, 1)); stroke(ctx, vs[1], 2.4, rgba("120,120,60", 1));
+      var pts = vs[0], n = norm(A, tip);
+      for (var k = 2; k < pts.length - 1; k += 3) { var P = pts[k], sd = k % 2 ? 1 : -1, bx = -n.y * sd, by = n.x * sd; ctx.beginPath(); ctx.moveTo(P.x - n.x * 2.5, P.y - n.y * 2.5); ctx.lineTo(P.x + bx * 6 - n.x * 3, P.y + by * 6 - n.y * 3); ctx.lineTo(P.x + n.x * 2.5, P.y + n.y * 2.5); ctx.closePath(); ctx.fillStyle = rgba(PAL.thorn.tip, 1); ctx.fill(); }
+      add(ctx, function () { stroke(ctx, vs[0], 8, rgba(PAL.thorn.vine, 0.18), 6); });
+    }
+    var ca = env(lt, TW.shoot, TW.shoot + 80, TW.back0, TW.back0 + 120);
+    if (ca > 0) {
+      var tight = easeOut(clamp((lt - TW.shoot) / (TW.coil - TW.shoot))), R = lerp(rT + 14, rT + 4, tight), c = [];
+      for (var i = 0; i <= 80; i++) { var an = i / 80 * TAU * 1.6 + Math.atan2(A.y - B.y, A.x - B.x), rr = R + Math.sin(i / 80 * TAU * 5) * 2.5; c.push({ x: B.x + Math.cos(an) * rr, y: B.y + Math.sin(an) * rr }); }
+      c = partial(c, clamp((lt - TW.shoot) / 160));
+      ctx.save(); ctx.globalAlpha = ca; stroke(ctx, c, 4.5, rgba(PAL.thorn.dark, 0.95)); stroke(ctx, c, 2.4, rgba(PAL.thorn.vine, 1));
+      for (var q = 3; q < c.length; q += 6) { var Q = c[q], o = norm(B, Q); ctx.beginPath(); ctx.moveTo(Q.x - o.y * 2.5, Q.y + o.x * 2.5); ctx.lineTo(Q.x + o.x * 6, Q.y + o.y * 6); ctx.lineTo(Q.x + o.y * 2.5, Q.y - o.x * 2.5); ctx.closePath(); ctx.fillStyle = rgba(PAL.thorn.tip, 1); ctx.fill(); }
+      ctx.restore();
+    }
+    var th = lt - TW.shoot;
+    if (th >= 0 && th < 380) {
+      var u = th / 380, r = rng(73);
+      for (var s = 0; s < 12; s++) { var an2 = r() * TAU, d0 = rT * 0.6, d1 = d0 + easeOut(u) * G.cell * (0.5 + r() * 0.4); stroke(ctx, [{ x: B.x + Math.cos(an2) * d0, y: B.y + Math.sin(an2) * d0 }, { x: B.x + Math.cos(an2) * d1, y: B.y + Math.sin(an2) * d1 }], 1.8, rgba(PAL.thorn.splinter, 1 - u)); }
+      add(ctx, function () { glow(ctx, B.x, B.y, G.cell * 0.7, [[0, "rgba(200,90,60," + (0.5 * (1 - u)) + ")"], [1, "rgba(120,40,20,0)"]]); });
+    }
+    var ya = G.yank ? env(lt, TW.y0 - 40, TW.y0 + 40, TW.y1, TW.y1 + 200) : 0;
+    if (ya > 0) {
+      var nn = norm(B, A);
+      for (var c2 = 0; c2 < 3; c2++) { var off = rT + 10 + c2 * 11 + ((lt / 12) % 11), Cp = { x: B.x + nn.x * off, y: B.y + nn.y * off }, px = -nn.y, py = nn.x; stroke(ctx, [{ x: Cp.x - nn.x * 5 + px * 6, y: Cp.y - nn.y * 5 + py * 6 }, Cp, { x: Cp.x - nn.x * 5 - px * 6, y: Cp.y - nn.y * 5 - py * 6 }], 2.4, "rgba(240,225,190," + (0.85 * ya * (1 - c2 * 0.25)) + ")", 4, "rgba(0,0,0,0.8)"); }
+    }
+  }
+
+  var HR = { hit: 0, flick: 280, bloom: 400 };
+  function rebukeUnder(ctx, lt, G) { var B = targetOf(G); if (!B) return; var a = env(lt, HR.bloom + 80, HR.bloom + 260, HR.bloom + 900, HR.bloom + 1500); scorchRing(ctx, B, G.rT + 10, a); }
+  function rebuke(ctx, lt, G) {
+    var S = G.S || G.A, B = targetOf(G), rT = G.rT; if (!B) return;
+    if (S) meleeSlash(ctx, S, lt - HR.hit, (G.rS || rT) + 2, Math.atan2(B.y - S.y, B.x - S.x));
+    var tf = lt - HR.flick;
+    if (S && tf >= 0 && tf < 160) { var E0 = edge(S, B, (G.rS || 18) + 2), E1 = edge(B, S, rT), p = easeOut(tf / 120), P = lp(E0, E1, Math.min(p, 1)); add(ctx, function () { glow(ctx, E0.x, E0.y, 10, [[0, rgba(PAL.fire.hot, 0.9 * (1 - tf / 160))], [1, rgba(PAL.fire.glow, 0)]]); glow(ctx, P.x, P.y, 6, [[0, rgba(PAL.fire.ball, 1)], [1, rgba(PAL.fire.core, 0)]]); }); }
+    fireBurst(ctx, B, lt - HR.bloom, 900, G.cell * 1.15, 44);
+    var tb = lt - HR.bloom; if (tb >= 0 && tb < 500) add(ctx, function () { var u = tb / 500; ring(ctx, B.x, B.y, rT + easeOut(u) * G.cell * 0.8, 3 * (1 - u) + 0.5, rgba(PAL.fire.hot, 1 - u), 10); });
+  }
+
+  function saber(ctx, S, rS, ang, len, a, lt) {
+    var H = { x: S.x + Math.cos(ang) * (rS - 2), y: S.y + Math.sin(ang) * (rS - 2) }, n = { x: Math.cos(ang), y: Math.sin(ang) }, px = -n.y, py = n.x, pts = [];
+    for (var i = 0; i <= 14; i++) { var u = i / 14, curve = Math.sin(u * Math.PI * 0.5) * len * 0.12 * u; pts.push({ x: H.x + n.x * u * len + px * curve, y: H.y + n.y * u * len + py * curve }); }
+    var fl = 0.85 + 0.15 * Math.sin(lt / 37);
+    add(ctx, function () {
+      stroke(ctx, pts, 12 * fl, rgba(PAL.fire.glow, 0.4 * a), 16, rgba(PAL.fire.glow, a));
+      stroke(ctx, pts, 5, rgba(PAL.fire.core, 0.95 * a)); stroke(ctx, pts, 1.8, rgba(PAL.fire.ball, a));
+      glow(ctx, H.x, H.y, 9, [[0, rgba(PAL.fire.hot, 0.9 * a)], [1, rgba(PAL.fire.glow, 0)]]);
+      var r = rng(Math.floor(lt / 70));
+      for (var k = 0; k < 5; k++) { var q = pts[3 + Math.floor(r() * 10)]; if (!q) continue; glow(ctx, q.x - px * 3, q.y - py * 3, 4 + r() * 4, [[0, rgba(PAL.fire.core, 0.6 * a)], [1, rgba(PAL.fire.glow, 0)]]); }
+    });
+    ctx.save(); ctx.strokeStyle = "rgba(40,24,12," + a + ")"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(H.x + px * 5, H.y + py * 5); ctx.lineTo(H.x - px * 5, H.y - py * 5); ctx.stroke(); ctx.restore();
+  }
+  function bladeUnder(ctx, lt, G) {
+    if (!G.swing) return; var B = targetOf(G), S = G.S; if (!B || !S) return;
+    var a = env(lt, 160, 280, 700, 1100); if (a <= 0) return;
+    ctx.save(); ctx.strokeStyle = "rgba(14,8,4," + (0.55 * a) + ")"; ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.beginPath();
+    var aS = Math.atan2(B.y - S.y, B.x - S.x);
+    ctx.arc(B.x - Math.cos(aS) * G.cell * 0.5, B.y - Math.sin(aS) * G.cell * 0.5, G.cell * 0.62, aS - 0.75, aS + 0.75); ctx.stroke(); ctx.restore();
+  }
+  function flameBlade(ctx, lt, G) {
+    var S = G.S || G.A, B = targetOf(G) || S; if (!S) return;
+    var rS = G.rS || 18, base = -0.55, a = G.quiet ? 0.75 : 1;
+    if (!G.swing) {
+      var ign = G.quiet ? 1 : clamp(lt / 380), len = G.cell * 0.95 * easeOut(ign);
+      if (!G.quiet && lt < 560) add(ctx, function () { var u = clamp(lt / 560); ring(ctx, S.x, S.y, rS + 3 + u * 10, 2.5 * (1 - u), rgba(PAL.fire.core, 1 - u), 8); });
+      if (len > 1) saber(ctx, S, rS, base, len, a, lt);
+      return;
+    }
+    var toT = Math.atan2(B.y - S.y, B.x - S.x), wind = 70, end = 240, ang;
+    if (lt < wind) ang = lerp(base, toT - 1.1, easeOut(lt / wind));
+    else if (lt < end) ang = lerp(toT - 1.1, toT + 1.1, easeInOut((lt - wind) / (end - wind)));
+    else ang = lerp(toT + 1.1, base, easeOut(clamp((lt - end) / 280)));
+    if (lt >= wind && lt < end + 280) {
+      var s = easeInOut(clamp((lt - wind) / (end - wind))), fa = 1 - clamp((lt - end) / 280);
+      var a0 = toT - 1.1, a1 = lerp(toT - 1.1, toT + 1.1, s), R0 = rS + 4, R1 = rS + G.cell * 0.95;
+      add(ctx, function () { ctx.beginPath(); ctx.arc(S.x, S.y, R1, a0, a1); ctx.arc(S.x, S.y, R0 + (R1 - R0) * 0.55, a1, a0, true); ctx.closePath(); ctx.fillStyle = rgba(PAL.fire.core, 0.18 * fa); ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = rgba(PAL.fire.hot, 0.35 * fa); ctx.beginPath(); ctx.arc(S.x, S.y, R1, a0, a1); ctx.stroke(); });
+    }
+    var ts = lt - (wind + 40);
+    if (ts >= 0 && ts < 520) {
+      var u = ts / 520, p = clamp(ts / 110), aS = toT, C = { x: B.x - Math.cos(aS) * G.cell * 0.5, y: B.y - Math.sin(aS) * G.cell * 0.5 }, R = G.cell * 0.62, arc = [], inner = [];
+      for (var i = 0; i <= 24; i++) { var an = aS - 0.85 + i / 24 * 1.7 * p, th = Math.sin(i / 24 * Math.PI) * 7; arc.push({ x: C.x + Math.cos(an) * R, y: C.y + Math.sin(an) * R }); inner.push({ x: C.x + Math.cos(an) * (R - th), y: C.y + Math.sin(an) * (R - th) }); }
+      add(ctx, function () { stroke(ctx, arc, 12, rgba(PAL.fire.glow, 0.5 * (1 - u)), 14, rgba(PAL.fire.glow, 1)); stroke(ctx, arc, 5, rgba(PAL.fire.core, 1 - u)); stroke(ctx, inner, 2, rgba(PAL.fire.ball, 1 - u)); glow(ctx, B.x, B.y, G.cell * 0.7, [[0, rgba(PAL.fire.hot, 0.6 * (1 - u))], [1, rgba(PAL.fire.glow, 0)]]); });
+      sparks(ctx, B.x, B.y, ts, 16, 15, 150, 520, PAL.fire.burst, 1.5, -14);
+    }
+    saber(ctx, S, rS, ang, G.cell * 0.95, 1, lt);
+  }
+
+  function garnish(ctx, lt, G) {
+    if (lt < 0 || lt > 520) return;
+    var C = targetOf(G) || G.S || G.A; if (!C) return;
+    var u = lt / 520, r = (G.cell || 70) * 0.5;
+    add(ctx, function () { glow(ctx, C.x, C.y, (G.cell || 70) * (0.55 + 0.45 * u), [[0, rgba(PAL.fire.ball, 0.85 * (1 - u))], [0.4, rgba(PAL.fire.core, 0.55 * (1 - u))], [1, rgba(PAL.fire.glow, 0)]]); ring(ctx, C.x, C.y, r + u * (G.cell || 70) * 0.45, 2.2 * (1 - u), rgba(PAL.fire.hot, 1 - u), 8); });
+  }
+
+  var HM = { glance: 260, bloom: 300, tick: 2200 };
+  function heatGear(ctx, B, rT, lt, ha, br, G) {
+    var W0 = { x: B.x + rT * 0.05, y: B.y + rT * 0.95 }, W1 = { x: B.x + rT * 1.25, y: B.y - rT * 0.15 };
+    add(ctx, function () {
+      glow(ctx, B.x, B.y + rT * 0.35, rT * 1.1, [[0, rgba(PAL.forge.orange, 0.35 * ha * br)], [0.7, rgba(PAL.fire.glow, 0.25 * ha * br)], [1, rgba(PAL.fire.glow, 0)]]);
+      ctx.save(); ctx.beginPath(); ctx.arc(B.x, B.y, Math.max(2, rT - 1), 0.15 * Math.PI, 0.85 * Math.PI); ctx.lineWidth = 4; ctx.strokeStyle = rgba(PAL.forge.orange, 0.8 * ha * br); ctx.shadowBlur = 12; ctx.shadowColor = rgba(PAL.fire.core, 1); ctx.stroke();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = rgba(PAL.forge.white, 0.9 * ha * br); ctx.stroke(); ctx.restore();
+      stroke(ctx, [W0, W1], 9, rgba(PAL.fire.core, 0.45 * ha * br), 14, rgba(PAL.fire.core, 1)); stroke(ctx, [W0, W1], 3.5, rgba(PAL.forge.orange, ha)); stroke(ctx, [W0, W1], 1.4, rgba(PAL.forge.white, ha * Math.min(1, br)));
+    });
+    var gd = lp(W0, W1, 0.2), nn = norm(W0, W1);
+    stroke(ctx, [{ x: gd.x - nn.y * 6, y: gd.y + nn.x * 6 }, { x: gd.x + nn.y * 6, y: gd.y - nn.x * 6 }], 2.5, "rgba(50,30,15," + ha + ")");
+    for (var w = 0; w < 4; w++) { var ph = ((lt / 1100) + w / 4) % 1, x0 = B.x + (w - 1.5) * rT * 0.45, y0 = B.y - rT * 0.4 - ph * G.cell * 0.9, pts = []; for (var j = 0; j <= 8; j++) { var v = j / 8; pts.push({ x: x0 + Math.sin(v * TAU + lt / 120 + w) * 3, y: y0 - v * 14 }); } add(ctx, function () { stroke(ctx, pts, 1.5, rgba(PAL.forge.white, 0.35 * ha * Math.sin(Math.PI * ph))); }); }
+    var r = rng(3);
+    for (var k = 0; k < 6; k++) { var age = ((lt / 1500) + r()) % 1; glow(ctx, W1.x + Math.sin(age * 6 + k) * 4, W1.y - age * 34, 4 + age * 7, [[0, "rgba(40,36,34," + (0.35 * (1 - age) * ha) + ")"], [1, "rgba(40,36,34,0)"]]); }
+    return W1;
+  }
+  function heat(ctx, lt, G) {
+    var A = G.A, B = targetOf(G), rT = G.rT; if (!B) return;
+    if (G.pulse) { var tkp = env(lt, 0, 60, 160, 650); heatGear(ctx, B, rT, 900 + lt, 1, 0.7 + 0.6 * tkp, G); if (tkp > 0) { var u = clamp(lt / 650); add(ctx, function () { ring(ctx, B.x, B.y, rT + 2 + easeOut(u) * G.cell * 0.55, 3 * (1 - u), rgba(PAL.forge.white, 1 - u), 10); }); sparks(ctx, B.x + rT, B.y, lt, 12, 8, 110, 600, PAL.fire.burst, 1.4, -12); } return; }
+    if (!G.quiet) {
+      var ga = env(lt, 0, 40, HM.glance + 60, HM.glance + 360);
+      if (ga > 0 && A) { var n = Math.max(1, Math.floor(dist(A, B) / 12)), shown = clamp(lt / HM.glance) * n; add(ctx, function () { for (var i = 1; i < shown; i++) { var P = lp(A, B, i / n); glow(ctx, P.x, P.y, 4, [[0, rgba(PAL.fire.hot, 0.9 * ga)], [1, rgba(PAL.fire.glow, 0)]]); } }); }
+    }
+    var ha = G.quiet ? 1 : clamp((lt - HM.bloom) / 300); if (ha <= 0) return;
+    var tk = G.quiet ? 0 : env(lt, HM.tick, HM.tick + 60, HM.tick + 160, HM.tick + 650);
+    var fl = G.quiet ? 0 : env(lt, HM.bloom, HM.bloom + 80, HM.bloom + 160, HM.bloom + 600);
+    var br = (0.7 + 0.12 * Math.sin(lt / 140)) + 0.6 * tk + 0.4 * fl;
+    var W1 = heatGear(ctx, B, rT, lt, ha, br, G);
+    if (tk > 0 && W1) { var u2 = clamp((lt - HM.tick) / 650); add(ctx, function () { ring(ctx, B.x, B.y, rT + 2 + easeOut(u2) * G.cell * 0.55, 3 * (1 - u2), rgba(PAL.forge.white, 1 - u2), 10); }); sparks(ctx, W1.x, W1.y, lt - HM.tick, 12, 8, 110, 600, PAL.fire.burst, 1.4, -12); }
+  }
+
+  function warmShell(ctx, S, r, lt, a, fl) {
+    add(ctx, function () {
+      glow(ctx, S.x, S.y, r + 18, [[0.55, rgba(PAL.fire.glow, 0)], [0.8, rgba(PAL.fire.glow, (0.4 + 0.4 * fl) * a)], [1, rgba(PAL.fire.glow, 0)]]);
+      ring(ctx, S.x, S.y, r + 6, 2, rgba(PAL.fire.core, (0.6 + 0.4 * fl) * a), 10);
+      flameRing(ctx, S.x, S.y, r + 6, 14, lt, (0.55 + 0.45 * fl) * a, 9 + 5 * fl, 1);
+    });
+  }
+  function chillShell(ctx, S, r, lt, a, fl) {
+    add(ctx, function () {
+      glow(ctx, S.x, S.y, r + 18, [[0.55, rgba(PAL.cold.glow, 0)], [0.8, rgba(PAL.cold.mist, (0.35 + 0.4 * fl) * a)], [1, rgba(PAL.cold.glow, 0)]]);
+      ring(ctx, S.x, S.y, r + 6, 2, rgba(PAL.cold.core, (0.6 + 0.4 * fl) * a), 10);
+      for (var i = 0; i < 12; i++) { var an = i / 12 * TAU - lt / 3000, R = r + 6 + (i % 2 ? 4 : 1), L = (i % 2 ? 6 : 9) * (1 + 0.35 * fl); ctx.save(); ctx.translate(S.x + Math.cos(an) * R, S.y + Math.sin(an) * R); ctx.rotate(an + Math.PI / 2); ctx.beginPath(); ctx.moveTo(0, -L); ctx.lineTo(2.4, 0); ctx.lineTo(0, L * 0.35); ctx.lineTo(-2.4, 0); ctx.closePath(); ctx.fillStyle = rgba(PAL.cold.hot, (0.65 + 0.35 * fl) * a); ctx.fill(); ctx.restore(); }
+    });
+  }
+  function iceSnap(ctx, S, B, t, G) {
+    if (!S || !B || t < 0 || t > 700) return;
+    var E0 = edge(S, B, (G.rS || 18) + 6), n = norm(S, B), px = -n.y, py = n.x;
+    for (var k = 0; k < 3; k++) { var p = easeOut(clamp((t - k * 25) / 110)), off = (k - 1) * 7, P = lp(E0, edge(B, S, (G.rT || 18) * 0.5), p), a = 1 - clamp((t - 200) / 300); if (a <= 0) continue; ctx.save(); ctx.translate(P.x + px * off, P.y + py * off); ctx.rotate(Math.atan2(n.y, n.x)); add(ctx, function () { glow(ctx, 0, 0, 12, [[0, rgba(PAL.cold.core, 0.6 * a)], [1, rgba(PAL.cold.glow, 0)]]); }); ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(0, 3.5); ctx.lineTo(-8, 0); ctx.lineTo(0, -3.5); ctx.closePath(); ctx.fillStyle = rgba(PAL.cold.hot, a); ctx.fill(); ctx.restore(); }
+    var th = t - 110;
+    if (th >= 0) { var v = th / 590; add(ctx, function () { glow(ctx, B.x, B.y, G.cell * (0.6 + 0.4 * v), [[0, rgba(PAL.cold.hot, 0.85 * (1 - v))], [0.4, rgba(PAL.cold.core, 0.5 * (1 - v))], [1, rgba(PAL.cold.glow, 0)]]); ctx.strokeStyle = rgba(PAL.cold.core, 1 - v); ctx.lineWidth = 2; for (var s = 0; s < 6; s++) { var an = s / 6 * TAU + 0.3, l = (G.rT || 18) * 0.4 + easeOut(clamp(th / 160)) * G.cell * 0.55; ctx.beginPath(); ctx.moveTo(B.x + Math.cos(an) * (G.rT || 18) * 0.4, B.y + Math.sin(an) * (G.rT || 18) * 0.4); ctx.lineTo(B.x + Math.cos(an) * l, B.y + Math.sin(an) * l); ctx.stroke(); } }); sparks(ctx, B.x, B.y, th, 14, 91, 120, 590, PAL.cold.hot, 1.4, 14); }
+  }
+  function fireShield(ctx, lt, G) {
+    var S = G.S || G.A; if (!S) return;
+    var r = G.rS || 18, chill = !!G.chill;
+    var settle = G.quiet ? 0.62 : (lt > 700 ? 0.78 : 1);
+    var a = (G.quiet ? 1 : easeOut(clamp(lt / 400))) * settle;
+    if (!G.quiet && lt < 500) add(ctx, function () { var u = lt / 500; ring(ctx, S.x, S.y, r + 4 + u * 16, 3 * (1 - u), rgba(chill ? PAL.cold.hot : PAL.fire.hot, 1 - u), 10); });
+    if (chill) chillShell(ctx, S, r, lt, a, 0);
+    else warmShell(ctx, S, r, lt, a, 0);
+  }
+  function retort(ctx, look, lt, g) {
+    if (!ctx || !g || lt < 0 || lt > 640) return;
+    var caster = g.T || g.B, attacker = g.S || g.A; if (!attacker) return;
+    var G = { cell: g.cell || 70, rT: g.rT || 18, rS: g.rS || 18 };
+    if (look === "rime") { if (caster) iceSnap(ctx, caster, attacker, lt, G); return; }
+    fireBurst(ctx, attacker, Math.max(0, lt - 30), 520, (g.cell || 70) * 0.72, 12);
+  }
+
+  var VT = { clamp0: 0, clamp1: 220, collapse: 220, rib0: 650, rib1: 1250, heal: 1250 };
+  function ribbonPts(S, B, G) { var n = norm(B, S), L = dist(B, S), px = -n.y, py = n.x, pts = [], s = n.x > 0 ? -1 : 1; for (var i = 0; i <= 40; i++) { var u = i / 40, bow = Math.sin(Math.PI * u) * Math.max(L * 0.55, G.cell * 0.7) * s; pts.push({ x: B.x + n.x * u * L + px * bow, y: B.y + n.y * u * L + py * bow }); } return pts; }
+  function vampiric(ctx, lt, G) {
+    var S = G.S || G.A, B = targetOf(G); if (!B) return;
+    var rT = G.rT, rS = G.rS || rT;
+    var sa = env(lt, 0, 200, 900, 1500);
+    if (sa > 0) { var r0 = rng(12); for (var k = 0; k < 9; k++) { var an = r0() * TAU + lt / 900, rr = rT * (0.7 + r0() * 0.5); glow(ctx, B.x + Math.cos(an) * rr, B.y + Math.sin(an) * rr, 10 + r0() * 6, [[0, rgba(PAL.necrotic.black, 0.45 * sa)], [1, rgba(PAL.necrotic.black, 0)]]); } add(ctx, function () { glow(ctx, B.x, B.y, rT + 14, [[0.5, rgba(PAL.necrotic.glow, 0)], [0.8, rgba(PAL.necrotic.glow, 0.55 * sa)], [1, rgba(PAL.necrotic.glow, 0)]]); }); }
+    var hA = env(lt, VT.clamp0, VT.clamp1, 800, 1200);
+    if (hA > 0 && S) { var from = edge(B, S, rT * 0.55), sc = lerp(1.25, 1, easeOut(clamp(lt / VT.clamp1))); hand(ctx, from.x, from.y, rT * 1.05 * sc, hA, Math.atan2(B.y - S.y, B.x - S.x) + Math.PI / 2); }
+    var th = lt - VT.collapse;
+    if (th >= 0 && th < 400) { var u = easeOut(th / 400), R = lerp(G.cell * 1.3, rT * 0.55, u); add(ctx, function () { ring(ctx, B.x, B.y, R, 4 * (1 - u) + 1, rgba(PAL.necrotic.hex, 0.9 * (1 - u * 0.6)), 14); }); glow(ctx, B.x, B.y, R, [[0, rgba(PAL.necrotic.black, 0.5 * u)], [1, rgba(PAL.necrotic.black, 0)]]); }
+    var r = rng(55);
+    for (var q = 0; q < 18; q++) { var t0 = VT.collapse + r() * 600, age = (lt - t0) / 1000, an2 = r() * TAU, rad = rT * (0.4 + r() * 1.1); if (age < 0 || age > 1) continue; ctx.save(); ctx.translate(B.x + Math.cos(an2) * rad, B.y + Math.sin(an2) * rad + age * 18); ctx.rotate(age * 5 + q); ctx.fillStyle = rgba(PAL.necrotic.ash, 0.85 * (1 - age)); ctx.fillRect(-1.6, -1, 3.2, 2); ctx.restore(); }
+    if (S) {
+      var pts = ribbonPts(edge(S, { x: S.x, y: S.y - 100 }, rS + 2), edge(B, { x: B.x, y: B.y - 100 }, rT * 0.6), G);
+      var grow = easeOut(clamp((lt - VT.rib0) / (VT.rib1 - VT.rib0) * 1.6)), ra = 1 - clamp((lt - VT.rib1 - 150) / 500);
+      if (lt > VT.rib0 && ra > 0) {
+        var shown = partial(pts, grow), endIdx = Math.floor(clamp((lt - VT.rib1 + 400) / 600) * 40), vis = shown.slice(Math.min(endIdx, Math.max(0, shown.length - 2)));
+        add(ctx, function () { stroke(ctx, vis, 10, rgba(PAL.siphon.ribbon, 0.3 * ra), 12); stroke(ctx, vis, 3.2, rgba(PAL.siphon.ribbon, 0.95 * ra)); stroke(ctx, vis, 1.1, rgba(PAL.siphon.heal, ra)); });
+        for (var d = 0; d < 6; d++) { var p = ((lt - VT.rib0) / 520 - d * 0.16); if (p < 0 || p > 1 || p > grow) continue; var Dp = partial(pts, p), D = Dp[Dp.length - 1]; ctx.fillStyle = rgba(PAL.siphon.drop, 0.95 * ra); ctx.beginPath(); ctx.arc(D.x, D.y, 2.6, 0, TAU); ctx.fill(); add(ctx, function () { glow(ctx, D.x, D.y, 6, [[0, rgba(PAL.siphon.ribbon, 0.8 * ra)], [1, rgba(PAL.siphon.ribbon, 0)]]); }); }
+      }
+      var hp = lt - VT.heal;
+      if (hp >= 0 && hp < 900) {
+        var v = hp / 900;
+        add(ctx, function () { glow(ctx, S.x, S.y, rS + 16, [[0.5, rgba(PAL.siphon.heal, 0)], [0.8, rgba(PAL.siphon.heal, 0.6 * (1 - v))], [1, rgba(PAL.siphon.heal, 0)]]); ring(ctx, S.x, S.y, rS + 4 + easeOut(v) * G.cell * 0.55, 3 * (1 - v) + 0.5, rgba(PAL.siphon.heal, 1 - v), 10); ring(ctx, S.x, S.y, rS + 3, 2.5, rgba(PAL.siphon.heal, 0.9 * (1 - v)), 8); });
+        var r2 = rng(19);
+        for (var c = 0; c < 5; c++) { var an3 = r2() * TAU, x = S.x + Math.cos(an3) * rS * 0.9, y = S.y + Math.sin(an3) * rS * 0.9 - v * 20; ctx.save(); ctx.strokeStyle = rgba(PAL.siphon.heal, 1 - v); ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(x - 3, y); ctx.lineTo(x + 3, y); ctx.moveTo(x, y - 3); ctx.lineTo(x, y + 3); ctx.stroke(); ctx.restore(); }
+      }
+    }
+  }
+
+  var RE = { ray: 90, hold: 480, fade: 760, mark: 250 };
+  function enfeebleGrey(lt, G) {
+    if (G && G.saved) return 1 - clamp(lt / 300);
+    return clamp((lt - RE.ray - 40) / 400);
+  }
+  function strengthMark(ctx, x, y, R, a) {
+    ctx.save(); ctx.globalAlpha = a; var w = R * 2.6, h = R * 1.5, rad = h / 2;
+    ctx.beginPath(); ctx.moveTo(x - w / 2 + rad, y - h / 2); ctx.arcTo(x + w / 2, y - h / 2, x + w / 2, y + h / 2, rad); ctx.arcTo(x + w / 2, y + h / 2, x - w / 2, y + h / 2, rad); ctx.arcTo(x - w / 2, y + h / 2, x - w / 2, y - h / 2, rad); ctx.arcTo(x - w / 2, y - h / 2, x + w / 2, y - h / 2, rad); ctx.closePath();
+    ctx.fillStyle = "rgba(38,28,40,0.92)"; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = rgba(PAL.enfeeble.core, 1); ctx.stroke();
+    ctx.fillStyle = "rgba(220,210,220,1)"; ctx.font = "bold " + Math.round(h * 0.72) + "px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("STR", x - 3, y + 0.5);
+    ctx.strokeStyle = "rgba(10,6,10,1)"; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(x - 6, y - h / 2); ctx.lineTo(x - 2, y - 2); ctx.lineTo(x - 6, y + 1); ctx.lineTo(x - 3, y + h / 2); ctx.stroke();
+    ctx.strokeStyle = "rgba(230,120,140,1)"; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(x + w / 2 - 9, y - 2); ctx.lineTo(x + w / 2 - 6, y + 2); ctx.lineTo(x + w / 2 - 3, y - 2); ctx.stroke();
+    ctx.restore();
+  }
+  function enfeeble(ctx, lt, G) {
+    var A = G.A, B = targetOf(G), rT = G.rT; if (!B) return;
+    if (G.saved) {
+      var v = clamp(lt / 500), r3 = rng(8), bx = B.x, by = B.y - rT - 13;
+      for (var f = 0; f < 8; f++) { var an = r3() * TAU, d = easeOut(v) * 18; ctx.fillStyle = rgba(PAL.enfeeble.core, 1 - v); ctx.fillRect(bx + Math.cos(an) * d - 1.5, by + Math.sin(an) * d - 1.5, 3, 3); }
+      add(ctx, function () { ring(ctx, B.x, B.y, rT + 3 + easeOut(v) * G.cell * 0.5, 2 * (1 - v), "rgba(240,230,210," + (1 - v) + ")", 6); });
+      return;
+    }
+    if (G.quiet) { ring(ctx, B.x, B.y, rT + 3, 2, rgba(PAL.enfeeble.glow, 0.75)); strengthMark(ctx, B.x, B.y - rT - 13 + Math.sin(lt / 400) * 1.5, 9, 0.85); return; }
+    var a = 1 - clamp((lt - RE.hold) / (RE.fade - RE.hold));
+    if (a > 0 && A) { var H = lp(A, B, clamp(lt / RE.ray)); ctx.save(); stroke(ctx, [A, H], 7, "rgba(25,18,25," + (0.4 * a) + ")"); ctx.restore(); add(ctx, function () { stroke(ctx, [A, H], 6, rgba(PAL.enfeeble.glow, 0.35 * a), 10); stroke(ctx, [A, H], 2, rgba(PAL.enfeeble.core, 0.9 * a)); }); }
+    if (A) { var r = rng(44); for (var k = 0; k < 26; k++) { var t0 = RE.ray + r() * 600, age = (lt - t0) / 900, u0 = 0.35 + r() * 0.65, sd = (r() - 0.5) * 10; if (age < 0 || age > 1) continue; var n = norm(A, B), P = lp(A, B, u0 - age * 0.35); ctx.fillStyle = rgba(PAL.enfeeble.mote, 0.85 * (1 - age)); ctx.beginPath(); ctx.arc(P.x - n.y * sd, P.y + n.x * sd, 1.7, 0, TAU); ctx.fill(); } }
+    var th = lt - RE.ray; if (th >= 0 && th < 450) { var u = th / 450; add(ctx, function () { glow(ctx, B.x, B.y, G.cell * 0.65, [[0, rgba(PAL.enfeeble.core, 0.55 * (1 - u))], [1, rgba(PAL.enfeeble.glow, 0)]]); }); }
+    var gr = enfeebleGrey(lt, G);
+    if (gr > 0) ring(ctx, B.x, B.y, rT + 3, 2, rgba(PAL.enfeeble.glow, 0.8 * gr));
+    var ma = clamp((lt - RE.mark) / 300);
+    if (ma > 0) strengthMark(ctx, B.x, B.y - rT - 13 + Math.sin(lt / 400) * 1.5, 9, ma * (0.8 + 0.2 * Math.sin(lt / 300)));
+  }
+
+  function tokenState(look, lt, id, G) {
+    var s = { dx: 0, dy: 0, grey: 0 };
+    G = G || {};
+    if (look === "thorn" && id === "target" && G.yank && lt > TW.y0) { var p = yankP(lt); s.dx = G.yank.x * p; s.dy = G.yank.y * p; }
+    if (look === "enfeeble" && id === "target") s.grey = enfeebleGrey(lt, G);
+    return s;
+  }
+  var PAINT = { hex: hex, brand: brand, "shocking-grasp": shocking, thorn: thorn, rebuke: rebuke, flameblade: flameBlade, heat: heat, fireshield: fireShield, rime: fireShield, siphon: vampiric, enfeeble: enfeeble };
+  var UNDER = { rebuke: rebukeUnder, flameblade: bladeUnder };
+  function shakeOf(look, lt) {
+    function sh(t0, mag, dur) { var t = lt - t0; if (t < 0 || t > dur) return { x: 0, y: 0 }; var k = mag * (1 - t / dur); return { x: Math.sin(t * 0.9) * k, y: Math.cos(t * 1.3) * k }; }
+    if (look === "shocking-grasp") return sh(SG.spark, 2, 140);
+    if (look === "rebuke") return sh(HR.bloom, 3, 220);
+    return { x: 0, y: 0 };
+  }
+  return {
+    looks: Object.keys(PAINT),
+    paint: function (ctx, look, lt, G) { if (PAINT[look] && lt >= 0) PAINT[look](ctx, lt, G); },
+    paintUnder: function (ctx, look, lt, G) { if (UNDER[look] && lt >= 0) UNDER[look](ctx, lt, G); },
+    tokenState: tokenState,
+    shakeOf: shakeOf,
+    garnish: garnish,
+    retort: retort,
+    yankAt: TW.y0
+  };
+  })();
+
   var C1_LOOKS = {
     "witch-bolt": 1, "scorching-ray": 1, "guiding-bolt": 1, "sacred-flame": 1, "chill-touch": 1,
     "acid-arrow": 1, "poison-spray": 1, "chain-lightning": 1, "disintegrate": 1
+  };
+  var C2_LOOKS = {
+    hex: 1, brand: 1, "shocking-grasp": 1, thorn: 1, rebuke: 1, flameblade: 1,
+    heat: 1, fireshield: 1, rime: 1, siphon: 1, enfeeble: 1
   };
   function c1Geom(look, g, spec) {
     g = g || {};
@@ -2647,16 +3122,77 @@ function beadsPaint(ctx, A, B, lt, seed) {
     Chunk1Fx.paintUnder(ctx, look, drawLt, G);
     Chunk1Fx.paint(ctx, look, drawLt, G);
   }
+  function c2Geom(look, g, spec) {
+    g = g || {};
+    spec = spec || {};
+    var S = g.S || g.A;
+    var A = g.A || S;
+    if (!A && !S) return null;
+    var cell = g.cell || 70;
+    var miss = resultOf(spec.result) === "miss";
+    var center = miss && g.B ? g.B : (g.T || g.B || S || A);
+    if (!center) return null;
+    var name = low(spec.spell || spec.weapon || "");
+    var chill = look === "rime" || low(spec.mode) === "chill" || /fire shield \(chill|chill shield/.test(name);
+    var far = !!(S && Math.hypot(center.x - S.x, center.y - S.y) > cell * 0.75);
+    return {
+      A: A, S: S || A, T: [center],
+      rT: g.rT || cell * 0.42, rS: g.rS || cell * 0.42, cell: cell,
+      yank: miss ? null : (g.yank || null),
+      ghost: g.ghost || null,
+      chill: chill,
+      quiet: !!g.quiet,
+      pulse: !!(spec.pulse || g.pulse),
+      saved: !!(spec.saved || g.saved),
+      swing: look === "flameblade" && far
+    };
+  }
+  function chunk2Paint(ctx, look, lt, g, spec) {
+    var G = c2Geom(look, g, spec);
+    if (!G) return;
+    Chunk2Fx.paintUnder(ctx, look, lt, G);
+    Chunk2Fx.paint(ctx, look, lt, G);
+  }
+  function tokenNudge(spec, lt, g) {
+    var look = lookOf(spec || {});
+    if (look !== "thorn" && look !== "enfeeble") return { dx: 0, dy: 0, grey: 0 };
+    var G = c2Geom(look, g, spec || {});
+    if (!G) return { dx: 0, dy: 0, grey: 0 };
+    return Chunk2Fx.tokenState(look, lt, "target", G);
+  }
+  function shieldLookOf(marks) {
+    var i, s;
+    for (i = 0; i < (marks || []).length; i++) {
+      s = stickyLook(marks[i]);
+      if (s === "fireshield" || s === "rime") return s;
+    }
+    return "";
+  }
   function paintRider(ctx, look, x, y, r, lt) {
     if (!ctx || !isFinite(x) || !isFinite(y)) return;
-    var key = look === "chill-touch" ? "chill-touch" : "guiding-bolt";
-    var when = key === "chill-touch" ? 980 : 900;
-    var G = {
+    var phase = Number(lt) || 0;
+    if (look === "cage" || look === "rime" || C2_LOOKS[look]) {
+      var key = look === "cage" ? "shocking-grasp" : look;
+      var span = key === "hex" ? 500 : (key === "brand" ? 400 : (key === "heat" ? 900 : (key === "enfeeble" ? 700 : 600)));
+      var base = key === "hex" ? 760 : (key === "brand" ? 480 : (key === "heat" ? 800 : (key === "enfeeble" ? 900 : (key === "shocking-grasp" ? 860 : 520))));
+      var G = c2Geom(key, {
+        A: { x: x, y: y }, S: { x: x, y: y }, T: { x: x, y: y },
+        rT: r || 18, rS: r || 18, cell: Math.max(48, (r || 18) * 2.4), quiet: true
+      }, { mode: look === "rime" ? "chill" : "" });
+      if (!G) return;
+      G.quiet = true;
+      Chunk2Fx.paintUnder(ctx, key, base + (phase % span), G);
+      Chunk2Fx.paint(ctx, key, base + (phase % span), G);
+      return;
+    }
+    var c1 = look === "chill-touch" ? "chill-touch" : "guiding-bolt";
+    var when = c1 === "chill-touch" ? 980 : 900;
+    var mark = {
       A: { x: x, y: y }, S: { x: x, y: y }, T: [{ x: x, y: y }],
       rT: r || 18, rS: r || 18, cell: Math.max(48, (r || 18) * 2.4),
       miss: [false], dust: false, pop: false
     };
-    Chunk1Fx.paint(ctx, key, when + ((Number(lt) || 0) % 1600), G);
+    Chunk1Fx.paint(ctx, c1, when + (phase % 1600), mark);
   }
   function guidePop(ctx, x, y, r, lt, cell) {
     if (!ctx || lt < 0 || lt > 420 || !isFinite(x) || !isFinite(y)) return;
@@ -2688,7 +3224,19 @@ function beadsPaint(ctx, A, B, lt, seed) {
   function spellPaint(ctx, A, B, lt, seed, spec, g) {
     var look = lookOf(spec);
     /* Grease, Light, Daylight, and Wall of Fire return "" on purpose. An empty look must not fall through to the purple ribbon. */
-    if (!look || look === "token") return;
+    var spellName = low((spec && (spec.spell || spec.weapon)) || "");
+    if (!look) return;
+    if (look === "token") {
+      if (/flaming sphere/.test(spellName)) {
+        var puff = c2Geom("heat", g || { A: A, B: B, T: B, S: A, cell: 70, rT: 18, rS: 18 }, spec || {});
+        if (puff) Chunk2Fx.garnish(ctx, lt, puff);
+      }
+      return;
+    }
+    /* Hail of Thorns shares the thorn key. It stays on the stub ring. Thorn Whip gets the vine. */
+    if (C2_LOOKS[look] && !(look === "thorn" && /hail of thorns/.test(spellName))) {
+      return chunk2Paint(ctx, look, lt, g || { A: A, B: B, T: B, S: A, cell: 70, rT: 18, rS: 18 }, spec || {});
+    }
     if (C1_LOOKS[look]) return chunk1Paint(ctx, look, lt, g || { A: A, B: B, T: B, S: A, cell: 70, rT: 18, rS: 18 }, spec || {});
     var T = g && (g.T || g.S);
     var r = (g && (g.rT || g.rS)) || 18;
@@ -3017,6 +3565,10 @@ function beadsPaint(ctx, A, B, lt, seed) {
       slash(ctx, g.T, g.rT, from, lt, hit);
       if (hit) redFlash(ctx, g.T, g.rT, lt - TIMING.meleeStrike * 0.6, 300);
     }
+    if (hit) {
+      var shell = shieldLookOf(g.marks);
+      if (shell) Chunk2Fx.retort(ctx, shell, lt, g);
+    }
   }
 
   /* ---------- pre-effect hook (for a later crit/fumble d20 zoom; NOT built) ----------
@@ -3063,6 +3615,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
     stickyLook: stickyLook, chunkColor: chunkColor, tileOf: tileOf, namedLook: namedLook,
     paint: paint, paintRider: paintRider, paintGuidePop: paintGuidePop,
     erodeToken: erodeToken, erodeFront: function (lt) { return Chunk1Fx.erodeFront(lt); },
+    nudge: tokenNudge, retort: function (ctx, look, lt, g) { Chunk2Fx.retort(ctx, look, lt, g); },
     hash: hash, dirOf: dirOf
   };
   root.SSDNSMapFX = root.SSDNSMapFx; /* alias: both spellings work */

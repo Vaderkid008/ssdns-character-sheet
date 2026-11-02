@@ -65,7 +65,7 @@ check("oa.arm", read("assets/js/dm-join.js").includes("strikeLabel") && read("as
 function look(spell, dmg) { return FX.lookOf({ type: "spell", spell: spell, dmg: dmg || "" }); }
 check("fx.fire", look("Fire Bolt", "fire") === "fire");
 check("fx.cold", look("Ray of Frost", "cold") === "cold");
-check("fx.lightning", look("Shocking Grasp", "lightning") === "lightning");
+check("fx.lightning", look("Shocking Grasp", "lightning") === "shocking-grasp" && look("Lightning Bolt", "lightning") === "lightning");
 check("fx.force", look("Eldritch Blast", "force") === "scurve");
 check("fx.eb", look("Eldritch Blast") === "scurve");
 check("fx.pact", look("Eldritch Blast (Pact Shot)") === "bullet" && look("Hellshot", "fire") === "bullet");
