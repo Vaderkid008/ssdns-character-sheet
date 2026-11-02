@@ -1379,7 +1379,67 @@ function fxScreen(entry) {
   }
   const A = src ? src : { x: S.x + dir.x * (rS + 3), y: S.y + dir.y * (rS + 3) };
   const B = T ? { x: T.x - dir.x * rT * 0.55, y: T.y - dir.y * rT * 0.55 } : null;
-  return { A, B: B || A, S, T, rS, rT, cell, dir, srcHidden: !!g.srcHidden };
+  const screen = { A, B: B || A, S, T, rS, rT, cell, dir, srcHidden: !!g.srcHidden };
+  if (entry.spec) {
+    screen.hops = fxListScreens(entry.spec.hops);
+    screen.rays = fxListScreens(entry.spec.rays);
+    screen.dust = !!entry.spec.dust;
+    screen.crumbOnly = !!entry.spec.crumbOnly;
+    screen.pulse = !!entry.spec.pulse;
+  }
+  screen.marks = fxMarkNames(g.tokT);
+  const look = FXA && FXA.lookOf ? FXA.lookOf(entry.spec || {}) : "";
+  screen.pop = look !== "guiding-bolt" && screen.marks.some(n => /^guided\b/i.test(String(n || "")));
+  return screen;
+}
+/* Extra beam targets travel as token ids or grid points. Screen pixels are resolved here, not in the painter. */
+function fxListScreens(list) {
+  const px = fxPx();
+  const out = [];
+  (list || []).forEach(item => {
+    if (!item) return;
+    const miss = !!(item.miss || item.result === "miss");
+    const result = item.result || "";
+    if (typeof item === "string" || (item.id && item.x == null && item.y == null)) {
+      const t = fxRef(typeof item === "string" ? item : item.id);
+      if (!t || !tokenSeen(t)) return;
+      const c = fxCenter(t);
+      const p = worldToScreen(c.x * px, c.y * px);
+      out.push({ x: p.x, y: p.y, miss: miss, result: result });
+      return;
+    }
+    const x = Number(item.x), y = Number(item.y);
+    if (!isFinite(x) || !isFinite(y)) return;
+    if (role === "player" && !playerSees(x, y)) return;
+    const p = worldToScreen(x * px, y * px);
+    out.push({ x: p.x, y: p.y, miss: miss, result: result });
+  });
+  return out;
+}
+function fxMarkNames(t) {
+  if (!t) return [];
+  try { return tokenConditions(t) || []; } catch (e) { return []; }
+}
+let fxErodeCanvas = null;
+function fxDustFrame(t) {
+  if (!FXA || !t || !FXA.lookOf) return null;
+  const now = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+  for (let i = 0; i < fxLive.length; i++) {
+    const e = fxLive[i];
+    if (!e || !e.spec || !e.geo || !e.geo.tokT) continue;
+    if (e.geo.tokT !== t && e.geo.tokT.id !== t.id) continue;
+    if (FXA.lookOf(e.spec) !== "disintegrate") continue;
+    if (!e.spec.dust && !e.spec.crumbOnly) continue;
+    const lt = now - e.t0 + (e.spec.crumbOnly ? 640 : 0);
+    if (FXA.erodeFront && !(FXA.erodeFront(lt) > 0)) continue;
+    let from = null;
+    if (e.geo.S) {
+      const px = fxPx();
+      from = worldToScreen(e.geo.S.x * px, e.geo.S.y * px);
+    }
+    return { lt: lt, from: from };
+  }
+  return null;
 }
 function fxDpr() {
   return Math.min((typeof window !== 'undefined' && window.devicePixelRatio) || 1, 2);
@@ -1416,13 +1476,20 @@ function fxFrame() {
     const was = fxShaking;
     fxShake = next;
     fxShaking = shook;
-    if (shook || was) { try { draw(); } catch (e) {} }
+    let erodeLive = false;
+    fxLive.forEach(e => {
+      if (!e.spec || !FXA || !FXA.lookOf) return;
+      if ((e.spec.dust || e.spec.crumbOnly) && FXA.lookOf(e.spec) === "disintegrate") erodeLive = true;
+    });
+    if (shook || was || erodeLive) { try { draw(); } catch (e) {} }
     if (fxCtx.setTransform) fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     fxCtx.clearRect(0, 0, box.w, box.h);
     if (shook && fxCtx.setTransform) fxCtx.setTransform(dpr, 0, 0, dpr, fxShake.x * dpr, fxShake.y * dpr);
     for (let i = fxLive.length - 1; i >= 0; i--) {
       const e = fxLive[i];
-      try { FXA.paint(fxCtx, e.spec, now - e.t0, fxScreen(e)); } catch (err) { fxLive.splice(i, 1); }
+      const sg = fxScreen(e);
+      try { FXA.paint(fxCtx, e.spec, now - e.t0, sg); } catch (err) { fxLive.splice(i, 1); continue; }
+      try { if (FXA.paintGuidePop) FXA.paintGuidePop(fxCtx, e.spec, now - e.t0, sg); } catch (err2) {}
     }
     if (fxCtx.setTransform) fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (fxLive.length) fxRaf = requestAnimationFrame(fxFrame);
@@ -1459,6 +1526,11 @@ function fxPublic(spec) {
     facing: spec.facing,
     nat: spec.nat, crit: spec.crit, critMin: spec.critMin, heard: spec.heard, scene: S.sceneId || ''
   };
+  if (spec.hops) pub.hops = spec.hops;
+  if (spec.rays) pub.rays = spec.rays;
+  if (spec.dust) pub.dust = true;
+  if (spec.crumbOnly) pub.crumbOnly = true;
+  if (spec.pulse) pub.pulse = true;
   if (spec.id) pub.id = spec.id;
   if (T) pub.target = T.id;
   const sc = fxCenter(S);
@@ -1924,6 +1996,10 @@ function paintStickyMarks(ctx, t, s, r) {
     const look = FX.stickyLook(name);
     if (!look || seen[look]) return;
     seen[look] = 1;
+    if ((look === "guiding-bolt" || look === "chill-touch") && FX.paintRider) {
+      FX.paintRider(ctx, look, s.x, s.y, r, (typeof performance !== "undefined" ? performance.now() : Date.now()));
+      return;
+    }
     const col = (FX.chunkColor && FX.chunkColor(look)) || "185,170,180";
     /* Lasting wrap. The cast glow fades; this ring stays while the condition is on the token. */
     ctx.save();
@@ -3558,12 +3634,35 @@ function draw() {
        portrait used to throw out of draw() and stop every later token (and its ammo badge) from drawing. */
     if (t._img && !(typeof HTMLImageElement !== 'undefined' && t._img instanceof HTMLImageElement)) { t._img = null; if (t.image) loadTokenImage(t); }
     if (t.image && t._img) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, r - 2, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.drawImage(t._img, s.x - r, s.y - r, r * 2, r * 2);
-      ctx.restore();
+      const dust = fxDustFrame(t);
+      if (dust && FXA && FXA.erodeToken && typeof document !== "undefined") {
+        const d = Math.ceil(r * 2 + 16);
+        if (!fxErodeCanvas) fxErodeCanvas = document.createElement("canvas");
+        if (fxErodeCanvas.width !== d || fxErodeCanvas.height !== d) {
+          fxErodeCanvas.width = d;
+          fxErodeCanvas.height = d;
+        }
+        const oc = fxErodeCanvas.getContext("2d");
+        if (oc) {
+          oc.setTransform(1, 0, 0, 1, 0, 0);
+          oc.clearRect(0, 0, d, d);
+          oc.save();
+          oc.beginPath();
+          oc.arc(d / 2, d / 2, Math.max(1, r - 2), 0, Math.PI * 2);
+          oc.clip();
+          oc.drawImage(t._img, d / 2 - r, d / 2 - r, r * 2, r * 2);
+          oc.restore();
+          FXA.erodeToken(oc, dust.lt, d / 2, d / 2, r, dust.from, { x: s.x, y: s.y });
+          ctx.drawImage(fxErodeCanvas, s.x - d / 2, s.y - d / 2);
+        }
+      } else {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, r - 2, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(t._img, s.x - r, s.y - r, r * 2, r * 2);
+        ctx.restore();
+      }
     }
     paintStickyMarks(ctx, t, s, r);
     if (window.SSDNSTokenBorder) window.SSDNSTokenBorder.paint(ctx, t, s.x, s.y, r, ring);

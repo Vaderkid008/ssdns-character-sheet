@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.214"; // dmcc-playtest-v02214
+const VERSION = "0.2.215"; // dmcc-playtest-v02215
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";

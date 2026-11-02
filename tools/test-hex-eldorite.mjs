@@ -1,6 +1,6 @@
 /**
  * Hex shells take Eldorite shard colors by level, and hover names the loaded spell.
- * Sheet 0.3.201 / DMCC 0.2.214.
+ * Sheet 0.3.202 / DMCC 0.2.215.
  *   node tools/test-hex-eldorite.mjs
  */
 import fs from "node:fs";
@@ -18,12 +18,12 @@ function check(id, cond, detail) {
 const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.201" && version.sheetBuild === "sheet-playtest-v03201");
-check("ver.dmcc", version.dmcc === "0.2.214" && version.dmccBuild === "dmcc-playtest-v02214");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.201"') && read("assets/js/app.js").includes("sheet-playtest-v03201"));
-check("ver.dm", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.214"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02214"));
-check("html.sheet", read("index.html").includes("assets/js/app.js?v=0.3.201-encounter") && read("index.html").includes("assets/js/ammo-display.js?v=0.3.201-encounter") && read("index.html").includes("assets/css/ammo-display.css?v=0.3.200-digit"));
-check("html.dm", read("dm/index.html").includes("assets/js/dmcc.js?v=0.2.214-encounter") && read("dm/index.html").includes("../assets/js/ammo-display.js?v=0.3.201-encounter"));
+check("ver.sheet", version.sheet === "0.3.202" && version.sheetBuild === "sheet-playtest-v03202");
+check("ver.dmcc", version.dmcc === "0.2.215" && version.dmccBuild === "dmcc-playtest-v02215");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.202"') && read("assets/js/app.js").includes("sheet-playtest-v03202"));
+check("ver.dm", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.215"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02215"));
+check("html.sheet", read("index.html").includes("assets/js/app.js?v=0.3.202-c1") && read("index.html").includes("assets/js/ammo-display.js?v=0.3.201-encounter") && read("index.html").includes("assets/css/ammo-display.css?v=0.3.200-digit"));
+check("html.dm", read("dm/index.html").includes("assets/js/dmcc.js?v=0.2.215-c1") && read("dm/index.html").includes("../assets/js/ammo-display.js?v=0.3.201-encounter"));
 
 const sb = {};
 sb.window = sb;
