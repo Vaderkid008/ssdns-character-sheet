@@ -89,6 +89,8 @@ Public `asset` stays the N86 slice. When the DM marks the countdown visible it m
 
 Pack file: `{format:"ssdns-asset-pack", version:1, assets:[]}`.
 
+Encounter Pack v1 is `assets/packs/encounter-pack-v1.ssdns-asset-pack.json`. The Assets panel button **Encounter Pack v1** fetches that file (same origin, next to `map/asset-library.js`) and imports definitions whose ids are not already in the room. A second click does not copy them. File Import still makes a new id when that id is already taken. Pictures are `assets/map-props/asset-*.webp`. The pack stores those as `https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/…` links (`data:` and `blob:` are dropped on import). Soft defaults stay in the JSON: wall lantern and campfire are 20 ft bright + 20 ft dim, the fence gate blocks movement and not sight, and the powder barrel and plunger box keep the off/on picture, the toggle, and the fuse or plunger blast timer. SFX values are bare allow-list filenames.
+
 ## Showcase map (N90, sheet 0.3.178 / DMCC 0.2.191)
 
 Dry Fork Water Stop is built-in scene `scn_dry_fork` in `map/map-packs.js`. My Maps lists it under Built-in. The DM opens it from that menu. The same scene is on the hidden scene list used by Set floor.
