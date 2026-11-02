@@ -1390,6 +1390,23 @@ function fxScreen(entry) {
   screen.marks = fxMarkNames(g.tokT);
   const look = FXA && FXA.lookOf ? FXA.lookOf(entry.spec || {}) : "";
   screen.pop = look !== "guiding-bolt" && screen.marks.some(n => /^guided\b/i.test(String(n || "")));
+  const castRes = String((entry.spec && entry.spec.result) || "");
+  if (look === "thorn" && (castRes === "hit" || castRes === "crit") && g.T && !g.yankOrigin) {
+    g.yankOrigin = { x: g.T.x, y: g.T.y };
+  }
+  if (g.yankOrigin) {
+    screen.ghost = worldToScreen(g.yankOrigin.x * px, g.yankOrigin.y * px);
+    const moved = !!(g.T && Math.hypot(g.T.x - g.yankOrigin.x, g.T.y - g.yankOrigin.y) > 0.35);
+    const toward = S || src;
+    if (!moved && screen.ghost && toward) {
+      const dx = toward.x - screen.ghost.x;
+      const dy = toward.y - screen.ghost.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const pull = Math.min(cell * 2, Math.max(0, dist - rS - rT - 6));
+      screen.yank = { x: (dx / dist) * pull, y: (dy / dist) * pull };
+    }
+  }
+  if (entry.spec && entry.spec.mode) screen.mode = entry.spec.mode;
   return screen;
 }
 /* Extra beam targets travel as token ids or grid points. Screen pixels are resolved here, not in the painter. */
@@ -1477,11 +1494,14 @@ function fxFrame() {
     fxShake = next;
     fxShaking = shook;
     let erodeLive = false;
+    let bodyLive = false;
     fxLive.forEach(e => {
       if (!e.spec || !FXA || !FXA.lookOf) return;
-      if ((e.spec.dust || e.spec.crumbOnly) && FXA.lookOf(e.spec) === "disintegrate") erodeLive = true;
+      const look = FXA.lookOf(e.spec);
+      if ((e.spec.dust || e.spec.crumbOnly) && look === "disintegrate") erodeLive = true;
+      if (look === "thorn" || look === "enfeeble") bodyLive = true;
     });
-    if (shook || was || erodeLive) { try { draw(); } catch (e) {} }
+    if (shook || was || erodeLive || bodyLive) { try { draw(); } catch (e) {} }
     if (fxCtx.setTransform) fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     fxCtx.clearRect(0, 0, box.w, box.h);
     if (shook && fxCtx.setTransform) fxCtx.setTransform(dpr, 0, 0, dpr, fxShake.x * dpr, fxShake.y * dpr);
@@ -1531,6 +1551,8 @@ function fxPublic(spec) {
   if (spec.dust) pub.dust = true;
   if (spec.crumbOnly) pub.crumbOnly = true;
   if (spec.pulse) pub.pulse = true;
+  if (spec.saved) pub.saved = true;
+  if (spec.mode === "chill" || spec.mode === "warm") pub.mode = spec.mode;
   if (spec.id) pub.id = spec.id;
   if (T) pub.target = T.id;
   const sc = fxCenter(S);
@@ -1562,7 +1584,10 @@ function fxSpecFromReq(row) {
     spell: req.spell || "", dmg: req.dmg || "", self: !!req.self || req.target === row.from,
     facing: req.facing,
     at: req.at || null,
-    heard: req.heard === false ? [] : [row.from]
+    heard: req.heard === false ? [] : [row.from],
+    hops: req.hops, rays: req.rays,
+    dust: !!req.dust, crumbOnly: !!req.crumbOnly, pulse: !!req.pulse, saved: !!req.saved,
+    mode: req.mode === "chill" || req.mode === "warm" ? req.mode : ""
   };
 }
 /** DM: draw locally with full knowledge, then publish the cleaned row. Returns the public fx (or null). */
@@ -1985,6 +2010,41 @@ function zoneHidesToken(t, sight) {
   const gy = t.pos.y + (t.size || 1) / 2;
   return zoneHidesPoint(gx, gy, sight);
 }
+function fxCoversLook(t, look) {
+  if (!t || !look || !fxLive.length || !FXA || !FXA.lookOf) return false;
+  for (let i = 0; i < fxLive.length; i++) {
+    const e = fxLive[i];
+    if (!e || !e.spec || !e.geo) continue;
+    const got = FXA.lookOf(e.spec);
+    const mode = e.spec.mode || "";
+    const same = got === look
+      || (look === "rime" && got === "fireshield" && mode === "chill")
+      || (look === "fireshield" && got === "fireshield" && mode !== "chill")
+      || (look === "cage" && got === "shocking-grasp");
+    if (!same) continue;
+    const ids = [e.geo.tokT, e.geo.tokS];
+    if (ids.some(one => one && (one === t || one.id === t.id))) return true;
+  }
+  return false;
+}
+function fxBodyNudge(t) {
+  if (!FXA || !FXA.nudge || !t || !fxLive.length) return null;
+  const now = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+  for (let i = 0; i < fxLive.length; i++) {
+    const e = fxLive[i];
+    if (!e || !e.geo || !e.geo.tokT) continue;
+    if (e.geo.tokT !== t && e.geo.tokT.id !== t.id) continue;
+    const n = FXA.nudge(e.spec, now - e.t0, fxScreen(e));
+    if (n && (n.dx || n.dy || n.grey)) return n;
+  }
+  return null;
+}
+function tokenIsEnfeebled(t) {
+  if (!FXA || !FXA.stickyLook || !t) return false;
+  const names = tokenConditions(t);
+  for (let i = 0; i < names.length; i++) if (FXA.stickyLook(names[i]) === "enfeeble") return true;
+  return false;
+}
 function paintStickyMarks(ctx, t, s, r) {
   const FX = window.SSDNSMapFx;
   if (!FX || !FX.stickyLook || !t) return;
@@ -1996,8 +2056,11 @@ function paintStickyMarks(ctx, t, s, r) {
     const look = FX.stickyLook(name);
     if (!look || seen[look]) return;
     seen[look] = 1;
-    if ((look === "guiding-bolt" || look === "chill-touch") && FX.paintRider) {
-      FX.paintRider(ctx, look, s.x, s.y, r, (typeof performance !== "undefined" ? performance.now() : Date.now()));
+    const rich = look === "guiding-bolt" || look === "chill-touch" || look === "cage"
+      || look === "hex" || look === "brand" || look === "heat" || look === "fireshield"
+      || look === "rime" || look === "flameblade" || look === "enfeeble";
+    if (rich && FX.paintRider) {
+      if (!fxCoversLook(t, look)) FX.paintRider(ctx, look, s.x, s.y, r, (typeof performance !== "undefined" ? performance.now() : Date.now()));
       return;
     }
     const col = (FX.chunkColor && FX.chunkColor(look)) || "185,170,180";
@@ -3616,6 +3679,10 @@ function draw() {
 
     // Hidden tokens stay on the DM map, drawn dimmed. Players never reach this branch.
     ctx.save();
+    const nudge = fxBodyNudge(t);
+    let portraitGrey = nudge && nudge.grey ? nudge.grey : 0;
+    if (portraitGrey < 1 && tokenIsEnfeebled(t)) portraitGrey = 1;
+    if (nudge && (nudge.dx || nudge.dy)) ctx.translate(nudge.dx || 0, nudge.dy || 0);
     if (isHidden && role === 'dm') ctx.globalAlpha = 0.4;
     if (t.veil && (role === 'dm' || t.ownerUid === uid)) ctx.globalAlpha = 0.45;
     /* fog-aware targeting: seen but past the picked weapon's long range -> grey wash on this player's map */
@@ -3653,16 +3720,28 @@ function draw() {
           oc.drawImage(t._img, d / 2 - r, d / 2 - r, r * 2, r * 2);
           oc.restore();
           FXA.erodeToken(oc, dust.lt, d / 2, d / 2, r, dust.from, { x: s.x, y: s.y });
+          ctx.save();
+          if (portraitGrey > 0.02) { try { ctx.filter = "grayscale(" + portraitGrey.toFixed(3) + ") brightness(" + (1 - 0.12 * portraitGrey).toFixed(3) + ")"; } catch (e) {} }
           ctx.drawImage(fxErodeCanvas, s.x - d / 2, s.y - d / 2);
+          ctx.restore();
         }
       } else {
         ctx.save();
         ctx.beginPath();
         ctx.arc(s.x, s.y, r - 2, 0, Math.PI * 2);
         ctx.clip();
+        if (portraitGrey > 0.02) { try { ctx.filter = "grayscale(" + portraitGrey.toFixed(3) + ") brightness(" + (1 - 0.12 * portraitGrey).toFixed(3) + ")"; } catch (e) {} }
         ctx.drawImage(t._img, s.x - r, s.y - r, r * 2, r * 2);
         ctx.restore();
       }
+    }
+    if (portraitGrey > 0.02) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, Math.max(1, r - 2), 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(90,70,100," + (0.28 * portraitGrey) + ")";
+      ctx.fill();
+      ctx.restore();
     }
     paintStickyMarks(ctx, t, s, r);
     if (window.SSDNSTokenBorder) window.SSDNSTokenBorder.paint(ctx, t, s.x, s.y, r, ring);
@@ -3811,6 +3890,8 @@ function draw() {
     /* HP bar under the name. DM always. A player sees their own PC via canControl,
        and an enemy or NPC only when that combatant's reveal.hp is public. */
     if (barHp && barHp.max) {
+      ctx.save();
+      if (nudge && (nudge.dx || nudge.dy)) ctx.translate(nudge.dx || 0, nudge.dy || 0);
       const pct = Math.max(0, Math.min(1, (Number(barHp.cur) || 0) / barHp.max));
       const bw = r * 1.8, bh = 5;
       const barY = nameY + Math.max(14, nameFont + 2);
@@ -3818,6 +3899,7 @@ function draw() {
       ctx.fillRect(s.x - bw/2, barY, bw, bh);
       ctx.fillStyle = pct > 0.5 ? '#4caf50' : pct > 0.25 ? '#ff9800' : '#f44336';
       ctx.fillRect(s.x - bw/2, barY, bw * pct, bh);
+      ctx.restore();
     }
   }
 

@@ -2196,6 +2196,10 @@ function dropChipNames(who, names) {
   const removeIds = current.filter((c) => c && want[String(c.name || "").toLowerCase()]).map((c) => c.id).filter(Boolean);
   if (!removeIds.length) return;
   writeSubjectConditions(subjectId, kind, [], who.name || "", 1, {}, removeIds).catch(() => {});
+  if (names.some((n) => /enfeebled/i.test(String(n || "")))) {
+    const known = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup("Ray of Enfeeblement") : null;
+    spellMapFx(subjectId, subjectId, "Ray of Enfeeblement", known, "hit", { saved: true });
+  }
 }
 function commitRider(caster, known, opts) {
   const R = window.SSDNSSpellRiders;
@@ -5335,7 +5339,7 @@ function onEnemySheetClick(e) {
           rollId: DM.uid("spell"), targetId: one.id, targetName: one.name, amount: rolled.damageTotal || 0,
           from: row.id, characterName: row.name, label: spellName, type: "damage"
         });
-        if (/witch bolt/i.test(spellName || "")) {
+        if (/witch bolt|heat metal|hex|hunter's mark/i.test(spellName || "")) {
           const knownPulse = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(spellName) : null;
           spellMapFx(row.id, one.id, spellName, knownPulse, "hit", { pulse: true });
         }
@@ -5931,6 +5935,9 @@ function spellMapFx(shooter, target, name, known, result, extra) {
   if (extra.dust) body.dust = true;
   if (extra.crumbOnly) body.crumbOnly = true;
   if (extra.pulse) body.pulse = true;
+  if (extra.saved) body.saved = true;
+  const mode = String(extra.mode || "").toLowerCase();
+  if (mode === "chill" || mode === "warm") body.mode = mode;
   if (body.dust) coverDustFx();
   return mapFx(body);
 }
@@ -7829,6 +7836,12 @@ async function cardCast(i, n, opts) {
     return true;
   }
   if (kind === "utility" || kind === "reaction" || kind === "none" || kind === "rider") {
+    let shieldMode = "warm";
+    if (/fire shield/i.test(name || "")) {
+      const picked = await askPair("Fire Shield", "Warm flame shell", "warm", "Chill rime shell", "chill");
+      if (!picked) { DM.toast("Cast cancelled"); return; }
+      shieldMode = picked;
+    }
     spendSpellSlot(card, level);
     let detail = row.name + " casts " + name;
     if (spellConcentrates(spell, known)) detail += noteConcentration(row, name, level);
@@ -7836,7 +7849,7 @@ async function cardCast(i, n, opts) {
       row.spellMarks = window.SSDNSSpellRiders.emptyBag(row.spellMarks);
       const armed = window.SSDNSSpellRiders.arm(row.spellMarks, {
         name: name, row: known, slot: level, targetId: direct, targetName: "", casterId: row.id,
-        ability: "WIS", mode: "warm", disease: "Flesh Rot"
+        ability: "WIS", mode: shieldMode, disease: "Flesh Rot"
       });
       row.spellMarks = armed.bag;
       if (armed.logs && armed.logs.length) detail += " · " + armed.logs.join(" · ");
@@ -7846,7 +7859,7 @@ async function cardCast(i, n, opts) {
       }
     }
     await publishCardRoll(row, detail, 0, { formula: "—", spell: true });
-    spellMapFx(row.id, direct || row.id, name, known, "hit");
+    spellMapFx(row.id, direct || row.id, name, known, "hit", /fire shield/i.test(name || "") ? { mode: shieldMode } : {});
     playCue();
     await saveRemoteTable();
     renderFight();
@@ -8434,6 +8447,24 @@ function applyTargets() {
     rows.push({ id: pid, name: s.name || "Someone", kind: "player" });
   });
   return rows.filter((r) => r.id);
+}
+function askPair(title, aLabel, aValue, bLabel, bValue) {
+  return new Promise((resolve) => {
+    const dlg = document.createElement("dialog");
+    dlg.className = "dlg";
+    dlg.innerHTML = `<form method="dialog"><h2>${esc(title)}</h2><div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn" value="a" type="button">${esc(aLabel)}</button><button class="btn btn-primary" value="b" type="button">${esc(bLabel)}</button></div></form>`;
+    const finish = (value) => {
+      if (dlg.close) dlg.close();
+      if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+      resolve(value || "");
+    };
+    dlg.querySelector("[value=no]").addEventListener("click", () => finish(""));
+    dlg.querySelector("[value=a]").addEventListener("click", () => finish(aValue));
+    dlg.querySelector("[value=b]").addEventListener("click", () => finish(bValue));
+    dlg.addEventListener("cancel", (e) => { e.preventDefault(); finish(""); });
+    document.body.appendChild(dlg);
+    openDialog(dlg);
+  });
 }
 function askApplyTarget(preferId) {
   const rows = applyTargets();

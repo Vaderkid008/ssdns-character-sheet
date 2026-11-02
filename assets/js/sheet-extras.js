@@ -1754,6 +1754,7 @@
       if (!chp || !chp.name) return;
       if (root.SSDNSAudio && root.SSDNSAudio.play) root.SSDNSAudio.play("ui-tick");
       addLog({ kind: "alert", text: (removing ? "COND -" : "COND +") + chp.name + (chp.spell ? " (" + chp.spell + ")" : "") });
+      if (removing && /enfeebled/i.test(chp.name || "")) postSpellLook("Ray of Enfeeblement", chp.targetId, "hit", { type: "necrotic" }, null, "", { saved: true });
       if (!chp.targetId || !root.SSDNSDmJoin || !root.SSDNSDmJoin.postDamage) return;
       root.SSDNSDmJoin.postDamage({
         amount: 0,
@@ -1831,6 +1832,7 @@
       rolled.detail = rolled.text;
       logs.forEach(function (line) { addLog({ kind: "roll", text: line }); });
     }
+    if (total) postSpellLook("Hex", tgt.id, "hit", { type: "necrotic" }, null, "", { pulse: true });
     return total;
   }
   function stampAssigned(rolled, picks, spellName) {
@@ -2266,6 +2268,8 @@
             targetId: tgt.id, targetName: tgt.name, rollId: "sus_" + Date.now().toString(36), spell: item.name
           });
         }
+        if (/heat metal/i.test(item.name || "")) postSpellLook(item.name, tgt.id, "hit", { type: "fire" }, null, "", { pulse: true });
+        if (/witch bolt/i.test(item.name || "")) postSpellLook(item.name, tgt.id, "hit", { type: "lightning" }, null, "", { pulse: true });
       });
       return;
     }
@@ -3317,7 +3321,15 @@
       var tgtNow = currentTarget();
       if (tgtNow && tgtNow.id) ctx.targetId = tgtNow.id;
     }
-    return T && T.rider ? T.rider(ctx) : null;
+    var got = T && T.rider ? T.rider(ctx) : null;
+    if (got && got.riders && ctx.targetId) {
+      got.riders.forEach(function (r) {
+        var label = String((r && (r.label || r.spell)) || "");
+        if (/hex/i.test(label)) postSpellLook("Hex", ctx.targetId, "hit", { type: "necrotic" }, null, "", { pulse: true });
+        if (/marked/i.test(label)) postSpellLook("Hunter's Mark", ctx.targetId, "hit", null, null, "", { pulse: true });
+      });
+    }
+    return got;
   }
   function halveStrWeapon(dmg, ctx) {
     var SR = root.SSDNSSpellRiders;
@@ -4143,8 +4155,9 @@
     var dmg = (row && row.type) || "";
     var FX = root.SSDNSMapFx;
     var look = FX && FX.lookOf ? FX.lookOf({ type: "spell", spell: name, dmg: dmg }) : "";
-    if (!look || look === "token") return;
+    var sphere = /flaming sphere/i.test(String(name || ""));
     var pointed = !!(at && isFinite(Number(at.x)) && isFinite(Number(at.y)));
+    if ((!look || look === "token") && !(sphere && pointed)) return;
     var self = !pointed && (!targetId || look === "shield" || look === "magearmor" || look === "pwt" || look === "invis" || !!(FX && FX.lookSelf && FX.lookSelf({ type: "spell", spell: name, dmg: dmg })));
     var aim = self ? { target: "", self: true } : (pointed ? { target: "", self: false } : fxAim(targetId));
     var id = fxId || ("fxr_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
@@ -4164,6 +4177,9 @@
     if (extra.dust) req.dust = true;
     if (extra.crumbOnly) req.crumbOnly = true;
     if (extra.pulse) req.pulse = true;
+    if (extra.saved) req.saved = true;
+    var pickedMode = String(extra.mode || (castSpellAttackNow && castSpellAttackNow._mode) || "").toLowerCase();
+    if (pickedMode === "chill" || pickedMode === "warm") req.mode = pickedMode;
     if (pointed) req.at = { x: Math.round(Number(at.x) * 10) / 10, y: Math.round(Number(at.y) * 10) / 10 };
     sheetMapFx(Object.assign({ id: id }, req));
     if (!joined() || !root.SSDNSDmJoin || !root.SSDNSDmJoin.postFx) return;

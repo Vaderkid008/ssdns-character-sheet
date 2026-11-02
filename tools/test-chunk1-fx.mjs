@@ -81,7 +81,7 @@ check("look.guide", look("Guiding Bolt") === "guiding-bolt" && look("Sacred Flam
 check("look.chill", look("Chill Touch") === "chill-touch" && look("Chill Touch (Cold Hand)") === "chill-touch" && look("Inflict Wounds") === "necrotic" && look("Blight") === "necrotic");
 check("look.acid", look("Acid Arrow") === "acid-arrow" && look("Acid Splash") === "acid");
 check("look.poison", look("Poison Spray") === "poison-spray" && look("Poison Spray (Viper Puff)") === "poison-spray" && look("Cloudkill", "poison") === "poison");
-check("look.chain", look("Chain Lightning", "lightning") === "chain-lightning" && look("Lightning Bolt", "lightning") === "lightning" && look("Shocking Grasp") === "lightning");
+check("look.chain", look("Chain Lightning", "lightning") === "chain-lightning" && look("Lightning Bolt", "lightning") === "lightning" && look("Shocking Grasp") === "shocking-grasp");
 check("look.dust", look("Disintegrate", "force") === "disintegrate" && look("Spiritual Weapon", "force") === "token");
 check("named.witch", FX.namedLook("Witch Bolt") === "witch-bolt" && FX.namedLook("Disintegrate") === "disintegrate");
 check("sticky.marks", FX.stickyLook("Guided") === "guiding-bolt" && FX.stickyLook("No healing") === "chill-touch");
@@ -221,10 +221,10 @@ check("sanitize.hops", kept && kept.hops && kept.hops.length === 2 && kept.hops[
 const req = FX.request({ type: "spell", spell: "Scorching Ray", rays: [{ id: "a", result: "hit" }, { id: "b", result: "miss" }] });
 check("request.rays", req.rays && req.rays.length === 2 && req.rays[1].miss === true && req.spell === "Scorching Ray", JSON.stringify(req.rays));
 
-check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.202-c1") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.215-c1"));
+check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.203-c2") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.216-c2"));
 check("src.map", read("map/ssdns-map.js").includes("fxListScreens") && read("map/ssdns-map.js").includes("paintGuidePop") && read("map/ssdns-map.js").includes("erodeToken"));
 check("src.dm", read("dm/assets/js/v2.js").includes("chainIds") && read("dm/assets/js/v2.js").includes("crumbOnly") && read("dm/assets/js/v2.js").includes("pulse: true"));
-check("ver", JSON.parse(read("version.json")).sheet === "0.3.202" && JSON.parse(read("version.json")).dmcc === "0.2.215");
+check("ver", JSON.parse(read("version.json")).sheet === "0.3.203" && JSON.parse(read("version.json")).dmcc === "0.2.216");
 
 console.log(failures.length ? "\n" + failures.length + " FAILED" : "\nall chunk1 fx checks passed");
 process.exit(failures.length ? 1 : 0);
