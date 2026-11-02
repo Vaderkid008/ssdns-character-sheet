@@ -1248,6 +1248,11 @@
     paintFollowups();
   }
   function abortCast(msg) {
+    var placedLight = castSpellAttackNow._lightsPlaced;
+    if (placedLight && placedLight.undo && root.SSDNSMapHost && root.SSDNSMapHost.undoSpellLight) {
+      try { root.SSDNSMapHost.undoSpellLight(placedLight.undo); } catch (err) {}
+    }
+    castSpellAttackNow._lightsPlaced = null;
     castSpellAttackNow._reactGo = false;
     castSpellAttackNow._paid = false;
     castSpellAttackNow._blasted = null;
@@ -1285,8 +1290,66 @@
   }
   /* Light off (the cantrip, including Light Shell) drops the zone. Push that to the map so the rings go. */
   if (root.addEventListener) {
+    root.addEventListener("ssdns-light-round", function (ev) {
+      var L = root.SSDNSLighting;
+      var who = ch();
+      var steps = ev && ev.detail && ev.detail.steps;
+      if (!L || !L.tickHandLights || !who) return;
+      var changed = false;
+      if (root.SSDNSApp && root.SSDNSApp.applyPatch) {
+        root.SSDNSApp.applyPatch(function (d) {
+          if (d && d.character && L.tickHandLights(d.character, steps)) changed = true;
+        });
+      } else changed = L.tickHandLights(who, steps);
+      if (changed && L.paintBox) L.paintBox();
+    });
     root.addEventListener("ssdns-light-dismiss", function () {
       try { syncSpellZones(); } catch (e) {}
+    });
+    root.addEventListener("ssdns-aim-light", function (ev) {
+      var detail = (ev && ev.detail) || {};
+      var L = root.SSDNSLighting;
+      var Z = root.SSDNSSpellZones;
+      var spec = L && L.emitter ? L.emitter(detail.key || detail.name) : null;
+      var host = root.SSDNSMapHost;
+      var c = ch();
+      if (!spec || !host || typeof host.placeSpellLight !== "function") {
+        toast("Open the map to place " + ((spec && spec.name) || "that light") + ".");
+        return;
+      }
+      var uidNow = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+      var tok = host.tokenForPlayer && uidNow ? (host.tokenForPlayer(uidNow) || "") : "";
+      var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
+      host.placeSpellLight({
+        key: spec.key, name: spec.name, casterId: tok || uidNow || "",
+        casterName: (c && c.name) || "", dc: v && v.spellDC
+      }).then(function (placed) {
+        if (!placed || !c) return;
+        if (Z && Z.isZone && Z.isZone(spec.name)) {
+          var area = Z.dressArea ? Z.dressArea(spec.name, null, spec.spellLevel || 0) : null;
+          rememberZone(spec.name, spec.spellLevel || 0, {
+            origin: placed.origin, origins: placed.points || [placed.origin], facing: 0, area: area, anchorToken: placed.anchorToken
+          }, v && v.spellDC);
+        }
+        if (L.setSpell) {
+          if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function (d) { if (d && d.character) L.setSpell(d.character, spec.id, true); });
+          else L.setSpell(c, spec.id, true);
+        }
+        if (spec.conc) {
+          c = ch();
+          if (c) {
+            var prevConc = c.spellMarks && c.spellMarks.conc;
+            if (prevConc && String(prevConc).toLowerCase() !== spec.name.toLowerCase()) breakLocalConc(prevConc);
+            c = ch() || c;
+            var SR = root.SSDNSSpellRiders;
+            if (SR && SR.emptyBag) c.spellMarks = SR.emptyBag(c.spellMarks);
+            if (!c.spellMarks) c.spellMarks = {};
+            c.spellMarks.conc = spec.name;
+          }
+        }
+        if (L.paintBox) L.paintBox();
+        toast((spec.name || "Light") + " placed.");
+      });
     });
   }
   function rememberZone(spellName, slot, placed, dc) {
@@ -1301,6 +1364,11 @@
       damageType: castSpellAttackNow._mode || ""
     });
     if (!zone) return "";
+    var anchor = placed && (placed.anchorToken || placed.anchor);
+    var Lgt = root.SSDNSLighting;
+    var emit = Lgt && Lgt.emitter ? Lgt.emitter(spellName) : null;
+    if (anchor && anchor.id && emit && (emit.place === "point-or-token" || emit.place === "target")) zone.followTarget = anchor.id;
+    zone.casterName = (c && c.name) || zone.casterName || "";
     var put = Z.place(c.spellMarks, zone);
     detonateBeads(put.replaced);
     c.spellMarks = put.bag;
@@ -1468,13 +1536,24 @@
     var bag = SR.emptyBag ? SR.emptyBag(c.spellMarks) : (c.spellMarks || {});
     if (spell && !bag.conc) bag.conc = spell;
     if (!bag.conc && !spell) return;
-    var ended = SR.breakConc(bag, spell || bag.conc);
+    var endedName = spell || bag.conc || "";
+    var ended = SR.breakConc(bag, endedName);
     c.spellMarks = ended.bag;
     if (!opts.noBlast) detonateBeads(ended && ended.zones);
     publishChips(ended.removed, true);
     dropLocalChipRows(ended.removed);
     if (root.SSDNSAudio && root.SSDNSAudio.play) root.SSDNSAudio.play("ui-tick");
     syncSpellZones();
+    noteLightConcEnd(endedName);
+  }
+  function noteLightConcEnd(spellName) {
+    var Lgt = root.SSDNSLighting;
+    var who = ch();
+    if (Lgt && who && spellName && Lgt.dropHandForSpell) Lgt.dropHandForSpell(who, spellName);
+    var uidNow = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+    try {
+      root.dispatchEvent(new root.CustomEvent("ssdns-conc-end", { detail: { spell: spellName || "", casterId: uidNow || "" } }));
+    } catch (err) {}
   }
   var liveZoneLock = false;
   function noteLiveZones(list) {
@@ -1806,6 +1885,14 @@
       c.spellMarks = landed.bag;
       publishChips(landed.chips, false);
       lines = lines.concat(landed.logs || []);
+      if (phbKey(spellName) === "branding smite" && tgt && tgt.id) {
+        var uidHit = root.SSDNSDmJoin && root.SSDNSDmJoin.uid ? root.SSDNSDmJoin.uid() : "";
+        try {
+          root.dispatchEvent(new root.CustomEvent("ssdns-spell-light", {
+            detail: { action: "borrow", key: "branding-smite", followId: tgt.id, casterId: uidHit, casterUid: uidHit, casterName: (c && c.name) || "" }
+          }));
+        } catch (err) {}
+      }
     }
     return lines.filter(Boolean).join(" · ");
   }
@@ -2470,6 +2557,28 @@
         return;
       }
     }
+    var LgtEarly = root.SSDNSLighting;
+    var emitEarly = LgtEarly && LgtEarly.emitter ? LgtEarly.emitter(spellName) : null;
+    var zoneEarly = root.SSDNSSpellZones && root.SSDNSSpellZones.isZone && root.SSDNSSpellZones.isZone(spellName);
+    if (emitEarly && emitEarly.place !== "caster" && emitEarly.place !== "target" && !zoneEarly && !castSpellAttackNow._lightsPlaced) {
+      var hostL = root.SSDNSMapHost;
+      if (!hostL || typeof hostL.placeSpellLight !== "function") {
+        abortCast("Open the map to place " + (spellName || "that light") + ".");
+        return;
+      }
+      var uidL = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+      var tokL = hostL.tokenForPlayer && uidL ? (hostL.tokenForPlayer(uidL) || "") : "";
+      hostL.placeSpellLight({
+        key: emitEarly.key, name: emitEarly.name,
+        casterId: tokL || uidL || "", casterName: (c && c.name) || "", dc: v.spellDC
+      }).then(function (placed) {
+        if (!placed) { abortCast("Cast cancelled."); return; }
+        castSpellAttackNow._lightsPlaced = placed;
+        try { castSpellAttackNow(i, spellName, slot, fromChamber, damageType); }
+        finally { castSpellAttackNow._lightsPlaced = null; }
+      });
+      return;
+    }
     var areaEarly = spellAreaFor(spellName, row, slot);
     var rangeShot = null;
     if (areaEarly) {
@@ -2492,7 +2601,7 @@
       }
       var uidB = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
       var tokB = hostB.tokenForPlayer && uidB ? (hostB.tokenForPlayer(uidB) || "") : "";
-      hostB.placeBlast({ name: spellName, area: areaNow, casterId: tokB || uidB || "" }).then(function (placed) {
+      hostB.placeBlast({ name: spellName, area: areaNow, casterId: tokB || uidB || "", casterName: (c && c.name) || "", dc: v.spellDC }).then(function (placed) {
         if (!placed) { abortCast("Cast cancelled."); return; }
         castSpellAttackNow._blasted = placed;
         castSpellAttackNow._blastKeep = placed;
@@ -2776,6 +2885,7 @@
       rolled.text += " · " + condNote;
       rolled.detail = rolled.text;
     }
+    if (emitEarly && (emitEarly.place === "caster" || castSpellAttackNow._lightsPlaced)) noteSpellLight(spellName);
     if (root.SSDNSSpellRiders && root.SSDNSSpellRiders.concentrates && root.SSDNSSpellRiders.concentrates(spellName, row) && ch()) {
       var concBag = root.SSDNSSpellRiders.emptyBag(ch().spellMarks);
       if (concBag.conc && String(concBag.conc).toLowerCase() !== String(spellName || "").toLowerCase()) {
@@ -2787,6 +2897,7 @@
         addLog({ kind: "alert", text: "Concentration ends " + concBag.conc + "." });
         if (root.SSDNSAudio && root.SSDNSAudio.play) root.SSDNSAudio.play("ui-tick");
         syncSpellZones();
+        noteLightConcEnd(concBag.conc);
       }
       ch().spellMarks = root.SSDNSSpellRiders.emptyBag(ch().spellMarks);
       ch().spellMarks.conc = spellName;
@@ -5063,7 +5174,7 @@
     }
     var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
     var tok = host.tokenForPlayer && uid ? (host.tokenForPlayer(uid) || "") : "";
-    return host.placeBlast({ name: spellName, area: area, casterId: tok || uid || "" }).then(function (placed) {
+    return host.placeBlast({ name: spellName, area: area, casterId: tok || uid || "", casterName: (ch() && ch().name) || "", dc: opts.dc }).then(function (placed) {
       if (!placed) { toast("Cast cancelled."); return false; }
       return settle(placed);
     });

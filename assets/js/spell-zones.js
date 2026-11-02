@@ -40,6 +40,7 @@
     },
     "wall of fire": {
       name: "Wall of Fire", level: 4, conc: true, dur: "1 min", range: 120, shape: "wall", length: 60, thickness: 1, hotSide: 10,
+      light: { bright: 20, dim: 20, spellLevel: 4, magical: true },
       opaque: true,
       appear: { dice: "5d8", type: "fire", save: "DEX", half: true, up: "1d8" },
       ticks: [
@@ -86,6 +87,7 @@
     },
     "flaming sphere": {
       name: "Flaming Sphere", level: 2, conc: true, dur: "1 min", range: 60, shape: "sphere", radius: 5,
+      light: { bright: 20, dim: 20, spellLevel: 2, magical: true },
       deferCast: true, createToken: true, footprint: 1,
       ticks: [
         { when: "end", dice: "2d6", type: "fire", save: "DEX", half: true, up: "1d6", near: 5 }
@@ -93,6 +95,7 @@
     },
     "moonbeam": {
       name: "Moonbeam", level: 2, conc: true, dur: "1 min", range: 120, shape: "cylinder", radius: 5,
+      light: { bright: 5, dim: 5, spellLevel: 2, magical: true },
       deferCast: true,
       ticks: [
         { when: "enter", dice: "2d10", type: "radiant", save: "CON", half: true, up: "1d10", shapechanger: true },

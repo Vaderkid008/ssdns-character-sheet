@@ -471,6 +471,12 @@ const state = {
   pendingTarget: null,
   spellZones: [],
   spellZonesLive: false,
+  spellEmitters: [],
+  spellEmittersLive: false,
+  lightSeq: 0,
+  lightRound: 0,
+  lightCast: null,
+  selectedLight: "",
   /* Clear-row hover. The id is a zone in this scene, or "". Players never set it. */
   zonePulse: "",
   zoneSeq: 0,
@@ -560,6 +566,11 @@ on(document, 'keydown', e => {
   if (e.key === 'Escape' && state.blast) {
     e.preventDefault();
     cancelBlast();
+    return;
+  }
+  if (e.key === 'Escape' && state.lightCast) {
+    e.preventDefault();
+    cancelLightCast();
     return;
   }
   if (role === 'dm' && e.key === 'Escape' && state.pendingTarget) {
@@ -828,6 +839,7 @@ if (!el._nameMode) {
 paintRoleBadge();
 function pushFeed(row) {
   if (row && row.event === 'zone') { applyZoneFeed(row); return; }
+  if (row && row.event === 'spell-light') { applyLightFeed(row); return; }
   if (row && row.event === 'asset') {
     try { applyAssetRequest(row); } catch (eAsset) {}
     if (!row || row.kind === 'sfx') return;
@@ -2040,6 +2052,8 @@ function buildSight(viewerUid, sceneId, forceMode) {
     if (mine) { out.center = { x: bubble.x, y: bubble.y }; out.radius = radius; }
   }
   testLightRows(sd).forEach(ls => out.lights.push(ls));
+  zoneLightRows().forEach(ls => out.lights.push(ls));
+  spellEmitterRows(sid).forEach(ls => out.lights.push(ls));
   return out;
 }
 function sightFor(viewerUid, sceneId) { return buildSight(viewerUid, sceneId, ''); }
@@ -2081,7 +2095,18 @@ function spellZoneList() {
 function liveSpellZones() {
   const list = spellZoneList();
   return list.map(z => {
-    if (!z || !z.follow) return z;
+    if (!z) return z;
+    if (z.followTarget) {
+      const followTok = tokenByRef(z.followTarget);
+      if (!followTok || !followTok.pos || followTok.hidden) return Object.assign({}, z, { light: null, lightHidden: true });
+      const sid = followTok.sceneId || "scn_dustyspur01";
+      let here = "scn_dustyspur01";
+      try { here = activeSceneId(); } catch (e) {}
+      if (sid !== here) return Object.assign({}, z, { light: null, lightHidden: true });
+      const fs = followTok.size || 1;
+      return Object.assign({}, z, { origin: { x: followTok.pos.x + fs / 2, y: followTok.pos.y + fs / 2 } });
+    }
+    if (!z.follow) return z;
     const t = tokenByRef(z.casterId) || tokenByRef(z.followId);
     if (!t || !t.pos) return z;
     const s = t.size || 1;
@@ -2803,6 +2828,16 @@ function stampDispelledLights() {
       if (l && t._dispelledLights[l.id || l.name]) { l.out = true; l._zoneOut = true; }
     });
   });
+  const em = spellEmitterList().map(cloneEmitter);
+  let changed = false;
+  em.forEach(row => {
+    if (!row || row.doused) return;
+    const at = emitterCenter(row);
+    if (!at) return;
+    const hit = Z.dispelledCarried(zones, [Object.assign({ x: at.x, y: at.y, spell: true }, row)]);
+    if (hit.length) { row.doused = true; changed = true; }
+  });
+  if (changed) commitEmitters(em);
 }
 function zoneTimeLabel(zone) {
   const n = Number(zone && zone.roundsLeft);
@@ -2909,6 +2944,7 @@ function adoptSpellZones(list, seq) {
   state.spellZonesLive = true;
   if (seq) state.zoneSeq = Number(seq) || state.zoneSeq;
   stampDispelledLights();
+  stampBorrowedLights();
   renderZoneClear();
   requestDraw();
   try {
@@ -4427,7 +4463,7 @@ function iconCursor(emoji) {
   return `url("data:image/svg+xml;utf8,${svg}") 6 28, crosshair`;
 }
 function applyCursor() {
-  if (state.blast || state.placeAsset) { canvas.style.cursor = 'crosshair'; return; }
+  if (state.blast || state.lightCast || state.placeAsset) { canvas.style.cursor = 'crosshair'; return; }
   if (state.tool === 'reveal' || state.tool === 'hide' || state.tool === 'erase' || state.tool === 'wall' || state.tool === 'room' || state.tool === 'door' || state.tool === 'window' || state.tool === 'testlight') canvas.style.cursor = 'crosshair';
   else if (state.tool === 'ruler') canvas.style.cursor = iconCursor('📏');
   else if (state.tool === 'ping') canvas.style.cursor = iconCursor('📡');
@@ -5137,14 +5173,60 @@ function paintBlastBanner() {
   if (span && span.textContent !== txt) span.textContent = txt;
   bar.hidden = false;
 }
+function tokenAtOrigin(origin) {
+  if (!origin) return null;
+  const x = Number(origin.x), y = Number(origin.y);
+  return (state.tokens || []).find(t => {
+    if (!t || !t.pos || t.spellPiece) return false;
+    if (t.hidden && role !== "dm") return false;
+    if (!onViewedScene(t)) return false;
+    const s = t.size || 1;
+    const cx = t.pos.x + s / 2, cy = t.pos.y + s / 2;
+    return Math.abs(cx - x) <= s / 2 + 0.05 && Math.abs(cy - y) <= s / 2 + 0.05;
+  }) || null;
+}
+function anchorPayload(token) {
+  if (!token) return null;
+  return {
+    id: token.id, name: token.name || token.label || "", ownerUid: token.ownerUid || "",
+    kind: token.kind || "", dexMod: Number(token.dexMod || token.dex || 0) || 0
+  };
+}
 function confirmBlast() {
   const b = state.blast;
   if (!b) return;
   if (!b.origin) { toast("Pick a point on the map"); return; }
   const origins = (b.points && b.points.length) ? b.points.slice() : [b.origin];
   origins.forEach(o => { if (!o.casterSize && b.casterSize) o.casterSize = b.casterSize; });
+  const anchor = tokenAtOrigin(b.origin);
+  const L = window.SSDNSLighting;
+  const spec = L && L.emitter ? L.emitter((b.spec && b.spec.name) || "") : null;
+  const casterTok = blastCaster(b.spec);
+  if (anchor && spec && L.needsUnwillingSave && L.needsUnwillingSave(spec, anchor, casterTok)) {
+    const dc = Number(b.spec && b.spec.dc) || 0;
+    const mod = Number(anchor.dexMod || anchor.dex || 0) || 0;
+    const resolveFail = b.resolve;
+    if (!(dc > 0)) {
+      toast("Unwilling target. No spell DC, so the light does not catch.");
+      state.blast = null;
+      paintBlastBanner();
+      draw();
+      if (resolveFail) resolveFail(null);
+      return;
+    }
+    const roll = 1 + Math.floor(Math.random() * 20);
+    const save = L.dexSave(roll, mod, dc);
+    toast("DEX " + roll + (mod ? (mod > 0 ? "+" + mod : mod) : "") + " = " + save.total + " vs DC " + dc + (save.passed ? ". The light doesn't catch." : ". The light takes hold."));
+    if (save.passed) {
+      state.blast = null;
+      paintBlastBanner();
+      draw();
+      if (resolveFail) resolveFail(null);
+      return;
+    }
+  }
   const tokens = tokensInBlast(b.area, origins, b.facing || 0, b.casterId);
-  const payload = { origin: b.origin, origins: origins, facing: b.facing || 0, tokens: tokens, area: b.area };
+  const payload = { origin: b.origin, origins: origins, facing: b.facing || 0, tokens: tokens, area: b.area, anchorToken: anchorPayload(anchor) };
   const resolve = b.resolve;
   state.blast = null;
   paintBlastBanner();
@@ -7427,6 +7509,16 @@ function onPointerDown(e) {
       blastPointer(e, 'down');
       return;
     }
+    if (state.lightCast && e.button === 0) {
+      e.preventDefault();
+      lightCastPointer(e);
+      return;
+    }
+    if (state.lightCast && e.button === 2) {
+      e.preventDefault();
+      cancelLightCast();
+      return;
+    }
     if (role === 'dm' && state.pendingTarget && e.button === 0) {
       const pw = pointerWorld(e);
       const pickHit = hitTest(pw.x, pw.y);
@@ -7672,6 +7764,14 @@ function onPointerDown(e) {
       return;
     }
     const w = pointerWorld(e);
+    const orb = !state.tool && e.button === 0 ? spellOrbAt(w.x, w.y) : null;
+    if (orb && canMoveOrb(orb)) {
+      e.preventDefault();
+      state.selectedLight = orb.id;
+      state.drag = { spellOrb: { id: orb.id, x: (Number(orb.x) || 0) + 0.5, y: (Number(orb.y) || 0) + 0.5, ox: (Number(orb.x) || 0) + 0.5, oy: (Number(orb.y) || 0) + 0.5 } };
+      draw();
+      return;
+    }
     const hit = hitTest(w.x, w.y);
     if (hit && hit.kind === 'asset' && role === 'player' && !e.shiftKey) {
       if (!tokenSeenBy(hit, sightFor(uid, getPlayerScene()))) { toast("You can't see that."); return; }
@@ -7760,6 +7860,14 @@ function onPointerDown(e) {
 function onPointerMove(e) {
   if (state.blast) {
     blastPointer(e, 'move');
+    return;
+  }
+  if (state.drag && state.drag.spellOrb && state.scene) {
+    const w = pointerWorld(e);
+    const px = state.scene.grid.px || 70;
+    state.drag.spellOrb.x = Math.floor(w.x / px) + 0.5;
+    state.drag.spellOrb.y = Math.floor(w.y / px) + 0.5;
+    draw();
     return;
   }
   if (state.drag && state.drag.moveAim) {
@@ -8006,6 +8114,10 @@ function onPointerUp(e) {
     addFogShape({ op: fogOp(), kind: 'brush', cells: state.brushCells.map(c => ({ x: c.x, y: c.y })) });
     state.brushCells = null;
   }
+  if (state.drag && state.drag.spellOrb) {
+    const orb = state.drag.spellOrb;
+    moveSpellOrb(orb.id, { x: orb.x, y: orb.y }, false);
+  }
   if (wasTokenDrag && state.drag && state.drag.starts) {
     Object.keys(state.drag.starts).forEach(id => {
       const t = state.tokens.find(tok => tok && tok.id === id);
@@ -8171,11 +8283,17 @@ function syncOwnerLights() {
 function lightStatusText(token) {
   const owner = token && token.ownerUid;
   const party = owner ? partyList().find(p => p && (p.uid || p.id) === owner) : null;
-  if (!owner || !party) return { warn: true, text: '⚠ Not linked to a sheet' };
+  if (!owner || !party) {
+    const borrowed = (token.borrowedLights || []).map(r => r && r.text).filter(Boolean);
+    return { warn: true, text: '⚠ Not linked to a sheet' + (borrowed.length ? ' · ' + borrowed.join(' · ') : '') };
+  }
   const name = party.name || party.label || 'sheet';
   const bits = [];
   if (token.dmDoused) bits.push('doused');
-  else (token.lights || []).forEach(l => {
+  else (token.borrowedLights || []).forEach(row => {
+    if (row && row.text) bits.push(row.text);
+  });
+  if (!token.dmDoused) (token.lights || []).forEach(l => {
     if (!l || l.out) return;
     bits.push(String(l.name || 'light').toLowerCase() + ' ' + (Number(l.bright) || 0) + '/' + (Number(l.dim) || 0));
   });
@@ -8329,6 +8447,490 @@ function paintTestLightBtn() {
   const on = state.tool === 'testlight';
   b.classList.toggle('active', on);
   b.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+function zoneLightRows() {
+  const L = window.SSDNSLighting;
+  const rows = [];
+  liveSpellZones().forEach(z => {
+    if (!z || !z.light || z.lightOut || z.lightHidden) return;
+    const bright = Number(z.light.bright) || 0;
+    const dim = Number(z.light.dim) || 0;
+    const pts = (z.shape === "wall" && L && L.wallLightPoints) ? L.wallLightPoints(z) : [z.origin];
+    pts.forEach((p, i) => {
+      if (!p || p.x == null) return;
+      rows.push({
+        x: Number(p.x), y: Number(p.y), bright: bright, dim: dim, radius: (bright + dim) / 5,
+        cone: false, facing: 0, name: z.spell || "Light", id: "zone:" + z.id + ":" + i,
+        magical: true, spell: true, spellLevel: z.light.spellLevel != null ? Number(z.light.spellLevel) : (Number(z.level) || 0)
+      });
+    });
+  });
+  return rows;
+}
+function spellEmitterList(sceneId) {
+  const sid = sceneId || activeSceneId();
+  if (state.spellEmittersLive && sid === activeSceneId()) return state.spellEmitters || [];
+  try {
+    const sd = sceneData(sid);
+    if (sd && Array.isArray(sd.spellEmitters)) return sd.spellEmitters;
+  } catch (e) {}
+  return state.spellEmitters || [];
+}
+function emitterCenter(em) {
+  if (!em || em.doused) return null;
+  if (em.followId) {
+    const t = tokenByRef(em.followId);
+    if (!t || !t.pos || t.hidden) return null;
+    const sid = t.sceneId || "scn_dustyspur01";
+    if (sid !== activeSceneId()) return null;
+    const s = t.size || 1;
+    return { x: t.pos.x + s / 2, y: t.pos.y + s / 2 };
+  }
+  return { x: (Number(em.x) || 0) + 0.5, y: (Number(em.y) || 0) + 0.5 };
+}
+function spellEmitterRows(sceneId) {
+  const rows = [];
+  spellEmitterList(sceneId).forEach(em => {
+    if (!em || em.doused) return;
+    const at = emitterCenter(em);
+    if (!at) return;
+    const bright = Number(em.bright) || 0;
+    const dim = Number(em.dim) || 0;
+    rows.push({
+      x: at.x, y: at.y, bright: bright, dim: dim, radius: (bright + dim) / 5,
+      cone: false, facing: 0, name: em.name || "Light", id: em.id || "",
+      magical: em.magical !== false, spell: true,
+      spellLevel: em.spellLevel != null ? Number(em.spellLevel) : 0
+    });
+  });
+  return rows;
+}
+function cloneEmitter(em) {
+  return em ? Object.assign({}, em) : em;
+}
+function commitEmitters(list) {
+  const next = (list || []).map(cloneEmitter);
+  state.spellEmitters = next;
+  state.spellEmittersLive = true;
+  state.lightSeq = Date.now();
+  try {
+    const sd = sceneData();
+    sd.spellEmitters = next.map(cloneEmitter);
+    sd.lightSeq = state.lightSeq;
+  } catch (e) {}
+  if (role === "dm") { try { saveScene(); } catch (err) {} }
+  publishLightFeed(next);
+  stampBorrowedLights();
+  requestDraw();
+}
+function publishLightFeed(list) {
+  if (!adapter || !adapter.write || !uid) return;
+  const id = "slight_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const row = {
+    id: id, ts: new Date().toISOString(), from: uid,
+    fromName: role === "dm" ? "DM" : "Player",
+    text: "spell-light", kind: "sfx", event: "spell-light",
+    emitters: list, lightSeq: state.lightSeq, sceneId: activeSceneId()
+  };
+  try {
+    const p = adapter.write("tableFeed/" + id, row, { by: uid });
+    if (p && p.catch) p.catch(() => {});
+  } catch (e) {}
+}
+function adoptSpellEmitters(list, seq) {
+  state.spellEmitters = (Array.isArray(list) ? list : []).map(cloneEmitter);
+  state.spellEmittersLive = true;
+  if (seq) state.lightSeq = Number(seq) || state.lightSeq;
+  stampBorrowedLights();
+  requestDraw();
+}
+function applyLightFeed(row) {
+  if (!row || row.event !== "spell-light" || !Array.isArray(row.emitters)) return;
+  if (row.from && row.from === uid) return;
+  if (row.sceneId && row.sceneId !== activeSceneId()) return;
+  const seq = Number(row.lightSeq) || 0;
+  if (state.spellEmittersLive && seq && state.lightSeq && seq < state.lightSeq) return;
+  adoptSpellEmitters(row.emitters, seq || Date.now());
+  if (role === "dm") {
+    try {
+      const sd = sceneData();
+      sd.spellEmitters = state.spellEmitters.map(cloneEmitter);
+      sd.lightSeq = state.lightSeq;
+      saveScene();
+    } catch (e) {}
+  }
+}
+function borrowedForToken(tokenId) {
+  const L = window.SSDNSLighting;
+  const out = [];
+  spellEmitterList().forEach(em => {
+    if (!em || em.doused || String(em.followId || "") !== String(tokenId)) return;
+    out.push(L && L.borrowedRow ? L.borrowedRow(em) : { text: (em.name || "Light") + " from " + (em.casterName || "someone") });
+  });
+  spellZoneList().forEach(z => {
+    if (!z || z.lightOut || !z.light || String(z.followTarget || "") !== String(tokenId)) return;
+    const row = {
+      id: "zone:" + z.id, name: z.spell || "Light", casterName: z.casterName || "", dur: z.dur || "",
+      bright: Number(z.light.bright) || 0, dim: Number(z.light.dim) || 0
+    };
+    row.text = L && L.borrowedText ? L.borrowedText(row) : (row.name + " from " + (row.casterName || "someone"));
+    out.push(row);
+  });
+  return out;
+}
+function stampBorrowedLights() {
+  (state.tokens || []).forEach(t => {
+    if (!t || !t.id) return;
+    const rows = borrowedForToken(t.id);
+    const sig = JSON.stringify(rows);
+    if (t._borrowSig === sig) return;
+    t._borrowSig = sig;
+    t.borrowedLights = rows;
+    const copy = shared.tokens && shared.tokens[t.id];
+    if (copy) copy.borrowedLights = rows.map(r => Object.assign({}, r));
+  });
+  adoptBorrowedSheet();
+}
+function adoptBorrowedSheet() {
+  if (role !== "player" || !window.SSDNSApp || !window.SSDNSApp.applyPatch) return;
+  const me = (state.tokens || []).find(t => t && t.ownerUid === uid);
+  if (!me) return;
+  const rows = (me.borrowedLights || []).map(r => Object.assign({}, r));
+  const sig = JSON.stringify(rows);
+  if (state._sheetBorrowSig === sig) return;
+  state._sheetBorrowSig = sig;
+  try {
+    window.SSDNSApp.applyPatch(d => { if (d && d.character) d.character.borrowedLights = rows; });
+    if (window.SSDNSLighting && window.SSDNSLighting.paintBox) window.SSDNSLighting.paintBox();
+  } catch (e) {}
+}
+function casterCenterOf(token) {
+  if (!token || !token.pos) return null;
+  const s = token.size || 1;
+  return { x: token.pos.x + s / 2, y: token.pos.y + s / 2, id: token.id, ownerUid: token.ownerUid || "", kind: token.kind || "" };
+}
+function lightCasterToken(casterId) {
+  return tokenByRef(casterId) || (state.tokens || []).find(t => t && t.ownerUid === uid && t.pos && onViewedScene(t)) || null;
+}
+function newLightId(prefix) {
+  return (prefix || "sl") + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+}
+function storePointLight(spec, at, follow, meta) {
+  const cellX = Math.floor(Number(at && at.x) || 0);
+  const cellY = Math.floor(Number(at && at.y) || 0);
+  const row = {
+    id: newLightId("sl"),
+    key: spec.key, name: spec.name, bright: spec.bright, dim: spec.dim,
+    spellLevel: spec.spellLevel, magical: spec.magical !== false,
+    x: cellX, y: cellY, followId: follow || "",
+    casterId: meta.casterId || "", casterUid: meta.casterUid || "", casterName: meta.casterName || "",
+    conc: !!spec.conc, dur: spec.dur || "", rounds: spec.rounds || 0,
+    roundsLeft: spec.rounds > 0 ? spec.rounds : 0,
+    doused: false, groupId: meta.groupId || "", movedRound: 0
+  };
+  const list = spellEmitterList().map(cloneEmitter);
+  if (spec.place === "point-or-token" && meta.casterId) {
+    const kept = list.filter(em => !(em && em.key === spec.key && String(em.casterId) === String(meta.casterId)));
+    kept.push(row);
+    commitEmitters(kept);
+  } else {
+    list.push(row);
+    commitEmitters(list);
+  }
+  return row;
+}
+function storeOrbLights(spec, points, meta) {
+  const groupId = newLightId("dlg");
+  const list = spellEmitterList().filter(em => !(em && em.key === "dancing-lights" && meta.casterId && String(em.casterId) === String(meta.casterId)));
+  (points || []).forEach(p => {
+    list.push({
+      id: newLightId("orb"),
+      key: spec.key, name: spec.name, bright: spec.bright, dim: spec.dim,
+      spellLevel: spec.spellLevel, magical: true,
+      x: Math.floor(Number(p.x) || 0), y: Math.floor(Number(p.y) || 0), followId: "",
+      casterId: meta.casterId || "", casterUid: meta.casterUid || "", casterName: meta.casterName || "",
+      conc: true, dur: spec.dur || "1 minute", rounds: spec.rounds || 10,
+      roundsLeft: spec.rounds || 10, doused: false, groupId: groupId, movedRound: 0
+    });
+  });
+  commitEmitters(list);
+  return groupId;
+}
+function lightIsZone(name) {
+  const Z = window.SSDNSSpellZones;
+  return !!(Z && Z.isZone && Z.isZone(name));
+}
+function placeSpellLight(opts) {
+  opts = opts || {};
+  const L = window.SSDNSLighting;
+  const spec = L && L.emitter ? (L.emitter(opts.key || opts.name) || L.emitter(opts.name)) : null;
+  if (!spec) return Promise.resolve(null);
+  if (state.lightCast) cancelLightCast();
+  const casterTok = lightCasterToken(opts.casterId);
+  const caster = casterCenterOf(casterTok);
+  if (spec.place === "caster" || spec.place === "target") return Promise.resolve({ caster: true, spec: spec });
+  if (!caster && spec.range > 0) { toast("Put your token on the map first"); return Promise.resolve(null); }
+  return new Promise(resolve => {
+    state.lightCast = {
+      spec: spec, caster: caster,
+      casterId: (casterTok && casterTok.id) || opts.casterId || "",
+      casterUid: opts.casterId || uid || "",
+      casterName: opts.casterName || "",
+      dc: opts.dc, points: [], hover: null, resolve: resolve
+    };
+    paintLightCastBanner();
+    applyCursor();
+    draw();
+  });
+}
+function cancelLightCast() {
+  const cast = state.lightCast;
+  if (!cast) return;
+  const resolve = cast.resolve;
+  state.lightCast = null;
+  paintLightCastBanner();
+  applyCursor();
+  draw();
+  if (resolve) resolve(null);
+}
+function paintLightCastBanner() {
+  let bar = el.querySelector(".ssm-lightcast");
+  if (!state.lightCast) {
+    if (bar) bar.hidden = true;
+    return;
+  }
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.className = "ssm-blast-map ssm-lightcast";
+    bar.setAttribute("role", "status");
+    bar.innerHTML = '<span class="ssm-pending-text"></span><button type="button" data-act="lightPlace">Place</button><button type="button" data-act="lightCancel">Cancel</button>';
+    bar.addEventListener("pointerdown", ev => ev.stopPropagation());
+    bar.querySelector("[data-act=lightPlace]").addEventListener("click", ev => { ev.preventDefault(); ev.stopPropagation(); finishLightCast(); });
+    bar.querySelector("[data-act=lightCancel]").addEventListener("click", ev => { ev.preventDefault(); ev.stopPropagation(); cancelLightCast(); });
+    el.appendChild(bar);
+  }
+  const cast = state.lightCast;
+  const name = (cast.spec && cast.spec.name) || "Light";
+  let txt = "Click a square or a token for " + name;
+  if (cast.spec && cast.spec.place === "orbs") txt = name + ": " + (cast.points.length) + " of " + (cast.spec.max || 4) + " within 120 ft, each within 20 ft of another";
+  else if (cast.spec && cast.spec.range) txt += " (within " + cast.spec.range + " ft)";
+  txt += ". Esc cancels.";
+  const span = bar.querySelector(".ssm-pending-text");
+  if (span && span.textContent !== txt) span.textContent = txt;
+  bar.hidden = false;
+}
+function refuseUnwilling(spec, anchor, cast) {
+  const L = window.SSDNSLighting;
+  if (!anchor || !spec || !L || !L.needsUnwillingSave || !L.needsUnwillingSave(spec, anchor, cast.caster)) return false;
+  const dc = Number(cast.dc) || 0;
+  const mod = Number(anchor.dexMod || anchor.dex || 0) || 0;
+  if (!(dc > 0)) { toast("Unwilling target. No spell DC, so the light does not catch."); return true; }
+  const roll = 1 + Math.floor(Math.random() * 20);
+  const save = L.dexSave(roll, mod, dc);
+  toast("DEX " + roll + (mod ? (mod > 0 ? "+" + mod : mod) : "") + " = " + save.total + " vs DC " + dc + (save.passed ? ". The light doesn't catch." : ". The light takes hold."));
+  return !!save.passed;
+}
+function finishLightCast() {
+  const cast = state.lightCast;
+  if (!cast || !cast.spec) return;
+  const L = window.SSDNSLighting;
+  const spec = cast.spec;
+  let points = (cast.points || []).slice();
+  if (spec.place !== "orbs") {
+    if (!cast.hover && !points.length) { toast("Pick a square"); return; }
+    points = points.length ? points : [cast.hover];
+  }
+  if (!points.length) { toast("Place at least one light"); return; }
+  if (spec.place === "orbs" && L && L.clusterOk && !L.clusterOk(points, spec.cluster || 20)) {
+    toast("Each light must be within 20 ft of another.");
+    return;
+  }
+  const anchor = tokenAtOrigin(points[0]);
+  if (refuseUnwilling(spec, anchor, cast)) { cancelLightCast(); return; }
+  const meta = { casterId: cast.casterId || "", casterUid: cast.casterUid || "", casterName: cast.casterName || "" };
+  let groupId = "";
+  const storeHere = !lightIsZone(spec.name);
+  if (storeHere && spec.place === "orbs") groupId = storeOrbLights(spec, points, meta);
+  else if (storeHere) storePointLight(spec, points[0], anchor ? anchor.id : "", meta);
+  const payload = {
+    origin: points[0], points: points, anchorToken: anchorPayload(anchor),
+    groupId: groupId, stored: storeHere, spec: spec,
+    undo: groupId ? { groupId: groupId } : null
+  };
+  const resolve = cast.resolve;
+  state.lightCast = null;
+  paintLightCastBanner();
+  applyCursor();
+  draw();
+  if (resolve) resolve(payload);
+}
+function lightCastPointer(e) {
+  const cast = state.lightCast;
+  if (!cast || !state.scene) return;
+  const w = pointerWorld(e);
+  const px = state.scene.grid.px || 70;
+  const cell = { x: Math.floor(w.x / px) + 0.5, y: Math.floor(w.y / px) + 0.5 };
+  const L = window.SSDNSLighting;
+  if (cast.spec && cast.spec.place === "orbs") {
+    const verdict = L && L.canAddOrb ? L.canAddOrb(cast.points, cell, cast.caster, cast.spec) : { ok: false, reason: "Can't place that." };
+    if (!verdict.ok) { toast(verdict.reason); return; }
+    cast.points = verdict.orbs;
+    cast.hover = cell;
+    if (cast.points.length >= (cast.spec.max || 4)) { finishLightCast(); return; }
+    paintLightCastBanner();
+    draw();
+    return;
+  }
+  if (L && L.inRangeOf && !L.inRangeOf(cast.caster, cell, cast.spec.range || 0)) { toast("Out of range"); return; }
+  cast.hover = cell;
+  cast.points = [cell];
+  finishLightCast();
+}
+function undoSpellLight(undo) {
+  if (!undo) return;
+  const list = spellEmitterList().filter(em => {
+    if (!em) return false;
+    if (undo.groupId && em.groupId === undo.groupId) return false;
+    if (undo.ids && undo.ids.indexOf(em.id) >= 0) return false;
+    return true;
+  });
+  commitEmitters(list);
+}
+function spellOrbAt(wx, wy) {
+  const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
+  const gx = wx / px, gy = wy / px;
+  let best = null, bestD = 0.45;
+  spellEmitterList().forEach(em => {
+    if (!em || em.doused || em.followId) return;
+    const d = Math.hypot(gx - ((Number(em.x) || 0) + 0.5), gy - ((Number(em.y) || 0) + 0.5));
+    if (d < bestD) { bestD = d; best = em; }
+  });
+  return best;
+}
+function canMoveOrb(em) {
+  if (!em) return false;
+  if (role === "dm") return true;
+  const caster = tokenByRef(em.casterId);
+  if (caster && canControl(caster)) return true;
+  if (em.casterId && (em.casterId === uid)) return true;
+  return false;
+}
+function moveSpellOrb(id, toCell, previewOnly) {
+  const L = window.SSDNSLighting;
+  const list = spellEmitterList().map(cloneEmitter);
+  const em = list.find(e => e && e.id === id);
+  if (!em || em.key !== "dancing-lights") return false;
+  const from = { x: (Number(em.x) || 0) + 0.5, y: (Number(em.y) || 0) + 0.5 };
+  const to = { x: Math.floor(Number(toCell.x)) + 0.5, y: Math.floor(Number(toCell.y)) + 0.5 };
+  if (Math.hypot(to.x - from.x, to.y - from.y) < 0.2) {
+    if (!previewOnly && role === "dm") {
+      state.selectedLight = id;
+      toast("Light selected. Douse puts it out.");
+      draw();
+    }
+    return false;
+  }
+  const group = list.filter(e => e && e.groupId && e.groupId === em.groupId && !e.doused);
+  const orbs = group.map(e => ({ x: (Number(e.x) || 0) + 0.5, y: (Number(e.y) || 0) + 0.5, id: e.id }));
+  const idx = orbs.findIndex(o => o.id === id);
+  const caster = casterCenterOf(tokenByRef(em.casterId));
+  const spec = L && L.emitter ? L.emitter("dancing-lights") : null;
+  const round = (state.initiative && state.initiative.started && state.initiative.round) || 0;
+  if (round && em.movedRound === round) { if (!previewOnly) toast("Dancing Lights already moved this round."); return false; }
+  const verdict = L && L.canDragOrb ? L.canDragOrb(orbs, idx, to, caster, spec, from) : { ok: false, reason: "That light can't move." };
+  if (!verdict.ok) { if (!previewOnly) toast(verdict.reason); return false; }
+  if (previewOnly) return true;
+  em.x = Math.floor(to.x);
+  em.y = Math.floor(to.y);
+  group.forEach(e => { e.movedRound = round || e.movedRound; });
+  commitEmitters(list);
+  toast("Bonus action: Dancing Lights moved.");
+  return true;
+}
+function paintSpellLightMarks(px, sight) {
+  const list = spellEmitterList();
+  list.forEach(em => {
+    if (!em) return;
+    const at = emitterCenter(em);
+    if (!at) return;
+    const preview = state.drag && state.drag.spellOrb && state.drag.spellOrb.id === em.id ? state.drag.spellOrb : null;
+    const gx = preview ? preview.x : at.x;
+    const gy = preview ? preview.y : at.y;
+    if (role !== "dm" && sight && !pointInSight(gx, gy, sight)) return;
+    const c = worldToScreen(gx * px, gy * px);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, Math.max(3, (em.bright > 0 ? 5 : 4) * (state.view.zoom || 1)), 0, Math.PI * 2);
+    ctx.fillStyle = em.doused ? "rgba(90, 86, 80, 0.85)" : (em.bright > 0 ? "rgba(255, 214, 120, 0.95)" : "rgba(186, 176, 255, 0.95)");
+    if (state.selectedLight && state.selectedLight === em.id) ctx.strokeStyle = "rgba(255,255,255,0.9)";
+    ctx.fill();
+    if (state.selectedLight && state.selectedLight === em.id) { ctx.lineWidth = 2; ctx.stroke(); }
+    ctx.restore();
+  });
+  const cast = state.lightCast;
+  if (cast && cast.points) {
+    cast.points.forEach(p => {
+      const c = worldToScreen(p.x * px, p.y * px);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, Math.max(3, 4 * (state.view.zoom || 1)), 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255, 230, 160, 0.85)";
+      ctx.fill();
+      ctx.restore();
+    });
+  }
+}
+function tickSpellEmitters(steps) {
+  const L = window.SSDNSLighting;
+  if (!L || !L.tickEmitters) return;
+  const before = spellEmitterList();
+  const ticked = L.tickEmitters(before, steps);
+  if (!ticked.removed.length && ticked.emitters.length === before.length) {
+    const changed = ticked.emitters.some(em => {
+      const prev = before.find(b => b && em && b.id === em.id);
+      return prev && Number(prev.roundsLeft) !== Number(em.roundsLeft);
+    });
+    if (!changed) return;
+  }
+  ticked.removed.forEach(em => toast((em.name || "Light") + " ends."));
+  commitEmitters(ticked.emitters);
+}
+function noteLightRound(init) {
+  if (!init) return;
+  const round = Number(init.round) || 0;
+  if (!init.started || !(round > 0)) { state.lightRound = round; return; }
+  const prev = state.lightRound;
+  state.lightRound = round;
+  if (prev == null || !(prev > 0) || round <= prev) return;
+  const steps = round - prev;
+  if (role === "dm") tickSpellEmitters(steps);
+  try { window.dispatchEvent(new CustomEvent("ssdns-light-round", { detail: { steps: steps } })); } catch (e) {}
+}
+function dropEmittersWhere(pred) {
+  const before = spellEmitterList();
+  const next = before.filter(em => em && !pred(em));
+  if (next.length === before.length) return;
+  commitEmitters(next);
+}
+function douseEmitterId(id, out) {
+  if (!id) return false;
+  if (String(id).indexOf("zone:") === 0) {
+    const zid = String(id).slice(5);
+    const zones = spellZoneList().map(z => Object.assign({}, z));
+    const hit = zones.find(z => z && String(z.id) === zid);
+    if (!hit) return false;
+    hit.lightOut = !!out;
+    if (typeof setSpellZones === "function") setSpellZones(zones, {});
+    toast(out ? "Light doused" : "Light relit");
+    return true;
+  }
+  const list = spellEmitterList().map(cloneEmitter);
+  const hit = list.find(em => em && em.id === id);
+  if (!hit) return false;
+  hit.doused = !!out;
+  commitEmitters(list);
+  toast(out ? "Light doused" : "Light relit");
+  return true;
 }
 function paintLightLegend(ambient) {
   const amb = ambient === 'bright' || ambient === 'dim' ? ambient : 'dark';
@@ -8484,6 +9086,7 @@ function paintTestLightMarks(px, sight) {
     ctx.fill();
     ctx.restore();
   });
+  paintSpellLightMarks(px, sight);
 }
 function paintLightRings(sight, px) {
   const readout = q('playerLights');
@@ -9384,9 +9987,13 @@ if (role === 'dm') {
     saveScene();
     draw();
   });
-  function douseSelected(out) {
-    const targets = state.selectedIds.length ? state.tokens.filter(t => state.selectedIds.includes(t.id)) : (state.selected ? [state.selected] : []);
-    if (!targets.length) { toast('Select a token first'); return; }
+function douseSelected(out) {
+  if (state.selectedLight && douseEmitterId(state.selectedLight, !!out)) {
+    draw();
+    return;
+  }
+  const targets = state.selectedIds.length ? state.tokens.filter(t => state.selectedIds.includes(t.id)) : (state.selected ? [state.selected] : []);
+  if (!targets.length) { toast('Select a token or a spell light first'); return; }
     targets.forEach(t => {
       t.dmDoused = !!out;
       if (out) t.torch = false;
@@ -9400,6 +10007,24 @@ if (role === 'dm') {
       }
       saveToken(t.id);
     });
+    const ids = [];
+    targets.forEach(t => [t.id, t.ownerUid, t.combatantId].forEach(id => { if (id) ids.push(String(id)); }));
+    const lights = spellEmitterList().map(cloneEmitter);
+    let lightChanged = false;
+    lights.forEach(em => {
+      if (!em || !em.followId || ids.indexOf(String(em.followId)) < 0) return;
+      em.doused = !!out;
+      lightChanged = true;
+    });
+    if (lightChanged) commitEmitters(lights);
+    const zones = spellZoneList().map(z => Object.assign({}, z));
+    let zoneChanged = false;
+    zones.forEach(z => {
+      if (!z || !z.followTarget || ids.indexOf(String(z.followTarget)) < 0) return;
+      z.lightOut = !!out;
+      zoneChanged = true;
+    });
+    if (zoneChanged) setSpellZones(zones, {});
     toast(out ? 'Lights out' : 'Lights relit');
     draw();
   }
@@ -9838,6 +10463,7 @@ function sceneData(id) {
   if (!Array.isArray(scene.fogRects)) scene.fogRects = [];
   if (!Array.isArray(scene.fogPolys)) scene.fogPolys = [];
   if (!Array.isArray(scene.testLights)) scene.testLights = [];
+  if (!Array.isArray(scene.spellEmitters)) scene.spellEmitters = [];
   if (!Array.isArray(scene.fogShapes)) {
     const shapes = [];
     scene.fogRects.forEach(r => {
@@ -9930,6 +10556,7 @@ async function loadSceneImage(sceneId, opts) {
     const prevId = state.currentTurnId;
     const prevStarted = !!(state.initiative && state.initiative.started);
     state.initiative = initiative || { order: [], turn: 0 };
+    noteLightRound(state.initiative);
     /* N76: an ended map initiative heals a stale sheet lock before the next Attack click.
        A live fight stays with showTurn. A null payload is only the local placeholder and must not clear a real fight. */
     if (initiative && window.SSDNSTurn && typeof window.SSDNSTurn.inFight === 'function' && !window.SSDNSTurn.inFight(initiative)) {
@@ -12891,6 +13518,9 @@ async function loadSceneImage(sceneId, opts) {
         if (Array.isArray(next.spellZones) && sid === activeSceneId() && (!state.spellZonesLive || (Number(next.zoneSeq) || 0) >= (state.zoneSeq || 0))) {
           adoptSpellZones(next.spellZones, Number(next.zoneSeq) || 0);
         }
+        if (Array.isArray(next.spellEmitters) && sid === activeSceneId() && (!state.spellEmittersLive || (Number(next.lightSeq) || 0) >= (state.lightSeq || 0))) {
+          adoptSpellEmitters(next.spellEmitters, Number(next.lightSeq) || 0);
+        }
         if (role === 'player' && state.scene && sid === getPlayerScene() && JSON.stringify(next.meta || null) !== hadMeta) loadSceneImage(sid);
         requestDraw();
       }
@@ -13168,6 +13798,30 @@ function setTokenHidden(id, hidden) {
   draw();
   return { id: t.id, hidden: t.hidden };
 }
+window.addEventListener("ssdns-light-dismiss", (e) => {
+  const key = String((e && e.detail && e.detail.key) || "").replace(/^spell:/, "");
+  if (!key) return;
+  dropEmittersWhere(em => em.key === key && (!em.casterUid || em.casterUid === uid || em.casterId === uid || (tokenByRef(em.casterId) && tokenByRef(em.casterId).ownerUid === uid)));
+});
+window.addEventListener("ssdns-conc-end", (e) => {
+  const detail = (e && e.detail) || {};
+  const L = window.SSDNSLighting;
+  if (!L || !L.dropConcEmitters) return;
+  const dropped = L.dropConcEmitters(spellEmitterList(), detail.casterId || "", detail.spell || "");
+  if (dropped.removed && dropped.removed.length) commitEmitters(dropped.emitters);
+});
+window.addEventListener("ssdns-spell-light", (e) => {
+  const d = (e && e.detail) || {};
+  if (d.action !== "borrow") return;
+  const L = window.SSDNSLighting;
+  const spec = L && L.emitter ? L.emitter(d.key || d.name) : null;
+  if (!spec) return;
+  const tok = tokenByRef(d.followId);
+  const at = tok && tok.pos ? { x: tok.pos.x + (tok.size || 1) / 2, y: tok.pos.y + (tok.size || 1) / 2 } : { x: 0, y: 0 };
+  storePointLight(spec, at, (tok && tok.id) || d.followId || "", {
+    casterId: d.casterId || "", casterUid: d.casterUid || d.casterId || "", casterName: d.casterName || ""
+  });
+});
 attachInteract();
 return {
   destroy,
@@ -13218,6 +13872,10 @@ return {
   setTokenHidden,
   setSpellZones: setSpellZones,
   spellZones: function () { return spellZoneList(); },
+  placeSpellLight: placeSpellLight,
+  cancelSpellLight: cancelLightCast,
+  undoSpellLight: undoSpellLight,
+  spellEmitters: function () { return spellEmitterList(); },
   clearSpellZones: function (opts) { return clearSpellGrid(opts || {}); },
   turnKey: function () { return zoneTurnKey(); },
   tokenSnapshot: function (id) { return tokenSnapshot(id); },

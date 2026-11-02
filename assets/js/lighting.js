@@ -1,8 +1,7 @@
-/* Item-driven light (sheet 0.3.211). Bright and dim rings, lineage darkvision, DM douse.
-   No burn-time clock: a light stays on until someone stows it or the DM puts it out.
-   rules.js is not touched. database.rules.json is not touched.
+/* Item-driven light plus placed spell emitters (sheet 0.3.212).
+   Held lights stay on the token. A spell that shines somewhere else is a map emitter,
+   not a glow stuck on the caster. No burn-time clock. rules.js is not touched.
    L0215: belt lantern is locked at bright 15 / dim 15, trinket, hands-free. Oil is fictional.
-   Catalog already prices it (750 ES, 1 lb, wear trinket). It does not take a hand.
    Held torch, lamp, candle, hooded lamp, and bullseye take Pistol L, Pistol R, or Melee. */
 (function (root) {
   "use strict";
@@ -18,13 +17,42 @@
     "spell:light": { name: "Light", bright: 20, dim: 20, spell: true },
     "spell:continual-flame": { name: "Gas Lamp", bright: 20, dim: 20, spell: true },
     "spell:dancing-lights": { name: "Dancing Lights", bright: 0, dim: 10, spell: true, each: 4 },
+    "spell:produce-flame": { name: "Produce Flame", bright: 10, dim: 10, spell: true },
+    "spell:flame-blade": { name: "Flame Blade", bright: 10, dim: 10, spell: true },
+    "spell:sunbeam": { name: "Sunbeam", bright: 30, dim: 30, spell: true },
+    "spell:fire-shield": { name: "Fire Shield", bright: 10, dim: 10, spell: true },
     "spell:sacred-weapon": { name: "Sacred Weapon", bright: 20, dim: 20, feature: true }
   };
+  /* Real light-givers only. Radii are PHB where the book states them.
+     Wall of Fire has no PHB number: 20/+20 is the house reading for a wall of fire (houseRadius).
+     Moonbeam's pale beam fills its 5-ft cylinder; dim 5 is the pale edge.
+     Left out on purpose: Faerie Fire (outline, no shed radius), Spirit Guardians (no light),
+     Guiding Bolt (glitter, no radius), Prayer of Healing, Sacred Flame (instant). */
+  var EMITTERS = {
+    "light": { name: "Light", bright: 20, dim: 20, range: 5, dur: "1 hour", rounds: 600, conc: false, place: "point-or-token", unwilling: "DEX", spellLevel: 0, magical: true },
+    "continual-flame": { name: "Gas Lamp", bright: 20, dim: 20, range: 5, dur: "until dispelled", rounds: 0, conc: false, place: "point-or-token", unwilling: "DEX", spellLevel: 2, magical: true },
+    "dancing-lights": { name: "Dancing Lights", bright: 0, dim: 10, range: 120, dur: "1 minute", rounds: 10, conc: true, place: "orbs", max: 4, cluster: 20, move: 60, spellLevel: 0, magical: true },
+    "produce-flame": { name: "Produce Flame", bright: 10, dim: 10, range: 0, dur: "10 minutes", rounds: 100, conc: false, place: "caster", spellLevel: 0, magical: true },
+    "daylight": { name: "Daylight", bright: 60, dim: 60, range: 60, dur: "1 hour", rounds: 600, conc: false, place: "point-or-token", spellLevel: 3, magical: true },
+    "moonbeam": { name: "Moonbeam", bright: 5, dim: 5, range: 120, dur: "1 minute", rounds: 10, conc: true, place: "point", spellLevel: 2, magical: true },
+    "flame-blade": { name: "Flame Blade", bright: 10, dim: 10, range: 0, dur: "10 minutes", rounds: 100, conc: true, place: "caster", spellLevel: 2, magical: true },
+    "flaming-sphere": { name: "Flaming Sphere", bright: 20, dim: 20, range: 60, dur: "1 minute", rounds: 10, conc: true, place: "point", spellLevel: 2, magical: true },
+    "wall-of-fire": { name: "Wall of Fire", bright: 20, dim: 20, range: 120, dur: "1 minute", rounds: 10, conc: true, place: "wall", spellLevel: 4, magical: true, houseRadius: true },
+    "sunbeam": { name: "Sunbeam", bright: 30, dim: 30, range: 0, dur: "1 minute", rounds: 10, conc: true, place: "caster", spellLevel: 6, magical: true },
+    "fire-shield": { name: "Fire Shield", bright: 10, dim: 10, range: 0, dur: "10 minutes", rounds: 100, conc: false, place: "caster", spellLevel: 4, magical: true },
+    "sacred-weapon": { name: "Sacred Weapon", bright: 20, dim: 20, range: 0, dur: "", rounds: 0, conc: false, place: "caster", feature: true },
+    "branding-smite": { name: "Branding Smite", bright: 0, dim: 5, range: 5, dur: "1 minute", rounds: 10, conc: true, place: "target", spellLevel: 2, magical: true, hpAtMost: 50 }
+  };
+  var NOT_EMITTERS = ["faerie fire", "spirit guardians", "guiding bolt", "prayer of healing", "sacred flame"];
   var SPELL_KEYS = {
     "light": "spell:light",
     "continual flame": "spell:continual-flame",
     "gas lamp": "spell:continual-flame",
     "dancing lights": "spell:dancing-lights",
+    "produce flame": "spell:produce-flame",
+    "flame blade": "spell:flame-blade",
+    "sunbeam": "spell:sunbeam",
+    "fire shield": "spell:fire-shield",
     "darkvision": "spell:darkvision",
     "darkvision (owl eyes)": "spell:darkvision",
     "owl eyes": "spell:darkvision"
@@ -142,6 +170,7 @@
     if (!c.lightOn || typeof c.lightOn !== "object") c.lightOn = {};
     return c.lightOn;
   }
+  /* Hand and self lights stay on the caster token. Placed spells do not. */
   function spellLights(c) {
     var on = c && c.lightOn || {};
     var have = {};
@@ -150,6 +179,8 @@
     var list = [];
     Object.keys(have).forEach(function (k) {
       if (!on[k]) return;
+      var placed = emitter(String(k).replace(/^spell:/, ""));
+      if (placed && placed.place !== "caster") return;
       var spec = TABLE[k];
       if (!spec) return;
       var n = spec.each ? Math.max(1, Math.min(spec.each, num(on[k + ":n"]) || spec.each)) : 1;
@@ -162,6 +193,8 @@
           dim: spec.dim,
           cone: false,
           spell: true,
+          spellLevel: placed && placed.spellLevel != null ? placed.spellLevel : null,
+          magical: true,
           out: false
         });
       }
@@ -367,19 +400,198 @@
     it.hoodDown = !!down;
     return { ok: true, item: it, hoodDown: !!down };
   }
+  function bareSpell(name) {
+    return String(name || "").toLowerCase().replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+shell$/i, "").replace(/\s+/g, " ").trim();
+  }
+  function emitter(name) {
+    var s = bareSpell(name).replace(/^spell:/, "");
+    if (s === "gas lamp") s = "continual flame";
+    var key = s.replace(/\s+/g, "-");
+    if (!EMITTERS[key]) return null;
+    var row = EMITTERS[key];
+    return {
+      key: key, id: "spell:" + key, name: row.name, bright: row.bright, dim: row.dim,
+      range: row.range || 0, dur: row.dur || "", rounds: row.rounds || 0, conc: !!row.conc,
+      place: row.place || "point", unwilling: row.unwilling || "", spellLevel: row.spellLevel != null ? row.spellLevel : null,
+      magical: row.magical !== false, max: row.max || 0, cluster: row.cluster || 0, move: row.move || 0,
+      feature: !!row.feature, houseRadius: !!row.houseRadius, hpAtMost: row.hpAtMost || 0
+    };
+  }
+  function gridFeet(a, b) {
+    if (!a || !b || a.x == null || b.x == null) return Infinity;
+    return Math.hypot(num(a.x) - num(b.x), num(a.y) - num(b.y)) * FT;
+  }
+  function inRangeOf(caster, point, rangeFt) {
+    if (!(rangeFt > 0)) return true;
+    if (!caster) return false;
+    return gridFeet(caster, point) <= rangeFt + 0.05;
+  }
+  /* Each orb must sit within `feet` of at least one other. One orb is always fine. */
+  function clusterOk(points, feet) {
+    var list = points || [];
+    if (list.length <= 1) return true;
+    var i, j, ok;
+    for (i = 0; i < list.length; i++) {
+      ok = false;
+      for (j = 0; j < list.length; j++) {
+        if (i === j) continue;
+        if (gridFeet(list[i], list[j]) <= feet + 0.05) { ok = true; break; }
+      }
+      if (!ok) return false;
+    }
+    return true;
+  }
+  function canAddOrb(orbs, point, caster, spec) {
+    spec = spec || emitter("dancing-lights");
+    if (!spec || spec.place !== "orbs") return { ok: false, reason: "Not a cluster of lights." };
+    if (!point || point.x == null) return { ok: false, reason: "Pick a square." };
+    var next = (orbs || []).concat([point]);
+    if (next.length > (spec.max || 4)) return { ok: false, reason: "Dancing Lights is four orbs." };
+    if (!inRangeOf(caster, point, spec.range)) return { ok: false, reason: "Out of range (120 ft)." };
+    if (!clusterOk(next, spec.cluster || 20)) return { ok: false, reason: "Each light must be within 20 ft of another." };
+    return { ok: true, orbs: next };
+  }
+  function canDragOrb(orbs, index, to, caster, spec, from) {
+    spec = spec || emitter("dancing-lights");
+    if (!spec || index < 0 || !to) return { ok: false, reason: "That light can't move." };
+    if (gridFeet(from, to) > (spec.move || 60) + 0.05) return { ok: false, reason: "A bonus action moves the lights up to 60 ft." };
+    if (!inRangeOf(caster, to, spec.range)) return { ok: false, reason: "That spot is out of range." };
+    var next = (orbs || []).map(function (p, i) { return i === index ? to : p; });
+    if (!clusterOk(next, spec.cluster || 20)) return { ok: false, reason: "Each light must stay within 20 ft of another." };
+    return { ok: true, orbs: next };
+  }
+  function hostileTarget(target, caster) {
+    if (!target) return false;
+    if (target.spellPiece) return false;
+    if (caster && target.id && caster.id && target.id === caster.id) return false;
+    if (target.ownerUid && caster && caster.ownerUid && target.ownerUid === caster.ownerUid) return false;
+    if (target.ownerUid || target.kind === "player" || target.kind === "friendly") return false;
+    return true;
+  }
+  function needsUnwillingSave(spec, target, caster) {
+    if (!spec || spec.unwilling !== "DEX" || !target) return false;
+    return hostileTarget(target, caster);
+  }
+  function dexSave(roll, mod, dc) {
+    var face = num(roll), bonus = num(mod), need = num(dc);
+    var total = face + bonus;
+    return { roll: face, mod: bonus, total: total, dc: need, passed: total >= need };
+  }
+  function shortDur(dur) {
+    var s = String(dur || "").toLowerCase();
+    if (!s) return "";
+    if (s.indexOf("dispel") >= 0) return "until dispelled";
+    var hrs = s.match(/(\d+)\s*hour/);
+    if (hrs) return hrs[1] + " hr";
+    var mins = s.match(/(\d+)\s*min/);
+    if (mins) return mins[1] + " min";
+    return String(dur);
+  }
+  function borrowedText(row) {
+    if (!row) return "";
+    var who = row.casterName || "someone";
+    var dur = shortDur(row.dur || row.durLabel || "");
+    return (row.name || "Light") + " from " + who + (dur ? ", " + dur : "");
+  }
+  function borrowedRow(em) {
+    var text = borrowedText(em);
+    return {
+      id: em.id || "", spell: em.name || "Light", key: em.key || "", name: em.name || "Light",
+      bright: num(em.bright), dim: num(em.dim), casterName: em.casterName || "", casterId: em.casterId || "",
+      dur: em.dur || "", text: text
+    };
+  }
+  function tickEmitters(list, steps) {
+    var n = steps == null ? 1 : num(steps);
+    var kept = [], removed = [];
+    (list || []).forEach(function (em) {
+      if (!em) return;
+      var copy = Object.assign({}, em);
+      var total = copy.rounds > 0 ? num(copy.rounds) : 0;
+      if (!(total > 0) || !(n > 0)) { kept.push(copy); return; }
+      var left = copy.roundsLeft != null && isFinite(num(copy.roundsLeft)) ? num(copy.roundsLeft) : total;
+      copy.roundsLeft = left - n;
+      if (copy.roundsLeft <= 0) removed.push(copy);
+      else kept.push(copy);
+    });
+    return { emitters: kept, removed: removed };
+  }
+  function sameCaster(em, casterId) {
+    if (!casterId || !em) return true;
+    if (!em.casterId && !em.casterUid) return true;
+    var want = String(casterId);
+    return String(em.casterId || "") === want || String(em.casterUid || "") === want;
+  }
+  function dropConcEmitters(list, casterId, spellName) {
+    var want = bareSpell(spellName);
+    var wantKey = want.replace(/\s+/g, "-");
+    var kept = [], removed = [];
+    (list || []).forEach(function (em) {
+      if (!em || !em.conc) { kept.push(em); return; }
+      if (!sameCaster(em, casterId)) { kept.push(em); return; }
+      if (want && bareSpell(em.name) !== want && bareSpell(em.key) !== wantKey && String(em.key || "") !== wantKey) { kept.push(em); return; }
+      removed.push(em);
+    });
+    return { emitters: kept, removed: removed };
+  }
+  function dropHandForSpell(c, spellName) {
+    var spec = emitter(spellName);
+    if (!spec || spec.place !== "caster" || !spec.conc) return false;
+    setSpell(c, spec.id, false);
+    return true;
+  }
+  /* Points every 10 ft along a wall, in the same grid units as zone.origin. */
+  function wallLightPoints(zone) {
+    if (!zone || !zone.origin || zone.origin.x == null) return [];
+    var length = num(zone.length) || 60;
+    var face = num(zone.facing);
+    var dx = Math.cos(face), dy = Math.sin(face);
+    var half = (length / FT) / 2;
+    var pts = [], d;
+    for (d = -half; d <= half + 0.01; d += 2) {
+      pts.push({ x: num(zone.origin.x) + dx * d, y: num(zone.origin.y) + dy * d });
+    }
+    return pts;
+  }
+  function dismissSpell(key) {
+    try {
+      if (typeof root.dispatchEvent === "function" && typeof root.CustomEvent === "function") {
+        root.dispatchEvent(new root.CustomEvent("ssdns-light-dismiss", { detail: { key: key } }));
+      }
+    } catch (e) {}
+  }
   function setSpell(c, key, on) {
     var bag = lightOn(c);
+    var spec = emitter(String(key).replace(/^spell:/, ""));
     if (key === "spell:dancing-lights") bag[key] = on ? (num(bag[key + ":n"]) || 4) : 0;
     else bag[key] = !!on;
-    if (key === "spell:light" && !on) {
-      dropCarriedLightZone(c);
-      try {
-        if (typeof root.dispatchEvent === "function" && typeof root.CustomEvent === "function") {
-          root.dispatchEvent(new root.CustomEvent("ssdns-light-dismiss", { detail: { key: key } }));
-        }
-      } catch (e) {}
+    if (on && spec && spec.place === "caster" && spec.rounds > 0) bag[key + ":left"] = spec.rounds;
+    if (!on) {
+      delete bag[key + ":left"];
+      if (key === "spell:light") dropCarriedLightZone(c);
+      if (key === "spell:light" || (spec && spec.place !== "caster")) dismissSpell(key);
     }
     return bag;
+  }
+  /* Hand lights (Produce Flame, Flame Blade, Sunbeam, Fire Shield) ride the token.
+     The fight clock spends their rounds. Placed emitters tick on the map. */
+  function tickHandLights(c, steps) {
+    if (!c) return false;
+    var n = num(steps);
+    if (!(n > 0)) return false;
+    var bag = lightOn(c);
+    var changed = false;
+    Object.keys(EMITTERS).forEach(function (key) {
+      var spec = EMITTERS[key];
+      var id = "spell:" + key;
+      if (!spec || spec.place !== "caster" || !(spec.rounds > 0) || !bag[id]) return;
+      var left = bag[id + ":left"];
+      if (left == null) left = spec.rounds;
+      left = num(left) - n;
+      if (left <= 0) { setSpell(c, id, false); changed = true; }
+      else { bag[id + ":left"] = left; changed = true; }
+    });
+    return changed;
   }
   function douseItem(c, uid, out) {
     var it = items(c).filter(function (x) { return x && x.uid === uid; })[0];
@@ -409,7 +621,16 @@
         var key = b.getAttribute("data-light-spell");
         var cur = ch();
         if (!cur) return;
-        var next = key === "spell:dancing-lights" ? !lightOn(cur)[key] : !lightOn(cur)[key];
+        var spec = emitter(String(key).replace(/^spell:/, ""));
+        var placed = spec && spec.place && spec.place !== "caster" && spec.place !== "target";
+        var lit = !!lightOn(cur)[key];
+        if (placed && !lit) {
+          try {
+            root.dispatchEvent(new root.CustomEvent("ssdns-aim-light", { detail: { key: spec.key, name: spec.name } }));
+          } catch (err) {}
+          return;
+        }
+        var next = !lit;
         if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function (d) { if (d && d.character) setSpell(d.character, key, next); });
         else setSpell(cur, key, next);
         paintBox();
@@ -428,15 +649,20 @@
     var on = c.lightOn || {};
     var spells = Object.keys(known).map(function (k) {
       var label = k === "spell:sacred-weapon" ? "Sacred Weapon" : (k === "spell:darkvision" ? "Owl Eyes" : (TABLE[k] ? TABLE[k].name : known[k]));
-      var lit = k === "spell:dancing-lights" ? !!on[k] : !!on[k];
-      return '<button type="button" class="btn xs light-spell' + (lit ? " btn-primary" : "") + '" data-light-spell="' + esc(k) + '">' + esc(label) + (lit ? " · on" : " · off") + "</button>";
+      var spec = emitter(String(k).replace(/^spell:/, ""));
+      var placed = spec && spec.place && spec.place !== "caster" && spec.place !== "target";
+      var lit = !!on[k];
+      var verb = placed ? (lit ? " · drop" : " · place") : (lit ? " · on" : " · off");
+      return '<button type="button" class="btn xs light-spell' + (lit ? " btn-primary" : "") + '" data-light-spell="' + esc(k) + '">' + esc(label) + verb + "</button>";
     }).join(" ");
     var line = lights.length ? lights.map(function (l) {
       return esc(l.name) + " " + (l.bright ? l.bright + "/" + l.dim : "dim " + l.dim) + (l.cone ? " cone" : "");
     }).join(" · ") : "No light in hand or on a trinket.";
+    var borrowed = (c.borrowedLights || []).map(function (row) { return esc((row && (row.text || borrowedText(row))) || ""); }).filter(Boolean).join(" · ");
     box.hidden = false;
     box.innerHTML = '<div class="light-head"><h3>Light</h3><span class="fine">No burn timer. The DM can put a light out.</span></div>' +
       '<p class="light-now" data-light-now>' + line + "</p>" +
+      (borrowed ? '<p class="light-borrowed" data-light-borrowed>' + borrowed + "</p>" : "") +
       '<p class="fine">Darkvision ' + (dv ? dv + " ft (dim counts as bright, dark as dim" + (sk ? ", Skulker ignores dim disadvantage" : "") + ")" : "none") +
       ". Hands in use " + Math.min(2, handsUsed(c)) + " / 2.</p>" +
       (spells ? '<div class="light-spells">' + spells + "</div>" : "");
@@ -447,6 +673,11 @@
     LIGHT_SLOTS: LIGHT_SLOTS, lightSlotOf: lightSlotOf, slotName: slotName, handLights: handLights,
     lightInSlot: lightInSlot, ensureSlots: ensureSlots, pickLightSlot: pickLightSlot,
     setSpell: setSpell, douseItem: douseItem, litItem: litItem, activeLights: activeLights, spellLights: spellLights,
+    EMITTERS: EMITTERS, NOT_EMITTERS: NOT_EMITTERS, emitter: emitter, gridFeet: gridFeet, inRangeOf: inRangeOf,
+    clusterOk: clusterOk, canAddOrb: canAddOrb, canDragOrb: canDragOrb, hostileTarget: hostileTarget,
+    needsUnwillingSave: needsUnwillingSave, dexSave: dexSave, borrowedText: borrowedText, borrowedRow: borrowedRow,
+    shortDur: shortDur, tickEmitters: tickEmitters, tickHandLights: tickHandLights, dropConcEmitters: dropConcEmitters, dropHandForSpell: dropHandForSpell,
+    wallLightPoints: wallLightPoints,
     knownNames: knownNames, spellKey: spellKey, knowsOwlEyes: knowsOwlEyes, darkvisionFeet: darkvisionFeet,
     hasSkulker: hasSkulker, hasDevilsSight: hasDevilsSight, tokenProfile: tokenProfile, squares: squares, rawLevel: rawLevel, seenLevel: seenLevel,
     applyDarkvision: applyDarkvision, perceptionNote: perceptionNote, paintBox: paintBox
