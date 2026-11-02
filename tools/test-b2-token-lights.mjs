@@ -109,7 +109,10 @@ function makeWindow() {
         if (p === "fillText") return (text) => { texts.push(String(text)); };
         if (p in t) return t[p];
         if (typeof p !== "string") return undefined;
-        return function () { return bag; };
+        return function () {
+          if (p === "createRadialGradient" || p === "createLinearGradient") return { addColorStop() {} };
+          return bag;
+        };
       },
       set(t, p, v) { t[p] = v; return true; }
     });

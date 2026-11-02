@@ -93,7 +93,10 @@ check("dv.up", L.applyDarkvision("dark", true) === "dim" && L.applyDarkvision("d
 
 const src = read("map/ssdns-map.js");
 check("src.noTorchButton", !src.includes("playerTorchBtn") && src.includes('data-act="ambientSel"') && src.includes('data-act="dmDouseBtn"'));
-check("src.partyDefault", src.includes("visionMode === 'own' ? 'own' : 'party'"));
+check("src.ownDefault", src.includes("visionMode === 'party' ? 'party' : 'own'"));
+check("src.liveSquares", src.includes("liveParty") && src.includes("function squareShown") && src.includes("function paintOwnLiveSquares") && !src.includes("revealedCells") && !src.includes("exploredFog"));
+check("src.layers", src.includes("function paintRegionLayer") && src.includes("function paintMagicalDarknessLayer") && src.includes("function magicalDarknessZones"));
+check("src.stack", read("assets/js/lighting.js").includes("function stackLevel") && read("assets/js/lighting.js").includes("function applyMagicalDarkness") && read("assets/js/lighting.js").includes("function regionBase"));
 check("src.conePunch", src.includes("drawVisible(ls.x, ls.y, ls.radius * px, ls)") && src.includes("if (cone && cone.cone)"));
 const ringsFn = src.slice(src.indexOf("function paintLightRings"), src.indexOf("function drawVisible"));
 const gateAt = ringsFn.indexOf("if (role !== 'dm' || !state.showLightRings) return");
@@ -108,7 +111,7 @@ check("dim.stronger", src.includes("rgba(16, 16, 20, 0.72)") && !src.includes("r
 check("legend", src.includes('data-act="lightLegend"') && src.includes('data-level="bright"') && src.includes('data-level="dim"') && src.includes('data-level="dark"'));
 check("testlight", src.includes('data-act="testLightBtn"') && src.includes("function dropTestTorch") && src.includes("torch-pitch-stick") && src.includes("testLightRows"));
 check("toast.nolight", src.includes("No one in the party is carrying a light."));
-check("viewas.deferred", !src.includes("View as") && !src.includes("viewAsPlayer"));
+check("viewas.stays", !src.includes("View as") && !src.includes("viewAsPlayer") && src.includes('data-act="showFovBtn"'));
 const doll = read("assets/js/paper-doll.js");
 const items = read("assets/js/items.js");
 check("doll.light", doll.includes("data-doll-light") && doll.includes("heldLight") && doll.includes("doll-light-on") && doll.includes("doll-light-out"));
@@ -158,6 +161,16 @@ check("conc.drop", concGone.removed.length === 1 && concGone.emitters.length ===
 const pts = L.wallLightPoints({ origin: { x: 10, y: 4 }, length: 60, facing: 0 });
 check("wall.points", pts.length >= 3 && Math.abs(pts[0].y - 4) < 0.001 && pts[0].x < 10 && pts[pts.length - 1].x > 10);
 check("src.emitters", src.includes("function spellEmitterRows") && src.includes("function zoneLightRows") && src.includes("followTarget") && src.includes("placeSpellLight") && src.includes("ssdns-conc-end"));
+check("stack.same", L.stackLevel(1, 0, { ambient: "dark", emitters: lights }) === "bright" && L.stackLevel(6, 0, { ambient: "dark", emitters: lights }) === "dim" && L.stackLevel(10, 0, { ambient: "dark", emitters: lights }) === "dark");
+check("stack.region", L.stackLevel(10, 0, { ambient: "dark", regions: [{ x: 8, y: -1, w: 6, h: 4, level: "dim" }] }) === "dim");
+check("stack.regionDark", L.stackLevel(1, 0, { ambient: "bright", regions: [{ x: 0, y: 0, w: 3, h: 3, level: "dark" }] }) === "dark");
+check("stack.emitterWins", L.stackLevel(1, 0, { ambient: "dark", regions: [{ x: 0, y: 0, w: 3, h: 3, level: "dim" }], emitters: lights }) === "bright");
+check("stack.brightWins", L.stackLevel(1, 0, { ambient: "bright", emitters: dance }) === "bright");
+check("stack.laterRegion", L.stackLevel(1, 0, { ambient: "dark", regions: [{ x: 0, y: 0, w: 4, h: 4, level: "bright" }, { x: 0, y: 0, w: 2, h: 2, level: "dim" }] }) === "dim");
+check("stack.darknessStub", L.applyMagicalDarkness("bright", 1, 1, [{ magicalDark: true }]) === "bright" && L.stackLevel(1, 0, { ambient: "bright", darkness: [{ magicalDark: true }] }) === "bright");
+check("stack.dv", L.stackLevel(10, 0, { ambient: "dark", viewer: { x: 10, y: 0, darkvision: 60 } }) === "dim" && L.stackLevel(1, 0, { ambient: "dim", viewer: { x: 1, y: 0, darkvision: 30 } }) === "bright");
+check("stack.dvFar", L.stackLevel(10, 0, { ambient: "dark", viewer: { x: 0, y: 0, darkvision: 10 } }) === "dark");
+check("src.regionTool", src.includes('data-act="regionBtn"') && src.includes("function commitLightRegion") && src.includes("Shared party sight"));
 const zones = read("assets/js/spell-zones.js");
 check("zones.light", zones.includes('light: { bright: 20, dim: 20, spellLevel: 2, magical: true }') && zones.includes('light: { bright: 5, dim: 5, spellLevel: 2, magical: true }') && zones.includes('light: { bright: 20, dim: 20, spellLevel: 4, magical: true }'));
 

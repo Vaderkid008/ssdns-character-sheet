@@ -1084,12 +1084,21 @@ if (role === 'dm') {
       <span data-level="dark">Dark</span>
     </div>
     <label class="ssm-range" title="Test overlay. Players never see these rings."><input type="checkbox" data-act="showLightRings"> Light rings</label>
-    <label class="ssm-ambient">Sight
+    <label class="ssm-ambient" title="Own token is the default. Shared party sight is the live union of every party member. Squares close when nobody still sees them.">Sight
       <select data-act="visionSel" aria-label="Player sight">
-        <option value="party">Party sight</option>
         <option value="own">Own token</option>
+        <option value="party">Shared party sight</option>
       </select>
     </label>
+    <label class="ssm-ambient">Region
+      <select data-act="regionLevel" aria-label="Light region level">
+        <option value="dim">Dim</option>
+        <option value="bright">Bright</option>
+        <option value="dark">Dark</option>
+      </select>
+    </label>
+    <button type="button" data-act="regionBtn" title="Drag a box. That paint replaces the map ambient there. A lamp or spell still wins if it is brighter.">Paint region</button>
+    <button type="button" data-act="regionEraseBtn" title="Click a painted light region to remove it.">Erase region</button>
     <button type="button" data-act="testLightBtn" aria-pressed="false" title="Drop a torch on a square. Click the same square to put it out, then again to pick it up. Bright 20 ft, dim 20 ft.">Test light</button>
     <button type="button" data-act="dmDouseBtn">Douse lights</button>
     <button type="button" data-act="dmRelightBtn">Relight</button>
@@ -1983,17 +1992,22 @@ function fogCovers(x, y) {
   });
   return hidden;
 }
-/* Fog sight. Option A (default): shared party sight — each player sees the union of party bubbles
-   (darkvision, or a 2-square bubble with none) plus every light. Option B: scene.visionMode "own"
-   keeps sight to the viewer's own token. The DM always sees the map. Ambient bright/dim opens the
-   scene (hide shapes still hide). A legacy torch is bright 20 ft / dim 20 ft (outer 8 squares).
-   Walls do not block sight yet. Grid units (squares). */
+/* L0225 vision. Default is the viewer's own token (darkvision, or a 2-square bubble)
+   plus every lit square. Squares another party member can currently see also show on the
+   map, and only while they are still seen — nothing is stored as explored fog.
+   scene.visionMode "party" is the DM toggle for full shared party sight: the live union
+   is what you can target, not only what the map shows. DM Show Player FOV / see-all stays.
+   L0226 layers: ambient, painted regions, emitters (brightest wins), magical darkness
+   (stub; tip 4 owns L0227–L0230), then this viewer's darkvision.
+   Ambient bright/dim still opens the scene for paint. Hide shapes still hide.
+   A legacy torch is bright 20 ft / dim 20 ft (outer 8 squares). Walls do not block the
+   sight test yet; the light punch still clips on walls. Grid units (squares). */
 function playerSceneOf(viewerUid) {
   if (role === 'player' && viewerUid === uid) return getPlayerScene();
   const own = state.tokens.find(t => t && t.ownerUid === viewerUid);
   return (own && own.sceneId) || (shared.playerScenes && shared.playerScenes[viewerUid]) || 'scn_dustyspur01';
 }
-function visionModeOf(sd) { return sd && sd.visionMode === 'own' ? 'own' : 'party'; }
+function visionModeOf(sd) { return sd && sd.visionMode === 'party' ? 'party' : 'own'; }
 function ambientOf(sd) {
   const a = sd && sd.ambient;
   return a === 'bright' || a === 'dim' ? a : 'dark';
@@ -2032,10 +2046,13 @@ function buildSight(viewerUid, sceneId, forceMode) {
   const sd = sceneData(sid);
   const amb = ambientOf(sd);
   const mode = forceMode || visionModeOf(sd);
-  const open = sd.fogRevealed === true || amb === 'bright' || amb === 'dim';
+  const revealed = sd.fogRevealed === true;
+  const open = revealed || amb === 'bright' || amb === 'dim';
   const out = {
-    uid: viewerUid || '', sceneId: sid, open: open, fogOn: !open, ambient: amb, mode: mode,
-    center: null, radius: 2, bubbles: [], lights: [], shapes: sd.fogShapes || []
+    uid: viewerUid || '', sceneId: sid, open: open, fogOn: !open, fogRevealed: revealed, ambient: amb, mode: mode,
+    center: null, radius: 2, bubbles: [], liveParty: [], lights: [],
+    regions: normalizeLightRegions(sd.lightRegions), darkness: magicalDarknessZones(),
+    shapes: sd.fogShapes || []
   };
   for (const t of state.tokens) {
     if (!t || !t.pos || t.hidden) continue;
@@ -2044,10 +2061,11 @@ function buildSight(viewerUid, sceneId, forceMode) {
     const party = !!(t.ownerUid || t.kind === 'player');
     if (!party) continue;
     const mine = viewerUid && t.ownerUid === viewerUid;
-    if (mode === 'own' && viewerUid && !mine) continue;
     const dv = Number(t.darkvision) || 0;
     const radius = dv > 0 ? dv / 5 : 2;
     const bubble = { x: t.pos.x + (t.size || 1) / 2, y: t.pos.y + (t.size || 1) / 2, radius: radius, darkvision: dv, devilsSight: !!t.devilsSight, uid: t.ownerUid || '' };
+    /* Own token keeps the bubble for targeting. An ally's current bubble is only a live map square. */
+    if (mode === 'own' && viewerUid && !mine) { out.liveParty.push(bubble); continue; }
     out.bubbles.push(bubble);
     if (mine) { out.center = { x: bubble.x, y: bubble.y }; out.radius = radius; }
   }
@@ -2057,17 +2075,48 @@ function buildSight(viewerUid, sceneId, forceMode) {
   return out;
 }
 function sightFor(viewerUid, sceneId) { return buildSight(viewerUid, sceneId, ''); }
+function insideBubbles(gx, gy, sight) {
+  for (const b of (sight && sight.bubbles) || []) {
+    if (b && Math.hypot(gx - b.x, gy - b.y) <= b.radius) return true;
+  }
+  if (sight && sight.center && Math.hypot(gx - sight.center.x, gy - sight.center.y) <= sight.radius) return true;
+  return false;
+}
+/* Light before this viewer's darkvision. Regions and emitters both count. The darkness slot is in the stack and does not wash. */
+function lightLevelAt(gx, gy, sight) {
+  if (!sight) return 'dark';
+  const L = window.SSDNSLighting;
+  if (L && L.stackLevel) {
+    return L.stackLevel(gx, gy, {
+      ambient: sight.ambient,
+      regions: sight.regions || [],
+      emitters: sight.lights || [],
+      darkness: sight.darkness || []
+    });
+  }
+  if (sight.ambient === 'bright') return 'bright';
+  if (sight.ambient === 'dim') return 'dim';
+  for (const ls of sight.lights || []) if (inLight(ls, gx, gy)) return 'dim';
+  return 'dark';
+}
 function pointInSight(gx, gy, sight) {
   if (!sight) return false;
-  if (sight.open) return true;
-  for (const b of sight.bubbles || []) {
-    if (Math.hypot(gx - b.x, gy - b.y) <= b.radius) return true;
+  if (sight.fogRevealed) return true;
+  if (insideBubbles(gx, gy, sight)) return true;
+  return lightLevelAt(gx, gy, sight) !== 'dark';
+}
+/* Map squares an ally can see right now. Not used for targeting. Not stored.
+   Reveal/hide shapes still win, same as the token test. */
+function squareShown(gx, gy, sight) {
+  if (!sight) return false;
+  let shown = pointInSight(gx, gy, sight);
+  if (!shown && sight.mode === 'own' && !sight.fogRevealed && sight.ambient !== 'bright' && sight.ambient !== 'dim') {
+    shown = (sight.liveParty || []).some(b => b && Math.hypot(gx - b.x, gy - b.y) <= b.radius + 0.001);
   }
-  if (sight.center && Math.hypot(gx - sight.center.x, gy - sight.center.y) <= sight.radius) return true;
-  for (const ls of sight.lights || []) {
-    if (inLight(ls, gx, gy)) return true;
-  }
-  return false;
+  (sight.shapes || []).forEach(shape => {
+    if (shapeContains(shape, gx, gy)) shown = shape.op !== 'hide';
+  });
+  return shown;
 }
 function tokenSeenBy(t, sight) {
   if (!t || !t.pos || !sight) return false;
@@ -3933,9 +3982,11 @@ function draw() {
     if (role === 'player' && viewSight.fogOn) {
       ctx.fillStyle = '#0a0806';
       ctx.fillRect(0, 0, box.w, box.h);
+      paintRegionLayer(viewSight, px, box, true);
       (viewSight.bubbles || []).forEach(b => drawVisible(b.x * px, b.y * px, b.radius * px));
       for (const ls of lightSources) drawVisible(ls.x, ls.y, ls.radius * px, ls);
       paintLightGlow(lightSources, px, viewSight);
+      paintOwnLiveSquares(viewSight, px, box, lightSources);
       paintTestLightMarks(px, viewSight);
       paintPlayerFog(img, cols, rows, px, box);
     } else if (role === 'player') {
@@ -3944,8 +3995,14 @@ function draw() {
       if (viewSight.ambient === 'dim') {
         ctx.fillStyle = 'rgba(16, 16, 20, 0.72)';
         ctx.fillRect(0, 0, box.w, box.h);
+      }
+      paintRegionLayer(viewSight, px, box, true);
+      if (viewSight.ambient === 'dim') {
         for (const ls of lightSources) if (ls.bright > 0) drawVisible(ls.x, ls.y, ls.bright * px, ls);
         (viewSight.bubbles || []).forEach(b => { if (b.darkvision) drawVisible(b.x * px, b.y * px, b.radius * px); });
+      } else if ((viewSight.regions || []).some(r => r && r.level !== 'bright')) {
+        for (const ls of lightSources) drawVisible(ls.x, ls.y, ls.radius * px, ls);
+        (viewSight.bubbles || []).forEach(b => drawVisible(b.x * px, b.y * px, b.radius * px));
       }
       paintLightGlow(lightSources, px, viewSight);
       paintTestLightMarks(px, viewSight);
@@ -3957,7 +4014,7 @@ function draw() {
 
       /* Show Player FOV follows the ambient the players are under. Bright: no wash.
          Dim: darker desaturated wash, bright core punched back, dim ring and dim-only lights glow.
-         Dark: black fog, same glow. */
+         Dark: black fog, same glow. See-all (FOV off) keeps the whole map. */
       if (role === 'dm' && state.showPlayerFov && img && viewSight.ambient !== 'bright') {
         if (viewSight.ambient === 'dim') {
           ctx.fillStyle = 'rgba(16, 16, 20, 0.72)';
@@ -3967,6 +4024,13 @@ function draw() {
         } else {
           ctx.fillStyle = 'rgba(0,0,0,0.55)';
           ctx.fillRect(0, 0, box.w, box.h);
+          for (const ls of lightSources) drawVisible(ls.x, ls.y, ls.radius * px, ls);
+          (viewSight.bubbles || []).forEach(b => drawVisible(b.x * px, b.y * px, b.radius * px));
+        }
+      }
+      if ((viewSight.regions || []).length) {
+        paintRegionLayer(viewSight, px, box, !!state.showPlayerFov);
+        if (state.showPlayerFov) {
           for (const ls of lightSources) drawVisible(ls.x, ls.y, ls.radius * px, ls);
           (viewSight.bubbles || []).forEach(b => drawVisible(b.x * px, b.y * px, b.radius * px));
         }
@@ -4087,6 +4151,7 @@ function draw() {
     }
   }
   if (role === 'dm') paintFogShapes(px);
+  if (role === 'dm') paintRegionFrames(px);
 
   // grid
   const strength = Math.max(state.gridStrength, state.minStrength);
@@ -4363,6 +4428,23 @@ function draw() {
     }
   }
 
+  // live rect preview while dragging a light region
+  if (role === 'dm' && state.drag && state.drag.region && state.regionStart) {
+    const pts = [...pointers.values()];
+    if (pts.length) {
+      const cur = screenToWorld(pts[0].x, pts[0].y);
+      const a = worldToScreen(Math.min(state.regionStart.x, cur.x), Math.min(state.regionStart.y, cur.y));
+      const b = worldToScreen(Math.max(state.regionStart.x, cur.x), Math.max(state.regionStart.y, cur.y));
+      const level = (q('regionLevel') && q('regionLevel').value) || 'dim';
+      ctx.save();
+      ctx.strokeStyle = level === 'bright' ? 'rgba(243,226,176,0.95)' : (level === 'dark' ? 'rgba(140,160,230,0.95)' : 'rgba(180,190,210,0.95)');
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
+      ctx.restore();
+    }
+  }
+
   // live rect preview while dragging
   if (role === 'dm' && state.drag && state.drag.fog && state.fogStart) {
     const w = screenToWorld(state.drag.sx, state.drag.sy); // fallback
@@ -4464,7 +4546,7 @@ function iconCursor(emoji) {
 }
 function applyCursor() {
   if (state.blast || state.lightCast || state.placeAsset) { canvas.style.cursor = 'crosshair'; return; }
-  if (state.tool === 'reveal' || state.tool === 'hide' || state.tool === 'erase' || state.tool === 'wall' || state.tool === 'room' || state.tool === 'door' || state.tool === 'window' || state.tool === 'testlight') canvas.style.cursor = 'crosshair';
+  if (state.tool === 'reveal' || state.tool === 'hide' || state.tool === 'erase' || state.tool === 'wall' || state.tool === 'room' || state.tool === 'door' || state.tool === 'window' || state.tool === 'testlight' || state.tool === 'region' || state.tool === 'regionerase') canvas.style.cursor = 'crosshair';
   else if (state.tool === 'ruler') canvas.style.cursor = iconCursor('📏');
   else if (state.tool === 'ping') canvas.style.cursor = iconCursor('📡');
   else if (state.offline) canvas.style.cursor = iconCursor('👻');
@@ -4525,8 +4607,86 @@ function armFog(op) {
   paintSecretBtn();
   paintFogTools();
   paintTestLightBtn();
+  paintRegionTools();
   applyCursor();
   draw();
+}
+function paintRegionTools() {
+  const paint = q('regionBtn');
+  const erase = q('regionEraseBtn');
+  if (paint) {
+    paint.classList.toggle('active', state.tool === 'region');
+    paint.setAttribute('aria-pressed', state.tool === 'region' ? 'true' : 'false');
+  }
+  if (erase) {
+    erase.classList.toggle('active', state.tool === 'regionerase');
+    erase.setAttribute('aria-pressed', state.tool === 'regionerase' ? 'true' : 'false');
+  }
+}
+function armRegionTool(tool) {
+  state.tool = state.tool === tool ? null : tool;
+  state.fogMode = null;
+  state.fogKind = null;
+  state.polyPoints = [];
+  state.polyHover = null;
+  state.secretDoor = false;
+  clearToolButtons();
+  paintSecretBtn();
+  paintFogTools();
+  paintTestLightBtn();
+  paintRegionTools();
+  applyCursor();
+  draw();
+}
+function commitLightRegion(a, b) {
+  if (!a || !b || !state.scene) return;
+  const px = state.scene.grid.px || 70;
+  const x1 = Math.min(a.x, b.x), y1 = Math.min(a.y, b.y);
+  const x2 = Math.max(a.x, b.x), y2 = Math.max(a.y, b.y);
+  const levelSel = q('regionLevel') && q('regionLevel').value;
+  const level = levelSel === 'bright' || levelSel === 'dark' ? levelSel : 'dim';
+  const scene = sceneData();
+  scene.lightRegions.push({
+    id: 'lr_' + Date.now().toString(36),
+    level: level,
+    kind: 'box',
+    x: Math.floor(x1 / px),
+    y: Math.floor(y1 / px),
+    w: Math.max(1, Math.ceil((x2 - x1) / px)),
+    h: Math.max(1, Math.ceil((y2 - y1) / px))
+  });
+  saveScene();
+  toast(level.charAt(0).toUpperCase() + level.slice(1) + ' region');
+  draw();
+}
+function eraseLightRegion(gx, gy) {
+  const scene = sceneData();
+  const list = scene.lightRegions || [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const r = list[i];
+    if (!r) continue;
+    if (gx >= r.x && gy >= r.y && gx < r.x + r.w && gy < r.y + r.h) {
+      list.splice(i, 1);
+      saveScene();
+      toast('Region erased');
+      draw();
+      return;
+    }
+  }
+}
+function syncSightControls() {
+  let sd = null;
+  try { sd = sceneData(); } catch (e) { return; }
+  const ambSel = q('ambientSel');
+  if (ambSel && document.activeElement !== ambSel) {
+    const amb = sd.ambient === 'bright' || sd.ambient === 'dim' ? sd.ambient : 'dark';
+    if (ambSel.value !== amb) ambSel.value = amb;
+  }
+  const visSel = q('visionSel');
+  if (visSel && document.activeElement !== visSel) {
+    const mode = sd.visionMode === 'party' ? 'party' : 'own';
+    if (visSel.value !== mode) visSel.value = mode;
+  }
 }
 function setTool(tool) {
   const wallTool = tool === 'wall' || tool === 'room' || tool === 'door' || tool === 'window' || tool === 'delwall';
@@ -4542,6 +4702,7 @@ function setTool(tool) {
   paintSecretBtn();
   paintFogTools();
   paintTestLightBtn();
+  paintRegionTools();
   applyCursor();
   draw();
 }
@@ -4560,6 +4721,7 @@ function armSecretDoor() {
   paintSecretBtn();
   paintFogTools();
   paintTestLightBtn();
+  paintRegionTools();
   applyCursor();
   draw();
 }
@@ -7743,6 +7905,19 @@ function onPointerDown(e) {
       dropTestTorch({ x: w.x / cellPx, y: w.y / cellPx });
       return;
     }
+    if (role === 'dm' && state.tool === 'region') {
+      e.preventDefault();
+      state.regionStart = pointerWorld(e);
+      state.drag = { region: true, sx: e.clientX, sy: e.clientY };
+      return;
+    }
+    if (role === 'dm' && state.tool === 'regionerase') {
+      e.preventDefault();
+      const w = pointerWorld(e);
+      const cellPx = state.scene.grid.px;
+      eraseLightRegion(w.x / cellPx, w.y / cellPx);
+      return;
+    }
     if (state.tool === 'ping') {
       const w = pointerWorld(e);
       const myToken = state.tokens.find(t => t.ownerUid === uid);
@@ -8090,6 +8265,9 @@ function onPointerUp(e) {
       if (state.selectedIds.length) state.selected = state.tokens.find(t => t.id === state.selectedIds[0]);
     }
   }
+  if (state.drag && state.drag.region && state.regionStart) {
+    commitLightRegion(state.regionStart, pointerWorld(e));
+  }
   if (state.drag && state.drag.fog && state.fogStart) {
     const w = pointerWorld(e);
     const px = state.scene.grid.px;
@@ -8129,6 +8307,7 @@ function onPointerUp(e) {
   pointers.delete(e.pointerId);
   if (pointers.size === 0) state.drag = null;
   state.fogStart = null;
+  state.regionStart = null;
   if (wasTokenDrag) refreshRangeSurfaces();
   draw();
 }
@@ -9058,16 +9237,153 @@ function paintTorchHalo(sources, px, amb) {
     ctx.restore();
   });
 }
+function normalizeLightRegions(list) {
+  const out = [];
+  (Array.isArray(list) ? list : []).forEach(r => {
+    if (!r) return;
+    const level = r.level === 'bright' || r.level === 'dim' || r.level === 'dark' ? r.level : '';
+    const w = Number(r.w) || 0, h = Number(r.h) || 0;
+    if (!level || !(w > 0) || !(h > 0)) return;
+    out.push({ id: r.id || ('lr_' + out.length), level: level, kind: 'box', x: Number(r.x) || 0, y: Number(r.y) || 0, w: w, h: h });
+  });
+  return out;
+}
+/* Tip 4 (L0227–L0230) fills this list and paints the wash. The slot is empty on purpose. */
+function magicalDarknessZones() { return []; }
+function paintMagicalDarknessLayer(sight, px) {
+  const zones = (sight && sight.darkness) || magicalDarknessZones();
+  if (!zones.length || !px) return;
+}
+function clipLightRegion(region, px) {
+  if (!region) return false;
+  const x = Number(region.x) || 0, y = Number(region.y) || 0;
+  const w = Number(region.w) || 0, h = Number(region.h) || 0;
+  if (!(w > 0) || !(h > 0)) return false;
+  const a = worldToScreen(x * px, y * px);
+  const b = worldToScreen((x + w) * px, (y + h) * px);
+  ctx.beginPath();
+  ctx.rect(a.x, a.y, Math.max(1, b.x - a.x), Math.max(1, b.y - a.y));
+  return true;
+}
+function paintOneRegion(region, px, box, hard) {
+  if (!clipLightRegion(region, px)) return;
+  ctx.clip();
+  if (!hard) {
+    if (region.level === 'bright') return;
+    ctx.fillStyle = region.level === 'dim' ? 'rgba(16, 16, 20, 0.28)' : 'rgba(0, 0, 0, 0.35)';
+    ctx.fillRect(0, 0, box.w, box.h);
+    return;
+  }
+  if (region.level === 'dark') {
+    ctx.fillStyle = role === 'dm' && state.showPlayerFov ? 'rgba(0, 0, 0, 0.55)' : '#0a0806';
+    ctx.fillRect(0, 0, box.w, box.h);
+    return;
+  }
+  if (!state.scene || !state.scene._img) return;
+  const topLeft = worldToScreen(0, 0);
+  const grid = state.scene.grid;
+  ctx.drawImage(state.scene._img, topLeft.x, topLeft.y, grid.cols * px * state.view.zoom, grid.rows * px * state.view.zoom);
+  if (region.level === 'dim') {
+    ctx.fillStyle = 'rgba(16, 16, 20, 0.72)';
+    ctx.fillRect(0, 0, box.w, box.h);
+  }
+}
+/* Layer 2. hard=true replaces the base. hard=false is the DM see-all tint, which does not hide the map. */
+function paintRegionLayer(sight, px, box, hard) {
+  ((sight && sight.regions) || []).forEach(region => {
+    ctx.save();
+    paintOneRegion(region, px, box, hard);
+    ctx.restore();
+  });
+}
+function paintRegionFrames(px) {
+  if (role !== 'dm') return;
+  let list = [];
+  try { list = sceneData().lightRegions || []; } catch (e) { list = []; }
+  list.forEach(r => {
+    if (!r || !(r.w > 0) || !(r.h > 0)) return;
+    const a = worldToScreen(r.x * px, r.y * px);
+    const b = worldToScreen((r.x + r.w) * px, (r.y + r.h) * px);
+    ctx.save();
+    ctx.setLineDash([5, 4]);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = r.level === 'bright' ? 'rgba(243, 226, 176, 0.95)' : (r.level === 'dark' ? 'rgba(120, 140, 220, 0.9)' : 'rgba(160, 170, 190, 0.95)');
+    ctx.strokeRect(a.x, a.y, Math.max(1, b.x - a.x), Math.max(1, b.y - a.y));
+    ctx.restore();
+  });
+}
+/* Own-token default: show squares an ally currently sees, dimmed, and do not keep them. */
+function paintOwnLiveSquares(sight, px, box, lightSources) {
+  if (role !== 'player' || !sight || sight.mode !== 'own' || sight.fogRevealed) return;
+  if (sight.ambient === 'bright' || sight.ambient === 'dim') return;
+  const extra = sight.liveParty || [];
+  if (!extra.length) return;
+  extra.forEach(b => drawVisible(b.x * px, b.y * px, b.radius * px));
+  extra.forEach(b => {
+    const pts = raycastVisible(b.x * px, b.y * px, b.radius * px);
+    if (!pts.length) return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.closePath();
+    ctx.clip();
+    ctx.fillStyle = 'rgba(16, 16, 20, 0.62)';
+    ctx.fillRect(0, 0, box.w, box.h);
+    ctx.restore();
+  });
+  (sight.regions || []).forEach(region => {
+    if (!region || region.level === 'dark') return;
+    ctx.save();
+    paintOneRegion(region, px, box, true);
+    ctx.restore();
+  });
+  (lightSources || []).forEach(ls => {
+    if (!(ls.radius > 0)) return;
+    drawVisible(ls.x, ls.y, (ls.bright > 0 ? ls.bright : ls.radius) * px, ls);
+  });
+  (sight.bubbles || []).forEach(b => drawVisible(b.x * px, b.y * px, b.radius * px));
+}
+function repunchBrightAndDarkvision(sources, sight, px) {
+  (sources || []).forEach(ls => {
+    if (ls && ls.bright > 0) drawVisible(ls.x, ls.y, ls.bright * px, ls);
+  });
+  ((sight && sight.bubbles) || []).forEach(b => {
+    if (b && b.darkvision) drawVisible(b.x * px, b.y * px, b.radius * px);
+  });
+}
+/* Dim veil only inside Dark regions, so a bright outdoors stays bright. */
+function paintVeilInDarkRegions(sources, px, regions) {
+  (regions || []).forEach(region => {
+    if (!region || region.level !== 'dark') return;
+    ctx.save();
+    if (!clipLightRegion(region, px)) { ctx.restore(); return; }
+    ctx.clip();
+    paintDarkDimVeil(sources, px);
+    ctx.restore();
+  });
+}
 /* Soft glow: bright core, dim ring. Dim-only lights (Dancing Lights) still show in Dim and Dark. */
 function paintLightGlow(sources, px, sight) {
   const amb = sight && sight.ambient || 'dark';
+  const regions = (sight && sight.regions) || [];
+  const darkRoom = regions.some(r => r && r.level === 'dark');
+  const box = viewBox();
   const washed = amb !== 'bright' && !(role === 'dm' && !state.showPlayerFov);
-  if (!washed && amb === 'bright') {
+  /* Layer 4 sits under the glow and under the darkvision re-punch. Tip 4 paints here. */
+  paintMagicalDarknessLayer(sight, px);
+  if (!washed && amb === 'bright' && !darkRoom) {
     paintTorchHalo(sources, px, amb);
     return;
   }
   if (washed && amb === 'dark') paintDarkDimVeil(sources, px);
-  if (washed && amb === 'dim') paintDimLift(sources, px);
+  if (washed && amb === 'dim' && !darkRoom) paintDimLift(sources, px);
+  if (regions.length && (washed || darkRoom)) {
+    paintRegionLayer({ regions: regions.filter(r => r && r.level !== 'dark') }, px, box, true);
+    repunchBrightAndDarkvision(sources, sight, px);
+    if (darkRoom && amb !== 'dark') paintVeilInDarkRegions(sources, px, regions);
+    repunchBrightAndDarkvision(sources, sight, px);
+  }
   paintTorchHalo(sources, px, amb);
 }
 function paintTestLightMarks(px, sight) {
@@ -9983,10 +10299,12 @@ if (role === 'dm') {
     draw();
   });
   if (q('visionSel')) q('visionSel').addEventListener('change', () => {
-    sceneData().visionMode = q('visionSel').value === 'own' ? 'own' : 'party';
+    sceneData().visionMode = q('visionSel').value === 'party' ? 'party' : 'own';
     saveScene();
     draw();
   });
+  if (q('regionBtn')) q('regionBtn').addEventListener('click', () => armRegionTool('region'));
+  if (q('regionEraseBtn')) q('regionEraseBtn').addEventListener('click', () => armRegionTool('regionerase'));
 function douseSelected(out) {
   if (state.selectedLight && douseEmitterId(state.selectedLight, !!out)) {
     draw();
@@ -10430,7 +10748,7 @@ function swapScene(id) {
     const ambSel = q('ambientSel');
     if (ambSel) ambSel.value = sd.ambient === 'bright' || sd.ambient === 'dim' ? sd.ambient : 'dark';
     const visSel = q('visionSel');
-    if (visSel) visSel.value = sd.visionMode === 'own' ? 'own' : 'party';
+    if (visSel) visSel.value = sd.visionMode === 'party' ? 'party' : 'own';
   }
   if (window.SSDNSMapLibrary && window.SSDNSMapLibrary.refresh) window.SSDNSMapLibrary.refresh();
   renderTurnStrip();
@@ -10464,6 +10782,7 @@ function sceneData(id) {
   if (!Array.isArray(scene.fogPolys)) scene.fogPolys = [];
   if (!Array.isArray(scene.testLights)) scene.testLights = [];
   if (!Array.isArray(scene.spellEmitters)) scene.spellEmitters = [];
+  if (!Array.isArray(scene.lightRegions)) scene.lightRegions = [];
   if (!Array.isArray(scene.fogShapes)) {
     const shapes = [];
     scene.fogRects.forEach(r => {
@@ -13521,6 +13840,7 @@ async function loadSceneImage(sceneId, opts) {
         if (Array.isArray(next.spellEmitters) && sid === activeSceneId() && (!state.spellEmittersLive || (Number(next.lightSeq) || 0) >= (state.lightSeq || 0))) {
           adoptSpellEmitters(next.spellEmitters, Number(next.lightSeq) || 0);
         }
+        if (sid === activeSceneId()) syncSightControls();
         if (role === 'player' && state.scene && sid === getPlayerScene() && JSON.stringify(next.meta || null) !== hadMeta) loadSceneImage(sid);
         requestDraw();
       }
@@ -13881,6 +14201,13 @@ return {
   tokenSnapshot: function (id) { return tokenSnapshot(id); },
   /* fog-aware targeting */
   canPlayerSee: function (viewerUid, targetId) { return canPlayerSee(viewerUid, targetId); },
+  /* L0225/L0226: live square (not stored) and the light stack at a grid point. */
+  squareShown: function (gx, gy, viewerUid) {
+    return squareShown(gx, gy, sightFor(viewerUid || uid));
+  },
+  lightAt: function (gx, gy, viewerUid) {
+    return lightLevelAt(gx, gy, sightFor(viewerUid || uid));
+  },
   /* N59: which closed doors this client paints a glyph for. Secret doors stay shown:false. */
   doorGlyphs: function () { return doorGlyphReport(); },
   /* N87: Open / Lockpick / Peek go through SSDNSAssets.onInteract ({door:true}). */
