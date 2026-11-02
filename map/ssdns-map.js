@@ -477,6 +477,7 @@ const state = {
   lightRound: 0,
   lightCast: null,
   selectedLight: "",
+  selectedDark: "",
   /* Clear-row hover. The id is a zone in this scene, or "". Players never set it. */
   zonePulse: "",
   zoneSeq: 0,
@@ -1078,10 +1079,11 @@ if (role === 'dm') {
         <option value="bright">Bright</option>
       </select>
     </label>
-    <div class="ssm-light-legend" data-act="lightLegend" data-ambient="dark" aria-label="Light: Bright, Dim, Dark">
+    <div class="ssm-light-legend" data-act="lightLegend" data-ambient="dark" aria-label="Light: Bright, Dim, Dark, magical darkness">
       <span data-level="bright">Bright</span>
       <span data-level="dim">Dim</span>
       <span data-level="dark">Dark</span>
+      <span data-level="mdark">Magic</span>
     </div>
     <label class="ssm-range" title="Test overlay. Players never see these rings."><input type="checkbox" data-act="showLightRings"> Light rings</label>
     <label class="ssm-ambient" title="Own token is the default. Shared party sight is the live union of every party member. Squares close when nobody still sees them.">Sight
@@ -1095,9 +1097,10 @@ if (role === 'dm') {
         <option value="dim">Dim</option>
         <option value="bright">Bright</option>
         <option value="dark">Dark</option>
+        <option value="mdark">Magical darkness</option>
       </select>
     </label>
-    <button type="button" data-act="regionBtn" title="Drag a box. That paint replaces the map ambient there. A lamp or spell still wins if it is brighter.">Paint region</button>
+    <button type="button" data-act="regionBtn" title="Drag a box. Bright, Dim, and Dark replace the map ambient. Magical darkness is the ink wash: darkvision and ordinary light do not pierce it.">Paint region</button>
     <button type="button" data-act="regionEraseBtn" title="Click a painted light region to remove it.">Erase region</button>
     <button type="button" data-act="testLightBtn" aria-pressed="false" title="Drop a torch on a square. Click the same square to put it out, then again to pick it up. Bright 20 ft, dim 20 ft.">Test light</button>
     <button type="button" data-act="dmDouseBtn">Douse lights</button>
@@ -1168,10 +1171,11 @@ if (role === 'dm') {
               <summary>Link · lights · vision</summary>
               <div class="n62-accbody">
                 <div class="ssm-lights" data-act="playerLights">No light in hand</div>
-                <div class="ssm-light-legend" data-act="lightLegend" data-ambient="dark" aria-label="Light: Bright, Dim, Dark">
+                <div class="ssm-light-legend" data-act="lightLegend" data-ambient="dark" aria-label="Light: Bright, Dim, Dark, magical darkness">
                   <span data-level="bright">Bright</span>
                   <span data-level="dim">Dim</span>
                   <span data-level="dark">Dark</span>
+                  <span data-level="mdark">Magic</span>
                 </div>
               </div>
             </details>
@@ -1998,7 +2002,8 @@ function fogCovers(x, y) {
    scene.visionMode "party" is the DM toggle for full shared party sight: the live union
    is what you can target, not only what the map shows. DM Show Player FOV / see-all stays.
    L0226 layers: ambient, painted regions, emitters (brightest wins), magical darkness
-   (stub; tip 4 owns L0227–L0230), then this viewer's darkvision.
+   (L0227–L0230 ink wash), then this viewer's darkvision. Darkvision does not pierce
+   that wash. Devil's Sight does. Show Player FOV uses the same ink the player sees.
    Ambient bright/dim still opens the scene for paint. Hide shapes still hide.
    A legacy torch is bright 20 ft / dim 20 ft (outer 8 squares). Walls do not block the
    sight test yet; the light punch still clips on walls. Grid units (squares). */
@@ -2051,7 +2056,7 @@ function buildSight(viewerUid, sceneId, forceMode) {
   const out = {
     uid: viewerUid || '', sceneId: sid, open: open, fogOn: !open, fogRevealed: revealed, ambient: amb, mode: mode,
     center: null, radius: 2, bubbles: [], liveParty: [], lights: [],
-    regions: normalizeLightRegions(sd.lightRegions), darkness: magicalDarknessZones(),
+    regions: normalizeLightRegions(sd.lightRegions), darkness: magicalDarknessZones(sid),
     shapes: sd.fogShapes || []
   };
   for (const t of state.tokens) {
@@ -2082,7 +2087,24 @@ function insideBubbles(gx, gy, sight) {
   if (sight && sight.center && Math.hypot(gx - sight.center.x, gy - sight.center.y) <= sight.radius) return true;
   return false;
 }
-/* Light before this viewer's darkvision. Regions and emitters both count. The darkness slot is in the stack and does not wash. */
+/* Light before this viewer's darkvision. Magical darkness forces dark unless Devil's Sight sees through. */
+function darknessViewers(sight) {
+  const out = [];
+  ((sight && sight.bubbles) || []).forEach(b => { if (b) out.push(b); });
+  return out;
+}
+function magicalDarkBlocks(gx, gy, sight) {
+  const L = window.SSDNSLighting;
+  const zones = (sight && sight.darkness) || [];
+  if (!L || !L.magicalDarkBlocks || !zones.length) return false;
+  return L.magicalDarkBlocks(gx, gy, zones, darknessViewers(sight));
+}
+function devilSeesSquare(gx, gy, sight) {
+  const L = window.SSDNSLighting;
+  const zones = (sight && sight.darkness) || [];
+  if (!L || !L.devilSees || !L.darknessContains || !zones.length) return false;
+  return darknessViewers(sight).some(v => v && v.devilsSight && zones.some(z => L.darknessContains(z, gx, gy) && L.devilSees(z, v, gx, gy)));
+}
 function lightLevelAt(gx, gy, sight) {
   if (!sight) return 'dark';
   const L = window.SSDNSLighting;
@@ -2091,7 +2113,8 @@ function lightLevelAt(gx, gy, sight) {
       ambient: sight.ambient,
       regions: sight.regions || [],
       emitters: sight.lights || [],
-      darkness: sight.darkness || []
+      darkness: sight.darkness || [],
+      viewers: darknessViewers(sight)
     });
   }
   if (sight.ambient === 'bright') return 'bright';
@@ -2102,8 +2125,20 @@ function lightLevelAt(gx, gy, sight) {
 function pointInSight(gx, gy, sight) {
   if (!sight) return false;
   if (sight.fogRevealed) return true;
+  /* Devil's Sight opens magical darkness out to 120 ft. A normal bubble does not. */
+  if (devilSeesSquare(gx, gy, sight)) return true;
+  if (magicalDarkBlocks(gx, gy, sight)) return false;
   if (insideBubbles(gx, gy, sight)) return true;
   return lightLevelAt(gx, gy, sight) !== 'dark';
+}
+/* An ally's live square. Magical darkness blocks them unless Devil's Sight sees through. */
+function allySeesNow(b, gx, gy, sight) {
+  if (!b) return false;
+  const solo = { darkness: (sight && sight.darkness) || [], bubbles: [b] };
+  if (devilSeesSquare(gx, gy, solo)) return Math.hypot(gx - b.x, gy - b.y) <= 24.001;
+  if (Math.hypot(gx - b.x, gy - b.y) > b.radius + 0.001) return false;
+  if (magicalDarkBlocks(gx, gy, solo)) return false;
+  return true;
 }
 /* Map squares an ally can see right now. Not used for targeting. Not stored.
    Reveal/hide shapes still win, same as the token test. */
@@ -2111,7 +2146,7 @@ function squareShown(gx, gy, sight) {
   if (!sight) return false;
   let shown = pointInSight(gx, gy, sight);
   if (!shown && sight.mode === 'own' && !sight.fogRevealed && sight.ambient !== 'bright' && sight.ambient !== 'dim') {
-    shown = (sight.liveParty || []).some(b => b && Math.hypot(gx - b.x, gy - b.y) <= b.radius + 0.001);
+    shown = (sight.liveParty || []).some(b => allySeesNow(b, gx, gy, sight));
   }
   (sight.shapes || []).forEach(shape => {
     if (shapeContains(shape, gx, gy)) shown = shape.op !== 'hide';
@@ -2469,9 +2504,9 @@ function guardianGarnish(from, to, garnish) {
 }
 function zoneStyle(key) {
   const styles = {
-    darkness: ["rgba(0,0,0,0.88)", "rgba(90,90,120,0.95)"],
+    darkness: ["rgba(46, 12, 84, 0.94)", "rgba(170, 120, 230, 0.95)"],
     "fog cloud": ["rgba(186,186,196,0.62)", "rgba(230,230,236,0.95)"],
-    "hunger of hadar": ["rgba(6,3,8,0.9)", "rgba(80,125,185,0.55)"],
+    "hunger of hadar": ["rgba(46, 12, 84, 0.94)", "rgba(80,125,185,0.55)"],
     light: ["rgba(255,214,90,0.16)", "rgba(255,206,80,0.98)"],
     daylight: ["rgba(255,236,160,0.2)", "rgba(255,230,120,0.98)"],
     "wall of fire": ["rgba(255,90,16,0.5)", "rgba(255,150,40,0.98)"],
@@ -2887,6 +2922,7 @@ function stampDispelledLights() {
     if (hit.length) { row.doused = true; changed = true; }
   });
   if (changed) commitEmitters(em);
+  stampDispelledDarkness();
 }
 function zoneTimeLabel(zone) {
   const n = Number(zone && zone.roundsLeft);
@@ -3987,6 +4023,7 @@ function draw() {
       for (const ls of lightSources) drawVisible(ls.x, ls.y, ls.radius * px, ls);
       paintLightGlow(lightSources, px, viewSight);
       paintOwnLiveSquares(viewSight, px, box, lightSources);
+      paintMagicalDarknessLayer(viewSight, px);
       paintTestLightMarks(px, viewSight);
       paintPlayerFog(img, cols, rows, px, box);
     } else if (role === 'player') {
@@ -4192,6 +4229,7 @@ function draw() {
   paintMoveReach();
   paintClosedDoorGlyphs();
   stampDispelledLights();
+  stampDispelledDarkness();
   paintSpellZones();
 
   // tokens — this floor only. Players already skipped other scenes; the DM does too.
@@ -4437,7 +4475,7 @@ function draw() {
       const b = worldToScreen(Math.max(state.regionStart.x, cur.x), Math.max(state.regionStart.y, cur.y));
       const level = (q('regionLevel') && q('regionLevel').value) || 'dim';
       ctx.save();
-      ctx.strokeStyle = level === 'bright' ? 'rgba(243,226,176,0.95)' : (level === 'dark' ? 'rgba(140,160,230,0.95)' : 'rgba(180,190,210,0.95)');
+      ctx.strokeStyle = level === 'bright' ? 'rgba(243,226,176,0.95)' : (level === 'mdark' ? 'rgba(170,120,230,0.95)' : (level === 'dark' ? 'rgba(140,160,230,0.95)' : 'rgba(180,190,210,0.95)'));
       ctx.lineWidth = 2;
       ctx.setLineDash([6, 4]);
       ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
@@ -4644,16 +4682,38 @@ function commitLightRegion(a, b) {
   const x1 = Math.min(a.x, b.x), y1 = Math.min(a.y, b.y);
   const x2 = Math.max(a.x, b.x), y2 = Math.max(a.y, b.y);
   const levelSel = q('regionLevel') && q('regionLevel').value;
-  const level = levelSel === 'bright' || levelSel === 'dark' ? levelSel : 'dim';
   const scene = sceneData();
-  scene.lightRegions.push({
-    id: 'lr_' + Date.now().toString(36),
-    level: level,
-    kind: 'box',
+  const box = {
     x: Math.floor(x1 / px),
     y: Math.floor(y1 / px),
     w: Math.max(1, Math.ceil((x2 - x1) / px)),
     h: Math.max(1, Math.ceil((y2 - y1) / px))
+  };
+  if (levelSel === 'mdark') {
+    if (!Array.isArray(scene.magicalDark)) scene.magicalDark = [];
+    scene.magicalDark.push({
+      id: 'md_' + Date.now().toString(36),
+      kind: 'box',
+      magicalDark: true,
+      level: 2,
+      blocksDarkvision: true,
+      blocksNonmagical: true,
+      devilsSightSees: true,
+      dispelsLightAtOrBelow: 2,
+      dispelledByLightAtOrAbove: 3,
+      x: box.x, y: box.y, w: box.w, h: box.h
+    });
+    saveScene();
+    toast('Magical darkness');
+    draw();
+    return;
+  }
+  const level = levelSel === 'bright' || levelSel === 'dark' ? levelSel : 'dim';
+  scene.lightRegions.push({
+    id: 'lr_' + Date.now().toString(36),
+    level: level,
+    kind: 'box',
+    x: box.x, y: box.y, w: box.w, h: box.h
   });
   saveScene();
   toast(level.charAt(0).toUpperCase() + level.slice(1) + ' region');
@@ -4669,6 +4729,19 @@ function eraseLightRegion(gx, gy) {
       list.splice(i, 1);
       saveScene();
       toast('Region erased');
+      draw();
+      return;
+    }
+  }
+  const dark = scene.magicalDark || [];
+  for (let i = dark.length - 1; i >= 0; i--) {
+    const r = dark[i];
+    if (!r) continue;
+    if (gx >= r.x && gy >= r.y && gx < r.x + r.w && gy < r.y + r.h) {
+      dark.splice(i, 1);
+      if (state.selectedDark === r.id) state.selectedDark = "";
+      saveScene();
+      toast('Darkness erased');
       draw();
       return;
     }
@@ -7939,6 +8012,15 @@ function onPointerDown(e) {
       return;
     }
     const w = pointerWorld(e);
+    if (role === 'dm' && !state.tool && e.button === 0 && state.scene) {
+      const cellPx = state.scene.grid.px || 70;
+      const darkHit = darknessAt(w.x / cellPx, w.y / cellPx);
+      state.selectedDark = darkHit && !hitTest(w.x, w.y) ? (darkHit.id || "") : "";
+      if (state.selectedDark) {
+        state.selectedLight = "";
+        toast("Darkness selected. Douse puts it out.");
+      }
+    }
     const orb = !state.tool && e.button === 0 ? spellOrbAt(w.x, w.y) : null;
     if (orb && canMoveOrb(orb)) {
       e.preventDefault();
@@ -9091,6 +9173,69 @@ function dropEmittersWhere(pred) {
   if (next.length === before.length) return;
   commitEmitters(next);
 }
+let darkStampLock = false;
+function gatherDarkLights() {
+  const lights = [];
+  (state.tokens || []).forEach(t => { tokenLightList(t).forEach(ls => lights.push(ls)); });
+  try { spellEmitterRows().forEach(ls => lights.push(ls)); } catch (e) {}
+  try { zoneLightRows().forEach(ls => lights.push(ls)); } catch (e2) {}
+  return lights;
+}
+function stampDispelledDarkness() {
+  if (darkStampLock) return;
+  const L = window.SSDNSLighting;
+  if (!L || !L.lightsDispelDark) return;
+  const lights = gatherDarkLights();
+  let scene = null;
+  try { scene = sceneData(); } catch (e) { scene = null; }
+  if (scene && Array.isArray(scene.magicalDark)) {
+    const before = scene.magicalDark.length;
+    scene.magicalDark = scene.magicalDark.filter(z => z && !(!z.doused && L.lightsDispelDark(Object.assign({ kind: "box", magicalDark: true, level: z.level != null ? z.level : 2 }, z), lights)));
+    if (scene.magicalDark.length !== before) {
+      if (role === "dm") { try { saveScene(); } catch (err) {} }
+      toast("A light dispels the darkness.");
+      requestDraw();
+    }
+  }
+  const zones = spellZoneList();
+  const drop = zones.filter(z => z && z.magicalDark && !z.darkOut && !z.doused && L.lightsDispelDark(z, lights));
+  if (!drop.length) return;
+  const gone = {};
+  drop.forEach(z => { if (z.id) gone[String(z.id)] = 1; });
+  darkStampLock = true;
+  try { setSpellZones(zones.filter(z => !(z && gone[String(z.id)])), {}); }
+  finally { darkStampLock = false; }
+  toast((drop[0].spell || "A light") + " dispels the darkness.");
+}
+function darknessAt(gx, gy) {
+  const L = window.SSDNSLighting;
+  const zones = magicalDarknessZones();
+  for (let i = zones.length - 1; i >= 0; i--) {
+    const z = zones[i];
+    if (L && L.darknessContains && L.darknessContains(z, gx, gy)) return z;
+    if (!L && z.kind === "box" && gx >= z.x && gy >= z.y && gx < z.x + z.w && gy < z.y + z.h) return z;
+  }
+  return null;
+}
+function douseDarkZone(id, out) {
+  if (!id) return false;
+  const scene = sceneData();
+  const painted = scene.magicalDark || [];
+  const hitPaint = painted.find(z => z && z.id === id);
+  if (hitPaint) {
+    hitPaint.doused = !!out;
+    saveScene();
+    toast(out ? "Darkness doused" : "Darkness restored");
+    return true;
+  }
+  const zones = spellZoneList().map(z => Object.assign({}, z));
+  const hit = zones.find(z => z && String(z.id) === String(id) && z.magicalDark);
+  if (!hit) return false;
+  hit.darkOut = !!out;
+  setSpellZones(zones, {});
+  toast(out ? "Darkness doused" : "Darkness restored");
+  return true;
+}
 function douseEmitterId(id, out) {
   if (!id) return false;
   if (String(id).indexOf("zone:") === 0) {
@@ -9248,11 +9393,110 @@ function normalizeLightRegions(list) {
   });
   return out;
 }
-/* Tip 4 (L0227–L0230) fills this list and paints the wash. The slot is empty on purpose. */
-function magicalDarknessZones() { return []; }
+/* L0230. Deep violet / ink purple. One wash for players and the DM, including Show Player FOV.
+   Plain Dark stays the black / near-black fog. */
+const MAGICAL_DARK_WASH = "rgba(46, 12, 84, 0.94)";
+function magicalDarkRow(z, source) {
+  if (!z) return null;
+  return {
+    id: z.id || "",
+    magicalDark: true,
+    source: source,
+    kind: z.kind === "box" || (!z.origin && (Number(z.w) || 0) > 0) ? "box" : "sphere",
+    x: Number(z.x) || 0,
+    y: Number(z.y) || 0,
+    w: Number(z.w) || 0,
+    h: Number(z.h) || 0,
+    origin: z.origin && z.origin.x != null ? { x: Number(z.origin.x), y: Number(z.origin.y) } : null,
+    radius: Number(z.radius) || 0,
+    level: z.level != null ? Number(z.level) : 2,
+    blocksDarkvision: z.blocksDarkvision !== false,
+    blocksNonmagical: z.blocksNonmagical !== false,
+    devilsSightSees: z.devilsSightSees !== false,
+    blindedInside: !!z.blindedInside,
+    noLight: !!z.noLight,
+    dispelsLightAtOrBelow: z.dispelsLightAtOrBelow != null ? Number(z.dispelsLightAtOrBelow) : 2,
+    dispelledByLightAtOrAbove: z.dispelledByLightAtOrAbove != null ? Number(z.dispelledByLightAtOrAbove) : 3,
+    conc: !!z.conc,
+    casterId: z.casterId || "",
+    casterUid: z.casterUid || "",
+    spell: z.spell || z.name || "",
+    key: z.key || ""
+  };
+}
+/* DM-painted boxes plus spell concentration zones (Darkness, Hunger of Hadar). */
+function magicalDarknessZones(sceneId) {
+  const out = [];
+  let painted = [];
+  try { painted = sceneData(sceneId).magicalDark || []; } catch (e) { painted = []; }
+  painted.forEach(z => {
+    if (!z || z.doused) return;
+    const row = magicalDarkRow(Object.assign({ kind: "box", magicalDark: true, level: z.level != null ? z.level : 2 }, z), "dm");
+    if (row && row.w > 0 && row.h > 0) out.push(row);
+  });
+  let spells = [];
+  try {
+    if (!sceneId || sceneId === activeSceneId()) spells = liveSpellZones();
+  } catch (e2) { spells = []; }
+  spells.forEach(z => {
+    if (!z || !z.magicalDark || z.darkOut || z.doused) return;
+    const row = magicalDarkRow(z, "spell");
+    if (row && (row.origin || (row.w > 0 && row.h > 0))) out.push(row);
+  });
+  return out;
+}
+function clipDarkZone(zone, px) {
+  if (!zone) return false;
+  if (zone.kind === "box" || (!zone.origin && zone.w > 0 && zone.h > 0)) return clipLightRegion(zone, px);
+  const origin = zone.origin;
+  if (!origin || !(Number(zone.radius) > 0)) return false;
+  const c = worldToScreen(origin.x * px, origin.y * px);
+  const z = state.view.zoom || 1;
+  ctx.beginPath();
+  ctx.arc(c.x, c.y, Math.max(1, (zone.radius / 5) * px * z), 0, Math.PI * 2);
+  return true;
+}
+function punchDevilsSight(sight, px, zones) {
+  if (!state.scene || !state.scene._img) return;
+  const L = window.SSDNSLighting;
+  const box = viewBox();
+  /* Own Devil's Sight opens the ink. An ally's live square opens it too, then dims, and does not become this viewer's target. */
+  const groups = [
+    { list: darknessViewers(sight), dim: false },
+    { list: (sight && sight.liveParty) || [], dim: true }
+  ];
+  groups.forEach(group => {
+    group.list.forEach(b => {
+      if (!b || !b.devilsSight) return;
+      zones.forEach(zone => {
+        if (zone.blindedInside && L && L.darknessContains && L.darknessContains(zone, b.x, b.y)) return;
+        ctx.save();
+        if (!clipDarkZone(zone, px)) { ctx.restore(); return; }
+        ctx.clip();
+        drawVisible(b.x * px, b.y * px, 24 * px);
+        if (group.dim) {
+          ctx.fillStyle = "rgba(16, 16, 20, 0.62)";
+          ctx.fillRect(0, 0, box.w, box.h);
+        }
+        ctx.restore();
+      });
+    });
+  });
+}
+/* L0229–L0230. The fill is MAGICAL_DARK_WASH for every viewer. Show Player FOV calls this too. */
 function paintMagicalDarknessLayer(sight, px) {
-  const zones = (sight && sight.darkness) || magicalDarknessZones();
+  const zones = (sight && sight.darkness) || [];
   if (!zones.length || !px) return;
+  const box = viewBox();
+  zones.forEach(zone => {
+    ctx.save();
+    if (!clipDarkZone(zone, px)) { ctx.restore(); return; }
+    ctx.clip();
+    ctx.fillStyle = MAGICAL_DARK_WASH;
+    ctx.fillRect(0, 0, box.w, box.h);
+    ctx.restore();
+  });
+  punchDevilsSight(sight, px, zones);
 }
 function clipLightRegion(region, px) {
   if (!region) return false;
@@ -9308,6 +9552,19 @@ function paintRegionFrames(px) {
     ctx.setLineDash([5, 4]);
     ctx.lineWidth = 2;
     ctx.strokeStyle = r.level === 'bright' ? 'rgba(243, 226, 176, 0.95)' : (r.level === 'dark' ? 'rgba(120, 140, 220, 0.9)' : 'rgba(160, 170, 190, 0.95)');
+    ctx.strokeRect(a.x, a.y, Math.max(1, b.x - a.x), Math.max(1, b.y - a.y));
+    ctx.restore();
+  });
+  let darks = [];
+  try { darks = sceneData().magicalDark || []; } catch (e2) { darks = []; }
+  darks.forEach(r => {
+    if (!r || !(r.w > 0) || !(r.h > 0)) return;
+    const a = worldToScreen(r.x * px, r.y * px);
+    const b = worldToScreen((r.x + r.w) * px, (r.y + r.h) * px);
+    ctx.save();
+    ctx.setLineDash([5, 4]);
+    ctx.lineWidth = state.selectedDark && state.selectedDark === r.id ? 3 : 2;
+    ctx.strokeStyle = r.doused ? 'rgba(120, 110, 130, 0.75)' : 'rgba(170, 120, 230, 0.95)';
     ctx.strokeRect(a.x, a.y, Math.max(1, b.x - a.x), Math.max(1, b.y - a.y));
     ctx.restore();
   });
@@ -9370,10 +9627,9 @@ function paintLightGlow(sources, px, sight) {
   const darkRoom = regions.some(r => r && r.level === 'dark');
   const box = viewBox();
   const washed = amb !== 'bright' && !(role === 'dm' && !state.showPlayerFov);
-  /* Layer 4 sits under the glow and under the darkvision re-punch. Tip 4 paints here. */
-  paintMagicalDarknessLayer(sight, px);
   if (!washed && amb === 'bright' && !darkRoom) {
     paintTorchHalo(sources, px, amb);
+    paintMagicalDarknessLayer(sight, px);
     return;
   }
   if (washed && amb === 'dark') paintDarkDimVeil(sources, px);
@@ -9385,6 +9641,8 @@ function paintLightGlow(sources, px, sight) {
     repunchBrightAndDarkvision(sources, sight, px);
   }
   paintTorchHalo(sources, px, amb);
+  /* After the glow, so Light, Gas Lamp, and torches do not punch a hole in the ink. */
+  paintMagicalDarknessLayer(sight, px);
 }
 function paintTestLightMarks(px, sight) {
   let list = [];
@@ -9925,12 +10183,12 @@ Wall and Room: drag, release to commit.<br>
 Walls: OFF hides the lines so you can see the raw map. Walls still block.<br>
 Grant / Revoke: pick a player, then a token. Revoke on their own token locks them out. Grant gives it back.<br>
 Reveal clears fog. Hide paints fog back. Each has a Box, Square, Poly, or Brush picker, and the button name is the action. Square: click one grid cell, or drag across cells. Each cell erases on its own. A drag is one history step. Poly: click as many corners as you need, then the first point, double-click, or Enter. Erase deletes one shape. Shift-click selects more, then Delete selection removes them together. Undo and Redo walk the fog history.<br>
-Show Player FOV greys the rest and brightens their light.<br>
+Show Player FOV greys the rest and brightens their light. Magical darkness is the same ink purple the player sees.<br>
 Set floor, then Show to players, to move someone to another map.` : `<b>Player</b><br>
 You move your own token, and any the DM has granted you.<br>
 My color changes your ring. Ping uses that color. The button stays lit while the tool is on.<br>
 On your turn, click a green square to walk. Dash on the turn strip adds feet.<br>
-Fog hides what you cannot see. A torch or your vision opens a circle. Within 5 ft, click a door you can see: Open, Lockpick, or Peek. Peek leaves it ajar (you can see through; you still can't walk through).`}
+Fog hides what you cannot see. A torch or your vision opens a circle. Magical darkness is ink purple: darkvision and a torch do not open it. Devil's Sight does. Within 5 ft, click a door you can see: Open, Lockpick, or Peek. Peek leaves it ajar (you can see through; you still can't walk through).`}
 <br><br>Click ? again to close.`;
   el.appendChild(box);
 });
@@ -10310,6 +10568,10 @@ function douseSelected(out) {
     draw();
     return;
   }
+  if (state.selectedDark && douseDarkZone(state.selectedDark, !!out)) {
+    draw();
+    return;
+  }
   const targets = state.selectedIds.length ? state.tokens.filter(t => state.selectedIds.includes(t.id)) : (state.selected ? [state.selected] : []);
   if (!targets.length) { toast('Select a token or a spell light first'); return; }
     targets.forEach(t => {
@@ -10340,6 +10602,14 @@ function douseSelected(out) {
     zones.forEach(z => {
       if (!z || !z.followTarget || ids.indexOf(String(z.followTarget)) < 0) return;
       z.lightOut = !!out;
+      zoneChanged = true;
+    });
+    zones.forEach(z => {
+      if (!z || !z.magicalDark) return;
+      const cid = String(z.casterId || "");
+      const cuid = String(z.casterUid || "");
+      if (ids.indexOf(cid) < 0 && ids.indexOf(cuid) < 0) return;
+      z.darkOut = !!out;
       zoneChanged = true;
     });
     if (zoneChanged) setSpellZones(zones, {});
@@ -10783,6 +11053,7 @@ function sceneData(id) {
   if (!Array.isArray(scene.testLights)) scene.testLights = [];
   if (!Array.isArray(scene.spellEmitters)) scene.spellEmitters = [];
   if (!Array.isArray(scene.lightRegions)) scene.lightRegions = [];
+  if (!Array.isArray(scene.magicalDark)) scene.magicalDark = [];
   if (!Array.isArray(scene.fogShapes)) {
     const shapes = [];
     scene.fogRects.forEach(r => {
@@ -14126,9 +14397,16 @@ window.addEventListener("ssdns-light-dismiss", (e) => {
 window.addEventListener("ssdns-conc-end", (e) => {
   const detail = (e && e.detail) || {};
   const L = window.SSDNSLighting;
-  if (!L || !L.dropConcEmitters) return;
-  const dropped = L.dropConcEmitters(spellEmitterList(), detail.casterId || "", detail.spell || "");
-  if (dropped.removed && dropped.removed.length) commitEmitters(dropped.emitters);
+  if (L && L.dropConcEmitters) {
+    const dropped = L.dropConcEmitters(spellEmitterList(), detail.casterId || "", detail.spell || "");
+    if (dropped.removed && dropped.removed.length) commitEmitters(dropped.emitters);
+  }
+  if (!L || !L.dropConcDarkness) return;
+  const dark = L.dropConcDarkness(spellZoneList(), detail.casterId || "", detail.spell || "");
+  if (dark.removed && dark.removed.length) {
+    setSpellZones(dark.zones, {});
+    toast((detail.spell || "Darkness") + " ends.");
+  }
 });
 window.addEventListener("ssdns-spell-light", (e) => {
   const d = (e && e.detail) || {};

@@ -225,6 +225,60 @@ darkRoom.destroy && darkRoom.destroy();
 delete store.pub["map/public/scenes/" + SC].value.ambient;
 delete store.pub["map/public/scenes/" + SC].value.lightRegions;
 
+/* L0227–L0230: ink darkness blocks a bubble, darkvision, and a torch. Devil's Sight sees through. Daylight dispels. */
+store.pub["map/public/scenes/" + SC].value.ambient = "dark";
+store.pub["map/public/scenes/" + SC].value.magicalDark = [{
+  id: "md1", kind: "box", magicalDark: true, level: 2, x: 6, y: 4, w: 3, h: 3,
+  blocksDarkvision: true, devilsSightSees: true, dispelledByLightAtOrAbove: 3
+}];
+const meKey = Object.keys(store.pub).find((k) => {
+  const row = store.pub[k] && store.pub[k].value;
+  return row && row.ownerUid === "u_me";
+});
+check("mdark.token", !!meKey, Object.keys(store.pub).filter((k) => k.indexOf("token") >= 0).join(","));
+const meRow = meKey ? store.pub[meKey].value : { pos: { x: 5, y: 5 } };
+meRow.pos = { x: 5, y: 5 };
+meRow.darkvision = 60;
+meRow.devilsSight = false;
+meRow.lights = [{ id: "torch", name: "Torch", bright: 20, dim: 20, out: false }];
+const mdEl = w.document.createElement("div");
+w.document.body.appendChild(mdEl);
+const md = w.SSDNSMap.create({ el: mdEl, role: "player", uid: "u_me", adapter: w.SSDNSMapFirebase.memory({ role: "player", store, bus }), host, options: { scene, assetBase: "", room: { table: { initiative: { order: [], turn: 0 } } } } });
+await flush(150);
+const nearDark = md.targetSight("en_near");
+check("mdark.hides", nearDark && nearDark.visible === false && md.lightAt(6.5, 5.5) === "dark", JSON.stringify(nearDark) + " light " + md.lightAt(6.5, 5.5));
+check("mdark.torchNoPierce", md.lightAt(5.5, 5.5) === "bright", "the torch still lights the square outside the ink");
+md.destroy && md.destroy();
+
+meRow.devilsSight = true;
+const devilEl = w.document.createElement("div");
+w.document.body.appendChild(devilEl);
+const devil = w.SSDNSMap.create({ el: devilEl, role: "player", uid: "u_me", adapter: w.SSDNSMapFirebase.memory({ role: "player", store, bus }), host, options: { scene, assetBase: "", room: { table: { initiative: { order: [], turn: 0 } } } } });
+await flush(150);
+const nearDevil = devil.targetSight("en_near");
+check("mdark.devil", nearDevil && nearDevil.visible === true, JSON.stringify(nearDevil));
+devil.destroy && devil.destroy();
+
+meRow.devilsSight = false;
+store.pub["map/public/scenes/" + SC].value.spellEmitters = [{
+  id: "day1", key: "daylight", name: "Daylight", bright: 60, dim: 60, spellLevel: 3, magical: true, x: 6, y: 5, doused: false
+}];
+store.pub["map/public/scenes/" + SC].value.lightSeq = Date.now();
+const dayEl = w.document.createElement("div");
+w.document.body.appendChild(dayEl);
+const day = w.SSDNSMap.create({ el: dayEl, role: "player", uid: "u_me", adapter: w.SSDNSMapFirebase.memory({ role: "player", store, bus }), host, options: { scene, assetBase: "", room: { table: { initiative: { order: [], turn: 0 } } } } });
+await flush(180);
+const nearDay = day.targetSight("en_near");
+check("mdark.daylight", nearDay && nearDay.visible === true && day.lightAt(6.5, 5.5) === "bright", JSON.stringify(nearDay) + " light " + day.lightAt(6.5, 5.5));
+day.destroy && day.destroy();
+delete meRow.darkvision;
+delete meRow.devilsSight;
+delete meRow.lights;
+delete store.pub["map/public/scenes/" + SC].value.magicalDark;
+delete store.pub["map/public/scenes/" + SC].value.spellEmitters;
+delete store.pub["map/public/scenes/" + SC].value.lightSeq;
+delete store.pub["map/public/scenes/" + SC].value.ambient;
+
 /* DMCC: a player attack request at a token the shooter can't see is refused before any damage */
 {
   const ledger = [];

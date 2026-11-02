@@ -981,6 +981,7 @@ body.map-fullscreen #mapMount > .ssm-drawer.placed {
 .ssm-light-legend span[data-level="bright"] { background: #f3e2b0; color: #2b1d10; }
 .ssm-light-legend span[data-level="dim"] { background: #5c584f; color: #f4efe4; }
 .ssm-light-legend span[data-level="dark"] { background: #14110e; color: #c9bfb0; }
+.ssm-light-legend span[data-level="mdark"] { background: #2e0c54; color: #f0e4ff; }
 .ssm-light-legend[data-ambient="bright"] span[data-level="bright"],
 .ssm-light-legend[data-ambient="dim"] span[data-level="dim"],
 .ssm-light-legend[data-ambient="dark"] span[data-level="dark"] { outline: 2px solid #e2b33a; outline-offset: 1px; }

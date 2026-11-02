@@ -19,10 +19,10 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.213" && version.sheetBuild === "sheet-playtest-v03213");
-check("ver.dmcc", version.dmcc === "0.2.226" && version.dmccBuild === "dmcc-playtest-v02226");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.213"') && read("assets/js/app.js").includes("sheet-playtest-v03213"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.226"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02226"));
+check("ver.sheet", version.sheet === "0.3.214" && version.sheetBuild === "sheet-playtest-v03214");
+check("ver.dmcc", version.dmcc === "0.2.227" && version.dmccBuild === "dmcc-playtest-v02227");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.214"') && read("assets/js/app.js").includes("sheet-playtest-v03214"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.227"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02227"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
@@ -34,8 +34,8 @@ check("css.dmChip", dmcc.includes("font-size: 17px; padding: 6px 14px"));
 
 const html = read("index.html");
 const dm = read("dm/index.html");
-check("html.sheet", html.includes("map/ssdns-map.js?v=0.3.213-light3") && html.includes("assets/js/conditions.js?v=0.3.210-pills") && html.includes("assets/js/app.js?v=0.3.213-light3"));
-check("html.dm", dm.includes("../map/ssdns-map.js?v=0.2.226-light3") && dm.includes("../assets/js/conditions.js?v=0.2.223-pills") && dm.includes("assets/js/dmcc.js?v=0.2.226-light3"));
+check("html.sheet", html.includes("map/ssdns-map.js?v=0.3.214-light4") && html.includes("assets/js/conditions.js?v=0.3.210-pills") && html.includes("assets/js/app.js?v=0.3.214-light4"));
+check("html.dm", dm.includes("../map/ssdns-map.js?v=0.2.227-light4") && dm.includes("../assets/js/conditions.js?v=0.2.223-pills") && dm.includes("assets/js/dmcc.js?v=0.2.227-light4"));
 
 const map = read("map/ssdns-map.js");
 check("map.pills", map.includes("function paintCondWordPills") && map.includes("pillWordFit") && map.includes("paintCondWordPills(ctx, s, r, condRaws)"));

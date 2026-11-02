@@ -1,8 +1,12 @@
-/* Item-driven light plus placed spell emitters (sheet 0.3.213).
+/* Item-driven light plus placed spell emitters (sheet 0.3.214).
    Held lights stay on the token. A spell that shines somewhere else is a map emitter,
    not a glow stuck on the caster. No burn-time clock. rules.js is not touched.
    L0226 stack: ambient, painted regions, emitters (brightest wins),
-   magical darkness stub (tip 4 owns the wash), then this viewer's darkvision.
+   magical darkness (L0227–L0230), then this viewer's darkvision.
+   Magical darkness is heavily obscured. Darkvision does not pierce it.
+   Nonmagical light, Light, and Gas Lamp do not pierce it.
+   A 3rd-level-or-higher light spell that overlaps it dispels it.
+   Devil's Sight sees through it, out to 120 ft, unless the viewer is blinded inside.
    L0215: belt lantern is locked at bright 15 / dim 15, trinket, hands-free. Oil is fictional.
    Held torch, lamp, candle, hooded lamp, and bullseye take Pistol L, Pistol R, or Melee. */
 (function (root) {
@@ -320,9 +324,93 @@
     });
     return level;
   }
-  /* L0227–L0230. The slot stays in the stack. Tip 4 paints the wash; this does not. */
+  /* A DM box or a spell sphere. Doused zones stay in the list and do not cover. */
+  function darknessContains(zone, gx, gy) {
+    if (!zone || !zone.magicalDark || zone.doused || zone.darkOut) return false;
+    if (zone.kind === "box" || (!zone.origin && num(zone.w) > 0 && num(zone.h) > 0)) return regionContains(zone, gx, gy);
+    var origin = zone.origin;
+    if (!origin || origin.x == null) return false;
+    var reach = num(zone.radius) / FT;
+    if (!(reach > 0)) return false;
+    return Math.hypot(gx - num(origin.x), gy - num(origin.y)) <= reach + 0.001;
+  }
+  function darknessCovering(gx, gy, zones) {
+    var cover = [];
+    (zones || []).forEach(function (z) { if (darknessContains(z, gx, gy)) cover.push(z); });
+    return cover;
+  }
+  /* Devil's Sight, 120 ft. Hunger of Hadar still blinds a viewer who is standing inside. */
+  function devilSees(zone, viewer, gx, gy) {
+    if (!zone || !viewer || !viewer.devilsSight || zone.devilsSightSees === false) return false;
+    if (zone.blindedInside && darknessContains(zone, num(viewer.x), num(viewer.y))) return false;
+    return Math.hypot(gx - num(viewer.x), gy - num(viewer.y)) * FT <= 120 + 0.05;
+  }
+  function magicalDarkBlocks(gx, gy, zones, viewers) {
+    var cover = darknessCovering(gx, gy, zones);
+    if (!cover.length) return false;
+    var list = viewers || [];
+    var i, j, open;
+    for (i = 0; i < cover.length; i++) {
+      open = false;
+      for (j = 0; j < list.length; j++) {
+        if (devilSees(cover[i], list[j], gx, gy)) { open = true; break; }
+      }
+      if (!open) return true;
+    }
+    return false;
+  }
+  /* L0227–L0230. A covered square is dark for everyone. Devil's Sight does not
+     turn the light back on; the map's sight test lets that viewer see in the dark. */
   function applyMagicalDarkness(level, gx, gy, zones) {
+    if (darknessCovering(gx, gy, zones).length) return "dark";
     return normLevel(level);
+  }
+  function lightSpellLevel(light) {
+    if (!light || light.out || light.doused) return null;
+    if (light.spellLevel != null && light.spellLevel !== "" && isFinite(num(light.spellLevel))) return num(light.spellLevel);
+    var id = String(light.id || light.catalogId || light.key || light.name || "").toLowerCase();
+    if (/daylight/.test(id)) return 3;
+    if (/sunbeam|sunburst/.test(id)) return 6;
+    if (/wall of fire|wall-of-fire/.test(id)) return 4;
+    if (/fire shield|fire-shield/.test(id)) return 4;
+    if (/continual|gas lamp|gas-lamp/.test(id)) return 2;
+    if (/moonbeam|flame blade|flame-blade|flaming sphere|flaming-sphere|branding/.test(id)) return 2;
+    if (/dancing|produce flame|produce-flame/.test(id)) return 0;
+    if (/(^|:)light$/.test(id) || id === "light" || /spell:light/.test(id)) return 0;
+    if (light.feature) return null;
+    if (light.magical || light.spell) return 0;
+    return null;
+  }
+  function lightReachesZone(light, zone) {
+    if (!light || !zone || light.out || light.doused) return false;
+    var reach = (num(light.bright) + num(light.dim)) / FT;
+    if (!(reach > 0) || light.x == null) return false;
+    var lx = num(light.x), ly = num(light.y);
+    if (zone.kind === "box" || (!zone.origin && num(zone.w) > 0 && num(zone.h) > 0)) {
+      var x = num(zone.x), y = num(zone.y), w = num(zone.w), h = num(zone.h);
+      var cx = Math.max(x, Math.min(lx, x + w));
+      var cy = Math.max(y, Math.min(ly, y + h));
+      return Math.hypot(lx - cx, ly - cy) <= reach + 0.05;
+    }
+    var origin = zone.origin || { x: zone.x, y: zone.y };
+    if (!origin || origin.x == null) return false;
+    var zoneReach = num(zone.radius) / FT;
+    return Math.hypot(lx - num(origin.x), ly - num(origin.y)) <= zoneReach + reach + 0.05;
+  }
+  /* A 3rd-level or higher light spell whose area overlaps the darkness dispels it.
+     Light (0) and Gas Lamp (2) do not. A torch has no spell level. */
+  function lightDispelsZone(zone, light) {
+    if (!zone || !zone.magicalDark || zone.doused || zone.darkOut) return false;
+    var cap = zone.dispelledByLightAtOrAbove != null ? num(zone.dispelledByLightAtOrAbove) : 3;
+    var lv = lightSpellLevel(light);
+    if (lv == null || lv < cap) return false;
+    if (zone.level != null && zone.level !== "" && num(zone.level) > cap) return false;
+    return lightReachesZone(light, zone);
+  }
+  function lightsDispelDark(zone, lights) {
+    var i;
+    for (i = 0; i < (lights || []).length; i++) if (lightDispelsZone(zone, lights[i])) return true;
+    return false;
   }
   function viewerInDarkvision(gx, gy, viewer) {
     if (!viewer) return false;
@@ -330,19 +418,37 @@
     if (!(r > 0)) return false;
     return Math.hypot(gx - num(viewer.x), gy - num(viewer.y)) <= r + 0.001;
   }
-  /* L0226. ambient → regions → emitters (brightest wins) → magical darkness stub → one viewer's darkvision. */
+  function stackViewers(opts) {
+    var viewers = [];
+    if (opts && opts.viewer) viewers.push(opts.viewer);
+    if (opts && opts.viewers && opts.viewers.length) viewers = viewers.concat(opts.viewers);
+    return viewers;
+  }
+  /* L0226. ambient → regions → emitters (brightest wins) → magical darkness → one viewer's darkvision.
+     Darkvision does not upgrade a square magical darkness still blocks. */
   function stackLevel(gx, gy, opts) {
     opts = opts || {};
     var base = regionBase(gx, gy, opts.regions, opts.ambient);
     var level = rawLevel(gx, gy, opts.emitters || opts.lights, base);
-    level = applyMagicalDarkness(level, gx, gy, opts.darkness);
-    var viewers = [];
-    if (opts.viewer) viewers.push(opts.viewer);
-    if (opts.viewers && opts.viewers.length) viewers = viewers.concat(opts.viewers);
+    var viewers = stackViewers(opts);
+    if (darknessCovering(gx, gy, opts.darkness).length) return "dark";
     for (var i = 0; i < viewers.length; i++) {
       if (viewerInDarkvision(gx, gy, viewers[i])) return applyDarkvision(level, true);
     }
     return level;
+  }
+  /* Concentration end drops spell darkness the same way it drops a concentration light. */
+  function dropConcDarkness(list, casterId, spellName) {
+    var want = bareSpell(spellName);
+    var wantKey = want.replace(/\s+/g, "-");
+    var kept = [], removed = [];
+    (list || []).forEach(function (z) {
+      if (!z || !z.magicalDark || !z.conc) { kept.push(z); return; }
+      if (!sameCaster(z, casterId)) { kept.push(z); return; }
+      if (want && bareSpell(z.spell || z.name) !== want && bareSpell(z.key) !== wantKey && String(z.key || "") !== wantKey) { kept.push(z); return; }
+      removed.push(z);
+    });
+    return { zones: kept, removed: removed };
   }
   function perceptionNote(level, skulker) {
     if (level === "bright") return "Bright light. Sight is normal.";
@@ -726,6 +832,9 @@
     hasSkulker: hasSkulker, hasDevilsSight: hasDevilsSight, tokenProfile: tokenProfile, squares: squares, rawLevel: rawLevel, seenLevel: seenLevel,
     applyDarkvision: applyDarkvision, perceptionNote: perceptionNote, paintBox: paintBox,
     normLevel: normLevel, regionContains: regionContains, regionBase: regionBase,
-    applyMagicalDarkness: applyMagicalDarkness, stackLevel: stackLevel
+    applyMagicalDarkness: applyMagicalDarkness, stackLevel: stackLevel,
+    darknessContains: darknessContains, magicalDarkBlocks: magicalDarkBlocks, devilSees: devilSees,
+    lightSpellLevel: lightSpellLevel, lightDispelsZone: lightDispelsZone, lightsDispelDark: lightsDispelDark,
+    dropConcDarkness: dropConcDarkness
   };
 })(typeof window !== "undefined" ? window : globalThis);
