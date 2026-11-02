@@ -2193,6 +2193,15 @@ function spendRiderChips(attacker, target) {
   if (spend.attacker && spend.attacker.length) dropChipNames(attacker, spend.attacker);
   if (spend.target && spend.target.length) dropChipNames(target, spend.target);
 }
+function chipsPresent(who, names) {
+  if (!who || !names || !names.length) return false;
+  const want = {};
+  names.forEach((n) => { if (n) want[String(n).toLowerCase()] = 1; });
+  return conditionsForRow(who).some((c) => {
+    const name = c && (c.name || c);
+    return name && want[String(name).toLowerCase().trim()];
+  });
+}
 function dropChipNames(who, names) {
   if (!who || !names || !names.length || !window.SSDNSConditions) return;
   const subjectId = who.kind === "player" ? (who.playerId || who.id) : (who.id || who.playerId);
@@ -5948,6 +5957,7 @@ function spellMapFx(shooter, target, name, known, result, extra) {
   if (extra.killed) body.killed = true;
   if (extra.beat != null && isFinite(Number(extra.beat))) body.beat = Math.max(0, Math.min(7, Math.round(Number(extra.beat))));
   if (extra.garnish === "place" || extra.garnish === "swipe" || extra.garnish === "clear" || extra.garnish === "detonate") body.garnish = extra.garnish;
+  if (extra.cleared) body.cleared = true;
   if (extra.at && isFinite(Number(extra.at.x)) && isFinite(Number(extra.at.y))) {
     body.at = { x: Math.round(Number(extra.at.x) * 10) / 10, y: Math.round(Number(extra.at.y) * 10) / 10 };
     body.self = false;
@@ -6417,14 +6427,20 @@ async function rollSpellAt(row, spellId, targetId) {
     }
   } else if (kind === "heal" && (target || (multiPicks && multiPicks.length)) && fight.damageMode !== "approve") {
     const healList = multiPicks && multiPicks.length ? multiPicks : [target];
+    const healed = [];
     healList.forEach((one, idx) => {
       const whoT = resolveStrikeTarget(one.id) || one;
+      healed.push(whoT);
       applyPlayerHit({
         rollId: id + ":h" + idx, targetId: whoT.id, targetName: whoT.name, amount: rolled.result,
         from: row.id, characterName: row.name, label: name, weapon: name, type: "heal"
       });
-      spellMapFx(row.id, whoT.id, name, known, "hit");
     });
+    if (healed.length) {
+      const fxExtra = { hops: healed.slice(1).map((whoT) => ({ id: whoT.id })) };
+      if (/^heal$/i.test(String(name || "").trim()) && known && known.clears && known.clears.length && chipsPresent(healed[0], known.clears)) fxExtra.cleared = true;
+      spellMapFx(row.id, healed[0].id, name, known, "hit", fxExtra);
+    }
     detail += " · " + healList.map((one) => one.name || one.id).join(", ");
   } else if (kind === "auto" && dartPicks && rolled.darts) {
     const dartNotes = applyDartGroups(row, name, rolled, dartPicks, id);
@@ -7959,6 +7975,12 @@ async function cardCast(i, n, opts) {
     detail += " · " + chosen.map((c) => c.name || c.id).join(", ");
     if (spellConcentrates(spell, known)) detail += noteConcentration(row, name, level);
     await publishCardRoll(row, detail, rolledCard.result || 0, { formula: rolledCard.formula || "—", spell: true });
+    if (kind === "heal" && chosen.length) {
+      const healedCard = chosen.map((one) => resolveStrikeTarget(one.id) || one);
+      const fxExtra = { hops: healedCard.slice(1).map((whoT) => ({ id: whoT.id })) };
+      if (/^heal$/i.test(String(name || "").trim()) && known && known.clears && known.clears.length && chipsPresent(healedCard[0], known.clears)) fxExtra.cleared = true;
+      spellMapFx(row.id, healedCard[0].id, name, known, "hit", fxExtra);
+    }
     playCue();
     await saveRemoteTable();
     renderFight();
@@ -7976,6 +7998,7 @@ async function cardCast(i, n, opts) {
     spendSpellSlot(card, level);
     let detail = row.name + " casts " + name + " and heals " + out.total;
     if (spellConcentrates(spell, known)) detail += noteConcentration(row, name, level);
+    let clearedHeal = false;
     if (target && out && fight.damageMode !== "approve") {
       applyPlayerHit({
         rollId: DM.uid("spell"),
@@ -7989,12 +8012,13 @@ async function cardCast(i, n, opts) {
         type: "heal"
       });
       if (known && known.clears && known.clears.length) {
+        clearedHeal = chipsPresent(target, known.clears);
         dropChipNames(target, known.clears);
-        detail += " · ends " + known.clears.join(", ");
+        if (clearedHeal) detail += " · ends " + known.clears.join(", ");
       }
     }
     await publishCardRoll(row, detail, out.total, { formula: dice, heal: true, spell: true, targetId: target && target.id });
-    spellMapFx(row.id, target && target.id, name, known, "hit");
+    spellMapFx(row.id, target && target.id, name, known, "hit", clearedHeal ? { cleared: true } : {});
     playCue();
     await saveRemoteTable();
     renderFight();

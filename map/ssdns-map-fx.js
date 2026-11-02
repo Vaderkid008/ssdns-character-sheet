@@ -132,6 +132,10 @@
           p.duration += extraCols * 100;
         }
       }
+      if (look === "massword" || look === "masscure") {
+        var extraAllies = Math.min(5, (info.hops && info.hops.length) || 0);
+        p.duration += extraAllies * (look === "massword" ? 200 : 90);
+      }
       p.look = look;
     }
     else if (type === "boom") {
@@ -203,6 +207,7 @@
     if (spec.killed) out.killed = true;
     if (spec.rise) out.rise = true;
     if (spec.garnish === "place" || spec.garnish === "swipe" || spec.garnish === "clear" || spec.garnish === "detonate") out.garnish = spec.garnish;
+    if (spec.cleared) out.cleared = true;
     var nat = Number(spec.nat);
     if (spec.nat != null && isFinite(nat) && nat >= 1 && nat <= 20) out.nat = Math.round(nat);
     if (spec.crit) out.crit = true;
@@ -245,6 +250,7 @@
     if (info.killed) r.killed = true;
     if (info.rise) r.rise = true;
     if (info.garnish === "place" || info.garnish === "swipe" || info.garnish === "clear" || info.garnish === "detonate") r.garnish = info.garnish;
+    if (info.cleared) r.cleared = true;
     if (info.arrow) r.arrow = String(info.arrow).replace(/[^a-z-]/gi, "").slice(0, 20);
     var n = Number(info.nat);
     if (info.nat != null && isFinite(n) && n >= 1 && n <= 20) r.nat = Math.round(n);
@@ -466,6 +472,8 @@
      Chill Touch, Acid Arrow, Poison Spray, Chain Lightning, and Disintegrate.
      Chunk 2 Phase 1 paints Hex, Hunter's Mark, Shocking Grasp, Thorn Whip, Hellish Rebuke,
      Flame Blade, Heat Metal, Fire Shield, Vampiric Touch, and Ray of Enfeeblement.
+     Chunk 6 Phase 1 paints Mass Healing Word, Mass Cure Wounds, and Heal.
+     Healing Word and Cure Wounds stay on the small heal mote. Sacred Flame stays the attack drop.
      Lightning Bolt stays on lightning. Fire Bolt stays on fire. Acid Splash stays on acid.
      Flaming Sphere and Spiritual Weapon stay tokens. Grease, Light, Daylight, and Wall of Fire are zones, not beams. */
   var LOOK_TIME = {
@@ -542,7 +550,11 @@
     icebomb: { grow: 820, hold: 900, fade: 520 },
     sunburst: { grow: 60, hold: 900, fade: 450 },
     deathring: { grow: 600, hold: 800, fade: 500 },
-    bead: { grow: 260, hold: 280, fade: 320 }
+    bead: { grow: 260, hold: 280, fade: 320 },
+    /* Chunk 6 Phase 1 clocks. grow is the first arrival. Extra allies extend the plan, not this base. */
+    massword: { grow: 380, hold: 520, fade: 500 },
+    masscure: { grow: 300, hold: 900, fade: 500 },
+    healcolumn: { grow: 410, hold: 1020, fade: 700 }
   };
   var SELF_LOOKS = { shield: 1, magearmor: 1, pwt: 1, invis: 1, flameblade: 1, fireshield: 1, produceflame: 1, agathys: 1, tintype: 1, haze: 1 };
   /* N85 Chunks 2–6 named looks. Damage-type keys already locked by tests stay on lookOf's later pass. */
@@ -1434,6 +1446,10 @@ function chunk4Spell(look, spec) {
   if (look === "skypillar" && /flame strike|fire storm/.test(name)) return true;
   return false;
 }
+/* Chunk 6 heals. Healing Word and Cure Wounds stay on the small `heal` mote. Sacred Flame stays sacred-flame. */
+function chunk6Spell(look) {
+  return look === "massword" || look === "masscure" || look === "healcolumn";
+}
 function chunk4Key(look, spec) {
   var name = low((spec && (spec.spell || spec.weapon)) || "");
   if (look === "void" && /arms of hadar/.test(name)) return "arms";
@@ -1510,6 +1526,7 @@ function chunk3Key(look, spec) {
 function shakeOf(spec, lt) {
   var look = lookOf(spec || {});
   if (chunk5Spell(look, spec)) return Chunk5Fx.shakeOf(chunk5Key(look, spec), lt);
+  if (chunk6Spell(look)) return { x: 0, y: 0 };
   if (chunk4Spell(look, spec)) return Chunk4Fx.shakeOf(chunk4Key(look, spec), lt, spec || {});
   if (chunk3Spell(look, spec)) return Chunk3Fx.shakeOf(chunk3Key(look, spec), lt, spec || {});
   if (C1_LOOKS[look]) {
@@ -5722,6 +5739,320 @@ function beadsPaint(ctx, A, B, lt, seed) {
     };
   })();
 
+  /* Chunk 6 Phase 1 Love-it outlines. Shape + clear effect.
+     One cast, then a staggered arrival on each chosen ally (the cast's hops, up to six).
+     Teal clear-sparkles paint only when Heal actually drops Blinded or Deafened (G.clear).
+     No board shake, no create-token, no token wrap. */
+  var Chunk6Fx = (function () {
+  var TAU = Math.PI * 2;
+  var PAL = {
+    hw: { glow: "140,195,95", ring1: "210,220,120", ring2: "120,175,85", motes: "230,215,130", tint: "205,220,140" },
+    bless: "230,175,70",
+    radiant: { glow: "230,175,70", core: "255,232,170", hot: "255,250,230" },
+    amber: { glow: "235,160,70", core: "255,215,150", hot: "255,240,205" },
+    pane: { amber: "225,150,55", gold: "245,200,105", rose: "220,120,80", lead: "35,26,16" },
+    teal: "95,220,205"
+  };
+  function clamp(v, a, b) { a = a === undefined ? 0 : a; b = b === undefined ? 1 : b; return Math.max(a, Math.min(b, v)); }
+  function rgba(c, a) { return "rgba(" + c + "," + clamp(a) + ")"; }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function lp(A, B, t) { return { x: lerp(A.x, B.x, t), y: lerp(A.y, B.y, t) }; }
+  function easeOut(t) { return 1 - Math.pow(1 - clamp(t), 3); }
+  function easeIn(t) { t = clamp(t); return t * t; }
+  function easeInOut(t) { t = clamp(t); return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+  function env(t, a, b, c, d) { if (t < a || t > d) return 0; if (t < b) return (t - a) / Math.max(1, b - a); if (t <= c) return 1; return 1 - (t - c) / Math.max(1, d - c); }
+  function rng(seed) { var s = (seed * 2654435761) >>> 0; return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+  function dist(A, B) { return Math.hypot(B.x - A.x, B.y - A.y); }
+  function norm(A, B) { var d = dist(A, B) || 1; return { x: (B.x - A.x) / d, y: (B.y - A.y) / d }; }
+  function edge(A, B, r) { var n = norm(A, B); return { x: A.x + n.x * r, y: A.y + n.y * r }; }
+  function poly(ctx, pts) { ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y); }
+  function stroke(ctx, pts, w, col, blur, blurCol) {
+    if (!pts || pts.length < 2) return;
+    ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = w; ctx.strokeStyle = col;
+    if (blur) { ctx.shadowBlur = blur; ctx.shadowColor = blurCol || col; }
+    poly(ctx, pts); ctx.stroke(); ctx.restore();
+  }
+  function glow(ctx, x, y, r, stops) {
+    if (r <= 0.5) return;
+    var g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    for (var i = 0; i < stops.length; i++) g.addColorStop(stops[i][0], stops[i][1]);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  }
+  function add(ctx, fn) { ctx.save(); ctx.globalCompositeOperation = "lighter"; fn(); ctx.restore(); }
+  function ring(ctx, x, y, r, w, col, blur) {
+    if (r <= 0 || w <= 0) return;
+    ctx.save(); ctx.lineWidth = w; ctx.strokeStyle = col;
+    if (blur) { ctx.shadowBlur = blur; ctx.shadowColor = col; }
+    ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); ctx.restore();
+  }
+  function motes(ctx, B, t, life, n, seed, R, col, rise, size) {
+    if (t < 0 || t > life) return;
+    var r = rng(seed);
+    add(ctx, function () {
+      for (var i = 0; i < n; i++) {
+        var d0 = r() * 0.35, u = clamp((t / life - d0) / (1 - d0));
+        if (u <= 0 || u >= 1) { r(); r(); continue; }
+        var an = r() * TAU, rr = R * (0.25 + 0.75 * r());
+        var x = B.x + Math.cos(an) * rr + Math.sin(u * 6 + i) * 2.5;
+        var y = B.y + Math.sin(an) * rr * 0.6 - rise * easeOut(u);
+        var a = Math.sin(Math.PI * u);
+        glow(ctx, x, y, size * 2.6, [[0, rgba(col, 0.55 * a)], [1, rgba(col, 0)]]);
+        ctx.fillStyle = rgba(PAL.radiant.hot, 0.85 * a);
+        ctx.beginPath(); ctx.arc(x, y, size * 0.55, 0, TAU); ctx.fill();
+      }
+    });
+  }
+  function softHalo(ctx, B, R, w, col, a) {
+    if (a <= 0) return;
+    add(ctx, function () {
+      ring(ctx, B.x, B.y, R, w * 2.2, rgba(col, 0.18 * a), 16);
+      ring(ctx, B.x, B.y, R, w, rgba(col, 0.55 * a), 8);
+    });
+  }
+  function rimGlow(ctx, B, rIn, rOut, col, a) {
+    if (a <= 0) return;
+    add(ctx, function () {
+      var g = ctx.createRadialGradient(B.x, B.y, rIn * 0.4, B.x, B.y, rOut);
+      g.addColorStop(0, rgba(col, 0.06 * a));
+      g.addColorStop(Math.min(0.92, rIn / rOut), rgba(col, 0.42 * a));
+      g.addColorStop(1, rgba(col, 0));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(B.x, B.y, rOut, 0, TAU); ctx.fill();
+    });
+  }
+  function curve(A, B, bend, n) {
+    var m = lp(A, B, 0.5), nn = norm(A, B), C = { x: m.x - nn.y * bend, y: m.y + nn.x * bend }, pts = [];
+    for (var i = 0; i <= n; i++) {
+      var u = i / n, v = 1 - u;
+      pts.push({ x: v * v * A.x + 2 * v * u * C.x + u * u * B.x, y: v * v * A.y + 2 * v * u * C.y + u * u * B.y });
+    }
+    return pts;
+  }
+  function wavy(A, B, bend, amp, ph, n) {
+    var pts = curve(A, B, bend, n), nn = norm(A, B);
+    return pts.map(function (P, k) {
+      var u = k / n, o = Math.sin(u * 7 + ph) * amp * Math.sin(Math.PI * u);
+      return { x: P.x - nn.y * o, y: P.y + nn.x * o };
+    });
+  }
+  function taper(ctx, pts, w, col, blur) {
+    if (!pts || pts.length < 2) return;
+    for (var k = 1; k < pts.length; k++) {
+      var u = k / (pts.length - 1);
+      stroke(ctx, [pts[k - 1], pts[k]], Math.max(0.4, w * (0.25 + 0.75 * u)), col, blur);
+    }
+  }
+  function slice(pts, u0, u1) {
+    var n = pts.length - 1, a = Math.max(0, Math.floor(u0 * n)), b = Math.min(n, Math.ceil(u1 * n));
+    return pts.slice(a, b + 1);
+  }
+
+  var MHW = { ring: 150, first: 120, stagger: 200, travel: 260, glowLife: 620, moteLife: 820 };
+  function mhwArrive(i) { return MHW.first + i * MHW.stagger + MHW.travel; }
+  function mhwUnder(ctx, lt, G) {
+    var a = env(lt, 0, 60, 260, 700);
+    if (a <= 0 || !G.S) return;
+    add(ctx, function () {
+      glow(ctx, G.S.x, G.S.y, G.rS * 1.9, [[0, rgba(PAL.bless, 0)], [0.55, rgba(PAL.bless, 0.12 * a)], [1, rgba(PAL.bless, 0)]]);
+    });
+  }
+  function mhw(ctx, lt, G) {
+    var u = clamp(lt / MHW.ring), ra = 1 - clamp((lt - MHW.ring) / 380);
+    if (lt < MHW.ring + 380 && G.S) add(ctx, function () {
+      var R = G.rS + 4 + easeOut(u) * G.cell * 1.4;
+      ring(ctx, G.S.x, G.S.y, R, 6 * ra, rgba(PAL.bless, 0.22 * ra), 14);
+      ring(ctx, G.S.x, G.S.y, R, 1.6 * ra + 0.3, rgba(PAL.radiant.core, 0.75 * ra), 6);
+      glow(ctx, G.S.x, G.S.y, G.rS * 1.4, [[0, rgba(PAL.radiant.hot, 0)], [0.7, rgba(PAL.radiant.core, 0.25 * ra)], [1, rgba(PAL.radiant.core, 0)]]);
+    });
+    (G.T || []).forEach(function (B, i) {
+      var t0 = MHW.first + i * MHW.stagger, t = lt - t0;
+      var E = edge(G.S, B, G.rS + 2), F = edge(B, G.S, G.rT + 2);
+      var pts = curve(E, F, (i % 2 ? 1 : -1) * 14, 24);
+      if (t >= 0 && t < MHW.travel + 260) {
+        var p = easeInOut(clamp(t / MHW.travel)), ta = 1 - clamp((t - MHW.travel) / 260), H = pts[Math.round(p * 24)];
+        add(ctx, function () {
+          var tr = slice(pts, Math.max(0, p - 0.55), p);
+          stroke(ctx, tr, 3, rgba(PAL.bless, 0.18 * ta), 6);
+          stroke(ctx, tr, 0.9, rgba(PAL.radiant.core, 0.6 * ta));
+          if (p < 1 && H) glow(ctx, H.x, H.y, 9, [[0, rgba(PAL.radiant.hot, 0.95)], [0.4, rgba(PAL.hw.ring1, 0.6)], [1, rgba(PAL.hw.glow, 0)]]);
+        });
+      }
+      var th = lt - mhwArrive(i);
+      if (th < 0) return;
+      var ga = env(th, 0, 70, 220, MHW.glowLife);
+      rimGlow(ctx, B, G.rT, G.rT * 1.6, PAL.hw.glow, ga);
+      if (th < 420) softHalo(ctx, B, G.rT + 2 + easeOut(th / 420) * G.cell * 0.35, 1.4, PAL.hw.ring1, 1 - th / 420);
+      motes(ctx, B, th, MHW.moteLife, 7, 11 + i, G.rT * 0.9, PAL.hw.motes, G.cell * 0.55, 2.2);
+    });
+  }
+
+  var MCW = { first: 0, stagger: 90, travel: 300, bloom: 520, after: 420 };
+  function mcwArrive(i) { return MCW.first + i * MCW.stagger + MCW.travel; }
+  function mcwUnder(ctx, lt, G) {
+    var a = env(lt, 0, 80, 500, 1100);
+    if (a > 0 && G.S) add(ctx, function () {
+      glow(ctx, G.S.x, G.S.y, G.cell * 1.3, [[0, rgba(PAL.amber.core, 0.16 * a)], [0.6, rgba(PAL.amber.glow, 0.1 * a)], [1, rgba(PAL.amber.glow, 0)]]);
+    });
+    (G.T || []).forEach(function (B, i) {
+      var th = lt - mcwArrive(i), pa = env(th, 0, 80, 300, 900);
+      if (pa > 0) add(ctx, function () {
+        glow(ctx, B.x, B.y + G.rT * 0.15, G.cell * 0.95, [[0, rgba(PAL.amber.glow, 0)], [0.5, rgba(PAL.amber.glow, 0.16 * pa)], [1, rgba(PAL.amber.glow, 0)]]);
+      });
+    });
+  }
+  function mcw(ctx, lt, G) {
+    (G.T || []).forEach(function (B, i) {
+      var t0 = MCW.first + i * MCW.stagger, t = lt - t0;
+      var E = edge(G.S, B, G.rS * 0.7), F = edge(B, G.S, G.rT * 0.6);
+      if (t >= 0 && t < MCW.travel + 380) {
+        var p = easeOut(clamp(t / MCW.travel)), wa = 1 - clamp((t - MCW.travel) / 380);
+        add(ctx, function () {
+          for (var s = 0; s < 3; s++) {
+            var pts = wavy(E, F, (s - 1) * 16 + (i % 2 ? 8 : -8), 5 + s * 2, t / 140 + s * 1.9 + i, 30);
+            var tr = slice(pts, Math.max(0, p - 0.85), p), w = s === 1 ? 1 : 0.65;
+            taper(ctx, tr, 16 * w, rgba(PAL.amber.glow, 0.13 * wa), 18);
+            taper(ctx, tr, 6 * w, rgba(PAL.amber.core, 0.26 * wa), 8);
+            taper(ctx, tr, 1.6 * w, rgba(PAL.amber.hot, 0.32 * wa));
+          }
+          var H = lp(E, F, p);
+          if (p < 1) glow(ctx, H.x, H.y, G.cell * 0.42, [[0, rgba(PAL.amber.hot, 0.8)], [0.45, rgba(PAL.amber.glow, 0.35)], [1, rgba(PAL.amber.glow, 0)]]);
+        });
+      }
+      var th = lt - mcwArrive(i);
+      if (th < 0) return;
+      var ba = env(th, 0, 90, MCW.bloom - 200, MCW.bloom + MCW.after);
+      rimGlow(ctx, B, G.rT + 2, G.rT * 1.9, PAL.amber.glow, ba);
+      softHalo(ctx, B, G.rT + 3, 2.6, PAL.radiant.core, ba * 0.9);
+      if (th < 520) softHalo(ctx, B, G.rT + 3 + easeOut(th / 520) * G.cell * 0.55, 2, PAL.radiant.glow, 1 - th / 520);
+      if (th < 300) add(ctx, function () {
+        glow(ctx, B.x, B.y, G.rT * 1.5, [[0, rgba(PAL.amber.hot, 0.32 * (1 - th / 300))], [1, rgba(PAL.amber.glow, 0)]]);
+      });
+      motes(ctx, B, th - 60, 900, 9, 31 + i, G.rT, PAL.radiant.core, G.cell * 0.6, 2.4);
+    });
+  }
+
+  var HL = { thread: 260, drop: 150, hold: 380, after: 650, pool: [380, 520, 1050, 1700], clear: 520 };
+  function hlHit() { return HL.thread + HL.drop; }
+  function hlUnder(ctx, lt, G) {
+    var B = G.T && G.T[0];
+    if (!B) return;
+    var a = env(lt, HL.pool[0], HL.pool[1], HL.pool[2], HL.pool[3]);
+    if (a <= 0) return;
+    var R = G.cell * (1.35 + 0.4 * easeOut(clamp((lt - HL.pool[0]) / 400))), n = 12, rot = (lt - HL.pool[0]) / 9000;
+    add(ctx, function () {
+      glow(ctx, B.x, B.y, R * 1.15, [[0, rgba(PAL.radiant.core, 0.3 * a)], [0.6, rgba(PAL.pane.gold, 0.14 * a)], [1, rgba(PAL.pane.amber, 0)]]);
+      for (var k = 0; k < n; k++) {
+        var a0 = rot + k / n * TAU, a1 = a0 + TAU / n * 0.82;
+        var col = k % 3 === 0 ? PAL.pane.rose : (k % 2 ? PAL.pane.amber : PAL.pane.gold);
+        ctx.beginPath();
+        ctx.moveTo(B.x + Math.cos(a0) * G.rT * 1.1, B.y + Math.sin(a0) * G.rT * 1.1);
+        ctx.arc(B.x, B.y, R, a0, a1);
+        ctx.arc(B.x, B.y, G.rT * 1.1, a1, a0, true);
+        ctx.closePath();
+        var g = ctx.createRadialGradient(B.x, B.y, G.rT, B.x, B.y, R);
+        g.addColorStop(0, rgba(col, 0.46 * a));
+        g.addColorStop(0.75, rgba(col, 0.16 * a));
+        g.addColorStop(1, rgba(col, 0));
+        ctx.fillStyle = g; ctx.fill();
+      }
+    });
+    ctx.save();
+    ctx.strokeStyle = rgba(PAL.pane.lead, 0.4 * a);
+    ctx.lineWidth = 1.2;
+    for (var j = 0; j < n; j++) {
+      var an = rot + j / n * TAU - TAU / n * 0.09;
+      ctx.beginPath();
+      ctx.moveTo(B.x + Math.cos(an) * G.rT * 1.1, B.y + Math.sin(an) * G.rT * 1.1);
+      ctx.lineTo(B.x + Math.cos(an) * R * 0.95, B.y + Math.sin(an) * R * 0.95);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.arc(B.x, B.y, G.rT * 1.1 + (R - G.rT * 1.1) * 0.55, 0, TAU);
+    ctx.stroke();
+    ctx.restore();
+  }
+  function heal(ctx, lt, G) {
+    var B = G.T && G.T[0];
+    if (!B || !G.S) return;
+    var F = edge(B, G.S, G.rT + 2);
+    var ta = env(lt, 0, 60, HL.thread + 40, HL.thread + 260), p = easeInOut(clamp(lt / HL.thread));
+    if (ta > 0) add(ctx, function () {
+      var tr = slice(curve(G.A || G.S, F, 6, 24), 0, p);
+      stroke(ctx, tr, 3, rgba(PAL.bless, 0.2 * ta), 6);
+      stroke(ctx, tr, 1, rgba(PAL.radiant.core, 0.65 * ta));
+    });
+    var t = lt - HL.thread;
+    if (t < 0) return;
+    var top = B.y - G.cell * 4.2, fall = easeIn(clamp(t / HL.drop)), yb = lerp(top, B.y, fall);
+    var ca = env(t, 0, 40, HL.drop + HL.hold, HL.drop + HL.hold + 300), w = G.cell * 0.62;
+    if (ca > 0) add(ctx, function () {
+      var g = ctx.createLinearGradient(B.x - w * 1.6, 0, B.x + w * 1.6, 0);
+      g.addColorStop(0, rgba(PAL.radiant.glow, 0));
+      g.addColorStop(0.3, rgba(PAL.radiant.glow, 0.22 * ca));
+      g.addColorStop(0.5, rgba(PAL.radiant.hot, 0.5 * ca));
+      g.addColorStop(0.7, rgba(PAL.radiant.glow, 0.22 * ca));
+      g.addColorStop(1, rgba(PAL.radiant.glow, 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(B.x - w * 1.6, Math.max(0, top - 40), w * 3.2, Math.max(1, yb - Math.max(0, top - 40)));
+      var g2 = ctx.createLinearGradient(B.x - w * 0.4, 0, B.x + w * 0.4, 0);
+      g2.addColorStop(0, rgba(PAL.radiant.core, 0));
+      g2.addColorStop(0.5, rgba(PAL.radiant.hot, 0.55 * ca));
+      g2.addColorStop(1, rgba(PAL.radiant.core, 0));
+      ctx.fillStyle = g2;
+      ctx.fillRect(B.x - w * 0.4, Math.max(0, top - 40), w * 0.8, Math.max(1, yb - Math.max(0, top - 40)));
+      var r = rng(5);
+      for (var k = 0; k < 14; k++) {
+        var x = B.x + (r() - 0.5) * w * 1.8, y = lerp(top, yb, (r() + t / 700) % 1);
+        glow(ctx, x, y, 3.5, [[0, rgba(PAL.radiant.hot, 0.8 * ca)], [1, rgba(PAL.radiant.core, 0)]]);
+      }
+      glow(ctx, B.x, yb, w * 1.4, [[0, rgba(PAL.radiant.hot, 0.5 * ca)], [1, rgba(PAL.radiant.glow, 0)]]);
+    });
+    var th = t - HL.drop;
+    if (th < 0) return;
+    if (th < 520) add(ctx, function () {
+      var u = th / 520;
+      glow(ctx, B.x, B.y, G.cell * (0.9 + 0.7 * easeOut(u)), [[0, rgba(PAL.radiant.hot, 0.8 * (1 - u))], [0.35, rgba(PAL.radiant.core, 0.6 * (1 - u))], [1, rgba(PAL.radiant.glow, 0)]]);
+    });
+    for (var h = 0; h < 3; h++) {
+      var tr2 = th - h * 110;
+      if (tr2 > 0 && tr2 < 640) softHalo(ctx, B, G.rT + 4 + easeOut(tr2 / 640) * G.cell * (1.0 + h * 0.35), 2.6 - h * 0.6, h ? PAL.radiant.glow : PAL.radiant.core, 1 - tr2 / 640);
+    }
+    var aa = env(th, 200, 320, 320 + HL.after * 0.4, 320 + HL.after);
+    rimGlow(ctx, B, G.rT + 2, G.rT * 1.8, PAL.radiant.glow, 0.9 * aa);
+    softHalo(ctx, B, G.rT + 3, 2.2, PAL.radiant.core, 0.8 * aa);
+    motes(ctx, B, th - 80, 1100, 12, 77, G.rT * 1.1, PAL.radiant.core, G.cell * 0.8, 2.6);
+    if (G.clear) motes(ctx, B, th - HL.clear, 1100, 10, 91, G.rT * 1.05, PAL.teal, G.cell * 1.0, 1.9);
+  }
+
+  function tokenState(look, lt, id, G) {
+    var s = { dx: 0, dy: 0, grey: 0, tint: null };
+    var ti = typeof id === "number" ? id : (id === "target" ? 0 : -1);
+    if (ti < 0 || !G || !G.T || ti >= G.T.length) return s;
+    if (look === "massword") {
+      var a = env(lt - mhwArrive(ti), 0, 80, 200, 700);
+      if (a > 0) s.tint = { col: PAL.hw.tint, a: 0.1 * a };
+    }
+    if (look === "masscure") {
+      var b = env(lt - mcwArrive(ti), 0, 90, 380, 940);
+      if (b > 0) s.tint = { col: PAL.amber.core, a: 0.16 * b };
+    }
+    if (look === "healcolumn") {
+      var c = env(lt - hlHit(), 0, 60, 380, 1100);
+      if (c > 0) s.tint = { col: PAL.radiant.core, a: 0.24 * c };
+    }
+    return s;
+  }
+  var PAINT = { massword: mhw, masscure: mcw, healcolumn: heal };
+  var UNDER = { massword: mhwUnder, masscure: mcwUnder, healcolumn: hlUnder };
+  return {
+    looks: Object.keys(PAINT),
+    paint: function (ctx, look, lt, G) { if (PAINT[look] && lt >= 0 && G) PAINT[look](ctx, lt, G); },
+    paintUnder: function (ctx, look, lt, G) { if (UNDER[look] && lt >= 0 && G) UNDER[look](ctx, lt, G); },
+    tokenState: function (look, lt, id, G) { return lt >= 0 ? tokenState(look, lt, id, G) : { dx: 0, dy: 0, grey: 0, tint: null }; },
+    shakeOf: function () { return { x: 0, y: 0 }; }
+  };
+  })();
+
+
   var C1_LOOKS = {
     "witch-bolt": 1, "scorching-ray": 1, "guiding-bolt": 1, "sacred-flame": 1, "chill-touch": 1,
     "acid-arrow": 1, "poison-spray": 1, "chain-lightning": 1, "disintegrate": 1
@@ -5940,6 +6271,33 @@ function beadsPaint(ctx, A, B, lt, seed) {
     Chunk5Fx.paintUnder(ctx, key, lt, G);
     Chunk5Fx.paint(ctx, key, lt, G);
   }
+  function c6Geom(look, g, spec) {
+    g = g || {};
+    spec = spec || {};
+    var S = (g.S && isFinite(Number(g.S.x)) && isFinite(Number(g.S.y))) ? g.S : (g.A || null);
+    if (!S) return null;
+    var cell = g.cell || 70;
+    var targets = [];
+    function push(p) {
+      if (!p || !isFinite(Number(p.x)) || !isFinite(Number(p.y))) return;
+      if (targets.length >= 6) return;
+      targets.push({ x: Number(p.x), y: Number(p.y) });
+    }
+    push(g.T || g.B || S);
+    (g.hops || []).forEach(push);
+    if (!targets.length) return null;
+    return {
+      A: S, S: S, T: targets,
+      rT: g.rT || cell * 0.42, rS: g.rS || cell * 0.42, cell: cell,
+      clear: !!(spec.cleared || g.cleared)
+    };
+  }
+  function chunk6Paint(ctx, look, lt, g, spec) {
+    var G = c6Geom(look, g, spec);
+    if (!G) return;
+    Chunk6Fx.paintUnder(ctx, look, lt, G);
+    Chunk6Fx.paint(ctx, look, lt, G);
+  }
   function zoneLayer(ctx, spec, lt, g, layer) {
     var look = lookOf(spec || {});
     if (!chunk4Spell(look, spec)) return;
@@ -5955,6 +6313,12 @@ function beadsPaint(ctx, A, B, lt, seed) {
       var G5 = c5Geom(look, g, spec || {});
       if (!G5) return { dx: 0, dy: 0, grey: 0, tint: null };
       return Chunk5Fx.tokenState(chunk5Key(look, spec), lt, "target", G5);
+    }
+    if (chunk6Spell(look)) {
+      var G6 = c6Geom(look, g, spec || {});
+      if (!G6) return { dx: 0, dy: 0, grey: 0 };
+      var idx = g && isFinite(Number(g.healIndex)) ? Number(g.healIndex) : 0;
+      return Chunk6Fx.tokenState(look, lt, idx, G6);
     }
     if (chunk4Spell(look, spec)) {
       var G4 = c4Geom(look, g, spec || {});
@@ -6088,6 +6452,9 @@ function beadsPaint(ctx, A, B, lt, seed) {
     if (C1_LOOKS[look]) return chunk1Paint(ctx, look, lt, g || { A: A, B: B, T: B, S: A, cell: 70, rT: 18, rS: 18 }, spec || {});
     if (chunk4Spell(look, spec)) {
       return chunk4Paint(ctx, look, lt, g || { A: A, B: B, T: B, S: A, cell: 70, rT: 18, rS: 18 }, spec || {});
+    }
+    if (chunk6Spell(look)) {
+      return chunk6Paint(ctx, look, lt, g || { A: A, B: B, T: B, S: A, cell: 70, rT: 18, rS: 18 }, spec || {});
     }
     var T = g && (g.T || g.S);
     var r = (g && (g.rT || g.rS)) || 18;
