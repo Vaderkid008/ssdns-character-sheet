@@ -114,6 +114,17 @@
         p.impactAt += beatN * 120;
         p.duration += beatN * 120;
       }
+      if (chunk4Spell(look, info)) {
+        if (info.pulse) { p.impactAt = 40; p.duration = 700; }
+        else if (info.garnish === "clear") { p.impactAt = 20; p.duration = 900; }
+        else if (info.garnish === "detonate") { p.impactAt = 80; p.duration = 1700; }
+        else if (look === "icebomb") { p.impactAt = 820; p.duration = 2400; }
+        else if (look === "skypillar" && /fire storm/.test(spellNow)) {
+          var extraCols = Math.min(9, (info.hops && info.hops.length) || 0);
+          p.impactAt += extraCols * 50;
+          p.duration += extraCols * 100;
+        }
+      }
       p.look = look;
     }
     else if (type === "boom") {
@@ -171,7 +182,7 @@
     if (spec.facing != null && isFinite(face)) out.facing = Math.round(face * 1000) / 1000;
     if (spec.weaponId) out.weaponId = String(spec.weaponId).replace(/[^a-z0-9-]/gi, "").slice(0, 60);
     if (spec.scene) out.scene = String(spec.scene).slice(0, 60);
-    var hops = packList(spec.hops, 6);
+    var hops = packList(spec.hops, 10);
     if (hops) out.hops = hops;
     var rays = packList(spec.rays, 8);
     if (rays) out.rays = rays;
@@ -184,7 +195,7 @@
     if (spec.beat != null && isFinite(beat)) out.beat = Math.max(0, Math.min(7, Math.round(beat)));
     if (spec.killed) out.killed = true;
     if (spec.rise) out.rise = true;
-    if (spec.garnish === "place" || spec.garnish === "swipe" || spec.garnish === "clear") out.garnish = spec.garnish;
+    if (spec.garnish === "place" || spec.garnish === "swipe" || spec.garnish === "clear" || spec.garnish === "detonate") out.garnish = spec.garnish;
     var nat = Number(spec.nat);
     if (spec.nat != null && isFinite(nat) && nat >= 1 && nat <= 20) out.nat = Math.round(nat);
     if (spec.crit) out.crit = true;
@@ -213,7 +224,7 @@
       r.at = { x: Math.round(Number(info.at.x) * 10) / 10, y: Math.round(Number(info.at.y) * 10) / 10 };
     }
     if (info.weaponId) r.weaponId = String(info.weaponId).replace(/[^a-z0-9-]/gi, "").slice(0, 60);
-    var reqHops = packList(info.hops, 6);
+    var reqHops = packList(info.hops, 10);
     if (reqHops) r.hops = reqHops;
     var reqRays = packList(info.rays, 8);
     if (reqRays) r.rays = reqRays;
@@ -226,7 +237,7 @@
     if (info.beat != null && isFinite(reqBeat)) r.beat = Math.max(0, Math.min(7, Math.round(reqBeat)));
     if (info.killed) r.killed = true;
     if (info.rise) r.rise = true;
-    if (info.garnish === "place" || info.garnish === "swipe" || info.garnish === "clear") r.garnish = info.garnish;
+    if (info.garnish === "place" || info.garnish === "swipe" || info.garnish === "clear" || info.garnish === "detonate") r.garnish = info.garnish;
     if (info.arrow) r.arrow = String(info.arrow).replace(/[^a-z-]/gi, "").slice(0, 20);
     var n = Number(info.nat);
     if (info.nat != null && isFinite(n) && n >= 1 && n <= 20) r.nat = Math.round(n);
@@ -511,7 +522,20 @@
     sickray: { grow: 70, hold: 280, fade: 700 },
     smitefire: { grow: 110, hold: 80, fade: 640 },
     fear: { grow: 110, hold: 280, fade: 900 },
-    blind: { grow: 110, hold: 40, fade: 560 }
+    blind: { grow: 110, hold: 40, fade: 560 },
+    /* Chunk 4 Phase 1 clocks. Sticky idles live on the zone layer; these cover the cast, the tick, and the boom. */
+    wallice: { grow: 360, hold: 520, fade: 420 },
+    wallthorn: { grow: 360, hold: 520, fade: 420 },
+    wallblade: { grow: 360, hold: 520, fade: 420 },
+    void: { grow: 280, hold: 620, fade: 420 },
+    daggers: { grow: 180, hold: 520, fade: 400 },
+    swarm: { grow: 550, hold: 280, fade: 420 },
+    furnace: { grow: 600, hold: 280, fade: 420 },
+    skypillar: { grow: 120, hold: 900, fade: 480 },
+    icebomb: { grow: 820, hold: 900, fade: 520 },
+    sunburst: { grow: 60, hold: 900, fade: 450 },
+    deathring: { grow: 600, hold: 800, fade: 500 },
+    bead: { grow: 260, hold: 280, fade: 320 }
   };
   var SELF_LOOKS = { shield: 1, magearmor: 1, pwt: 1, invis: 1, flameblade: 1, fireshield: 1, produceflame: 1, agathys: 1, tintype: 1, haze: 1 };
   /* N85 Chunks 2–6 named looks. Damage-type keys already locked by tests stay on lookOf's later pass. */
@@ -1394,6 +1418,31 @@ function chunk3Spell(look, spec) {
   if (look === "token" && /guardian of faith/.test(name)) return true;
   return false;
 }
+/* Chunk 4 named looks. Hunger and Arms share `void`. Flame Strike and Fire Storm share `skypillar`.
+   Hail of Thorns stays on the thorn stub. Wall of Fire, Cloudkill, Fireball, and Sacred Flame stay on their own looks. */
+function chunk4Spell(look, spec) {
+  var name = low((spec && (spec.spell || spec.weapon)) || "");
+  if (look === "wallice" || look === "wallthorn" || look === "wallblade" || look === "daggers" || look === "swarm" || look === "furnace" || look === "icebomb" || look === "sunburst" || look === "deathring" || look === "bead") return true;
+  if (look === "void" && /hunger of hadar|arms of hadar/.test(name)) return true;
+  if (look === "skypillar" && /flame strike|fire storm/.test(name)) return true;
+  return false;
+}
+function chunk4Key(look, spec) {
+  var name = low((spec && (spec.spell || spec.weapon)) || "");
+  if (look === "void" && /arms of hadar/.test(name)) return "arms";
+  if (look === "void") return "hunger";
+  if (look === "skypillar" && /fire storm/.test(name)) return "storm";
+  if (look === "skypillar") return "flame";
+  return look;
+}
+function c4Mode(spec) {
+  spec = spec || {};
+  if (spec.garnish === "detonate") return "boom";
+  if (spec.garnish === "clear") return "clear";
+  if (spec.pulse) return "tick";
+  if (spec.quiet) return "idle";
+  return "cast";
+}
 function chunk3Key(look, spec) {
   var name = low((spec && (spec.spell || spec.weapon)) || "");
   if (look === "cold" && /ray of frost/.test(name)) return "frostray";
@@ -1404,6 +1453,7 @@ function chunk3Key(look, spec) {
 }
 function shakeOf(spec, lt) {
   var look = lookOf(spec || {});
+  if (chunk4Spell(look, spec)) return Chunk4Fx.shakeOf(chunk4Key(look, spec), lt, spec || {});
   if (chunk3Spell(look, spec)) return Chunk3Fx.shakeOf(chunk3Key(look, spec), lt, spec || {});
   if (C1_LOOKS[look]) {
     if (look === "witch-bolt" && spec && spec.pulse) return { x: 0, y: 0 };
@@ -3969,6 +4019,902 @@ function beadsPaint(ctx, A, B, lt, seed) {
   };
   })();
 
+  /* Chunk 4 Phase 1 Love-it outlines. Shape + clear effect. One beat per real cast, enter, start, end, Clear, or detonate.
+     Demo clocks (foe step-ins, scripted second skins, the DM CLEAR pill) are not reproduced.
+     Dust, grit, and Phase 2 spice stay out. Art idle webms are not in the tip assets, so slots 4–5 loop on the canvas.
+     Sticky walls, voids, cubes, swarms, furnace clouds, and the Delayed Blast bead idle on the zone layer.
+     Rules radii: Freezing Sphere, Sunburst, and Circle of Death are 60 ft. The Love-it board drew those at 4.5 cells. */
+  var Chunk4Fx = (function () {
+    var TAU = Math.PI * 2;
+    var PAL = {
+      fire: { glow: "200,60,15", core: "255,125,35", hot: "255,225,160", burst: "255,140,45", ball: "255,242,205", smoke: "40,34,30" },
+      cold: { glow: "80,125,185", core: "200,225,250", hot: "250,252,255", mist: "150,185,225" },
+      radiant: { glow: "230,175,70", core: "255,232,170", hot: "255,250,230" },
+      necrotic: { glow: "95,45,100", black: "6,3,8", bone: "185,170,180", ash: "120,112,118", hex: "170,90,190" },
+      acid: { glow: "80,135,25", core: "125,180,40", bloom: "175,210,55", hot: "225,235,150" },
+      voidc: { body: "6,3,8", vein: "14,8,16", plum: "60,30,66" },
+      steel: { metal: "90,95,105", glint: "220,225,235", spark: "255,190,110", grip: "70,45,28" },
+      briar: { wood: "70,62,38", bark: "135,115,75", sage: "110,120,70", prick: "150,175,80", prickHot: "220,235,170" },
+      swarm: { body: "70,50,30", wing: "150,130,95", bite: "200,60,40", biteHot: "255,170,140" },
+      blind: "255,250,235"
+    };
+    var AH = { out: 280, hold: 430, back: 760 };
+    var FZ = { travel: 380, det: 820 };
+    function clamp(v, a, b) { a = a === undefined ? 0 : a; b = b === undefined ? 1 : b; return Math.max(a, Math.min(b, v)); }
+    function rgba(c, a) { return "rgba(" + c + "," + clamp(a) + ")"; }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function lp(A, B, t) { return { x: lerp(A.x, B.x, t), y: lerp(A.y, B.y, t) }; }
+    function easeOut(t) { return 1 - Math.pow(1 - clamp(t), 3); }
+    function easeIn(t) { t = clamp(t); return t * t; }
+    function easeInOut(t) { t = clamp(t); return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+    function env(t, a, b, c, d) { if (t < a || t > d) return 0; if (t < b) return (t - a) / Math.max(1, b - a); if (t <= c) return 1; return 1 - (t - c) / Math.max(1, d - c); }
+    function rng(seed) { var s = (seed * 2654435761) >>> 0; return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+    function dist(A, B) { return Math.hypot(B.x - A.x, B.y - A.y); }
+    function norm(A, B) { var d = dist(A, B) || 1; return { x: (B.x - A.x) / d, y: (B.y - A.y) / d }; }
+    function jag(A, B, segs, amp, seed) {
+      var r = rng(seed), n = norm(A, B), px = -n.y, py = n.x, pts = [];
+      for (var i = 0; i <= segs; i++) {
+        var u = i / segs, o = (i === 0 || i === segs) ? 0 : (r() - 0.5) * 2 * amp;
+        pts.push({ x: lerp(A.x, B.x, u) + px * o, y: lerp(A.y, B.y, u) + py * o });
+      }
+      return pts;
+    }
+    function poly(ctx, pts) {
+      if (!pts || !pts.length) return;
+      ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+      for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    }
+    function stroke(ctx, pts, w, col, blur, blurCol) {
+      if (!pts || pts.length < 2) return;
+      ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = w; ctx.strokeStyle = col;
+      if (blur) { ctx.shadowBlur = blur; ctx.shadowColor = blurCol || col; }
+      poly(ctx, pts); ctx.stroke(); ctx.restore();
+    }
+    function glow(ctx, x, y, r, stops) {
+      if (!(r > 0.5)) return;
+      var g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      for (var i = 0; i < stops.length; i++) g.addColorStop(stops[i][0], stops[i][1]);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+    }
+    function add(ctx, fn) { ctx.save(); ctx.globalCompositeOperation = "lighter"; fn(); ctx.restore(); }
+    function ring(ctx, x, y, r, w, col, blur) {
+      if (!(r > 0) || !(w > 0)) return;
+      ctx.save(); ctx.lineWidth = w; ctx.strokeStyle = col;
+      if (blur) { ctx.shadowBlur = blur; ctx.shadowColor = col; }
+      ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); ctx.restore();
+    }
+    function sparks(ctx, x, y, t, n, seed, speed, life, col, size, grav) {
+      if (t < 0 || t > life) return;
+      var r = rng(seed), u = t / life;
+      add(ctx, function () {
+        for (var i = 0; i < n; i++) {
+          var a = r() * TAU, v = speed * (0.4 + r() * 0.8), d = v * (1 - Math.pow(1 - u, 2)) * life / 1000 * 0.6;
+          ctx.fillStyle = rgba(col, (1 - u) * (0.6 + r() * 0.4));
+          ctx.beginPath();
+          ctx.arc(x + Math.cos(a) * d, y + Math.sin(a) * d + (grav || 0) * u * u, size * (1 - u * 0.5), 0, TAU);
+          ctx.fill();
+        }
+      });
+    }
+    function tongue(ctx, w, h, fill) {
+      ctx.beginPath(); ctx.moveTo(-w, 0); ctx.quadraticCurveTo(-w * 0.4, -h * 0.6, 0, -h); ctx.quadraticCurveTo(w * 0.4, -h * 0.6, w, 0); ctx.closePath();
+      ctx.fillStyle = fill; ctx.fill();
+    }
+    function flameRing(ctx, x, y, R, n, lt, a, h0, seed) {
+      for (var i = 0; i < n; i++) {
+        var an = i / n * TAU + lt / 2200, h = h0 * (0.55 + 0.45 * (0.5 + 0.5 * Math.sin(lt / 85 + i * 2.3 + seed)));
+        ctx.save(); ctx.translate(x + Math.cos(an) * R, y + Math.sin(an) * R); ctx.rotate(an + Math.PI / 2);
+        var kw = Math.max(1, Math.sqrt(Math.max(1, R) / 40));
+        tongue(ctx, 4.2 * kw, h, rgba(PAL.fire.core, 0.7 * a));
+        tongue(ctx, 2 * kw, h * 0.6, rgba(PAL.fire.hot, 0.8 * a));
+        ctx.restore();
+      }
+    }
+    function fireBurst(ctx, B, t, life, R, seed) {
+      if (!B || t < 0 || t > life) return;
+      var u = t / life;
+      add(ctx, function () {
+        glow(ctx, B.x, B.y, R * (0.55 + 0.45 * easeOut(clamp(t / 140))), [[0, rgba(PAL.fire.ball, 0.95 * (1 - u))], [0.3, rgba(PAL.fire.core, 0.8 * (1 - u))], [0.7, rgba(PAL.fire.glow, 0.45 * (1 - u))], [1, rgba(PAL.fire.glow, 0)]]);
+        flameRing(ctx, B.x, B.y, R * 0.55 * (0.7 + 0.3 * easeOut(u)), 12, t, 1 - u, R * 0.45, seed);
+      });
+      sparks(ctx, B.x, B.y, t, 18, seed, 160, life, PAL.fire.burst, 1.6, -18);
+    }
+    function scorch(ctx, B, R, a) {
+      if (!B || a <= 0) return;
+      glow(ctx, B.x, B.y + 2, R, [[0, "rgba(10,6,3," + (0.7 * a) + ")"], [0.65, "rgba(18,10,5," + (0.5 * a) + ")"], [1, "rgba(18,10,5,0)"]]);
+      ctx.save(); ctx.strokeStyle = "rgba(80,35,10," + (0.5 * a) + ")"; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(B.x, B.y + 2, R * 0.6, 0, TAU); ctx.stroke(); ctx.restore();
+    }
+    function star(ctx, x, y, r, n, inner, fill, a, rot, blurCol) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(rot || 0); ctx.beginPath();
+      for (var i = 0; i < n * 2; i++) {
+        var rr = i % 2 ? r * inner : r, an = i / (n * 2) * TAU - Math.PI / 2;
+        ctx.lineTo(Math.cos(an) * rr, Math.sin(an) * rr);
+      }
+      ctx.closePath(); ctx.fillStyle = rgba(fill, a);
+      if (blurCol) { ctx.shadowBlur = 10; ctx.shadowColor = rgba(blurCol, a); }
+      ctx.fill(); ctx.restore();
+    }
+    function wedge(ctx, A, ang, L, w0, w1, fill) {
+      var n = { x: Math.cos(ang), y: Math.sin(ang) }, px = -n.y, py = n.x, B = { x: A.x + n.x * L, y: A.y + n.y * L };
+      ctx.beginPath();
+      ctx.moveTo(A.x + px * w0, A.y + py * w0);
+      ctx.lineTo(B.x + px * w1, B.y + py * w1);
+      ctx.lineTo(B.x - px * w1, B.y - py * w1);
+      ctx.lineTo(A.x - px * w0, A.y - py * w0);
+      ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+    }
+    function flash(ctx, B, t, life, R, col, hot) {
+      if (!B || t < 0 || t > life) return;
+      var u = t / life;
+      add(ctx, function () {
+        glow(ctx, B.x, B.y, R * (0.6 + 0.4 * u), [[0, rgba(hot, 1 - u)], [0.4, rgba(col, 0.55 * (1 - u))], [1, rgba(col, 0)]]);
+        ring(ctx, B.x, B.y, R * 0.45 + easeOut(u) * R * 0.6, 3 * (1 - u) + 0.5, rgba(hot, 1 - u), 10);
+      });
+    }
+    function shard(ctx, x, y, an, L, w, col) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(an); ctx.beginPath();
+      ctx.moveTo(L, 0); ctx.lineTo(0, w); ctx.lineTo(-L * 0.6, 0); ctx.lineTo(0, -w); ctx.closePath();
+      ctx.fillStyle = col; ctx.fill(); ctx.restore();
+    }
+    function collapse(ctx, B, t, R0, R1, seed) {
+      if (!B) return;
+      if (t >= 0 && t < 420) {
+        var u = easeOut(t / 420), R = lerp(R0, R1, u);
+        add(ctx, function () { ring(ctx, B.x, B.y, R, 5 * (1 - u) + 1, rgba(PAL.necrotic.hex, 0.95 * (1 - u * 0.6)), 14); });
+        glow(ctx, B.x, B.y, R, [[0, rgba(PAL.necrotic.black, 0.6 * u)], [1, rgba(PAL.necrotic.black, 0)]]);
+      }
+      var r = rng(seed);
+      for (var q = 0; q < 18; q++) {
+        var t0 = r() * 500, age = (t - t0) / 1000, an = r() * TAU, rad = R1 * (0.6 + r() * 1.6);
+        if (age < 0 || age > 1) continue;
+        ctx.save();
+        ctx.translate(B.x + Math.cos(an) * rad * (1 + age * 0.4), B.y + Math.sin(an) * rad + age * 16);
+        ctx.rotate(age * 5 + q);
+        ctx.fillStyle = rgba(PAL.necrotic.ash, 0.9 * (1 - age));
+        ctx.fillRect(-1.8, -1.1, 3.6, 2.2);
+        ctx.restore();
+      }
+    }
+    function clearPop(ctx, C, R, t) {
+      if (!C || t < 0 || t > 800) return;
+      var v = t / 800, r = rng(91);
+      for (var k = 0; k < 34; k++) {
+        var an = r() * TAU, d = R * (0.3 + r() * 0.8) * (0.6 + 0.4 * easeOut(v));
+        ctx.fillStyle = "rgba(150,140,125," + (0.55 * (1 - v) * (0.4 + r() * 0.6)) + ")";
+        ctx.beginPath();
+        ctx.arc(C.x + Math.cos(an) * d, C.y + Math.sin(an) * d - v * 10, 1.8, 0, TAU);
+        ctx.fill();
+      }
+    }
+    function band(ctx, A, B, hw, fill) {
+      if (!A || !B) return;
+      var n = norm(A, B), px = -n.y * hw, py = n.x * hw;
+      ctx.beginPath();
+      ctx.moveTo(A.x + px, A.y + py); ctx.lineTo(B.x + px, B.y + py); ctx.lineTo(B.x - px, B.y - py); ctx.lineTo(A.x - px, A.y - py);
+      ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+    }
+    function oval(ctx, rx, ry) {
+      ctx.beginPath();
+      if (ctx.ellipse) ctx.ellipse(0, 0, Math.max(0.4, rx), Math.max(0.4, ry), 0, 0, TAU);
+      else ctx.arc(0, 0, Math.max(rx, ry), 0, TAU);
+    }
+    function centerOf(G) { return (G && G.Z) || (G && G.T && G.T[0]) || null; }
+    function marksOf(G) { return (G && G.T) || []; }
+    function slashHit(ctx, B, t, G, seed) {
+      if (!B || t < 0 || t > 520) return;
+      var u = t / 520, r = rng(seed), rT = G.rT || 18;
+      for (var s = 0; s < 3; s++) {
+        var ts = t - s * 50;
+        if (ts < 0 || ts > 240) continue;
+        var a = 1 - ts / 240, p = clamp(ts / 70), an = -0.7 + r() * 0.5 + s * 0.55, n = { x: Math.cos(an), y: Math.sin(an) };
+        var P0 = { x: B.x - n.x * rT * 1.1, y: B.y - n.y * rT * 1.1 }, P1 = { x: P0.x + n.x * rT * 2.2 * p, y: P0.y + n.y * rT * 2.2 * p };
+        add(ctx, function () { stroke(ctx, [P0, P1], 5, rgba(PAL.steel.spark, 0.45 * a), 8); stroke(ctx, [P0, P1], 1.6, rgba(PAL.steel.glint, a)); });
+      }
+      sparks(ctx, B.x, B.y, t, 16, seed, 190, 520, PAL.steel.spark, 1.4, 14);
+      add(ctx, function () { glow(ctx, B.x, B.y, G.cell * 0.6, [[0, rgba(PAL.steel.spark, 0.45 * (1 - u))], [1, rgba(PAL.steel.spark, 0)]]); });
+    }
+    function iceHit(ctx, B, t, G) {
+      if (!B || t < 0 || t > 600) return;
+      var u = t / 600;
+      flash(ctx, B, t, 520, G.cell, PAL.cold.glow, PAL.cold.hot);
+      add(ctx, function () {
+        for (var s = 0; s < 8; s++) {
+          var an = s / 8 * TAU + 0.2, d = (G.rT || 16) * 0.3 + easeOut(clamp(t / 160)) * G.cell * 0.7;
+          shard(ctx, B.x + Math.cos(an) * d, B.y + Math.sin(an) * d, an, 7, 2.5, rgba(PAL.cold.hot, 1 - u));
+        }
+      });
+      sparks(ctx, B.x, B.y, t, 12, 8, 110, 600, PAL.cold.core, 1.3, 14);
+    }
+    function thornHit(ctx, B, t, G) {
+      if (!B || t < 0 || t > 600) return;
+      var u = t / 600;
+      flash(ctx, B, t, 480, G.cell * 0.85, PAL.briar.prick, PAL.briar.prickHot);
+      for (var s = 0; s < 7; s++) {
+        var an = s / 7 * TAU + 0.5, d = lerp(G.cell * 0.95, (G.rT || 16) * 0.45, easeOut(clamp(t / 180)));
+        shard(ctx, B.x + Math.cos(an) * d, B.y + Math.sin(an) * d, an + Math.PI, 7, 2, rgba("62,50,26", 1 - u));
+      }
+      sparks(ctx, B.x, B.y, t, 8, 12, 70, 600, PAL.briar.prick, 1.2, 10);
+    }
+    function biteHit(ctx, B, t, G, seed) {
+      if (!B || t < 0 || t > 560) return;
+      var u = t / 560, rb = rng(seed);
+      flash(ctx, B, t, 440, G.cell * 0.7, PAL.swarm.bite, PAL.swarm.biteHot);
+      for (var k = 0; k < 10; k++) {
+        var an = rb() * TAU, d = lerp(G.cell * 0.9, (G.rT || 16) * 0.55, easeOut(clamp(t / 220)));
+        ctx.save(); ctx.translate(B.x + Math.cos(an) * d, B.y + Math.sin(an) * d); ctx.rotate(an);
+        ctx.fillStyle = rgba(PAL.swarm.body, 0.9 * (1 - u)); oval(ctx, 2.8, 1.2); ctx.fill(); ctx.restore();
+      }
+    }
+    function tickMarks(ctx, lt, G, fn) {
+      marksOf(G).forEach(function (B, i) { fn(ctx, B, lt - i * 40, G, 40 + i); });
+    }
+
+    /* Walls. One skin per cast, along the aimed line. Idle is the zone layer. */
+    function wallEnd(W, lt, mode) {
+      var p = mode === "idle" ? 1 : easeOut(clamp(lt / 360));
+      return { p: p, E: lp(W.A, W.B, p), a: mode === "idle" ? 0.62 : lerp(1, 0.62, clamp((lt - 360) / 500)) };
+    }
+    function iceWall(ctx, W, lt, G, mode) {
+      var st = wallEnd(W, lt, mode), a = st.a, E = st.E, c = G.cell, hw = c * 0.24, n = norm(W.A, W.B), L = dist(W.A, E), r = rng(3);
+      band(ctx, W.A, E, hw, rgba(PAL.cold.mist, 0.38 * a));
+      band(ctx, W.A, E, hw * 0.45, rgba(PAL.cold.core, 0.22 * a));
+      add(ctx, function () {
+        band(ctx, W.A, E, hw * 1.3, rgba(PAL.cold.glow, 0.16 * a));
+        stroke(ctx, [{ x: W.A.x, y: W.A.y - hw }, { x: E.x, y: E.y - hw }], 1.6, rgba(PAL.cold.core, 0.8 * a), 6);
+        stroke(ctx, [{ x: W.A.x, y: W.A.y + hw }, { x: E.x, y: E.y + hw }], 1.6, rgba(PAL.cold.core, 0.8 * a), 6);
+        var step = c * 0.5, guard = 0;
+        for (var k = 0; k * step <= L && guard < 80; k++, guard++) {
+          var P = { x: W.A.x + n.x * k * step, y: W.A.y + n.y * k * step };
+          star(ctx, P.x, P.y, hw * (k % 2 ? 0.6 : 0.95), 6, 0.32, PAL.cold.core, (k % 2 ? 0.35 : 0.6) * a, 0, PAL.cold.glow);
+        }
+        for (var q = 0; q < 26; q++) {
+          var u = r(), side = r() > 0.5 ? 1 : -1;
+          if (u * dist(W.A, W.B) > L) continue;
+          ctx.fillStyle = rgba(PAL.cold.hot, 0.7 * a);
+          ctx.fillRect(W.A.x + n.x * u * dist(W.A, W.B) - 1, W.A.y + side * (hw + 1 + r() * 3) - 1, 2, 2);
+        }
+        if (st.p >= 1) {
+          var Pg = lp(W.A, W.B, (lt / 1700) % 1);
+          glow(ctx, Pg.x, Pg.y, hw * 1.6, [[0, rgba(PAL.cold.hot, 0.35 * a)], [1, rgba(PAL.cold.glow, 0)]]);
+        } else glow(ctx, E.x, E.y, c * 0.6, [[0, rgba(PAL.cold.hot, 0.9)], [1, rgba(PAL.cold.glow, 0)]]);
+      });
+    }
+    function thornWall(ctx, W, lt, G, mode) {
+      var st = wallEnd(W, lt, mode), a = st.a * 1.15, E = st.E, c = G.cell, hw = c * 0.27, n = norm(W.A, W.B), L = dist(W.A, E);
+      band(ctx, W.A, E, hw * 1.05, "rgba(32,28,16," + clamp(0.35 * a) + ")");
+      for (var v = 0; v < 3; v++) {
+        var pts = [];
+        for (var s = 0; s <= 40; s++) {
+          var u = s / 40, d = u * L, o = Math.sin(d / (c * 0.32) + v * 2.1) * hw * 0.8;
+          pts.push({ x: W.A.x + n.x * d - n.y * o, y: W.A.y + n.y * d + n.x * o });
+        }
+        stroke(ctx, pts, 3.4, rgba(PAL.briar.wood, 0.95 * a));
+        stroke(ctx, pts, 1, rgba(PAL.briar.bark, 0.55 * a));
+        for (var k = 1; k < pts.length - 1; k += 2) {
+          var P = pts[k], Q = pts[k + 1], tn = norm(P, Q), sd = (k + v) % 4 < 2 ? 1 : -1;
+          ctx.beginPath();
+          ctx.moveTo(P.x - tn.x * 2, P.y - tn.y * 2);
+          ctx.lineTo(P.x - tn.y * 6 * sd + tn.x * 2, P.y + tn.x * 6 * sd + tn.y * 2);
+          ctx.lineTo(P.x + tn.x * 2, P.y + tn.y * 2);
+          ctx.closePath(); ctx.fillStyle = rgba("48,40,22", a); ctx.fill();
+          if ((k + v) % 6 === 1) {
+            ctx.save(); ctx.translate(P.x + tn.y * 4, P.y - tn.x * 4); ctx.rotate(Math.atan2(tn.y, tn.x) + 0.6);
+            ctx.fillStyle = rgba(PAL.briar.sage, 0.85 * a); oval(ctx, 3, 1.6); ctx.fill(); ctx.restore();
+          }
+        }
+      }
+      if (st.p < 1) add(ctx, function () { glow(ctx, E.x, E.y, c * 0.45, [[0, rgba(PAL.briar.prickHot, 0.5)], [1, rgba(PAL.briar.prick, 0)]]); });
+    }
+    function bladeWall(ctx, W, lt, G, mode) {
+      var st = wallEnd(W, lt, mode), a = st.a * 1.2, E = st.E, c = G.cell, hw = c * 0.26, n = norm(W.A, W.B), L = dist(W.A, E);
+      stroke(ctx, [W.A, E], 2, rgba("40,40,46", 0.7 * a));
+      var guard = 0;
+      for (var k = 0; k * c * 0.62 <= L && guard < 48; k++, guard++) {
+        var H = { x: W.A.x + n.x * (k * c * 0.62 + c * 0.2), y: W.A.y + n.y * (k * c * 0.62 + c * 0.2) };
+        if (dist(W.A, H) > L + 1) break;
+        var spin = lt / 70 * (k % 2 ? 1 : -1) + k;
+        add(ctx, function () { ring(ctx, H.x, H.y, hw * 1.05, 2.5, rgba(PAL.steel.glint, 0.12 * a)); });
+        for (var b = 0; b < 3; b++) {
+          var an = spin + b / 3 * TAU;
+          ctx.save(); ctx.translate(H.x, H.y); ctx.rotate(an); ctx.beginPath();
+          ctx.moveTo(2, -2); ctx.lineTo(hw * 1.15, -0.6); ctx.lineTo(hw * 1.25, 1.2); ctx.lineTo(2, 2.4); ctx.closePath();
+          ctx.fillStyle = rgba(PAL.steel.metal, 0.95 * clamp(a)); ctx.fill();
+          ctx.lineWidth = 0.9; ctx.strokeStyle = rgba(PAL.steel.glint, 0.85 * clamp(a)); ctx.stroke(); ctx.restore();
+        }
+        ctx.beginPath(); ctx.arc(H.x, H.y, 3.2, 0, TAU); ctx.fillStyle = rgba("55,58,66", clamp(a)); ctx.fill();
+        var gl = Math.sin(lt / 55 + k * 1.9);
+        if (gl > 0.82) add(ctx, function () { star(ctx, H.x + Math.cos(spin) * hw, H.y + Math.sin(spin) * hw, 5, 4, 0.2, PAL.steel.glint, (gl - 0.82) / 0.18 * clamp(a), 0.3); });
+      }
+      if (st.p < 1) sparks(ctx, E.x, E.y, lt % 120, 6, Math.floor(lt / 120) + 4, 120, 120, PAL.steel.spark, 1.2, 6);
+    }
+    function wallSkin(ctx, lt, G) {
+      var skins = { ice: iceWall, thorns: thornWall, blades: bladeWall };
+      (G.W || []).forEach(function (W) {
+        if (!W || !W.A || !W.B) return;
+        var E = wallEnd(W, lt, G.mode).E;
+        band(ctx, W.A, E, G.cell * 0.34, "rgba(10,8,6,0.32)");
+        (skins[W.skin] || iceWall)(ctx, W, lt, G, G.mode);
+      });
+    }
+    function wallTick(ctx, lt, G) {
+      var hit = G.skin === "thorns" ? thornHit : (G.skin === "blades" ? function (c, B, t, Gg) { slashHit(c, B, t, Gg, 33); } : iceHit);
+      tickMarks(ctx, lt, G, hit);
+    }
+
+    /* Hunger of Hadar. Near-black void, cold/acid rim flecks, no purple swirl. */
+    function hhR(lt, G) {
+      var full = G.cell * (G.zr || 4);
+      if (G.mode === "idle" || G.mode === "tick" || G.mode === "clear") return full;
+      return full * (0.25 + 0.75 * easeOut(clamp(lt / 450)));
+    }
+    function voidBody(ctx, C, R, lt, a, seed) {
+      if (!C || a <= 0 || !(R > 1)) return;
+      var r = rng(seed);
+      for (var v = 0; v < 11; v++) {
+        var an = r() * TAU, l = R * (1.1 + r() * 0.25);
+        stroke(ctx, jag({ x: C.x + Math.cos(an) * R * 0.75, y: C.y + Math.sin(an) * R * 0.75 }, { x: C.x + Math.cos(an) * l, y: C.y + Math.sin(an) * l }, 5, 5, seed + v), 2.2, rgba(PAL.voidc.body, 0.6 * a));
+      }
+      glow(ctx, C.x, C.y, R, [[0, rgba(PAL.voidc.body, 0.93 * a)], [0.72, rgba(PAL.voidc.body, 0.9 * a)], [0.9, rgba(PAL.voidc.body, 0.55 * a)], [1, rgba(PAL.voidc.body, 0)]]);
+      for (var k = 0; k < 22; k++) {
+        var an2 = k / 22 * TAU + lt / 9000 * (k % 2 ? 1 : -1), rr = R * (0.86 + 0.08 * Math.sin(lt / 700 + k)), s = R * (0.13 + (k % 5) * 0.02);
+        glow(ctx, C.x + Math.cos(an2) * rr, C.y + Math.sin(an2) * rr, s, [[0, rgba(PAL.voidc.vein, 0.6 * a)], [1, rgba(PAL.voidc.vein, 0)]]);
+      }
+    }
+    function rimFlecks(ctx, C, R, lt, a) {
+      if (!C || a <= 0) return;
+      var r = rng(5);
+      add(ctx, function () {
+        for (var i = 0; i < 26; i++) {
+          var an = r() * TAU + lt / 12000, rr = R * (0.88 + r() * 0.14), tw = 0.5 + 0.5 * Math.sin(lt / 190 + i * 1.7);
+          var col = i % 3 === 2 ? PAL.acid.bloom : PAL.cold.core;
+          glow(ctx, C.x + Math.cos(an) * rr, C.y + Math.sin(an) * rr, 4 + r() * 3, [[0, rgba(col, 0.85 * a * tw)], [1, rgba(col, 0)]]);
+        }
+      });
+    }
+    function hungerTick(ctx, lt, G) {
+      var acid = /acid/.test(G.dmg || "");
+      tickMarks(ctx, lt, G, function (c, B, t) {
+        if (acid) {
+          flash(c, B, t, 460, G.cell * 0.8, PAL.acid.glow, PAL.acid.hot);
+          var r = rng(40), u2 = clamp(t / 520);
+          if (t < 0 || t > 520) return;
+          for (var k = 0; k < 9; k++) {
+            var an = r() * TAU, d = (G.rT || 16) * (0.4 + r() * 0.9) * easeOut(clamp(t / 300));
+            c.fillStyle = rgba(PAL.acid.core, 1 - u2);
+            c.beginPath(); c.arc(B.x + Math.cos(an) * d, B.y + Math.sin(an) * d, 1.9, 0, TAU); c.fill();
+          }
+        } else iceHit(c, B, t, G);
+      });
+    }
+    function hunger(ctx, lt, G) {
+      var C = centerOf(G); if (!C) return;
+      if (G.mode === "tick") { hungerTick(ctx, lt, G); return; }
+      if (G.mode === "clear") { clearPop(ctx, C, G.cell * (G.zr || 4), lt); return; }
+      var R = hhR(lt, G), a = G.mode === "idle" ? 0.92 : easeOut(clamp(lt / 300));
+      glow(ctx, C.x, C.y, R, [[0, rgba(PAL.voidc.body, 0.2 * a)], [0.85, rgba(PAL.voidc.body, 0.16 * a)], [1, rgba(PAL.voidc.body, 0)]]);
+      if (G.mode === "cast" && lt < 650) {
+        add(ctx, function () {
+          var u = clamp(lt / 650);
+          ring(ctx, C.x, C.y, lerp(R * 1.25, R * 0.98, easeOut(u)), 2 * (1 - u), rgba(PAL.cold.glow, 0.5 * (1 - u)), 10);
+        });
+      }
+      rimFlecks(ctx, C, R, lt, a);
+    }
+    function hungerUnder(ctx, lt, G) {
+      if (G.mode === "tick" || G.mode === "clear") return;
+      var C = centerOf(G); if (!C) return;
+      voidBody(ctx, C, hhR(lt, G), lt, G.mode === "idle" ? 0.92 : easeOut(clamp(lt / 300)), 17);
+    }
+
+    /* Arms of Hadar. Self-centred lash, then retract. Not a zone. */
+    function ahExt(t) {
+      if (t < 0) return 0;
+      if (t < AH.out) return easeOut(t / AH.out);
+      if (t < AH.hold) return 1;
+      return 1 - easeInOut((t - AH.hold) / (AH.back - AH.hold));
+    }
+    function ahTendrils(G) {
+      var S = G.S || G.A, list = [];
+      if (!S) return list;
+      marksOf(G).forEach(function (B) {
+        if (dist(S, B) < G.cell * 0.45) return;
+        list.push({ an: Math.atan2(B.y - S.y, B.x - S.x), L: Math.min(G.cell * 2.4, dist(S, B) + (G.rT || 16) * 0.15), hit: true });
+      });
+      var fill = [0.35, 1.25, 2.6, 3.4, 4.6, 5.5, 0.9, 2.1];
+      for (var i = 0; list.length < 8 && i < fill.length; i++) {
+        var ok = list.every(function (q) { return Math.abs(Math.atan2(Math.sin(q.an - fill[i]), Math.cos(q.an - fill[i]))) > 0.45; });
+        if (ok) list.push({ an: fill[i], L: G.cell * 2.05, hit: false });
+      }
+      return list;
+    }
+    function armsUnder(ctx, lt, G) {
+      if (G.mode !== "cast") return;
+      var S = G.S || G.A; if (!S) return;
+      var e = ahExt(lt), pa = env(lt, 0, 120, 700, 1300);
+      glow(ctx, S.x, S.y, G.cell * 1.15, [[0, rgba(PAL.voidc.body, 0.8 * pa)], [0.7, rgba(PAL.voidc.body, 0.5 * pa)], [1, rgba(PAL.voidc.body, 0)]]);
+      if (!(e > 0)) return;
+      ahTendrils(G).forEach(function (q, i) {
+        var L = q.L * e, nx = Math.cos(q.an), ny = Math.sin(q.an), pts = [];
+        for (var s = 0; s <= 16; s++) {
+          var u = s / 16, o = Math.sin(u * 3.2 + lt / 55 + i * 1.7) * G.cell * 0.22 * u * (1 - u * 0.4);
+          pts.push({ x: S.x + nx * u * L - ny * o, y: S.y + ny * u * L + nx * o });
+        }
+        add(ctx, function () { stroke(ctx, pts, 18, rgba(PAL.necrotic.glow, 0.22), 12); });
+        for (var k = 0; k < 16; k++) stroke(ctx, [pts[k], pts[k + 1]], lerp(14, 2.5, k / 16), rgba(PAL.voidc.body, 0.95));
+        for (var k2 = 0; k2 < 16; k2 += 2) stroke(ctx, [pts[k2], pts[k2 + 1]], 1.2, rgba(PAL.voidc.plum, 0.7));
+        add(ctx, function () {
+          [5, 11].forEach(function (k3, j) {
+            var P = pts[k3]; if (!P) return;
+            var col = (i + j) % 2 ? PAL.acid.bloom : PAL.cold.core;
+            glow(ctx, P.x, P.y, 4, [[0, rgba(col, 0.8 * e)], [1, rgba(col, 0)]]);
+          });
+        });
+      });
+    }
+    function arms(ctx, lt, G) {
+      if (G.mode !== "cast") return;
+      var S = G.S || G.A; if (!S) return;
+      marksOf(G).forEach(function (B, i) {
+        if (dist(S, B) < G.cell * 0.45) return;
+        var t = lt - AH.out + 30 - i * 15;
+        if (t < 0 || t > 560) return;
+        var u = t / 560, p = easeOut(clamp(t / 140));
+        flash(ctx, B, t, 380, G.cell * 0.6, PAL.necrotic.glow, PAL.necrotic.hex);
+        var an0 = Math.atan2(S.y - B.y, S.x - B.x);
+        [-1, 1].forEach(function (sd) {
+          var pts = [];
+          for (var j = 0; j <= 10; j++) {
+            var an = an0 + sd * lerp(1.9, 0.55, p) * (j / 10) + sd * 0.15;
+            pts.push({ x: B.x + Math.cos(an) * ((G.rT || 16) + 4), y: B.y + Math.sin(an) * ((G.rT || 16) + 4) });
+          }
+          stroke(ctx, pts, 4.5 * (1 - u * 0.6), rgba(PAL.voidc.body, 0.95 * (1 - u)));
+          add(ctx, function () { stroke(ctx, pts, 1.4, rgba(PAL.necrotic.hex, 0.8 * (1 - u))); });
+        });
+      });
+      var r = rng(9);
+      for (var k = 0; k < 14; k++) {
+        var t0 = AH.hold + r() * 300, age = (lt - t0) / 900, an = r() * TAU, d = G.cell * (0.5 + r() * 1.5);
+        if (age < 0 || age > 1) continue;
+        glow(ctx, S.x + Math.cos(an) * d, S.y + Math.sin(an) * d - age * 18, 6 + age * 8, [[0, rgba(PAL.voidc.body, 0.55 * Math.sin(Math.PI * age))], [1, rgba(PAL.voidc.body, 0)]]);
+      }
+    }
+
+    /* Cloud of Daggers. Canvas spin. The cube is one square. */
+    function knife(ctx, x, y, an, s, a) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(an); ctx.scale(s, s);
+      ctx.fillStyle = rgba(PAL.steel.grip, 0.95 * a); ctx.fillRect(-9, -1.5, 5, 3);
+      ctx.fillStyle = rgba("150,130,90", 0.9 * a); ctx.fillRect(-4.5, -2.6, 1.4, 5.2);
+      ctx.beginPath(); ctx.moveTo(-3, -1.8); ctx.lineTo(7, -1.6); ctx.quadraticCurveTo(10, -0.6, 11, 0.6); ctx.lineTo(7, 1.8); ctx.lineTo(-3, 1.8); ctx.closePath();
+      ctx.fillStyle = rgba(PAL.steel.metal, a); ctx.fill();
+      ctx.lineWidth = 0.8; ctx.strokeStyle = rgba(PAL.steel.glint, 0.9 * a);
+      ctx.beginPath(); ctx.moveTo(-2.5, -1.5); ctx.lineTo(7, -1.3); ctx.stroke();
+      ctx.restore();
+    }
+    function daggersUnder(ctx, lt, G) {
+      if (G.mode === "tick" || G.mode === "clear") return;
+      var C = centerOf(G); if (!C) return;
+      var a = G.mode === "idle" ? 0.9 : clamp((lt - 80) / 200);
+      if (a <= 0) return;
+      var h = G.cell / 2 - 1;
+      ctx.save();
+      ctx.fillStyle = "rgba(0,0,0," + (0.22 * a) + ")";
+      ctx.fillRect(C.x - h, C.y - h, h * 2, h * 2);
+      ctx.setLineDash([5, 4]); ctx.lineWidth = 1.3; ctx.strokeStyle = rgba(PAL.steel.glint, 0.5 * a);
+      ctx.strokeRect(C.x - h, C.y - h, h * 2, h * 2);
+      ctx.restore();
+    }
+    function daggers(ctx, lt, G) {
+      var C = centerOf(G); if (!C) return;
+      if (G.mode === "tick") { tickMarks(ctx, lt, G, function (c, B, t, Gg, seed) { slashHit(c, B, t, Gg, seed); }); return; }
+      if (G.mode === "clear") { clearPop(ctx, C, G.cell * 0.8, lt); return; }
+      var formed = G.mode === "idle" ? 1 : easeOut(clamp((lt - 80) / 320));
+      var a = G.mode === "idle" ? 0.92 : 0.92 * clamp(lt / 160);
+      if (!(formed > 0) || a <= 0) return;
+      if (G.mode === "cast" && G.A) {
+        var p = easeOut(clamp(lt / 180)), H = lp(G.A, C, p);
+        add(ctx, function () { stroke(ctx, [G.A, H], 1.4, rgba(PAL.steel.glint, 0.9 * (1 - clamp((lt - 180) / 220)))); });
+      }
+      add(ctx, function () { glow(ctx, C.x, C.y, G.cell * 0.85, [[0, rgba(PAL.steel.glint, 0.1 * a)], [1, rgba(PAL.steel.glint, 0)]]); });
+      var r = rng(21);
+      for (var i = 0; i < 13; i++) {
+        var fr = r(), rad = G.cell * (0.15 + 0.62 * fr) * formed, w = (2.4 + 1.6 * r()) * (i % 4 === 3 ? -1 : 1), ph = r() * TAU, tilt = 0.55 + r() * 0.35;
+        var ang = ph + lt / 1000 * w, x = C.x + Math.cos(ang) * rad, y = C.y + Math.sin(ang) * rad * tilt;
+        var tan = ang + (w > 0 ? Math.PI / 2 : -Math.PI / 2), self = lt / 110 * (i % 2 ? 1 : -1) + i;
+        add(ctx, function () {
+          var pts = [];
+          for (var j = 0; j <= 8; j++) {
+            var aa = ang - (w > 0 ? 1 : -1) * 0.7 * j / 8;
+            pts.push({ x: C.x + Math.cos(aa) * rad, y: C.y + Math.sin(aa) * rad * tilt });
+          }
+          stroke(ctx, pts, 3, rgba(PAL.steel.glint, 0.22 * a));
+        });
+        ctx.save(); ctx.shadowColor = "rgba(0,0,0,0.85)"; ctx.shadowBlur = 3;
+        knife(ctx, x, y, tan + Math.sin(self) * 0.9, 1.55, a); ctx.restore();
+      }
+    }
+
+    /* Insect Plague. Low-alpha locust annulus so tokens still read. */
+    function plagueUnder(ctx, lt, G) {
+      if (G.mode === "tick" || G.mode === "clear") return;
+      var C = centerOf(G); if (!C) return;
+      var R = G.cell * (G.zr || 4) * (G.mode === "idle" ? 1 : (0.3 + 0.7 * easeOut(clamp(lt / 550))));
+      var a = G.mode === "idle" ? 0.85 : clamp(lt / 300);
+      glow(ctx, C.x, C.y, R, [[0, "rgba(28,20,10," + (0.1 * a) + ")"], [0.6, "rgba(28,20,10," + (0.3 * a) + ")"], [0.92, "rgba(28,20,10," + (0.26 * a) + ")"], [1, "rgba(28,20,10,0)"]]);
+    }
+    function plague(ctx, lt, G) {
+      var C = centerOf(G); if (!C) return;
+      if (G.mode === "tick") { tickMarks(ctx, lt, G, biteHit); return; }
+      if (G.mode === "clear") { clearPop(ctx, C, G.cell * (G.zr || 4), lt); return; }
+      var R = G.cell * (G.zr || 4), f = G.mode === "idle" ? 1 : easeOut(clamp(lt / 550)), a = G.mode === "idle" ? 0.8 : clamp(lt / 250);
+      var r = rng(13), rc = rng(14);
+      for (var c = 0; c < 34; c++) {
+        var an = rc() * TAU + lt / 2300 * (rc() < 0.85 ? 1 : -1), d = R * (0.45 + 0.48 * rc()) * (0.25 + 0.75 * f);
+        glow(ctx, C.x + Math.cos(an) * d, C.y + Math.sin(an) * d, G.cell * (0.55 + 0.35 * rc()), [[0, "rgba(30,20,10," + (0.45 * a) + ")"], [1, "rgba(30,20,10,0)"]]);
+      }
+      var bodies = 220;
+      for (var i = 0; i < bodies; i++) {
+        var fr = r(), rad = R * (0.3 + 0.68 * Math.pow(fr, 0.55)) * (0.25 + 0.75 * f), w = (0.7 + 0.9 * r()) * (r() < 0.82 ? 1 : -1), ph = r() * TAU, jit = r() * TAU;
+        var ang = ph + lt / 1000 * w, rr = rad * (1 + 0.07 * Math.sin(lt / 260 + jit));
+        var x = C.x + Math.cos(ang) * rr + Math.sin(lt / 90 + jit) * 1.5, y = C.y + Math.sin(ang) * rr + Math.cos(lt / 110 + jit) * 1.5;
+        var al = a * (0.55 + 0.3 * fr);
+        ctx.save(); ctx.translate(x, y); ctx.rotate(ang + (w > 0 ? Math.PI / 2 : -Math.PI / 2));
+        if ((Math.floor(lt / 45) + i) % 2) { ctx.fillStyle = rgba(PAL.swarm.wing, al * 0.6); oval(ctx, 2, 3.8); ctx.fill(); }
+        ctx.fillStyle = rgba("26,17,8", al); oval(ctx, 4.2, 1.7); ctx.fill();
+        ctx.fillStyle = rgba(PAL.swarm.body, al * 0.9); ctx.translate(2.4, 0); oval(ctx, 1.4, 1.3); ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    /* Incendiary Cloud. Furnace smoke, slow half-square drift away from the caster, then it holds. */
+    function icCenter(G) {
+      var C = centerOf(G) || { x: 0, y: 0 };
+      if (G.mode !== "idle") return C;
+      var dir = G.drift || { x: 1, y: 0 };
+      var u = easeInOut((G.age || 0) / 2500);
+      return { x: C.x + dir.x * G.cell * 0.5 * u, y: C.y + dir.y * G.cell * 0.5 * u };
+    }
+    function icR(lt, G) {
+      var full = G.cell * (G.zr || 4);
+      if (G.mode === "idle") return full;
+      return full * (0.3 + 0.7 * easeOut(clamp(lt / 600)));
+    }
+    function incendiaryUnder(ctx, lt, G) {
+      if (G.mode === "tick" || G.mode === "clear") return;
+      var C = icCenter(G), R = icR(lt, G), a = G.mode === "idle" ? 0.9 : clamp(lt / 250), r = rng(29);
+      glow(ctx, C.x, C.y, R, [[0, rgba(PAL.fire.smoke, 0.85 * a)], [0.8, rgba(PAL.fire.smoke, 0.75 * a)], [1, rgba(PAL.fire.smoke, 0)]]);
+      for (var k = 0; k < 18; k++) {
+        var an = r() * TAU + lt / 9000, d = R * 0.85 * Math.sqrt(r()), s = G.cell * (0.7 + r() * 0.45);
+        glow(ctx, C.x + Math.cos(an) * d, C.y + Math.sin(an) * d, s, [[0, rgba(k % 3 ? PAL.fire.smoke : "28,22,20", 0.55 * a)], [1, rgba(PAL.fire.smoke, 0)]]);
+      }
+      add(ctx, function () {
+        glow(ctx, C.x, C.y, R * 0.95, [[0, rgba(PAL.fire.glow, 0.32 * a)], [0.7, rgba(PAL.fire.glow, 0.18 * a)], [1, rgba(PAL.fire.glow, 0)]]);
+        var rv = rng(31);
+        for (var v = 0; v < 8; v++) {
+          var an = rv() * TAU, d0 = R * (0.1 + 0.5 * rv()), L = G.cell * (0.6 + rv() * 0.7), fl = 0.55 + 0.45 * Math.sin(lt / (90 + v * 13) + v);
+          var P0 = { x: C.x + Math.cos(an) * d0, y: C.y + Math.sin(an) * d0 };
+          var P2 = { x: P0.x + Math.cos(an + 1.2) * L, y: P0.y + Math.sin(an + 1.2) * L };
+          stroke(ctx, [P0, P2], 4, rgba(PAL.fire.glow, 0.35 * a * fl), 8);
+          stroke(ctx, [P0, P2], 1.4, rgba(PAL.fire.core, 0.6 * a * fl));
+        }
+      });
+    }
+    function incendiary(ctx, lt, G) {
+      var C = icCenter(G);
+      if (G.mode === "tick") { tickMarks(ctx, lt, G, function (c, B, t, Gg, seed) { fireBurst(c, B, t, 620, Gg.cell * 0.75, seed); }); return; }
+      if (G.mode === "clear") { clearPop(ctx, C, G.cell * (G.zr || 4), lt); return; }
+      var R = icR(lt, G), a = G.mode === "idle" ? 0.85 : clamp(lt / 250);
+      glow(ctx, C.x, C.y, R, [[0, rgba(PAL.fire.smoke, 0.2 * a)], [0.85, rgba(PAL.fire.smoke, 0.16 * a)], [1, rgba(PAL.fire.smoke, 0)]]);
+      var r = rng(43);
+      add(ctx, function () {
+        for (var k = 0; k < 28; k++) {
+          var ph = r(), age = ((lt / 1600) + ph) % 1, an = r() * TAU, d = R * 0.85 * Math.sqrt(r());
+          ctx.fillStyle = rgba(k % 2 ? PAL.fire.core : PAL.fire.hot, a * 0.8 * Math.sin(Math.PI * age));
+          ctx.beginPath();
+          ctx.arc(C.x + Math.cos(an) * d, C.y + Math.sin(an) * d - age * 22, 1.3, 0, TAU);
+          ctx.fill();
+        }
+      });
+    }
+
+    /* Flame Strike: one thick gold-sheathed column. Fire Storm: thinner columns, staggered 100 ms. */
+    function column(ctx, B, H, t, w, drop, hold, fade, sheath) {
+      if (!B || t < 0) return;
+      var a = 1 - clamp((t - hold) / Math.max(1, fade - hold));
+      if (a <= 0) return;
+      var top = { x: B.x, y: B.y - H }, head = { x: B.x, y: lerp(top.y, B.y, easeIn(clamp(t / drop))) };
+      var fl = 1 + 0.07 * Math.sin(t / 28);
+      add(ctx, function () {
+        if (sheath) {
+          stroke(ctx, [top, head], w * 2.1 * fl, rgba(PAL.radiant.glow, 0.24 * a), 18, rgba(PAL.radiant.glow, a));
+          stroke(ctx, [top, head], w * 1.5 * fl, rgba(PAL.radiant.core, 0.28 * a));
+        }
+        stroke(ctx, [top, head], w * 1.1 * fl, rgba(PAL.fire.glow, 0.55 * a), 14, rgba(PAL.fire.glow, a));
+        stroke(ctx, [top, head], w * 0.72 * fl, rgba(PAL.fire.core, 0.85 * a));
+        stroke(ctx, [top, head], Math.max(1.2, w * 0.3), rgba(PAL.fire.hot, a));
+      });
+    }
+    function flameUnder(ctx, lt, G) {
+      var B = marksOf(G)[0];
+      if (B) scorch(ctx, B, G.cell * 1.9, clamp((lt - 180) / 200));
+    }
+    function flame(ctx, lt, G) {
+      var B = marksOf(G)[0]; if (!B) return;
+      column(ctx, B, G.cell * 7.5, lt, G.cell * 0.95, 120, 650, 1000, true);
+      if (lt >= 120) {
+        fireBurst(ctx, B, lt - 120, 1000, G.cell * 2.0, 3);
+        if (lt < 770) add(ctx, function () {
+          var u = (lt - 120) / 650;
+          ring(ctx, B.x, B.y, G.cell * 0.8 + easeOut(clamp(u)) * G.cell * 1.4, 5 * (1 - clamp(u)) + 0.8, rgba(PAL.radiant.core, 1 - clamp(u)), 14);
+        });
+        sparks(ctx, B.x, B.y, lt - 120, 16, 77, 120, 1000, PAL.radiant.core, 1.6, -30);
+      }
+    }
+    function stormUnder(ctx, lt, G) {
+      var pts = marksOf(G);
+      pts.forEach(function (P, i) { scorch(ctx, P, G.cell * 0.85, clamp((lt - i * 100 - 140) / 200)); });
+    }
+    function storm(ctx, lt, G) {
+      marksOf(G).forEach(function (P, i) {
+        var t = lt - i * 100;
+        column(ctx, P, G.cell * 2.6, t, G.cell * 0.4, 100, 420, 680, false);
+        fireBurst(ctx, P, t - 100, 700, G.cell, 20 + i);
+      });
+    }
+
+    /* Freezing Sphere. Lob, mark-scale bead, then a 60-ft cold sphere. Not a token. */
+    function fzPos(lt, G) {
+      var A = G.A || G.S, B = centerOf(G) || A;
+      if (!A || !B) return null;
+      var p = clamp(lt / FZ.travel), P = lp(A, B, p);
+      return { x: P.x, y: P.y - Math.sin(Math.PI * p) * G.cell * 1.2, p: p, B: B };
+    }
+    function freezingUnder(ctx, lt, G) {
+      var td = lt - FZ.det, C = centerOf(G); if (!C) return;
+      var a = env(td, 60, 220, 620, 1500);
+      if (a <= 0) return;
+      var R = G.cell * (G.zr || 12), r = rng(19);
+      glow(ctx, C.x, C.y, R, [[0, "rgba(200,225,250," + (0.16 * a) + ")"], [0.9, "rgba(200,225,250," + (0.24 * a) + ")"], [1, "rgba(200,225,250,0)"]]);
+      ctx.save(); ctx.strokeStyle = "rgba(235,245,255," + (0.6 * a) + ")"; ctx.lineWidth = 1;
+      for (var k = 0; k < 48; k++) {
+        var an = r() * TAU, d = R * Math.sqrt(r()) * 0.95, x = C.x + Math.cos(an) * d, y = C.y + Math.sin(an) * d, s = 2.5 + r() * 4;
+        ctx.beginPath();
+        for (var j = 0; j < 3; j++) {
+          var b = j / 3 * Math.PI + r();
+          ctx.moveTo(x - Math.cos(b) * s, y - Math.sin(b) * s);
+          ctx.lineTo(x + Math.cos(b) * s, y + Math.sin(b) * s);
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    function freezing(ctx, lt, G) {
+      var C = centerOf(G); if (!C) return;
+      var R = G.cell * (G.zr || 12), td = lt - FZ.det;
+      if (lt < FZ.travel) {
+        var O = fzPos(lt, G); if (!O) return;
+        for (var k = 8; k >= 1; k--) {
+          var Q = fzPos(Math.max(0, lt - k * 22), G);
+          if (Q) glow(ctx, Q.x, Q.y, 5 + k * 0.9, [[0, rgba(PAL.cold.mist, 0.28 * (1 - k / 9))], [1, rgba(PAL.cold.mist, 0)]]);
+        }
+        add(ctx, function () { glow(ctx, O.x, O.y, 16, [[0, rgba(PAL.cold.hot, 1)], [0.35, rgba(PAL.cold.core, 0.8)], [1, rgba(PAL.cold.glow, 0)]]); });
+        ctx.save(); ctx.beginPath(); ctx.arc(O.x, O.y, 6.5, 0, TAU); ctx.fillStyle = "rgba(232,242,252,0.95)"; ctx.fill();
+        ctx.lineWidth = 1.3; ctx.strokeStyle = rgba(PAL.cold.glow, 0.9); ctx.stroke(); ctx.restore();
+        return;
+      }
+      if (td < 0) {
+        var hb = lt - FZ.travel, pu = 0.8 + 0.2 * Math.sin(hb / 60);
+        add(ctx, function () {
+          glow(ctx, C.x, C.y, 18 * pu, [[0, rgba(PAL.cold.hot, 0.95)], [0.4, rgba(PAL.cold.core, 0.6)], [1, rgba(PAL.cold.glow, 0)]]);
+          for (var s = 0; s < 4; s++) {
+            var an = s / 4 * TAU + hb / 140;
+            shard(ctx, C.x + Math.cos(an) * 13, C.y + Math.sin(an) * 13, an + Math.PI / 2, 4, 1.5, rgba(PAL.cold.hot, 0.9));
+          }
+        });
+        ctx.save(); ctx.beginPath(); ctx.arc(C.x, C.y, 6.5, 0, TAU); ctx.fillStyle = "rgba(232,242,252,0.95)"; ctx.fill(); ctx.restore();
+        return;
+      }
+      var u = clamp(td / 700);
+      if (td < 700) add(ctx, function () {
+        glow(ctx, C.x, C.y, R * (0.3 + 0.7 * easeOut(td / 250)), [[0, rgba(PAL.cold.hot, 0.95 * (1 - u))], [0.35, rgba(PAL.cold.core, 0.6 * (1 - u))], [0.8, rgba(PAL.cold.glow, 0.35 * (1 - u))], [1, rgba(PAL.cold.glow, 0)]]);
+        ring(ctx, C.x, C.y, R * easeOut(clamp(td / 350)), 5 * (1 - u) + 0.6, rgba(PAL.cold.hot, 1 - u), 14);
+      });
+      if (td < 560) {
+        var r = rng(23);
+        add(ctx, function () {
+          for (var s = 0; s < 30; s++) {
+            var an = s / 30 * TAU + r() * 0.15, d = R * (0.1 + 0.9 * easeOut(td / 300)) * (0.55 + 0.45 * r()), L = 8 + r() * 9;
+            shard(ctx, C.x + Math.cos(an) * d, C.y + Math.sin(an) * d, an, L, 2.3, rgba(PAL.cold.hot, 0.95 * (1 - clamp((td - 250) / 310))));
+          }
+        });
+      }
+      sparks(ctx, C.x, C.y, td, 24, 25, 420, 900, PAL.cold.core, 1.6, 0);
+    }
+
+    /* Sunburst and Circle of Death. Separate skins. Rules radius 60 ft. */
+    function sunburst(ctx, lt, G) {
+      var C = centerOf(G); if (!C) return;
+      var R = G.cell * (G.zr || 12);
+      if (lt < 1000) {
+        var ca = env(lt, 0, 60, 260, 950), u = clamp(lt / 900);
+        add(ctx, function () {
+          glow(ctx, C.x, C.y, R * 1.05, [[0, rgba(PAL.blind, 0.55 * env(lt, 0, 40, 130, 520))], [1, rgba(PAL.blind, 0)]]);
+          var r = rng(11);
+          for (var k = 0; k < 18; k++) {
+            var an = k / 18 * TAU + r() * 0.1, L = R * (0.55 + 0.45 * easeOut(lt / 220)) * (0.7 + 0.3 * r());
+            wedge(ctx, C, an, L, 7, 0.8, rgba(PAL.radiant.core, 0.5 * ca));
+            wedge(ctx, C, an, L * 0.8, 2.5, 0.4, rgba(PAL.radiant.hot, 0.6 * ca));
+          }
+          glow(ctx, C.x, C.y, G.cell * (1.1 + 0.9 * easeOut(lt / 150)), [[0, rgba(PAL.radiant.hot, ca)], [0.35, rgba(PAL.radiant.core, 0.85 * ca)], [1, rgba(PAL.radiant.glow, 0)]]);
+          ring(ctx, C.x, C.y, R * easeOut(lt / 450), 10 * (1 - u) + 1.5, rgba(PAL.radiant.glow, 0.7 * (1 - u)), 16);
+        });
+      }
+      marksOf(G).forEach(function (B, i) {
+        var tb = lt - 200 * clamp(dist(C, B) / Math.max(1, R));
+        if (tb < 0 || tb > 560) return;
+        var uu = tb / 560;
+        add(ctx, function () { star(ctx, B.x, B.y, G.cell * (0.55 + 0.25 * easeOut(uu)), 8, 0.18, PAL.blind, 1 - uu, i * 0.4, PAL.radiant.glow); });
+      });
+    }
+    function circleUnder(ctx, lt, G) {
+      var C = centerOf(G); if (!C) return;
+      var R = G.cell * (G.zr || 12) * easeOut(clamp(lt / 600)), a = env(lt, 0, 100, 900, 1600);
+      if (a <= 0) return;
+      glow(ctx, C.x, C.y, Math.max(1, R), [[0, rgba(PAL.necrotic.black, 0.35 * a)], [1, rgba(PAL.necrotic.black, 0)]]);
+    }
+    function circleOfDeath(ctx, lt, G) {
+      var C = centerOf(G); if (!C) return;
+      var R0 = G.cell * (G.zr || 12), R = R0 * easeOut(clamp(lt / 600)), a = env(lt, 0, 60, 800, 1400);
+      if (a > 0 && R > 2) {
+        ring(ctx, C.x, C.y, R, Math.max(8, G.cell * 0.55), rgba(PAL.necrotic.black, 0.72 * a));
+        add(ctx, function () { ring(ctx, C.x, C.y, R, Math.max(6, G.cell * 0.7), rgba(PAL.necrotic.glow, 0.28 * a), 14); });
+        ring(ctx, C.x, C.y, Math.max(1, R - G.cell * 0.28), 1.6, rgba(PAL.necrotic.bone, 0.75 * a));
+      }
+      var r = rng(61);
+      for (var k = 0; k < 28; k++) {
+        var an = r() * TAU, born = 600 * (0.15 + 0.85 * r()), age = (lt - born) / 1100;
+        if (age < 0 || age > 1) continue;
+        var d = R0 * easeOut(born / 600);
+        glow(ctx, C.x + Math.cos(an) * d, C.y + Math.sin(an) * d - age * 24, 8 + age * 10, [[0, "rgba(45,32,48," + (0.5 * Math.sin(Math.PI * age)) + ")"], [1, "rgba(45,32,48,0)"]]);
+      }
+      marksOf(G).forEach(function (B, i) {
+        var f = clamp(dist(C, B) / Math.max(1, R0));
+        collapse(ctx, B, lt - 600 * (1 - Math.pow(1 - f, 1 / 3)), G.cell * 1.1, (G.rT || 16) * 0.5, 80 + i);
+      });
+    }
+
+    /* Delayed Blast Fireball. Sticky bead on one square. Detonate is the Fireball-family bloom. */
+    function dbfUnder(ctx, lt, G) {
+      var C = centerOf(G); if (!C) return;
+      if (G.mode === "boom") { scorch(ctx, C, G.cell * (G.zr || 4) * 0.75, clamp((lt - 80) / 250)); return; }
+      if (G.mode === "tick" || G.mode === "clear") return;
+      var show = G.mode === "idle" || lt > 180;
+      if (!show) return;
+      var h = G.cell / 2 - 1, a = G.mode === "idle" ? 0.9 : clamp((lt - 180) / 200);
+      add(ctx, function () { glow(ctx, C.x, C.y, G.cell * 0.7, [[0, rgba(PAL.fire.core, 0.22 * a)], [1, rgba(PAL.fire.glow, 0)]]); });
+      ctx.save(); ctx.setLineDash([4, 4]); ctx.lineWidth = 1.2; ctx.strokeStyle = rgba(PAL.fire.burst, 0.45 * a);
+      ctx.strokeRect(C.x - h, C.y - h, h * 2, h * 2); ctx.restore();
+    }
+    function beadCore(ctx, C, lt, G) {
+      var total = G.rounds > 0 ? G.rounds : 10;
+      var left = (G.roundsLeft != null && isFinite(Number(G.roundsLeft))) ? Number(G.roundsLeft) : total;
+      var prog = clamp(1 - left / Math.max(1, total));
+      var speed = 1.1 + prog * 2.2;
+      var ph = (lt / 1000) * speed, u = ph % 1, pu = 0.85 + 0.15 * Math.sin(ph * TAU);
+      add(ctx, function () {
+        glow(ctx, C.x, C.y, 21 * pu, [[0, rgba(PAL.fire.ball, 1)], [0.35, rgba(PAL.fire.core, 0.85)], [1, rgba(PAL.fire.glow, 0)]]);
+        ring(ctx, C.x, C.y, 9 + u * G.cell * 0.45, 2.4 * (1 - u) + 0.4, rgba(PAL.fire.burst, 0.9 * (1 - u)), 8);
+        var lit = 8 - Math.floor(prog * 8);
+        for (var s = 0; s < 8; s++) {
+          var a0 = -Math.PI / 2 + s / 8 * TAU + 0.06;
+          ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = rgba(s < lit ? PAL.fire.hot : PAL.fire.glow, s < lit ? 0.85 : 0.25);
+          ctx.beginPath(); ctx.arc(C.x, C.y, 19, a0, a0 + TAU / 8 - 0.16); ctx.stroke(); ctx.restore();
+        }
+      });
+      ctx.save(); ctx.beginPath(); ctx.arc(C.x, C.y, 4.5, 0, TAU); ctx.fillStyle = "rgba(255,248,230,1)"; ctx.fill(); ctx.restore();
+    }
+    function dbfBoom(ctx, lt, G) {
+      var C = centerOf(G); if (!C) return;
+      var R = G.cell * (G.zr || 4), v = clamp(lt / 1400);
+      if (lt < 120) add(ctx, function () { glow(ctx, C.x, C.y, G.cell * 1.2, [[0, rgba(PAL.fire.ball, 1 - lt / 120)], [1, rgba(PAL.fire.core, 0)]]); });
+      var r = rng(71);
+      for (var k = 0; k < 16; k++) {
+        var an = k / 16 * TAU + r() * 0.3, d = R * (0.75 + 0.2 * easeOut(clamp(lt / 500))), sa = env(lt, 150, 350, 700, 1400);
+        glow(ctx, C.x + Math.cos(an) * d, C.y + Math.sin(an) * d, G.cell * (0.7 + 0.35 * r()), [[0, rgba("25,18,14", 0.6 * sa)], [1, "rgba(25,18,14,0)"]]);
+      }
+      add(ctx, function () {
+        glow(ctx, C.x, C.y, R * (0.35 + 0.65 * easeOut(clamp(lt / 220))), [[0, rgba(PAL.fire.ball, 0.95 * (1 - v))], [0.3, rgba(PAL.fire.core, 0.85 * (1 - v))], [0.7, rgba(PAL.fire.glow, 0.5 * (1 - v))], [1, rgba(PAL.fire.glow, 0)]]);
+        flameRing(ctx, C.x, C.y, R * 0.6 * (0.6 + 0.4 * easeOut(v)), 24, lt, 1 - v, R * 0.2, 5);
+        if (lt < 450) ring(ctx, C.x, C.y, G.cell * 0.6 + easeOut(lt / 450) * R * 0.95, 5 * (1 - lt / 450) + 0.6, rgba(PAL.fire.hot, 1 - lt / 450), 14);
+      });
+      sparks(ctx, C.x, C.y, lt, 28, 9, 380, 1400, PAL.fire.burst, 1.8, -20);
+    }
+    function dbf(ctx, lt, G) {
+      var C = centerOf(G); if (!C) return;
+      if (G.mode === "boom") { dbfBoom(ctx, lt, G); return; }
+      if (G.mode === "clear") { clearPop(ctx, C, G.cell, lt); return; }
+      if (G.mode === "idle") { beadCore(ctx, C, lt, G); return; }
+      var A = G.A || C;
+      if (lt < 260) {
+        var p = easeOut(lt / 260), H = lp(A, C, p);
+        add(ctx, function () {
+          for (var k = 6; k >= 1; k--) {
+            var P = lp(A, C, clamp(p - k * 0.05));
+            glow(ctx, P.x, P.y, 7 - k * 0.6, [[0, rgba(PAL.fire.burst, 0.6 * (1 - k / 7))], [1, rgba(PAL.fire.glow, 0)]]);
+          }
+          glow(ctx, H.x, H.y, 12, [[0, rgba(PAL.fire.ball, 1)], [0.4, rgba(PAL.fire.core, 0.85)], [1, rgba(PAL.fire.glow, 0)]]);
+        });
+        return;
+      }
+      beadCore(ctx, C, lt, G);
+    }
+
+    function paintOne(map, ctx, look, lt, G) {
+      var fn = map[look];
+      if (fn && lt >= 0) fn(ctx, lt, G || {});
+    }
+    var PAINT = {
+      wallice: function (ctx, lt, G) { if (G.mode === "tick") wallTick(ctx, lt, G); else if (G.mode === "clear") clearPop(ctx, centerOf(G), G.cell * 2, lt); },
+      wallthorn: function (ctx, lt, G) { if (G.mode === "tick") wallTick(ctx, lt, G); else if (G.mode === "clear") clearPop(ctx, centerOf(G), G.cell * 2, lt); },
+      wallblade: function (ctx, lt, G) { if (G.mode === "tick") wallTick(ctx, lt, G); else if (G.mode === "clear") clearPop(ctx, centerOf(G), G.cell * 2, lt); },
+      hunger: hunger, arms: arms, daggers: daggers, swarm: plague, furnace: incendiary,
+      flame: flame, storm: storm, icebomb: freezing, sunburst: sunburst, deathring: circleOfDeath, bead: dbf
+    };
+    var UNDER = {
+      wallice: wallSkin, wallthorn: wallSkin, wallblade: wallSkin,
+      hunger: hungerUnder, arms: armsUnder, daggers: daggersUnder, swarm: plagueUnder, furnace: incendiaryUnder,
+      flame: flameUnder, storm: stormUnder, icebomb: freezingUnder, deathring: circleUnder, bead: dbfUnder
+    };
+    function tokenState(look, lt, id, G) {
+      var s = { dx: 0, dy: 0, grey: 0, tint: null };
+      var P = (G.T && G.T[0]) || G.Z;
+      var C = G.Z || P;
+      if (!P || !C || id !== "target") return s;
+      var inside = dist(P, C) <= G.cell * (G.zr || 1) + (G.rT || 0);
+      if (look === "hunger" && inside && G.mode !== "clear" && G.mode !== "tick") s.tint = { col: "20,12,26", a: 0.28 };
+      if (look === "icebomb" && inside && lt > FZ.det) s.tint = { col: PAL.cold.mist, a: 0.38 * env(lt - FZ.det, 40, 200, 700, 1400) };
+      if (look === "sunburst" && inside) s.tint = { col: PAL.blind, a: 0.5 * env(lt, 30, 90, 260, 900) };
+      return s;
+    }
+    function shakeOf(look, lt, spec) {
+      function sh(t0, mag, dur) {
+        var t = lt - t0;
+        if (t < 0 || t > dur) return { x: 0, y: 0 };
+        var k = mag * (1 - t / dur);
+        return { x: Math.sin(t * 0.9) * k, y: Math.cos(t * 1.3) * k };
+      }
+      spec = spec || {};
+      if (spec.pulse || spec.garnish === "clear" || spec.quiet) return { x: 0, y: 0 };
+      if (look === "arms") return sh(AH.out - 20, 1.6, 160);
+      if (look === "flame") return sh(120, 4, 260);
+      if (look === "storm") {
+        var o = sh(100, 2.2, 180);
+        var n = Math.min(9, (spec.hops && spec.hops.length) || 0);
+        for (var i = 0; i < n; i++) {
+          var s = sh(100 + (i + 1) * 100, 1.4, 140);
+          o.x += s.x; o.y += s.y;
+        }
+        return o;
+      }
+      if (look === "icebomb") return sh(FZ.det, 4, 260);
+      if (look === "sunburst") return sh(40, 2.5, 200);
+      if (look === "deathring") return sh(80, 1.6, 180);
+      if (look === "bead" && spec.garnish === "detonate") return sh(40, 6, 360);
+      return { x: 0, y: 0 };
+    }
+    return {
+      looks: Object.keys(PAINT),
+      paint: function (ctx, look, lt, G) { paintOne(PAINT, ctx, look, lt, G); },
+      paintUnder: function (ctx, look, lt, G) {
+        if (G && (G.mode === "tick")) return;
+        if (G && G.mode === "clear") return;
+        paintOne(UNDER, ctx, look, lt, G);
+      },
+      tokenState: tokenState,
+      shakeOf: shakeOf
+    };
+  })();
+
   var C1_LOOKS = {
     "witch-bolt": 1, "scorching-ray": 1, "guiding-bolt": 1, "sacred-flame": 1, "chill-touch": 1,
     "acid-arrow": 1, "poison-spray": 1, "chain-lightning": 1, "disintegrate": 1
@@ -4085,8 +5031,77 @@ function beadsPaint(ctx, A, B, lt, seed) {
     Chunk3Fx.paintUnder(ctx, key, lt, G);
     Chunk3Fx.paint(ctx, key, lt, G);
   }
+  function c4Geom(look, g, spec) {
+    g = g || {};
+    spec = spec || {};
+    var S = g.S || g.A;
+    var A = g.A || S;
+    var cell = g.cell || 70;
+    var center = g.T || g.B || g.Z || S || A;
+    if (!center) return null;
+    var key = chunk4Key(look, spec);
+    var face = Number(spec.facing);
+    if (!isFinite(face)) face = Number(g.facing);
+    if (!isFinite(face) && A && center) face = Math.atan2(center.y - A.y, center.x - A.x);
+    if (!isFinite(face)) face = 0;
+    var mode = g.quiet ? "idle" : c4Mode(spec);
+    var zrMap = { hunger: 4, swarm: 4, furnace: 4, bead: 4, icebomb: 12, sunburst: 12, deathring: 12, arms: 2, daggers: 1, flame: 2, storm: 2 };
+    var zr = zrMap[key] || 4;
+    if (Number(g.zr) > 0) zr = Number(g.zr);
+    if (key === "bead" && mode === "boom") zr = 4;
+    var targets = [];
+    function push(p) {
+      if (!p || !isFinite(Number(p.x)) || !isFinite(Number(p.y))) return;
+      targets.push({ x: Number(p.x), y: Number(p.y) });
+    }
+    if (mode === "tick") push(center);
+    else {
+      push(g.Z || center);
+      (g.hops || []).forEach(push);
+    }
+    if (!targets.length) push(center);
+    var skin = key === "wallthorn" ? "thorns" : (key === "wallblade" ? "blades" : "ice");
+    var W = (g.W && g.W.length) ? g.W : [];
+    if (!W.length && (key === "wallice" || key === "wallthorn" || key === "wallblade")) {
+      var cells = key === "wallthorn" ? 12 : 20;
+      var hx = Math.cos(face) * cells * cell / 2;
+      var hy = Math.sin(face) * cells * cell / 2;
+      W = [{ A: { x: center.x - hx, y: center.y - hy }, B: { x: center.x + hx, y: center.y + hy }, skin: skin }];
+    }
+    return {
+      A: A || center, S: S || A || center, T: targets,
+      rT: g.rT || cell * 0.42, rS: g.rS || cell * 0.42, cell: cell,
+      Z: g.Z || center, zr: zr, W: W, skin: skin, facing: face, mode: mode,
+      dmg: low(spec.dmg || spec.dmgType || ""),
+      age: Number(g.age) || 0,
+      drift: g.drift || null,
+      rounds: g.rounds, roundsLeft: g.roundsLeft,
+      quiet: mode === "idle"
+    };
+  }
+  function chunk4Paint(ctx, look, lt, g, spec) {
+    var G = c4Geom(look, g, spec);
+    if (!G) return;
+    var key = chunk4Key(look, spec || {});
+    Chunk4Fx.paintUnder(ctx, key, lt, G);
+    Chunk4Fx.paint(ctx, key, lt, G);
+  }
+  function zoneLayer(ctx, spec, lt, g, layer) {
+    var look = lookOf(spec || {});
+    if (!chunk4Spell(look, spec)) return;
+    var G = c4Geom(look, Object.assign({}, g || {}, { quiet: true }), Object.assign({}, spec || {}, { quiet: true }));
+    if (!G) return;
+    var key = chunk4Key(look, spec || {});
+    if (layer === "under") Chunk4Fx.paintUnder(ctx, key, lt, G);
+    else Chunk4Fx.paint(ctx, key, lt, G);
+  }
   function tokenNudge(spec, lt, g) {
     var look = lookOf(spec || {});
+    if (chunk4Spell(look, spec)) {
+      var G4 = c4Geom(look, g, spec || {});
+      if (!G4) return { dx: 0, dy: 0, grey: 0 };
+      return Chunk4Fx.tokenState(chunk4Key(look, spec), lt, "target", G4);
+    }
     if (chunk3Spell(look, spec) && look !== "token") {
       var G3 = c3Geom(look, g, spec || {});
       if (!G3) return { dx: 0, dy: 0, grey: 0 };
@@ -4194,6 +5209,9 @@ function beadsPaint(ctx, A, B, lt, seed) {
       return chunk2Paint(ctx, look, lt, g || { A: A, B: B, T: B, S: A, cell: 70, rT: 18, rS: 18 }, spec || {});
     }
     if (C1_LOOKS[look]) return chunk1Paint(ctx, look, lt, g || { A: A, B: B, T: B, S: A, cell: 70, rT: 18, rS: 18 }, spec || {});
+    if (chunk4Spell(look, spec)) {
+      return chunk4Paint(ctx, look, lt, g || { A: A, B: B, T: B, S: A, cell: 70, rT: 18, rS: 18 }, spec || {});
+    }
     var T = g && (g.T || g.S);
     var r = (g && (g.rT || g.rS)) || 18;
     if (look === "fire") return firePaint(ctx, A, B, lt, seed);
@@ -4572,7 +5590,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
     classify: classify, resultOf: resultOf, plan: plan, sanitize: sanitize, request: request,
     lookOf: lookOf, lookSelf: lookSelf, lookTime: lookTime, shakeOf: shakeOf,
     stickyLook: stickyLook, chunkColor: chunkColor, tileOf: tileOf, namedLook: namedLook,
-    paint: paint, paintRider: paintRider, paintGuidePop: paintGuidePop,
+    paint: paint, paintRider: paintRider, paintGuidePop: paintGuidePop, zoneLayer: zoneLayer,
     erodeToken: erodeToken, erodeFront: function (lt) { return Chunk1Fx.erodeFront(lt); },
     nudge: tokenNudge, retort: function (ctx, look, lt, g) { Chunk2Fx.retort(ctx, look, lt, g); },
     hash: hash, dirOf: dirOf
