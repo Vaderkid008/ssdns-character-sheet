@@ -1,5 +1,5 @@
 /**
- * Map condition word pills (sheet 0.3.218 / DMCC 0.2.231).
+ * Map condition word pills (sheet 0.3.219 / DMCC 0.2.232).
  * Symbols stay on the sheet portrait. Map tokens paint olive/gold word pills over the token.
  * Unconscious is not a pill. Compact is a smaller bubble, saved per viewer.
  * rules.js is not edited.
@@ -20,10 +20,10 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.218" && version.sheetBuild === "sheet-playtest-v03218");
-check("ver.dmcc", version.dmcc === "0.2.231" && version.dmccBuild === "dmcc-playtest-v02231");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.218"') && read("assets/js/app.js").includes("sheet-playtest-v03218"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.231"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02231"));
+check("ver.sheet", version.sheet === "0.3.219" && version.sheetBuild === "sheet-playtest-v03219");
+check("ver.dmcc", version.dmcc === "0.2.232" && version.dmccBuild === "dmcc-playtest-v02232");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.219"') && read("assets/js/app.js").includes("sheet-playtest-v03219"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.232"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02232"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
@@ -35,9 +35,9 @@ check("css.dmChip", dmcc.includes("font-size: 17px; padding: 6px 14px"));
 
 const html = read("index.html");
 const dm = read("dm/index.html");
-check("html.sheet", html.includes("map/ssdns-map.js?v=0.3.218-castfx") && html.includes("assets/js/conditions.js?v=0.3.210-pills") && html.includes("assets/js/app.js?v=0.3.218-castfx"));
-check("html.dm", dm.includes("../map/ssdns-map.js?v=0.2.231-castfx") && dm.includes("../assets/js/conditions.js?v=0.2.223-pills") && dm.includes("assets/js/dmcc.js?v=0.2.231-castfx"));
-check("html.demo", read("map/demo.html").includes("ssdns-map.js?v=0.3.218-castfx"));
+check("html.sheet", html.includes("map/ssdns-map.js?v=0.3.219-softs") && html.includes("assets/js/conditions.js?v=0.3.210-pills") && html.includes("assets/js/app.js?v=0.3.219-softs"));
+check("html.dm", dm.includes("../map/ssdns-map.js?v=0.2.232-softs") && dm.includes("../assets/js/conditions.js?v=0.2.223-pills") && dm.includes("assets/js/dmcc.js?v=0.2.232-softs"));
+check("html.demo", read("map/demo.html").includes("ssdns-map.js?v=0.3.219-softs"));
 
 const map = read("map/ssdns-map.js");
 check("map.pills", map.includes("function paintCondWordPills") && map.includes("pillWordFit") && map.includes("paintCondWordPills(ctx, s, r, condRaws)"));

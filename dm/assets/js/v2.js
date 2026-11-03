@@ -1026,13 +1026,15 @@ function enemyCardHtml(row, i) {
     const dc = casting.dc == null ? "—" : casting.dc;
     const sustain = window.SSDNSSpellRiders && window.SSDNSSpellRiders.sustainReady ? window.SSDNSSpellRiders.sustainReady(row.spellMarks) : [];
     const sustainBtns = sustain.map((item) => `<button type="button" class="btn sm" data-sustain="${esc(item.name)}" data-sustain-slot="${esc(item.slot || 0)}">Sustain ${esc(item.name)}</button>`).join(" ");
+    const shieldUp = rowHasFireShield(row);
+    const shieldBtn = shieldUp ? `<button type="button" class="btn sm" data-dismiss-shield="1">End Fire Shield</button>` : "";
     const movable = ((row.spellMarks && row.spellMarks.marks) || []).filter((m) => m && m.movable && (m.kind === "hex" || m.kind === "mark"));
     const moveBtns = movable.map((m) => `<button type="button" class="btn sm" data-move-mark="${esc(m.kind)}">${m.kind === "hex" ? "Move Hex (BA)" : "Move Hunter's Mark (BA)"}</button>`).join(" ");
     spells = `<div class="detail-section"><h3>Spells</h3>
       <p class="dc-call">Spell save DC ${esc(dc)}${casting.ability ? " (" + esc(casting.ability) + ")" : ""} · attack ${signed(casting.attack)}</p>
       ${pips ? `<p>${pips}</p>` : `<p class="fine">At will</p>`}
       ${skin || ""}
-      ${sustainBtns || moveBtns ? `<p>${sustainBtns} ${moveBtns}</p>` : ""}
+      ${sustainBtns || moveBtns || shieldBtn ? `<p>${sustainBtns} ${moveBtns} ${shieldBtn}</p>` : ""}
       ${buttons}</div>`;
   }
   const maxHp = row.maxHp == null || row.maxHp === "" ? row.hp : row.maxHp;
@@ -5348,7 +5350,7 @@ async function runRider(i, n, mode) {
   DM.toast(lines.filter(Boolean).join(" · ") || "No save on that attack");
 }
 function onEnemySheetClick(e) {
-  const t = e.target.closest && e.target.closest("[data-open-enemy],[data-open-beast],[data-beast-card],[data-sheet-roll],[data-sheet-apply],[data-sheet-save],[data-sheet-check],[data-sheet-cast],[data-sheet-dice],[data-sheet-add],[data-sheet-feat],[data-sheet-slot],[data-sustain],[data-move-mark]");
+  const t = e.target.closest && e.target.closest("[data-open-enemy],[data-open-beast],[data-beast-card],[data-sheet-roll],[data-sheet-apply],[data-sheet-save],[data-sheet-check],[data-sheet-cast],[data-sheet-dice],[data-sheet-add],[data-sheet-feat],[data-sheet-slot],[data-sustain],[data-move-mark],[data-dismiss-shield]");
   if (!t) return;
   if (t.hasAttribute("data-open-enemy")) {
     openEnemyById(t.getAttribute("data-open-enemy"));
@@ -5360,6 +5362,14 @@ function onEnemySheetClick(e) {
   }
   if (t.hasAttribute("data-beast-card") && !e.target.closest("input, button, a, label")) {
     openEnemyBeast(t.getAttribute("data-beast-card"));
+    return;
+  }
+  if (t.hasAttribute("data-dismiss-shield")) {
+    e.preventDefault();
+    withSheetRow().then((i) => {
+      const row = fight.order[i];
+      if (row) dismissFireShield(row);
+    });
     return;
   }
   if (t.hasAttribute("data-sustain") || t.hasAttribute("data-move-mark")) {
@@ -5952,12 +5962,26 @@ let dustFxWait = null;
 function coverDustFx() {
   if (dustFxWait) { clearTimeout(dustFxWait); dustFxWait = null; }
 }
+function dropDustToken(subjectId) {
+  const host = window.SSDNSMapHost;
+  if (!subjectId || !host || typeof host.dropTokenKeepRow !== "function") return;
+  const row = findCombatant({ id: subjectId, targetId: subjectId, mapTokenId: subjectId });
+  host.dropTokenKeepRow(subjectId);
+  if (!row) return;
+  const still = row.mapTokenId && host.hasToken && host.hasToken(row.mapTokenId);
+  if (!still) delete row.mapTokenId;
+  saveRemoteTable();
+  renderFight();
+}
 function queueDustFx(fromId, targetId, spellName) {
   coverDustFx();
   dustFxWait = setTimeout(() => {
     dustFxWait = null;
     const known = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(spellName || "Disintegrate") : null;
     spellMapFx(fromId || targetId, targetId, spellName || "Disintegrate", known, "hit", { crumbOnly: true, dust: true });
+    /* The crumb plays on the token. Remove the piece after it, and leave the fight row. */
+    const gone = targetId;
+    setTimeout(() => dropDustToken(gone), 2400);
   }, 50);
 }
 function targetDusted(id) {
@@ -6525,21 +6549,55 @@ function clearDamageDice() {
   const el = $("#dmgFormula");
   if (el) el.value = "";
 }
+function tokenHpOf(row) {
+  const host = window.SSDNSMapHost;
+  if (!host || typeof host.tokenSnapshot !== "function" || !row) return null;
+  const ids = [row.mapTokenId, row.id, row.playerId];
+  for (let i = 0; i < ids.length; i++) {
+    if (!ids[i]) continue;
+    const snap = host.tokenSnapshot(ids[i]);
+    const hp = knownNumber(snap && snap.hp);
+    if (hp != null) return hp;
+  }
+  return null;
+}
+/* The portrait bar reads the card when max is set, and the token's own hp otherwise.
+   A spell that only wrote the fight row left Witch Bolt looking like a hit with no drop. */
+function mirrorTokenHp(row) {
+  const host = window.SSDNSMapHost;
+  if (!host || typeof host.patchToken !== "function" || !row) return;
+  const id = row.mapTokenId || row.id;
+  if (!id) return;
+  host.patchToken(id, { hp: row.hp, maxHp: row.maxHp });
+}
 function applyEnemyHp(row, delta) {
   if (noHpPoolRow(row)) {
     DM.toast((row.name || "It") + " has no hit points to lose or gain");
     return null;
   }
-  const before = knownNumber(row && row.hp);
+  let before = knownNumber(row && row.hp);
+  if (before == null && window.SSDNSApplied && window.SSDNSApplied.seedCombatHp) {
+    const seeded = window.SSDNSApplied.seedCombatHp(row, tokenHpOf(row));
+    if (seeded && seeded.hp != null) {
+      row.hp = seeded.hp;
+      before = seeded.hp;
+    }
+  }
   if (before == null) {
     DM.toast((row && row.name ? row.name : "Enemy") + " has no HP set, so it is not marked Down");
     return null;
   }
-  if (delta > 0) {
-    const max = knownNumber(row.maxHp);
-    row.hp = max == null ? before + delta : Math.min(max, before + delta);
-  } else row.hp = Math.max(0, before + delta);
+  const next = window.SSDNSApplied && window.SSDNSApplied.applyHpDelta
+    ? window.SSDNSApplied.applyHpDelta(before, delta, row.maxHp)
+    : null;
+  if (next == null) {
+    if (delta > 0) {
+      const max = knownNumber(row.maxHp);
+      row.hp = max == null ? before + delta : Math.min(max, before + delta);
+    } else row.hp = Math.max(0, before + delta);
+  } else row.hp = next;
   if (window.SSDNSApplied && window.SSDNSApplied.refreshCombatantStatus) window.SSDNSApplied.refreshCombatantStatus(row);
+  mirrorTokenHp(row);
   return before;
 }
 function askAmount(sign) {
@@ -7592,6 +7650,26 @@ function spellConditionName(spell) {
   const summary = spell && typeof spell === "object" ? String(spell.summary || "") : "";
   const hit = CONDITIONS.filter((name) => new RegExp("\\b" + name + "\\b", "i").test(summary));
   return hit.length === 1 ? hit[0] : "";
+}
+function rowHasFireShield(row) {
+  const marks = (row && row.spellMarks && row.spellMarks.marks) || [];
+  if (marks.some((m) => m && (m.kind === "shield" || /fire shield/i.test(String(m.spell || m.chip || ""))))) return true;
+  return conditionsForRow(row).some((c) => /fire shield/i.test(String((c && (c.name || c.spell)) || c || "")));
+}
+/* Fire Shield is a 10-minute rider, not concentration. End it without breaking another spell. */
+function dismissFireShield(row) {
+  if (!row) return;
+  const R = window.SSDNSSpellRiders;
+  if (R && R.dropSpell) {
+    const ended = R.dropSpell(row.spellMarks, "Fire Shield");
+    row.spellMarks = ended.bag;
+  }
+  dropOwnedConditions("Fire Shield");
+  const pid = row.kind === "player" ? (row.playerId || row.id) : "";
+  if (pid) DM.pushCommand({ type: "spell_end", to: pid, quiet: true, payload: { spell: "Fire Shield" }, from: DM.state.uid });
+  DM.toast((row.name || "They") + " ends Fire Shield.");
+  saveRemoteTable();
+  renderFight();
 }
 function dropOwnedConditions(spellName) {
   if (!spellName || !window.SSDNSConditions || !window.SSDNSConditions.removeBySpell) return;

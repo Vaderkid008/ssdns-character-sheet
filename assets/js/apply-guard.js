@@ -1045,6 +1045,27 @@
     if (phase === "offline") return false;
     return !!rawOnline;
   }
+  /* A damage request still lands when the fight row never had a current HP.
+     Prefer the row, then the map token, then a full pool at max. Never invent a pool. */
+  function seedCombatHp(row, tokenHp) {
+    var cur = hpNumber(row && row.hp);
+    if (cur != null) return { hp: cur, seeded: false };
+    var fromToken = hpNumber(tokenHp);
+    if (fromToken != null) return { hp: fromToken, seeded: true };
+    var max = hpNumber(row && row.maxHp);
+    if (max != null) return { hp: max, seeded: true };
+    return null;
+  }
+  function applyHpDelta(before, delta, max) {
+    var b = Number(before);
+    if (!isFinite(b)) return null;
+    var d = Number(delta) || 0;
+    if (d > 0) {
+      var cap = Number(max);
+      return isFinite(cap) ? Math.min(cap, b + d) : b + d;
+    }
+    return Math.max(0, b + d);
+  }
   function hpNumber(v) {
     if (v == null || v === "" || !isFinite(Number(v))) return null;
     return Number(v);
@@ -1472,7 +1493,9 @@
     attackTool: attackTool,
     factionName: factionName,
     stripGhostCombatants: stripGhostCombatants,
-    presenceShownOnline: presenceShownOnline
+    presenceShownOnline: presenceShownOnline,
+    seedCombatHp: seedCombatHp,
+    applyHpDelta: applyHpDelta
   };
   root.SSDNSClock = {
     setOffset: setOffset,

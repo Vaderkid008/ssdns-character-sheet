@@ -1367,6 +1367,9 @@ function fxGeometry(spec) {
     const edge = role === 'player' ? fxWalk(from, geo.T, playerSees) : { x: from.x, y: from.y };
     if (!edge) return null;
     geo.src = { x: edge.x, y: edge.y }; geo.srcHidden = true;
+  } else if (!S && geo.T && type === 'spell') {
+    /* Circle of Death and other placed blasts: paint the point even when the caster token did not resolve. */
+    geo.src = { x: geo.T.x, y: geo.T.y };
   } else return null;
   var spellSelf = type === 'spell' && (spec.self || (FXA.lookSelf && FXA.lookSelf(spec)));
   if (type === 'free') {
@@ -1690,7 +1693,17 @@ function fxPublic(spec) {
   if (role !== 'dm' || !FXA || !spec) return null;
   const type = FXA.classify(spec);
   const S = fxRef(spec.shooter), T = fxRef(spec.target);
-  if (!S) return null;
+  if (!S) {
+    const lone = type === 'spell' ? fxPoint(spec) : null;
+    if (!lone) return null;
+    const placed = {
+      type, result: spec.result, spell: spec.spell || '', dmg: spec.dmg || '', self: false,
+      facing: spec.facing, at: { x: Math.round(lone.x * 10) / 10, y: Math.round(lone.y * 10) / 10 },
+      heard: spec.heard
+    };
+    if (spec.id) placed.id = spec.id;
+    return FXA.sanitize(placed);
+  }
   if (spec.target && !T) return null;
   if (T && T.hidden) return null;
   const pub = {
@@ -2471,12 +2484,48 @@ function syncSpellPieces() {
         spellPiece: row.key,
         zoneId: id,
         moveFeet: row.moveFeet,
-        ownerCanMove: row.moveFeet > 0
+        ownerUid: "",
+        controlledBy: (z.casterId || z.casterUid) ? [String(z.casterId || z.casterUid)] : [],
+        ownerCanMove: false
       });
       if (existing && existing.image) loadTokenImage(existing);
-      if (existing) saveToken(existing.id);
+      if (existing) {
+        const caster = String(z.casterId || z.casterUid || "");
+        existing.controlledBy = existing.controlledBy || [];
+        if (caster && existing.controlledBy.indexOf(caster) < 0) existing.controlledBy.push(caster);
+        if (existing.ownerUid) {
+          const who = existing.ownerUid;
+          existing.ownerUid = "";
+          if (who && existing.controlledBy.indexOf(who) < 0) existing.controlledBy.push(who);
+        }
+        if (shared.tokens[existing.id]) {
+          shared.tokens[existing.id].ownerUid = "";
+          shared.tokens[existing.id].controlledBy = existing.controlledBy.slice();
+        }
+        saveToken(existing.id);
+      }
       if (existing && existing.spellPiece === "guardian of faith") guardianGarnish(existing, existing, "place");
       return;
+    }
+    const casterLive = String(z.casterId || z.casterUid || "");
+    existing.controlledBy = existing.controlledBy || [];
+    let controlChanged = false;
+    if (casterLive && existing.controlledBy.indexOf(casterLive) < 0) {
+      existing.controlledBy.push(casterLive);
+      controlChanged = true;
+    }
+    if (existing.ownerUid) {
+      const who = existing.ownerUid;
+      existing.ownerUid = "";
+      if (who && existing.controlledBy.indexOf(who) < 0) existing.controlledBy.push(who);
+      controlChanged = true;
+    }
+    if (controlChanged) {
+      if (shared.tokens[existing.id]) {
+        shared.tokens[existing.id].ownerUid = existing.ownerUid || "";
+        shared.tokens[existing.id].controlledBy = existing.controlledBy.slice();
+      }
+      saveToken(existing.id);
     }
     const dragging = state.drag && state.drag.token && state.drag.token.id === existing.id;
     if (!dragging && existing.pos && (existing.pos.x !== at.x || existing.pos.y !== at.y)) {
@@ -3175,6 +3224,8 @@ function tokenSnapshot(id) {
   return {
     id: t.id, x: Number(t.pos.x), y: Number(t.pos.y), size: t.size || 1,
     devilsSight: !!t.devilsSight, darkvision: Number(t.darkvision) || 0,
+    hp: t.hp != null && t.hp !== "" ? Number(t.hp) : null,
+    maxHp: t.maxHp != null && t.maxHp !== "" ? Number(t.maxHp) : null,
     name: t.name || t.label || ""
   };
 }
@@ -6543,12 +6594,28 @@ function canonicalPlayerToken(uid) {
     saveToken(want);
   }
   const extras = [];
+  function keepSpellControl(t, id) {
+    if (!t || !(t.spellPiece || t.kind === "spell" || t.zoneId)) return false;
+    const who = t.ownerUid || uid;
+    t.ownerUid = "";
+    t.controlledBy = t.controlledBy || [];
+    if (who && t.controlledBy.indexOf(who) < 0) t.controlledBy.push(who);
+    const copy = shared.tokens[id] || (shared.tokens[id] = { id: id });
+    copy.ownerUid = "";
+    copy.controlledBy = t.controlledBy.slice();
+    saveToken(id);
+    return true;
+  }
   state.tokens.forEach(t => {
-    if (t && t.ownerUid === uid && t.id !== want) extras.push(t.id);
+    if (!(t && t.ownerUid === uid && t.id !== want)) return;
+    if (!keepSpellControl(t, t.id)) extras.push(t.id);
   });
   Object.keys(shared.tokens || {}).forEach(id => {
     const t = shared.tokens[id];
-    if (t && t.ownerUid === uid && id !== want && extras.indexOf(id) < 0) extras.push(id);
+    if (!(t && t.ownerUid === uid && id !== want) || extras.indexOf(id) >= 0) return;
+    const live = state.tokens.find(tok => tok && tok.id === id);
+    if (live) return;
+    if (!keepSpellControl(t, id)) extras.push(id);
   });
   if (extras.length) removeMapTokens(extras, { keepOwner: true, silent: true });
   return state.tokens.find(t => t && t.id === want) || null;
@@ -9436,24 +9503,28 @@ function notePartyDark(sight) {
   state._partyDarkSig = sig;
   if (!lit) toast('No one in the party is carrying a light.');
 }
-function clipLightDisc(ls, radiusPx) {
-  const pts = raycastVisible(ls.x, ls.y, radiusPx);
+function clipLightDisc(ls, radiusPx, g) {
+  /* Caller passes pixel coordinates (draw() already scaled grid squares). */
+  const pen = g || ctx;
+  const ox = Number(ls.x);
+  const oy = Number(ls.y);
+  const pts = raycastVisible(ox, oy, radiusPx);
   if (!pts.length) return false;
-  ctx.beginPath();
-  ctx.moveTo(pts[0].x, pts[0].y);
-  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-  ctx.closePath();
-  ctx.clip();
+  pen.beginPath();
+  pen.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) pen.lineTo(pts[i].x, pts[i].y);
+  pen.closePath();
+  pen.clip();
   if (ls && ls.cone) {
-    const c = worldToScreen(ls.x, ls.y);
+    const c = worldToScreen(ox, oy);
     const z = state.view.zoom || 1;
     const spread = Math.atan(0.5);
     const face = Number(ls.facing) || 0;
-    ctx.beginPath();
-    ctx.moveTo(c.x, c.y);
-    ctx.arc(c.x, c.y, Math.max(1, radiusPx * z), face - spread, face + spread);
-    ctx.closePath();
-    ctx.clip();
+    pen.beginPath();
+    pen.moveTo(c.x, c.y);
+    pen.arc(c.x, c.y, Math.max(1, radiusPx * z), face - spread, face + spread);
+    pen.closePath();
+    pen.clip();
   }
   return true;
 }
@@ -9466,43 +9537,81 @@ function paintGlowDisc(ls, radiusPx, paint) {
   paint(c, oR, z);
   ctx.restore();
 }
+/* One dim veil. Overlapping sources (Wall of Fire's row, Fire Shield plus Sunbeam)
+   used to stack this black wash until the map went dark. */
+function paintOneVeil(pen, ls, px) {
+  if (!pen || !ls || !(ls.radius > 0)) return;
+  const outer = ls.radius * px;
+  pen.save();
+  if (!clipLightDisc(ls, outer, pen)) { pen.restore(); return; }
+  const c = worldToScreen(ls.x, ls.y);
+  const z = state.view.zoom || 1;
+  const oR = Math.max(2, outer * z);
+  const brightPx = Math.max(0, (Number(ls.bright) || 0) * px);
+  const bR = Math.min(oR - 0.5, Math.max(0, brightPx * z));
+  const g = pen.createRadialGradient(c.x, c.y, (ls.bright > 0 && bR + 1 < oR) ? bR : 0, c.x, c.y, oR);
+  if (ls.bright > 0 && bR + 1 < oR) {
+    g.addColorStop(0, 'rgba(7, 7, 10, 0)');
+    g.addColorStop(0.16, 'rgba(8, 8, 12, 0.62)');
+    g.addColorStop(1, 'rgba(5, 5, 8, 0.8)');
+  } else {
+    g.addColorStop(0, 'rgba(8, 8, 12, 0.38)');
+    g.addColorStop(1, 'rgba(5, 5, 8, 0.7)');
+  }
+  pen.fillStyle = g;
+  pen.fillRect(c.x - oR - 2, c.y - oR - 2, oR * 2 + 4, oR * 2 + 4);
+  pen.restore();
+}
+function lightScratch(box) {
+  const dpr = Math.min((typeof window !== 'undefined' && window.devicePixelRatio) || 1, 2);
+  if (!lightScratch.canvas) lightScratch.canvas = document.createElement('canvas');
+  const oc = lightScratch.canvas;
+  const w = Math.max(1, Math.ceil(box.w * dpr));
+  const h = Math.max(1, Math.ceil(box.h * dpr));
+  if (oc.width !== w || oc.height !== h) { oc.width = w; oc.height = h; }
+  const pen = oc.getContext('2d');
+  pen.setTransform(dpr, 0, 0, dpr, 0, 0);
+  pen.clearRect(0, 0, box.w, box.h);
+  pen.globalCompositeOperation = 'source-over';
+  return { canvas: oc, pen: pen, dpr: dpr };
+}
 /* After a full reveal, darken the dim ring. A dim-only light stays visible, not a hard hole. */
 function paintDarkDimVeil(sources, px) {
-  (sources || []).forEach(ls => {
-    if (!ls || !(ls.radius > 0)) return;
-    const outer = ls.radius * px;
-    const brightPx = Math.max(0, (Number(ls.bright) || 0) * px);
-    paintGlowDisc(ls, outer, (c, oR) => {
-      const bR = Math.min(oR - 0.5, Math.max(0, brightPx * (state.view.zoom || 1)));
-      const g = ctx.createRadialGradient(c.x, c.y, (ls.bright > 0 && bR + 1 < oR) ? bR : 0, c.x, c.y, oR);
-      if (ls.bright > 0 && bR + 1 < oR) {
-        g.addColorStop(0, 'rgba(7, 7, 10, 0)');
-        g.addColorStop(0.16, 'rgba(8, 8, 12, 0.62)');
-        g.addColorStop(1, 'rgba(5, 5, 8, 0.8)');
-      } else {
-        g.addColorStop(0, 'rgba(8, 8, 12, 0.38)');
-        g.addColorStop(1, 'rgba(5, 5, 8, 0.7)');
-      }
-      ctx.fillStyle = g;
-      ctx.fillRect(c.x - oR - 2, c.y - oR - 2, oR * 2 + 4, oR * 2 + 4);
-    });
+  const list = (sources || []).filter(ls => ls && ls.radius > 0);
+  if (!list.length) return;
+  const box = viewBox();
+  const layer = lightScratch(box);
+  list.forEach((ls, i) => {
+    layer.pen.save();
+    layer.pen.globalCompositeOperation = i === 0 ? 'source-over' : 'destination-over';
+    paintOneVeil(layer.pen, ls, px);
+    layer.pen.restore();
   });
+  ctx.save();
+  ctx.drawImage(layer.canvas, 0, 0, box.w, box.h);
+  ctx.restore();
 }
 /* In Dim, lift the dim ring and any dim-only source so it reads against the wash. */
 function paintDimLift(sources, px) {
-  (sources || []).forEach(ls => {
-    if (!ls || !(ls.radius > 0)) return;
+  const list = (sources || []).filter(ls => {
+    if (!ls || !(ls.radius > 0)) return false;
     const onlyDim = !(ls.bright > 0);
-    if (!onlyDim && !(ls.radius > ls.bright)) return;
-    ctx.save();
-    ctx.globalCompositeOperation = 'destination-out';
+    return onlyDim || ls.radius > ls.bright;
+  });
+  if (!list.length) return;
+  const box = viewBox();
+  const layer = lightScratch(box);
+  list.forEach((ls, i) => {
+    const onlyDim = !(ls.bright > 0);
+    layer.pen.save();
+    layer.pen.globalCompositeOperation = i === 0 ? 'source-over' : 'destination-over';
     const outer = ls.radius * px;
-    if (!clipLightDisc(ls, outer)) { ctx.restore(); return; }
+    if (!clipLightDisc(ls, outer, layer.pen)) { layer.pen.restore(); return; }
     const c = worldToScreen(ls.x, ls.y);
     const z = state.view.zoom || 1;
     const oR = Math.max(2, outer * z);
     const bR = Math.max(0, (Number(ls.bright) || 0) * px * z);
-    const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, oR);
+    const g = layer.pen.createRadialGradient(c.x, c.y, 0, c.x, c.y, oR);
     if (onlyDim) {
       g.addColorStop(0, 'rgba(0,0,0,0.7)');
       g.addColorStop(0.72, 'rgba(0,0,0,0.28)');
@@ -9514,10 +9623,14 @@ function paintDimLift(sources, px) {
       g.addColorStop(Math.min(0.98, edge + 0.06), 'rgba(0,0,0,0.4)');
       g.addColorStop(1, 'rgba(0,0,0,0)');
     }
-    ctx.fillStyle = g;
-    ctx.fillRect(c.x - oR - 2, c.y - oR - 2, oR * 2 + 4, oR * 2 + 4);
-    ctx.restore();
+    layer.pen.fillStyle = g;
+    layer.pen.fillRect(c.x - oR - 2, c.y - oR - 2, oR * 2 + 4, oR * 2 + 4);
+    layer.pen.restore();
   });
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.drawImage(layer.canvas, 0, 0, box.w, box.h);
+  ctx.restore();
 }
 function paintTorchHalo(sources, px, amb) {
   const hot = amb === 'bright' ? 0.28 : 0.5;
@@ -10119,6 +10232,15 @@ function tokenForPlayer(pid) {
   const hits = state.tokens.filter(t => t && (t.id === want || t.ownerUid === pid || t.combatantId === pid || t.sheetId === pid));
   return hits.find(t => t.id === want) || hits[0] || null;
 }
+/* Remove the map piece and leave the fight row. Disintegrate uses this after the dust crumb.
+   silent skips combatant:remove, which would delete the combatant. keepOwner does not dismiss a PC. */
+function dropTokenKeepRow(id) {
+  if (role !== 'dm' || !id) return false;
+  const t = tokenByRef(id) || (state.tokens || []).find(tok => tok && (tok.id === id || tok.combatantId === id || tok.ownerUid === id));
+  if (!t) return false;
+  removeMapTokens([t.id], { silent: true, keepOwner: true });
+  return true;
+}
 function releaseToken(id) {
   const t = state.tokens.find(tok => tok && tok.id === id);
   if (!t) return;
@@ -10163,6 +10285,8 @@ function removeMapTokens(ids, opts) {
     const t = state.tokens.find(tok => tok && tok.id === id);
     if (!t) return null;
     if (fields.status != null) t.status = fields.status;
+    if (fields.hp != null && fields.hp !== "") t.hp = Number(fields.hp);
+    if (fields.maxHp != null && fields.maxHp !== "") t.maxHp = Number(fields.maxHp);
     if (fields.name) t.name = fields.name;
     if (fields.label) t.label = String(fields.label).slice(0, 16);
     if (fields.combatantId) t.combatantId = fields.combatantId;
@@ -10190,6 +10314,8 @@ function removeMapTokens(ids, opts) {
       copy.conditionSpells = Object.assign({}, t.conditionSpells || {});
     }
     copy.status = t.status || '';
+    if (t.hp != null && t.hp !== "") copy.hp = t.hp;
+    if (t.maxHp != null && t.maxHp !== "") copy.maxHp = t.maxHp;
     if (t.name) copy.name = t.name;
     if (t.label) copy.label = t.label;
     if (t.combatantId) copy.combatantId = t.combatantId;
@@ -10206,11 +10332,26 @@ function removeMapTokens(ids, opts) {
   let t = state.tokens.find(tok => tok && tok.id === tokenId);
   if (!t) return null;
   const reopen = state.drawerOpen && state.drawerTokenId === tokenId;
+  let keepPc = false;
   if (patch.ownerUid) {
     const linkUid = patch.ownerUid;
     const want = playerTokenId(linkUid);
     const linkName = patch.name || ((partyList().find(p => p && (p.uid || p.id) === linkUid) || {}).name) || 'them';
     const others = ownedTokenIds(linkUid, t.id);
+    const canonLive = state.tokens.find(tok => tok && tok.id === want && tok.id !== t.id);
+    /* An extra piece (Spiritual Weapon, a summon) must not become the PC or delete that token. */
+    if (canonLive && t.kind !== "player") {
+      keepPc = true;
+      t.controlledBy = t.controlledBy || [];
+      if (!t.controlledBy.includes(linkUid)) t.controlledBy.push(linkUid);
+      if (t.ownerUid === linkUid) t.ownerUid = "";
+      const preGrant = shared.tokens[t.id] || (shared.tokens[t.id] = { id: t.id });
+      preGrant.controlledBy = t.controlledBy.slice();
+      preGrant.ownerUid = t.ownerUid || "";
+      saveToken(t.id);
+      postGrant(t);
+      toast(linkName + " can move this token. Their character token stays.");
+    } else {
     /* Explicit DM link only: a new token becomes canonical at its own square and the old one goes.
        dedupePlayerTokens / canonicalPlayerToken still keep the old id on every other pass. */
     if (t.id !== want && others.length) {
@@ -10236,6 +10377,7 @@ function removeMapTokens(ids, opts) {
     }
     delete dismissedMap()[linkUid];
     if (adapter && adapter.remove) adapter.remove('map/dm/dismissed/' + linkUid);
+    }
   }
   if (patch.kind) t.kind = patch.kind;
   if (patch.size != null && patch.size !== '') {
@@ -10248,7 +10390,7 @@ function removeMapTokens(ids, opts) {
       if (areaTaken(fit.x, fit.y, sq, { [t.id]: 1 })) toast('Bigger token overlaps another. Drag it to open ground.');
     }
   }
-  if (patch.ownerUid != null) t.ownerUid = patch.ownerUid;
+  if (patch.ownerUid != null && !keepPc) t.ownerUid = patch.ownerUid;
   if (patch.combatantId) t.combatantId = patch.combatantId;
   if (patch.sheetId != null) t.sheetId = patch.sheetId;
   if (patch.name) t.name = patch.name;
@@ -10258,7 +10400,7 @@ function removeMapTokens(ids, opts) {
   if (patch.portrait && !t.image && !patch.image) scheduleDefaultImage(t, patch.portrait);
   if (patch.status != null) t.status = patch.status;
   if (patch.ownerCanMove != null) t.ownerCanMove = patch.ownerCanMove !== false;
-  else if (patch.ownerUid) t.ownerCanMove = true;
+  else if (patch.ownerUid && !keepPc) t.ownerCanMove = true;
   const copy = shared.tokens[t.id] || (shared.tokens[t.id] = { id: t.id });
   ['kind', 'ownerUid', 'combatantId', 'sheetId', 'name', 'label', 'color', 'ownerCanMove', 'pos', 'sceneId', 'size', 'hidden', 'locked', 'status', 'image'].forEach(key => {
     if (t[key] !== undefined) copy[key] = t[key];
@@ -10268,7 +10410,7 @@ function removeMapTokens(ids, opts) {
   if (t.image) loadTokenImage(t);
   saveToken(t.id);
   draw();
-  if (patch.ownerUid) emit('party:sync', { playerId: patch.ownerUid, tokenId: t.id });
+  if (patch.ownerUid && !keepPc) emit('party:sync', { playerId: patch.ownerUid, tokenId: t.id });
   if (reopen) openDrawer(t.id);
   return t;
 }
@@ -14681,6 +14823,7 @@ return {
   focusLootChest,
   setTool,
   removeToken: function (id) { removeMapTokens([id], { silent: true }); },
+  dropTokenKeepRow: function (id) { return dropTokenKeepRow(id); },
   applyLink,
   patchToken,
   tokenForPlayer,

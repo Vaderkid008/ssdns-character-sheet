@@ -618,6 +618,8 @@
     if (light.spellLevel != null) return Number(light.spellLevel);
     var id = String(light.id || light.catalogId || "");
     if (/daylight/i.test(id)) return 3;
+    if (/sunbeam|sunburst/i.test(id)) return 6;
+    if (/wall of fire|wall-of-fire|fire shield|fire-shield/i.test(id)) return 4;
     if (/continual/i.test(id)) return 2;
     if (/^spell:light|^spell:dancing|light$/i.test(id) || /dancing/i.test(id)) return 0;
     if (light.spell && !light.feature) return 0;
