@@ -5296,6 +5296,15 @@
     var detail = ev && ev.detail;
     noteLiveZones((detail && detail.zones) || []);
   });
+  function downedSaveSkipped(targetId, ownerUid) {
+    var A = root.SSDNSApplied;
+    if (!A || !A.isDownedTarget || (A.showDowned && A.showDowned())) return false;
+    var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+    var c = ch();
+    if (!c || !uid) return false;
+    if (String(targetId || "") !== String(uid) && String(ownerUid || "") !== String(uid)) return false;
+    return !!A.isDownedTarget({ kind: "player", hp: c.hpCurrent, conditions: c.activeConditions || [] });
+  }
   window.addEventListener("ssdns-zone-tick", function (ev) {
     var detail = ev && ev.detail;
     var ticks = detail && detail.ticks;
@@ -5308,6 +5317,7 @@
     } catch (errTurn) { turnKey = ""; }
     ticks.forEach(function (tick) {
       var targetId = tick.targetId || detail.tokenId || "";
+      if (downedSaveSkipped(targetId, detail && detail.ownerUid)) return;
       if (turnKey && Zonce && Zonce.once && !Zonce.once(seen, tick, targetId, turnKey)) return;
       var uidNow = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
       if (tick.hostile && tick.casterId && (tick.casterId === targetId || (tick.casterId === uidNow && detail && detail.ownerUid === uidNow))) return;

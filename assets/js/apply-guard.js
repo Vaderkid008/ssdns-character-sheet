@@ -789,20 +789,42 @@
     return lines;
   }
   var ABILITY_KEYS = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
-  function isUnusableTarget(row) {
-    if (!row) return true;
-    if (row.fled || row.left || row.departed) return true;
+  /* 0.3.216: downed (Unconscious / 0 HP) stay out of targeting and saves until the DM shows them.
+     Default off. Fled / left / gone stay unusable either way. Death saves are a separate roll. */
+  var showDownedOn = false;
+  function showDowned() { return !!showDownedOn; }
+  function setShowDowned(on) {
+    showDownedOn = !!on;
+    try {
+      if (typeof root.dispatchEvent === "function" && typeof root.CustomEvent === "function") {
+        root.dispatchEvent(new root.CustomEvent("ssdns-show-downed", { detail: { on: showDownedOn } }));
+      }
+    } catch (e) {}
+    return showDownedOn;
+  }
+  function isDownedTarget(row) {
+    if (!row || typeof row !== "object") return false;
+    if (row.fled || row.left || row.departed) return false;
     var status = String(row.status || "");
-    if (/^(fled|left|gone)$/i.test(status)) return true;
+    if (/^(fled|left|gone)$/i.test(status)) return false;
+    /* Sleep and the like: Unconscious while HP is still above 0. A stale Down status does not stick once HP is positive. */
+    if (conditionNames(row.conditions).some(function (name) { return /unconscious|dead|dying/i.test(name); })) return true;
+    var marked = /^(down|dead|unconscious|dying)$/i.test(status);
     /* 0.3.88: a creature with no HP pool is never down from its HP number (status / conditions still count) */
-    if (noHpPool(row)) return /^(down|dead|unconscious|dying)$/i.test(status) || conditionNames(row.conditions).some(function (name) { return /unconscious|dead|dying/i.test(name); });
+    if (noHpPool(row)) return marked;
     var hp = row.hp;
     if ((hp == null || hp === "") && row.revealed && row.revealed.hp != null && row.revealed.hp !== "") hp = row.revealed.hp;
     var known = hp != null && hp !== "" && isFinite(Number(hp));
     if (known && Number(hp) > 0) return false;
     if (known && Number(hp) <= 0) return true;
-    if (/^(down|dead|unconscious|dying)$/i.test(status)) return true;
-    if (conditionNames(row.conditions).some(function (name) { return /unconscious|dead|dying/i.test(name); })) return true;
+    return marked;
+  }
+  function isUnusableTarget(row) {
+    if (!row) return true;
+    if (row.fled || row.left || row.departed) return true;
+    var status = String(row.status || "");
+    if (/^(fled|left|gone)$/i.test(status)) return true;
+    if (isDownedTarget(row)) return !showDownedOn;
     return false;
   }
   function isLivingHostile(row) {
@@ -1411,6 +1433,9 @@
     presenceLeave: presenceLeave,
     enqueueToast: enqueueToast,
     isUnusableTarget: isUnusableTarget,
+    isDownedTarget: isDownedTarget,
+    showDowned: showDowned,
+    setShowDowned: setShowDowned,
     isLivingHostile: isLivingHostile,
     refreshCombatantStatus: refreshCombatantStatus,
     chamberClick: chamberClick,
