@@ -1811,6 +1811,7 @@
     if (row && row.kind === "rider" && row.trigger && row.trigger !== "meleeHitOnCaster") return true;
     var bare = String((row && row.name) || "").toLowerCase().replace(/\s+shell$/, "").trim();
     if (bare === "true strike") return true;
+    if (root.SSDNSSpellRiders && root.SSDNSSpellRiders.ridesWeapon && root.SSDNSSpellRiders.ridesWeapon(row)) return false;
     return !!(row && (row.kind === "attack" || row.kind === "weapon" || row.kind === "auto" || row.kind === "save"));
   }
   function askSpellOption(name, spec) {
@@ -1883,7 +1884,8 @@
       disease: castSpellAttackNow._disease || "",
       casterId: root.SSDNSDmJoin && root.SSDNSDmJoin.uid ? root.SSDNSDmJoin.uid() : "",
       targets: castSpellAttackNow._targets || null,
-      holdChips: !!(row && (row.bane || phbKey(spellName) === "bane"))
+      holdChips: !!(row && (row.bane || phbKey(spellName) === "bane")),
+      armPending: !!(SR.ridesWeapon && SR.ridesWeapon(row || { name: spellName }))
     });
     c.spellMarks = armed.bag;
     publishChips(armed.removed, true);
@@ -2463,6 +2465,8 @@
         return choice;
       });
     }
+    /* Phantasmal Killer must not inherit the last attack target. The player names the creature. */
+    if (phbKey(name) === "phantasmal killer") return askOneTarget(name);
     if (beams > 1) return askDartTargets(name, beams, preset, "Beam").then(function (choice) {
       if (choice) choice.assign = "beam";
       return choice;
@@ -2502,7 +2506,7 @@
       var blocked = attackGate(pendingBlind ? null : currentTarget(), {
         heal: looked && looked.kind === "heal",
         area: !!areaPick,
-        utility: !!(looked && (looked.kind === "none" || looked.kind === "utility" || looked.kind === "rider"))
+        utility: !!(looked && (looked.kind === "none" || looked.kind === "utility" || looked.kind === "rider" || (root.SSDNSSpellRiders && root.SSDNSSpellRiders.ridesWeapon && root.SSDNSSpellRiders.ridesWeapon(looked))))
       });
       if (blocked) { toast(blocked); addLog({ kind: "alert", text: blocked }); pendingDarts = null; pendingBeams = null; pendingBlind = false; abortCast(); return; }
       if (Cast && Cast.needsType && Cast.needsType(spellName)) {
@@ -2726,6 +2730,16 @@
       return;
     }
     if (!spendForCast(i, slot, fromChamber, spellName)) { abortCast(); return; }
+    if (row && root.SSDNSSpellRiders && root.SSDNSSpellRiders.ridesWeapon && root.SSDNSSpellRiders.ridesWeapon(row)) {
+      var armedLine = rideCast(spellName, row, slot, null, false);
+      var armedText = (c && c.name ? c.name + " readies " : "") + (spellName || "Smite") + (armedLine ? " · " + armedLine : " · armed on the next weapon hit");
+      addLog({ kind: "roll", text: armedText, label: spellName || "Smite" });
+      toast(armedText);
+      postSpellLook(spellName, "", "hit", row, null, rollId, { self: true });
+      if (root.SSDNSActionPips && root.SSDNSActionPips.spell) root.SSDNSActionPips.spell(spellName);
+      commitCast();
+      return;
+    }
     noteInstrumentCast();
     var rangeNote = rangeShot && rangeShot.apply && rangeShot.disadvantage ? (rangeShot.note || "disadvantage: range") : "";
     chosenMode = rangeMode(chosenMode, rangeShot);
@@ -3379,7 +3393,8 @@
     if (!(slot > 0)) { castSpellAttackNow._paid = true; return true; }
     var app = root.SSDNSApp;
     var c = ch();
-    var useChamber = !!(fromChamber && c && c.calling === "hexslinger" && i >= 0 && app && app.spendHexChamber);
+    var rebukeCast = String(spellName || "").toLowerCase().replace(/\s+shell$/, "").trim() === "hellish rebuke";
+    var useChamber = !rebukeCast && !!(fromChamber && c && c.calling === "hexslinger" && i >= 0 && app && app.spendHexChamber);
     var shield = phbKey(spellName) === "shield";
     if (useChamber) {
       var held = app.spendHexChamber(i, slot, shield ? "" : spellName);
@@ -4114,6 +4129,10 @@
         amount: dmg.total, label: name, weapon: name, type: "weapon", melee: !(wpn && (wpn.group === "bow" || wpn.group === "crossbow" || /gun|pistol|rifle|shotgun|revolver/i.test(wpn.group || ""))),
         targetId: tgt && tgt.id, targetName: tgt && tgt.name, rollId: gunRollId,
         banishAt: gunRide && gunRide.banishAt || 0,
+        riderSave: gunRide && gunRide.hitSave ? gunRide.hitSave.ability : "",
+        riderOnFail: gunRide && gunRide.hitSave ? gunRide.hitSave.onFail : "",
+        riderSpell: gunRide && gunRide.hitSave ? gunRide.hitSave.spell : "",
+        dc: (root.SSDNSApp && root.SSDNSApp.compute && root.SSDNSApp.compute().spellDC) || "",
         splash: gunRide && gunRide.splash || null,
         fromId: root.SSDNSDmJoin.uid ? root.SSDNSDmJoin.uid() : ""
       });
@@ -4689,7 +4708,8 @@
   function castPickedNow(i, sp) {
     var c = ch();
     var slot = sp.slot || 0;
-    castSpellAttack(i, sp.name, slot, !!(slot > 0 && c && c.calling === "hexslinger"));
+    var rebuke = String(sp.name || "").toLowerCase().replace(/\s+shell$/, "").trim() === "hellish rebuke";
+    castSpellAttack(i, sp.name, slot, !rebuke && !!(slot > 0 && c && c.calling === "hexslinger"));
   }
   function openCastPrompt(level, onPick) {
     if (focusBlocked()) return;

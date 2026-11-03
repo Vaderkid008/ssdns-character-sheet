@@ -1137,7 +1137,8 @@
         notes: notes,
         spent: (base && base.spent) || {},
         splash: extra.splash || null,
-        banishAt: extra.banishAt || 0
+        banishAt: extra.banishAt || 0,
+        hitSave: extra.hitSave || null
       };
     }
     var armS = !!(c.res && c.res.sneakArmed), armM = num(c.res && c.res.smiteArmed);

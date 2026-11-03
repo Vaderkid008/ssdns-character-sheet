@@ -181,8 +181,8 @@ check("sanitize.orb", kept && kept.dmg === "poison" && kept.beat === 2 && kept.g
 vm.runInContext(read("assets/js/spell-tokens.js"), sandbox);
 const Tok = sandbox.SSDNSSpellTokens;
 check("held.flame", Tok.isHeld("Produce Flame") === true && Tok.isToken("Produce Flame") === false && Tok.isToken("Guardian of Faith") === true);
-check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.219-softs") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.232-softs"));
-check("ver", JSON.parse(read("version.json")).sheet === "0.3.221" && JSON.parse(read("version.json")).dmcc === "0.2.234");
+check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.222-p1b") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.235-p1b"));
+check("ver", JSON.parse(read("version.json")).sheet === "0.3.222" && JSON.parse(read("version.json")).dmcc === "0.2.235");
 
 console.log(failures.length ? "\n" + failures.length + " FAILED" : "\nall chunk3 fx checks passed");
 process.exit(failures.length ? 1 : 0);

@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.221"; // sheet-playtest-v03221
+  var APP_VERSION = "0.3.222"; // sheet-playtest-v03222
   var TR_BELT_MSG = "Need a gun belt or bandolier for Tactical Reload.";
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
@@ -3771,6 +3771,8 @@
     var slot = num(sp && (sp.slot || sp.level), 0);
     if (!(slot > 0) || !sp || !sp.name) return "";
     if (shieldSpellName(sp.name)) return "";
+    /* Hellish Rebuke is a reaction from the damage card. It spends a slot, not a loaded hex shell. */
+    if (String(sp.name || "").toLowerCase().replace(/\s+shell$/, "").trim() === "hellish rebuke") return "";
     var gi = i >= 0 ? i : -1;
     if (gi < 0 && window.SSDNSFocus && window.SSDNSFocus.castGunIndex) gi = window.SSDNSFocus.castGunIndex(c);
     if (gi < 0) {

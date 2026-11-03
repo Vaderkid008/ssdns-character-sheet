@@ -818,7 +818,17 @@
         } : null
       });
       if (!miss && total && tgt && tgt.id && !quiet && root.SSDNSDmJoin.postDamage) {
-        root.SSDNSDmJoin.postDamage({ amount: total, label: name, type: "weapon", melee: !(tk && tk.thrown), targetId: tgt.id, targetName: tgt.name, rollId: rollId });
+        var spellDc = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute().spellDC : "";
+        var saveRide = ride && ride.hitSave;
+        root.SSDNSDmJoin.postDamage({
+          amount: total, label: name, type: "weapon", melee: !(tk && tk.thrown),
+          targetId: tgt.id, targetName: tgt.name, rollId: rollId,
+          banishAt: ride && ride.banishAt || 0,
+          riderSave: saveRide ? saveRide.ability : "",
+          riderOnFail: saveRide ? saveRide.onFail : "",
+          riderSpell: saveRide ? saveRide.spell : "",
+          dc: spellDc
+        });
       }
     }
     }
