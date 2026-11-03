@@ -1408,7 +1408,11 @@
         if (/touch/i.test(range) && !allow) msg = Area.touchBlock(null, range, { allowUnmeasured: false });
         return;
       }
-      msg = Area.rangeBlock(feetTo(p.id), range, { allowUnmeasured: allow });
+      var feet = feetTo(p.id);
+      var measured = feet != null && feet !== "" && isFinite(Number(feet));
+      /* Inflict Wounds and Contagion are touch. A missing token link used to abort the cast.
+         More than 5 ft, when the map can measure it, still stops the cast. */
+      msg = Area.rangeBlock(feet, range, { allowUnmeasured: allow || !measured });
     });
     return msg;
   }
@@ -2966,7 +2970,8 @@
           failed: false,
           disease: castSpellAttackNow._disease || "",
           rolledDelayed: rolled.delayed || null,
-          casterId: root.SSDNSDmJoin && root.SSDNSDmJoin.uid ? root.SSDNSDmJoin.uid() : ""
+          casterId: root.SSDNSDmJoin && root.SSDNSDmJoin.uid ? root.SSDNSDmJoin.uid() : "",
+          dc: v.spellDC
         });
         if (landedNow && landedNow.changed) {
           c.spellMarks = landedNow.bag;
@@ -3089,6 +3094,36 @@
             }
             if (hitRow.targetId) root.SSDNSDmJoin.postDamage(hitRow);
           });
+        } else if (kindNow === "attack" && rolled.attack && !(row && row.applyNow === false)) {
+          /* Spiritual Weapon places a token and still makes one melee spell attack.
+             The area branch used to swallow that roll, so the weapon appeared and nothing was struck. */
+          var foe = crowd[0];
+          var foeId = foe && blastTargetId(foe);
+          if (foeId && root.SSDNSDmJoin.postAttack) {
+            root.SSDNSDmJoin.postAttack({
+              rollId: rollId,
+              targetId: foeId,
+              targetName: foe.name || "",
+              amount: Number(rolled.damageTotal) || 0,
+              hitTotal: rolled.result,
+              nat: rolled.nat,
+              n1: rolled.n1,
+              n2: rolled.n2,
+              label: spellName,
+              spell: true,
+              spellName: spellName,
+              melee: true,
+              dice: rolled.damageDetail || "",
+              formula: rolled.formula || "",
+              sfx: spellCueName(),
+              dmgType: (row && row.type) || "",
+              slot: slot,
+              disease: castSpellAttackNow._disease || ""
+            });
+            rolled.text += " · attacks " + (foe.name || "the creature in reach");
+            if (crowd.length > 1) rolled.text += " (" + (crowd.length - 1) + " other in reach not struck)";
+            rolled.detail = rolled.text;
+          }
         }
       } else if (rolled.heal && rolled.selfHeal) {
         if (root.SSDNSDmJoin.claimGrant) root.SSDNSDmJoin.claimGrant("hp:" + rollId);
@@ -3185,7 +3220,9 @@
           hit: !spellMissed, slot: slot, crit: !spellMissed && Number(rolled.nat) === 20,
           disease: castSpellAttackNow._disease || "",
           pull: (row && row.pull) || 0,
-          healHalf: !!(row && row.healHalf)
+          healHalf: !!(row && row.healHalf),
+          spell: spellName,
+          dc: (v.spellDC != null && v.spellDC !== "" && isFinite(Number(v.spellDC))) ? Number(v.spellDC) : ""
         };
         if (row && row.hitSave) {
           atkPost.save = row.hitSave;

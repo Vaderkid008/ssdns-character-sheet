@@ -770,7 +770,10 @@
         spell: name, conc: false, kind: "contagion", targetId: opts.targetId || "", targetName: opts.targetName || "",
         chip: "Poisoned", disease: disease, success: 0, fail: 0
       });
-      addTick(next, { spell: name, targetId: opts.targetId || "", when: "end", save: "CON", contagion: true, disease: disease });
+      var contagionTick = { spell: name, targetId: opts.targetId || "", when: "end", save: "CON", contagion: true, disease: disease };
+      var contagionDc = Number(opts.dc);
+      if (isFinite(contagionDc) && contagionDc > 0) contagionTick.dc = contagionDc;
+      addTick(next, contagionTick);
       chips.push(chip("Poisoned", opts.targetId, name, false, opts.casterId || ""));
       chips.push(chip(contagionChip(0, 0), opts.targetId, name, false, opts.casterId || ""));
       tickSound();
@@ -917,7 +920,7 @@
     if (hit && (key === "contagion" || key === "ray of enfeeblement")) {
       return plain(onHitSpell(next, {
         row: row, name: name, miss: false, targetId: opts.targetId || "", targetName: opts.targetName || "",
-        disease: opts.disease || "", casterId: opts.casterId || ""
+        disease: opts.disease || "", casterId: opts.casterId || "", dc: opts.dc
       }));
     }
 
