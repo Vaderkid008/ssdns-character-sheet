@@ -1554,6 +1554,17 @@
     var Lgt = root.SSDNSLighting;
     var who = ch();
     if (Lgt && who && spellName && Lgt.dropHandForSpell) Lgt.dropHandForSpell(who, spellName);
+    /* Fire Shield is not concentration, so the conc drop leaves its 10-ft light on. */
+    if (Lgt && who && spellName && Lgt.emitter && Lgt.setSpell && Lgt.spellKey) {
+      var spec = Lgt.emitter(spellName);
+      var key = Lgt.spellKey(spellName);
+      if (spec && spec.place === "caster" && key) {
+        if (root.SSDNSApp && root.SSDNSApp.applyPatch) {
+          root.SSDNSApp.applyPatch(function (d) { if (d && d.character) Lgt.setSpell(d.character, key, false); });
+        } else Lgt.setSpell(who, key, false);
+        if (Lgt.paintBox) Lgt.paintBox();
+      }
+    }
     var uidNow = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
     try {
       root.dispatchEvent(new root.CustomEvent("ssdns-conc-end", { detail: { spell: spellName || "", casterId: uidNow || "" } }));
@@ -2313,6 +2324,14 @@
       bar.appendChild(btn);
     });
     (SR.emptyBag(c.spellMarks).marks || []).forEach(function (m) {
+      if (m && m.kind === "shield") {
+        var end = document.createElement("button");
+        end.type = "button";
+        end.className = "btn sm";
+        end.textContent = "End Fire Shield";
+        end.addEventListener("click", function () { endSpell("Fire Shield"); });
+        bar.appendChild(end);
+      }
       if (!m || !m.movable || (m.kind !== "hex" && m.kind !== "mark")) return;
       var btn = document.createElement("button");
       btn.type = "button";

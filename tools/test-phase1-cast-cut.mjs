@@ -1,5 +1,5 @@
 /**
- * Phase 1 cast / FX first cut (sheet 0.3.218 / DMCC 0.2.231).
+ * Phase 1 cast / FX first cut (sheet 0.3.219 / DMCC 0.2.232).
  * Touch casts are not aborted when the map cannot measure.
  * Spiritual Weapon still makes one melee spell attack after the token is placed.
  * Chain hops publish as squares a player map can draw.
@@ -22,10 +22,10 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.218" && version.sheetBuild === "sheet-playtest-v03218");
-check("ver.dmcc", version.dmcc === "0.2.231" && version.dmccBuild === "dmcc-playtest-v02231");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.218"') && read("assets/js/app.js").includes("sheet-playtest-v03218"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.231"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02231"));
+check("ver.sheet", version.sheet === "0.3.219" && version.sheetBuild === "sheet-playtest-v03219");
+check("ver.dmcc", version.dmcc === "0.2.232" && version.dmccBuild === "dmcc-playtest-v02232");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.219"') && read("assets/js/app.js").includes("sheet-playtest-v03219"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.232"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02232"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
