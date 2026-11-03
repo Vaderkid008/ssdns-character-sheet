@@ -8773,10 +8773,23 @@ function syncOwnerLights() {
   }
   stampDispelledLights();
 }
+/* Player tokens stand in for a character sheet. Enemies, bestiary, NPCs, and friendlies do not. */
+function tokenWantsSheetLink(token) {
+  if (!token) return false;
+  if (token.kind === 'player') return true;
+  if (token.sheetId) return true;
+  if (token.ownerUid) return true;
+  return false;
+}
 function lightStatusText(token) {
-  const owner = token && token.ownerUid;
+  if (!token) return null;
+  const owner = token.ownerUid;
   const party = owner ? partyList().find(p => p && (p.uid || p.id) === owner) : null;
-  if (!owner || !party) {
+  if (!party) {
+    if (!tokenWantsSheetLink(token)) {
+      const borrowed = (token.borrowedLights || []).map(r => r && r.text).filter(Boolean);
+      return borrowed.length ? { warn: false, text: borrowed.join(' · ') } : null;
+    }
     const borrowed = (token.borrowedLights || []).map(r => r && r.text).filter(Boolean);
     return { warn: true, text: '⚠ Not linked to a sheet' + (borrowed.length ? ' · ' + borrowed.join(' · ') : '') };
   }
@@ -8795,13 +8808,46 @@ function lightStatusText(token) {
   const detail = bits.length ? ' (' + bits.join(', ') + ')' : '';
   return { warn: false, text: 'Linked: ' + name + ' · lights synced ✓' + detail };
 }
+/* 0.3.224: filled HP bar lives in the AC / HP / Speed row. Same bands as the map-token bar. */
+function drawerHpTone(pct) {
+  const dead = pct <= 0 ? ' is-dead' : '';
+  const band = pct > 50 ? 'is-high' : (pct > 25 ? 'is-mid' : 'is-low');
+  return band + dead;
+}
+function drawerVitalsHtml(ac, hp, speedBit, noHpPool) {
+  hp = hp || {};
+  const maxHp = noHpPool ? NaN : Number(hp.max);
+  const haveCur = !noHpPool && hp.cur !== '' && hp.cur != null && isFinite(Number(hp.cur));
+  const curHp = haveCur ? Number(hp.cur) : NaN;
+  const hpPct = isFinite(maxHp) && maxHp > 0 && haveCur ? Math.max(0, Math.min(100, (curHp / maxHp) * 100)) : null;
+  const num = noHpPool
+    ? 'No HP pool'
+    : ('HP ' + (hp.cur != null && hp.cur !== '' ? hp.cur : '—') + '/' + (hp.max != null && hp.max !== '' ? hp.max : '—') + (hp.temp ? ' (+' + hp.temp + ')' : ''));
+  const bar = hpPct == null ? '' : '<div class="ssm-hpbar ssm-hpbar-row ' + drawerHpTone(hpPct) + '" role="meter" aria-label="HP" aria-valuemin="0" aria-valuenow="' + esc(curHp) + '" aria-valuemax="' + esc(maxHp) + '"><span style="width:' + hpPct + '%"></span></div>';
+  return '<div class="ssm-vitals" data-act="vitals">' +
+    '<span class="ssm-vital">AC ' + esc(ac != null ? ac : '—') + '</span>' +
+    '<span class="ssm-vital ssm-vital-hp"><span class="ssm-hpnum">' + esc(num) + '</span>' + bar + '</span>' +
+    '<span class="ssm-vital">' + speedBit + '</span></div>';
+}
+function dmToolsHtml(inner) {
+  if (!inner) return '';
+  return '<section class="ssm-dmtools" data-act="dmTools"><div class="ssm-section">DM tools</div>' + inner + '</section>';
+}
+function bombToolsHtml(token) {
+  const I = window.SSDNSInteract;
+  if (!I || !token || typeof I.bombPanelHtml !== 'function') return '';
+  return dmToolsHtml(I.bombPanelHtml(token));
+}
 function lightDrawerHtml(token) {
   if (role !== 'dm' || !token) return '';
   const status = lightStatusText(token);
   const dvShown = token.dmDarkvision != null && token.dmDarkvision !== ''
     ? (Number(token.dmDarkvision) || 0)
     : (Number(token.darkvision) || 0);
-  return '<p class="ssm-linkstatus' + (status.warn ? ' is-warn' : '') + '" data-act="linkStatus">' + esc(status.text) + '</p>' +
+  const statusHtml = status && status.text
+    ? '<p class="ssm-linkstatus' + (status.warn ? ' is-warn' : '') + '" data-act="linkStatus">' + esc(status.text) + '</p>'
+    : '';
+  return statusHtml +
     '<div class="ssm-lighthand">' +
     '<label class="ssm-act">Darkvision <input data-act="dmDarkvision" type="number" min="0" step="5" value="' + esc(dvShown) + '" aria-label="Darkvision feet"> ft</label>' +
     '<label class="ssm-act"><input type="checkbox" data-act="dmTorch"' + (token.dmTorch ? ' checked' : '') + '> Give torch</label>' +
@@ -12950,7 +12996,7 @@ async function loadSceneImage(sceneId, opts) {
     const pane = (id, inner) => '<div data-n62-pane="' + id + '"' + (ui.tab === id ? '' : ' hidden') + '>' + inner + '</div>';
     return drawerHeadHtml(card.name || bag.tokenId, n62CallPretty(card), { gear: true }) +
       '<div class="ssm-drawer-body n62">' +
-      (bag.bomb || '') + (bag.pending || '') +
+      (bag.pending || '') +
       '<div class="n62-zone"><div class="n62-zlabel">1 · Identity</div>' + n62Identity(card) + (bag.death || '') +
       '<div class="n62-conds">' + condLine + '</div>' +
       (bag.tactics ? '<div class="ssm-tactics">' + esc(bag.tactics) + '</div>' : '') + '</div>' +
@@ -12980,7 +13026,9 @@ async function loadSceneImage(sceneId, opts) {
         '<div class="n62-zlabel">Spells</div>' + spellList + '</div>') +
       '</div>' +
       '<div data-act="n62Compact"' + (full ? ' hidden' : '') + '>' + n62PeekHtml(card, true) +
-      '<details class="n62-acc"><summary>Conditions <small>' + (names.length ? names.length + ' active' : 'none') + '</small></summary><div class="n62-accbody">' + condLine + '</div></details></div></div>';
+      '<details class="n62-acc"><summary>Conditions <small>' + (names.length ? names.length + ' active' : 'none') + '</small></summary><div class="n62-accbody">' + condLine + '</div></details></div>' +
+      dmToolsHtml(bag.bomb) +
+      '</div>';
   }
   function n62OnClick(e, repaint) {
     const t = e.target && e.target.closest ? e.target : null;
@@ -13651,7 +13699,6 @@ async function loadSceneImage(sceneId, opts) {
       d.innerHTML = drawerHeadHtml('No fight card linked') +
         '<div class="ssm-drawer-body">' +
         lightDrawerHtml(bare) +
-        (window.SSDNSInteract ? window.SSDNSInteract.bombPanelHtml(bare) : '') +
         '<label class="ssm-section" for="ssm-link-pick">Link to…</label>' +
         '<select data-act="linkPick" id="ssm-link-pick" aria-label="Link to…">' +
         '<option value="">Link to…</option>' +
@@ -13661,6 +13708,7 @@ async function loadSceneImage(sceneId, opts) {
         group('Custom', option('custom', custom)) +
         '</select>' +
         '<p class="ssm-tactics">Players can be laid out before a fight. A bestiary or custom enemy is added on the Fight tab and linked here.</p>' +
+        bombToolsHtml(bare) +
         '</div>';
       const c = d.querySelector('[data-act="drawerClose"]');
       if (c) c.addEventListener('click', closeDrawer);
@@ -13822,11 +13870,8 @@ async function loadSceneImage(sceneId, opts) {
     /* 0.3.72: off-hand flag for the next PC weapon shot the DM sends (one shot, then it clears) */
     const shotDetail = (extra) => detail(Object.assign(state.drawerOffhand ? { offhand: true } : (state.drawerFan ? { fan: true } : {}), extra || {}));
     const noHpPool = card.noHpPool === true;
-    const maxHp = noHpPool ? NaN : Number(hp.max);
     const haveCur = !noHpPool && hp.cur !== "" && hp.cur != null && isFinite(Number(hp.cur));
     const curHp = haveCur ? Number(hp.cur) : NaN;
-    const hpPct = isFinite(maxHp) && maxHp > 0 && haveCur ? Math.max(0, Math.min(100, (curHp / maxHp) * 100)) : null;
-    const hpBar = hpPct == null ? '' : '<div class="ssm-hpbar" role="meter" aria-label="HP" aria-valuenow="' + esc(curHp) + '" aria-valuemax="' + esc(maxHp) + '"><span style="width:' + hpPct + '%"></span></div>';
     const ds = card.deathSaves;
     const marks = (arr) => (Array.isArray(arr) ? arr : [false, false, false]).slice(0, 3).map(on => on ? '●' : '○').join('');
     const deathLine = (haveCur && curHp <= 0)
@@ -13889,11 +13934,8 @@ async function loadSceneImage(sceneId, opts) {
       drawerHeadHtml(card.name || tokenId, card.kind || '') +
       '<div class="ssm-drawer-body">' +
       lightDrawerHtml(state.tokens.find(t => t && t.id === tokenId)) +
-      (window.SSDNSInteract ? window.SSDNSInteract.bombPanelHtml(state.tokens.find(t => t && t.id === tokenId)) : '') +
       pendingBannerHtml(tokenId) +
-      '<div>AC ' + esc(card.ac != null ? card.ac : '—') + (noHpPool ? ' · No HP pool' : ' · HP ' + esc(hp.cur != null ? hp.cur : '—') + '/' + esc(hp.max != null ? hp.max : '—')) +
-      (hp.temp ? ' (+' + esc(hp.temp) + ')' : '') + ' · ' + speedBit + '</div>' +
-      hpBar +
+      drawerVitalsHtml(card.ac, hp, speedBit, noHpPool) +
       deathLine +
       markerRow +
       actToggle +
@@ -13933,6 +13975,7 @@ async function loadSceneImage(sceneId, opts) {
         '<button type="button" data-act="robBtn"' + grabAttr + '>Rob/Disarm</button>' +
       '</div>' +
       '<button type="button" data-act="imageBtn">Replace image</button>' +
+      bombToolsHtml(state.tokens.find(t => t && t.id === tokenId)) +
       '</div>');
     bindSpellFold(d);
     d.querySelectorAll('details[data-n62-acc]').forEach(box => {

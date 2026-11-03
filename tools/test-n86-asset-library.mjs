@@ -18,10 +18,10 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.223" && version.sheetBuild === "sheet-playtest-v03223");
-check("ver.dmcc", version.dmcc === "0.2.236" && version.dmccBuild === "dmcc-playtest-v02236");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.223"'));
-check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.236"'));
+check("ver.sheet", version.sheet === "0.3.224" && version.sheetBuild === "sheet-playtest-v03224");
+check("ver.dmcc", version.dmcc === "0.2.237" && version.dmccBuild === "dmcc-playtest-v02237");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.224"'));
+check("ver.dmccjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.237"'));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
@@ -188,8 +188,8 @@ check("map.door", map.includes("doorInteract: function"));
 check("map.reach", map.includes("reachGate") && map.includes("applyAssetRequest"));
 const wrap = v2.indexOf("expireSpellZones();");
 check("v2.round", wrap > 0 && v2.indexOf("SSDNSAssets.onRound", wrap) > wrap && v2.indexOf("SSDNSAssets.onRound", wrap) < wrap + 220);
-check("html.sheet", sheet.includes("map/asset-library.js?v=0.3.221-encounter2") && sheet.includes("map/ssdns-map.js?v=0.3.221-encounter2"));
-check("html.dm", dm.includes("../map/asset-library.js?v=0.2.234-encounter2") && dm.includes("v2.js?v=0.2.236-p2a") && dm.includes("../map/ssdns-map.js?v=0.2.234-encounter2"));
+check("html.sheet", sheet.includes("map/asset-library.js?v=0.3.221-encounter2") && sheet.includes("map/ssdns-map.js?v=0.3.224-drawerhp"));
+check("html.dm", dm.includes("../map/asset-library.js?v=0.2.234-encounter2") && dm.includes("v2.js?v=0.2.236-p2a") && dm.includes("../map/ssdns-map.js?v=0.2.237-drawerhp"));
 check("docs", read("map/DATA.md").includes("ssdns-asset-pack") && read("docs/SCHEMA.md").includes("assetLibrary"));
 
 if (failures.length) {
