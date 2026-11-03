@@ -1,7 +1,7 @@
 /**
- * Remaining Phase 1 softs (sheet 0.3.222 / DMCC 0.2.235).
+ * Remaining Phase 1 softs (sheet 0.3.223 / DMCC 0.2.236).
  * Shatter on the caster still paints the 10-ft glass burst.
- * Ice Storm stays the locked cold paint (no separate storm art).
+ * Ice Storm paints the hail cylinder. Damage and the 2-round slick stay.
  * Hunger of Hadar start/end ticks, Insect Plague's 10-minute clock,
  * Phantasmal Killer's stored target, smite riders, Heat Metal's drop line,
  * and Hellish Rebuke without a hex shell.
@@ -23,8 +23,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.222" && version.sheetBuild === "sheet-playtest-v03222");
-check("ver.dmcc", version.dmcc === "0.2.235" && version.dmccBuild === "dmcc-playtest-v02235");
+check("ver.sheet", version.sheet === "0.3.223" && version.sheetBuild === "sheet-playtest-v03223");
+check("ver.dmcc", version.dmcc === "0.2.236" && version.dmccBuild === "dmcc-playtest-v02236");
 const rulesDiff = execSync("git diff --name-only HEAD -- assets/data/rules.js database.rules.json", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
@@ -92,8 +92,8 @@ check("shatter.closeNotThunderOnly", !read("map/ssdns-map-fx.js").includes("if (
 const away = trace({ spell: "Shatter", dmg: "thunder" }, 400, geo(far));
 check("shatter.farStill", away.some((op) => op.arc && Math.abs(op.arc.r - cell * 2) < 2));
 
-check("ice.look", FX.lookOf({ type: "spell", spell: "Ice Storm", dmg: "bludgeoning and cold" }) === "cold");
-check("ice.noNamed", !/"ice storm"\s*:/.test(read("map/ssdns-map-fx.js").slice(read("map/ssdns-map-fx.js").indexOf("var CHUNK_LOOKS"), read("map/ssdns-map-fx.js").indexOf("var CHUNK_LOOKS") + 2500)));
+check("ice.look", FX.lookOf({ type: "spell", spell: "Ice Storm", dmg: "bludgeoning and cold" }) === "hailstorm");
+check("ice.named", /"ice storm": "hailstorm"/.test(read("map/ssdns-map-fx.js").slice(read("map/ssdns-map-fx.js").indexOf("var CHUNK_LOOKS"), read("map/ssdns-map-fx.js").indexOf("var CHUNK_LOOKS") + 2800)));
 const icePaint = trace({ spell: "Ice Storm", dmg: "cold" }, 200, geo(far));
 check("ice.notChip", !icePaint.some((op) => op.op === "fill" && op.fillStyle && /SPD/.test(op.fillStyle)));
 const iceRow = R.patchRow(Cast.lookup("Ice Storm"));
