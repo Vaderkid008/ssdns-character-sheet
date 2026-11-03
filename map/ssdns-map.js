@@ -1367,8 +1367,9 @@ function fxGeometry(spec) {
     const edge = role === 'player' ? fxWalk(from, geo.T, playerSees) : { x: from.x, y: from.y };
     if (!edge) return null;
     geo.src = { x: edge.x, y: edge.y }; geo.srcHidden = true;
-  } else if (!S && geo.T && type === 'spell') {
-    /* Circle of Death and other placed blasts: paint the point even when the caster token did not resolve. */
+  } else if (geo.T && type === 'spell') {
+    /* A placed point still paints when the caster token is on another floor or did not resolve.
+       Shatter's burst belongs on that point. Dropping the geometry read as the aim being rejected. */
     geo.src = { x: geo.T.x, y: geo.T.y };
   } else return null;
   var spellSelf = type === 'spell' && (spec.self || (FXA.lookSelf && FXA.lookSelf(spec)));
@@ -5282,7 +5283,26 @@ function rangeHighlightToken(shooter) {
   if (!tgt || !shooter || tgt.id === shooter.id) return null;
   return tgt;
 }
+/* Shatter and the other "point of your choice" spells are not a creature shot.
+   Measuring the selected token and disabling the button stopped the cast before the map could take a point. */
+function pointPlacedSpell(attack) {
+  const Area = window.SSDNSSpellArea;
+  if (!Area || !Area.areaOf || !attack) return false;
+  const names = [];
+  if (typeof attack === "string") names.push(attack);
+  else {
+    if (attack.name) names.push(attack.name);
+    if (attack.id) names.push(attack.id);
+    if (attack.spellId) names.push(attack.spellId);
+  }
+  for (let i = 0; i < names.length; i++) {
+    const area = Area.areaOf(names[i]);
+    if (area && !area.self) return true;
+  }
+  return false;
+}
 function rangeButtonNote(attack, targetId, shooterId) {
+  if (pointPlacedSpell(attack)) return null;
   if (!window.SSDNSRangeRings || !window.SSDNSRangeRings.resolve || !attack || !targetId) return null;
   const shooter = tokenByRef(shooterId) ||
     (role === 'player' ? (state.tokens || []).find(t => t && t.ownerUid === uid) : null);
@@ -5460,10 +5480,13 @@ function casterOrigin(caster) {
   return { x: caster.pos.x + sz / 2, y: caster.pos.y + sz / 2, casterSize: sz };
 }
 function blastInRange(area, originSq, caster) {
+  const Area = window.SSDNSSpellArea;
+  const who = caster && caster.pos ? { x: caster.pos.x, y: caster.pos.y, size: caster.size || 1 } : null;
+  if (Area && Area.pointInReach) return Area.pointInReach(area, who, originSq);
   if (!area || area.rangeFeet == null || !area.rangeFeet) return true;
-  if (!caster || !caster.pos) return true;
-  const sz = caster.size || 1;
-  const dist = Math.max(Math.abs(originSq.x * 5 - (caster.pos.x + sz / 2) * 5), Math.abs(originSq.y * 5 - (caster.pos.y + sz / 2) * 5));
+  if (!who) return true;
+  const sz = who.size || 1;
+  const dist = Math.max(Math.abs(originSq.x * 5 - (who.x + sz / 2) * 5), Math.abs(originSq.y * 5 - (who.y + sz / 2) * 5));
   return dist <= area.rangeFeet + 2.5;
 }
 function tokensInBlast(area, origins, facing, excludeId) {
@@ -5674,6 +5697,15 @@ function placeBlast(spec) {
     draw();
   });
 }
+function blastCreatureAt(e) {
+  if (!state.scene) return null;
+  const w = pointerWorld(e);
+  const t = hitTest(w.x, w.y);
+  if (!t || !t.pos || t.spellPiece || t.notTargetable) return null;
+  if (t.kind === "marker" || t.kind === "chest" || t.kind === "asset") return null;
+  if (hideDownedToken(t)) return null;
+  return t;
+}
 function blastPointer(e, kind) {
   const b = state.blast;
   if (!b || !state.scene) return;
@@ -5706,6 +5738,18 @@ function blastPointer(e, kind) {
     if (b.placed && b.area && b.area.rangeFeet != null && Number(b.area.rangeFeet) <= 5) {
       confirmBlast();
       return;
+    }
+    /* A creature under the cursor is the point. One click centers the sphere on them.
+       Empty ground still waits for Cast or a second click so the ring can be checked. */
+    if (b.placed && !b.needsAim) {
+      const under = blastCreatureAt(e);
+      if (under) {
+        const sz = under.size || 1;
+        const center = { x: under.pos.x + sz / 2, y: under.pos.y + sz / 2 };
+        if (blastInRange(b.area, center, blastCaster(b.spec))) b.origin = center;
+        confirmBlast();
+        return;
+      }
     }
     paintBlastBanner();
     draw();
@@ -6381,6 +6425,15 @@ function selectToken(token) {
   if (state.pendingTarget && role === 'dm') {
     if (hideDownedToken(token)) {
       toast('Down. Turn on Show downed to include them.');
+      return;
+    }
+    if (state.pendingTarget.spellId && pointPlacedSpell(state.pendingTarget)) {
+      const shot = state.pendingTarget;
+      state.pendingTarget = null;
+      paintPendingBanner();
+      renderDrawer();
+      draw();
+      emit('drawer:target', { tokenId: shot.tokenId, weaponId: '', spellId: shot.spellId, targetTokenId: '', combatantId: tokenCombatant(shot.tokenId), targetCombatantId: '' });
       return;
     }
     if (token.id === state.pendingTarget.tokenId && state.pendingTarget.spellKind !== 'heal') {
@@ -14022,7 +14075,9 @@ async function loadSceneImage(sceneId, opts) {
           return;
         }
         if (sid && window.SSDNSSpellArea && window.SSDNSSpellArea.areaOf && skind !== 'attack' && skind !== 'weapon') {
-          const blast = window.SSDNSSpellArea.areaOf(b.textContent || sid) || window.SSDNSSpellArea.areaOf(sid);
+          const named = (card.spells || []).find(s => s && (String(s.id) === String(sid) || String(s.name) === String(sid)));
+          const label = (named && named.name) || sid || b.textContent;
+          const blast = window.SSDNSSpellArea.areaOf(label) || window.SSDNSSpellArea.areaOf(sid) || window.SSDNSSpellArea.areaOf(b.textContent || "");
           if (blast) {
             state.pendingTarget = null;
             paintPendingBanner();

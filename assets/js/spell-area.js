@@ -78,7 +78,17 @@
     return spec;
   }
 
-  /* Sheet lists say "Fireball Shell" or "Fireball (alias)". The fx book is the PHB name. */
+  /* Sheet lists say "Fireball Shell" or "Fireball (alias)". The fx book is the PHB name.
+     Map buttons also pass "spell:2:Shatter (Resonance)" and "Shatter (L2) · save · 3d8". */
+  function castTitle(name) {
+    var s = String(name || "").trim();
+    s = s.replace(/^cast\s+/i, "");
+    s = s.replace(/^spell:/i, "");
+    s = s.replace(/^\d+:/, "");
+    var head = s.split(" · ")[0];
+    head = head.replace(/\s*\(L\d+\)\s*$/i, "").trim();
+    return head || s;
+  }
   function bareKey(name) {
     return norm(String(name || "").replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+shell$/i, ""));
   }
@@ -96,7 +106,8 @@
   }
 
   function areaOf(name) {
-    var fx = fxOf(name);
+    var titled = castTitle(name);
+    var fx = fxOf(name) || (titled && titled !== name ? fxOf(titled) : null);
     if (!fx || !fx.area) return null;
     var spec = parseArea(fx.area, fx.does);
     if (!spec) return null;
@@ -117,6 +128,19 @@
 
   function isSelfOrigin(area) {
     return !!(area && area.self && (area.shape === "cone" || area.shape === "line" || area.shape === "cube" || area.shape === "square"));
+  }
+
+  /* Map squares. A missing caster is not "out of range" — the click still places the point.
+     Chebyshev from the caster's centre, same rule placeBlast uses. */
+  function pointInReach(area, caster, point) {
+    if (!area || area.rangeFeet == null || !area.rangeFeet) return true;
+    if (!caster || caster.x == null || !point || point.x == null) return true;
+    var sz = Math.max(1, Number(caster.size) || 1);
+    var dist = Math.max(
+      Math.abs(Number(point.x) * 5 - (Number(caster.x) + sz / 2) * 5),
+      Math.abs(Number(point.y) * 5 - (Number(caster.y) + sz / 2) * 5)
+    );
+    return dist <= Number(area.rangeFeet) + 2.5;
   }
 
   function footprint(token) {
@@ -517,6 +541,8 @@
   root.SSDNSSpellArea = {
     parseArea: parseArea,
     areaOf: areaOf,
+    castTitle: castTitle,
+    pointInReach: pointInReach,
     rangeFeetOf: rangeFeetOf,
     hits: hits,
     tokensIn: tokensIn,
