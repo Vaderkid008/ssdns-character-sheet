@@ -20,18 +20,18 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.219" && version.sheetBuild === "sheet-playtest-v03219");
-check("ver.dmcc", version.dmcc === "0.2.232" && version.dmccBuild === "dmcc-playtest-v02232");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.219"') && read("assets/js/app.js").includes("sheet-playtest-v03219"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.232"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02232"));
+check("ver.sheet", version.sheet === "0.3.220" && version.sheetBuild === "sheet-playtest-v03220");
+check("ver.dmcc", version.dmcc === "0.2.233" && version.dmccBuild === "dmcc-playtest-v02233");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.220"') && read("assets/js/app.js").includes("sheet-playtest-v03220"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.233"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02233"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
 const html = read("index.html");
 const dm = read("dm/index.html");
-check("html.sheet", html.includes("map/ssdns-map.js?v=0.3.219-softs") && html.includes("assets/js/app.js?v=0.3.219-softs") && html.includes("map/ssdns-map-fx.js?v=0.3.219-softs"));
-check("html.dm", dm.includes("../map/ssdns-map.js?v=0.2.232-softs") && dm.includes("assets/js/dmcc.js?v=0.2.232-softs") && dm.includes("assets/js/v2.js?v=0.2.232-softs"));
-check("html.demo", read("map/demo.html").includes("ssdns-map.js?v=0.3.219-softs"));
+check("html.sheet", html.includes("map/ssdns-map.js?v=0.3.220-dryfork") && html.includes("assets/js/app.js?v=0.3.220-dryfork") && html.includes("map/ssdns-map-fx.js?v=0.3.219-softs"));
+check("html.dm", dm.includes("../map/ssdns-map.js?v=0.2.233-dryfork") && dm.includes("assets/js/dmcc.js?v=0.2.233-dryfork") && dm.includes("assets/js/v2.js?v=0.2.232-softs"));
+check("html.demo", read("map/demo.html").includes("ssdns-map.js?v=0.3.220-dryfork"));
 
 const map = read("map/ssdns-map.js");
 const call = map.slice(map.indexOf("const barHp = underTokenHp"), map.indexOf("const downMark"));

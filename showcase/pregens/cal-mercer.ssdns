@@ -1,0 +1,245 @@
+{
+  "format": "ssdns-character",
+  "schemaVersion": 2,
+  "app": "SSDNS Character Sheet 0.3.220",
+  "id": "c_showcase_cal",
+  "createdAt": "2026-11-03T04:20:00.000Z",
+  "updatedAt": "2026-11-03T04:20:00.000Z",
+  "shards": {
+    "white": 0,
+    "blue": 0,
+    "green": 0,
+    "yellow": 0,
+    "purple": 0
+  },
+  "character": {
+    "guns": [
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      }
+    ],
+    "melee": [
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      }
+    ],
+    "ammo": [],
+    "equipment": "",
+    "holster": "",
+    "holsterR": "",
+    "belt": "",
+    "gunBelt": false,
+    "shield": false,
+    "armor": "",
+    "casterGun": "borrowed-iron",
+    "pactFocus": "borrowed-iron",
+    "name": "Calvin \"Cal\" Mercer",
+    "player": "Showcase",
+    "lineage": "diplomats",
+    "sublineage": "",
+    "calling": "pact-seeker",
+    "level": 3,
+    "subclass": "the-last-round",
+    "background": "fallen-aristocrat",
+    "abilities": {
+      "STR": 8,
+      "DEX": 14,
+      "CON": 15,
+      "INT": 10,
+      "WIS": 12,
+      "CHA": 17
+    },
+    "saveProf": {
+      "STR": false,
+      "DEX": false,
+      "CON": false,
+      "INT": false,
+      "WIS": true,
+      "CHA": true
+    },
+    "skillProf": {
+      "History": 1,
+      "Persuasion": 1,
+      "Deception": 1,
+      "Intimidation": 1
+    },
+    "speed": 30,
+    "speedAuto": true,
+    "hpAuto": false,
+    "hpMax": 24,
+    "hpCurrent": 24,
+    "hpTemp": "",
+    "cantrips": [
+      "Eldritch Blast (Pact Shot)",
+      "Minor Illusion (Dust Mirage)"
+    ],
+    "spells": {
+      "1": [
+        {
+          "name": "Hex (Crossed Hex)",
+          "prepared": true
+        },
+        {
+          "name": "Hellish Rebuke (Return Fire)",
+          "prepared": true
+        }
+      ],
+      "2": [
+        {
+          "name": "Misty Step (Puff of Smoke)",
+          "prepared": true
+        },
+        {
+          "name": "Hold Person (Lasso)",
+          "prepared": true
+        }
+      ],
+      "3": [],
+      "4": [],
+      "5": [],
+      "6": [],
+      "7": [],
+      "8": [],
+      "9": []
+    },
+    "proficienciesLanguages": "Armor (Pact Seeker): Light armor\nWeapons (Pact Seeker): Simple weapons, Herringer pistols\nYou can speak, read, and write Common, Spanish, and German.",
+    "features": "Old-House Name: People defer if they recognize the house — or the accent. You can get audiences with local gentry, magistrates’ clerks, and officers where common folk wait.",
+    "wizardDone": true,
+    "activeConditions": [],
+    "fightingStyle": "",
+    "kitGrants": {
+      "ammo": {},
+      "items": [
+        "borrowed-iron"
+      ],
+      "v": 1
+    },
+    "items": [
+      {
+        "uid": "it_mw06u2nxpqjiy",
+        "catalogId": "borrowed-iron",
+        "name": "Borrowed Iron",
+        "type": "gear",
+        "description": "The weapon your patron grants (your patron is your focus). No weapon stats, ammo or reload: it fires only spells, like Pact Shot. Soul-bound: it can't be dropped, sold, traded, given or looted. Lost or disarmed, it returns to your hand at the start of your next turn.",
+        "effect": {
+          "kind": "text",
+          "text": "Soul-bound. No Borrowed Iron in hand, no Pact Seeker spells."
+        },
+        "uses": {
+          "max": null,
+          "recharge": ""
+        },
+        "weight": 0,
+        "price": null,
+        "forSale": false,
+        "story": true,
+        "art": "assets/img/items/borrowed-iron.webp",
+        "weaponId": "",
+        "slot": "",
+        "group": "",
+        "properties": "",
+        "weapon": null,
+        "attune": false,
+        "attuned": false,
+        "rarity": "",
+        "bonuses": null,
+        "wear": "",
+        "dmOnly": false,
+        "count": 1,
+        "chargesLeft": null,
+        "playerAdded": false,
+        "approved": true,
+        "addressedTo": "",
+        "dmAllowDrop": false,
+        "dmAllowRob": false,
+        "tags": [],
+        "quality": "",
+        "shelf": "Foci",
+        "stack": false,
+        "noCarry": false,
+        "summoned": false,
+        "meals": null,
+        "water": null,
+        "capacity": null,
+        "fillIncluded": false,
+        "mealWeight": null,
+        "feedDays": null,
+        "fill": null,
+        "soulBound": true
+      }
+    ],
+    "kitStamp": "pact-seeker",
+    "focusMigrated": 1,
+    "kitMode": "module",
+    "kitPicks": {
+      "pack": "book"
+    },
+    "pactShotFree": 1,
+    "hitDiceLeft": "3d8",
+    "_preview": {
+      "ac": 11,
+      "init": 1,
+      "speed": 30,
+      "hp": 24,
+      "focus": "Borrowed Iron. Charisma · Focus: the Borrowed Iron, in hand (no iron, no spells) · Spells known as a warlock; 6th–9th through Mystic Arcanum. Your patron adds more spells, and your DM has that list. Never subtle."
+    },
+    "xp": 900,
+    "lineageAsi": {
+      "STR": 0,
+      "DEX": 1,
+      "CON": 1,
+      "INT": 0,
+      "WIS": 0,
+      "CHA": 2
+    },
+    "asiChoice": [
+      "DEX",
+      "CON"
+    ],
+    "invocations": [
+      "Agonizing Blast",
+      "Devil's Sight"
+    ],
+    "backstory": "Lost the family fortune at a card table, then won something stranger back.",
+    "additionalFeatures": "Invocations set: Agonizing Blast and Devil's Sight (Dark test). Pact boon is still the live picker on the Borrowed Iron card.",
+    "showcase": "dry-fork"
+  }
+}

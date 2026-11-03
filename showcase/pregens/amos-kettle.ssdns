@@ -1,0 +1,248 @@
+{
+  "format": "ssdns-character",
+  "schemaVersion": 2,
+  "app": "SSDNS Character Sheet 0.3.220",
+  "id": "c_showcase_amos",
+  "createdAt": "2026-11-03T04:20:00.000Z",
+  "updatedAt": "2026-11-03T04:20:00.000Z",
+  "shards": {
+    "white": 0,
+    "blue": 0,
+    "green": 0,
+    "yellow": 0,
+    "purple": 0
+  },
+  "character": {
+    "guns": [
+      {
+        "weapon": "dullards-light-carbine",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": true,
+        "equipped": true,
+        "chamber": "light|.44 rimfire",
+        "tier": "light"
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      }
+    ],
+    "melee": [
+      {
+        "weapon": "cavalry-saber-longsword",
+        "proficient": true,
+        "equipped": true
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      }
+    ],
+    "ammo": [
+      {
+        "type": "cartridge",
+        "caliber": "Light",
+        "count": 20
+      }
+    ],
+    "equipment": "",
+    "holster": "",
+    "holsterR": "",
+    "belt": "",
+    "gunBelt": false,
+    "shield": false,
+    "armor": "",
+    "casterGun": "",
+    "pactFocus": "",
+    "name": "Deputy Amos Kettle",
+    "player": "Showcase",
+    "lineage": "camp-kin",
+    "sublineage": "",
+    "calling": "lawman",
+    "level": 3,
+    "subclass": "oath-of-the-badge-devotion",
+    "background": "honorable-figure",
+    "abilities": {
+      "STR": 17,
+      "DEX": 10,
+      "CON": 13,
+      "INT": 8,
+      "WIS": 12,
+      "CHA": 15
+    },
+    "saveProf": {
+      "STR": false,
+      "DEX": false,
+      "CON": false,
+      "INT": false,
+      "WIS": true,
+      "CHA": true
+    },
+    "skillProf": {
+      "Animal Handling": 1,
+      "Survival": 1,
+      "Insight": 1,
+      "Intimidation": 1
+    },
+    "speed": 30,
+    "speedAuto": true,
+    "hpAuto": false,
+    "hpMax": 25,
+    "hpCurrent": 25,
+    "hpTemp": "",
+    "cantrips": [],
+    "spells": {
+      "1": [
+        {
+          "name": "Bless",
+          "prepared": true
+        },
+        {
+          "name": "Compelled Duel",
+          "prepared": true
+        },
+        {
+          "name": "Shield of Faith (Badge of Office)",
+          "prepared": true
+        },
+        {
+          "name": "Protection from Evil and Good",
+          "prepared": true
+        },
+        {
+          "name": "Sanctuary",
+          "prepared": true
+        }
+      ],
+      "2": [],
+      "3": [],
+      "4": [],
+      "5": [],
+      "6": [],
+      "7": [],
+      "8": [],
+      "9": []
+    },
+    "proficienciesLanguages": "Armor (Lawman): All armor, shields\nWeapons (Lawman): Simple and martial weapons\nYou can speak, read, and write Common and German.",
+    "features": "Homestead Welcome: Common folk (settlers, ranch hands, miners) will hide you from soft-handed law and provide a meal and a loft. They won’t hang for you, but they’ll warn you when riders come.",
+    "wizardDone": true,
+    "activeConditions": [],
+    "fightingStyle": "",
+    "kitGrants": {
+      "ammo": {
+        "cartridge|light": 20
+      },
+      "items": [
+        "tin-star-badge"
+      ],
+      "v": 1
+    },
+    "items": [
+      {
+        "uid": "it_mw06u2nua1i6n",
+        "catalogId": "tin-star-badge",
+        "name": "Tin star badge",
+        "type": "gear",
+        "description": "Your badge is your focus and the anchor of your power (Badge Bound). Bright: full power. Dull: no spells, Smite Lead, Mercy Hands or Channel Creed. Tarnished: you fall to the Oath of the Lawless.",
+        "effect": {
+          "kind": "text",
+          "text": "Lawman focus (Badge Bound)."
+        },
+        "uses": {
+          "max": null,
+          "recharge": ""
+        },
+        "weight": 0,
+        "price": null,
+        "forSale": false,
+        "story": true,
+        "art": "assets/img/items/lawman-badge-bright.webp",
+        "weaponId": "",
+        "slot": "",
+        "group": "",
+        "properties": "",
+        "weapon": null,
+        "attune": false,
+        "attuned": false,
+        "rarity": "",
+        "bonuses": null,
+        "wear": "",
+        "dmOnly": false,
+        "count": 1,
+        "chargesLeft": null,
+        "playerAdded": false,
+        "approved": true,
+        "addressedTo": "",
+        "dmAllowDrop": false,
+        "dmAllowRob": false,
+        "tags": [],
+        "quality": "",
+        "shelf": "Foci",
+        "stack": false,
+        "noCarry": false,
+        "summoned": false,
+        "meals": null,
+        "water": null,
+        "capacity": null,
+        "fillIncluded": false,
+        "mealWeight": null,
+        "feedDays": null,
+        "fill": null
+      }
+    ],
+    "badgeState": "dull",
+    "kitStamp": "lawman",
+    "focusMigrated": 1,
+    "kitMode": "module",
+    "kitPicks": {
+      "weapon": "carbine",
+      "pack": "circuit"
+    },
+    "hitDiceLeft": "3d10",
+    "_preview": {
+      "ac": 10,
+      "init": 0,
+      "speed": 30,
+      "hp": 25,
+      "focus": "Charisma · Focus: your badge (Badge Bound) · Prepared as a paladin, spells to 5th."
+    },
+    "xp": 900,
+    "lineageAsi": {
+      "STR": 2,
+      "DEX": 0,
+      "CON": 0,
+      "INT": 0,
+      "WIS": 0,
+      "CHA": 1
+    },
+    "backstory": "Country deputy on his own time. Showing the tin star early makes the gang nervous.",
+    "showcase": "dry-fork"
+  }
+}

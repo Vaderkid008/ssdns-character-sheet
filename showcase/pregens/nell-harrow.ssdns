@@ -1,0 +1,293 @@
+{
+  "format": "ssdns-character",
+  "schemaVersion": 2,
+  "app": "SSDNS Character Sheet 0.3.220",
+  "id": "c_showcase_nell",
+  "createdAt": "2026-11-03T04:20:00.000Z",
+  "updatedAt": "2026-11-03T04:20:00.000Z",
+  "shards": {
+    "white": 0,
+    "blue": 0,
+    "green": 0,
+    "yellow": 0,
+    "purple": 0
+  },
+  "character": {
+    "guns": [
+      {
+        "weapon": "dullards-light-carbine",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": true,
+        "equipped": true,
+        "chamber": "light|.44 rimfire",
+        "tier": "light"
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      }
+    ],
+    "melee": [
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      }
+    ],
+    "ammo": [
+      {
+        "type": "cartridge",
+        "caliber": "Light",
+        "count": 20
+      }
+    ],
+    "equipment": "",
+    "holster": "",
+    "holsterR": "",
+    "belt": "",
+    "gunBelt": false,
+    "shield": false,
+    "armor": "",
+    "casterGun": "",
+    "pactFocus": "",
+    "name": "Nell Harrow",
+    "player": "Showcase",
+    "lineage": "aristocrats",
+    "sublineage": "greenwood-kin",
+    "calling": "frontier-scout",
+    "level": 3,
+    "subclass": "trophy-hunter-hunter",
+    "background": "tracker",
+    "abilities": {
+      "STR": 12,
+      "DEX": 17,
+      "CON": 13,
+      "INT": 10,
+      "WIS": 15,
+      "CHA": 8
+    },
+    "saveProf": {
+      "STR": true,
+      "DEX": true,
+      "CON": false,
+      "INT": false,
+      "WIS": false,
+      "CHA": false
+    },
+    "skillProf": {
+      "Perception": 1,
+      "Survival": 1,
+      "Stealth": 1,
+      "Nature": 1,
+      "Animal Handling": 1
+    },
+    "speed": 35,
+    "speedAuto": true,
+    "hpAuto": false,
+    "hpMax": 25,
+    "hpCurrent": 25,
+    "hpTemp": "",
+    "cantrips": [],
+    "spells": {
+      "1": [
+        {
+          "name": "Hunter's Mark (Marked Man)",
+          "prepared": true
+        },
+        {
+          "name": "Ensnaring Strike (Bola Shot)",
+          "prepared": true
+        },
+        {
+          "name": "Fog Cloud",
+          "prepared": true
+        }
+      ],
+      "2": [],
+      "3": [],
+      "4": [],
+      "5": [],
+      "6": [],
+      "7": [],
+      "8": [],
+      "9": []
+    },
+    "proficienciesLanguages": "Armor (Frontier Scout): Light/medium armor, shields\nWeapons (Frontier Scout): Simple and martial weapons\nYou can speak, read, and write Common and French.",
+    "features": "Open-Ground Memory: You find food and water for a small group in wild country and remember trails like scripture. Local hunters tip you off when Eldorite-strange kills show up.",
+    "wizardDone": true,
+    "activeConditions": [],
+    "fightingStyle": "archery",
+    "kitGrants": {
+      "ammo": {
+        "cartridge|light": 20
+      },
+      "items": [
+        "frontier-keepsake"
+      ],
+      "v": 1
+    },
+    "items": [
+      {
+        "uid": "it_mw06u2nu95xkb",
+        "catalogId": "frontier-keepsake",
+        "name": "Keepsake of home",
+        "type": "gear",
+        "description": "A keepsake of home or the wild: a feather, a carved bead, a lock of hair. It is your focus. Lose it and you can't cast until you make a new one at a long rest in that kind of country (BOOK1 L1697).",
+        "effect": {
+          "kind": "text",
+          "text": "Frontier Scout focus. Lost: no casting until you make a new one at a long rest."
+        },
+        "uses": {
+          "max": null,
+          "recharge": ""
+        },
+        "weight": 0,
+        "price": null,
+        "forSale": false,
+        "story": true,
+        "art": "",
+        "weaponId": "",
+        "slot": "",
+        "group": "",
+        "properties": "",
+        "weapon": null,
+        "attune": false,
+        "attuned": false,
+        "rarity": "",
+        "bonuses": null,
+        "wear": "",
+        "dmOnly": false,
+        "count": 1,
+        "chargesLeft": null,
+        "playerAdded": false,
+        "approved": true,
+        "addressedTo": "",
+        "dmAllowDrop": false,
+        "dmAllowRob": false,
+        "tags": [],
+        "quality": "",
+        "shelf": "Foci",
+        "stack": false,
+        "noCarry": false,
+        "summoned": false,
+        "meals": null,
+        "water": null,
+        "capacity": null,
+        "fillIncluded": false,
+        "mealWeight": null,
+        "feedDays": null,
+        "fill": null
+      },
+      {
+        "uid": "it_nell_belt_lantern",
+        "catalogId": "belt-lantern",
+        "name": "Belt lantern",
+        "type": "gear",
+        "description": "Hands-free belt lantern. Bright light 15 ft and dim light 15 ft more, all around. Wear it in a trinket slot. The oil is fictional: it stays lit until you stow it or the DM puts it out. No burn timer.",
+        "effect": {
+          "kind": "text",
+          "text": "Bright 15 ft, dim 15 ft more. Trinket slot, hands-free. Oil is fictional. No burn timer. The DM can put it out."
+        },
+        "uses": {
+          "max": null,
+          "recharge": ""
+        },
+        "weight": 1,
+        "price": 750,
+        "forSale": true,
+        "story": false,
+        "art": "",
+        "weaponId": "",
+        "slot": "",
+        "group": "",
+        "properties": "",
+        "weapon": null,
+        "attune": false,
+        "attuned": false,
+        "rarity": "",
+        "bonuses": null,
+        "wear": "trinket",
+        "dmOnly": false,
+        "count": 1,
+        "chargesLeft": null,
+        "playerAdded": false,
+        "approved": true,
+        "addressedTo": "",
+        "dmAllowDrop": false,
+        "dmAllowRob": false,
+        "tags": [],
+        "quality": "",
+        "shelf": "Adventuring gear",
+        "stack": false,
+        "noCarry": false,
+        "summoned": false,
+        "meals": null,
+        "water": null,
+        "capacity": null,
+        "fillIncluded": false,
+        "mealWeight": null,
+        "feedDays": null,
+        "fill": null,
+        "equipSlot": "accessory_1",
+        "lightOut": false
+      }
+    ],
+    "kitStamp": "frontier-scout",
+    "focusMigrated": 1,
+    "kitMode": "module",
+    "kitPicks": {
+      "hunt": "carbine",
+      "armor": "scale",
+      "pack": "trail"
+    },
+    "hitDiceLeft": "3d10",
+    "_preview": {
+      "ac": 12,
+      "init": 2,
+      "speed": 35,
+      "hp": 25,
+      "focus": "Wisdom · Focus: a keepsake of home or the wild country · Spells known as a ranger, spells to 5th. \"Arrow\" spells work through any ranged weapon, guns included."
+    },
+    "xp": 900,
+    "lineageAsi": {
+      "STR": 0,
+      "DEX": 2,
+      "CON": 0,
+      "INT": 0,
+      "WIS": 1,
+      "CHA": 0
+    },
+    "backstory": "Reads tracks like newsprint. She's the light-test character: belt lantern L0215.",
+    "showcase": "dry-fork"
+  }
+}

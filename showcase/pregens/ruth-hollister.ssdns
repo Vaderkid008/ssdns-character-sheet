@@ -1,0 +1,273 @@
+{
+  "format": "ssdns-character",
+  "schemaVersion": 2,
+  "app": "SSDNS Character Sheet 0.3.220",
+  "id": "c_showcase_ruth",
+  "createdAt": "2026-11-03T04:20:00.000Z",
+  "updatedAt": "2026-11-03T04:20:00.000Z",
+  "shards": {
+    "white": 0,
+    "blue": 0,
+    "green": 0,
+    "yellow": 0,
+    "purple": 0
+  },
+  "character": {
+    "guns": [
+      {
+        "weapon": "single-barrel-farm-shotgun",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": true,
+        "equipped": true,
+        "chamber": "light|.410",
+        "tier": "light"
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      }
+    ],
+    "melee": [
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      }
+    ],
+    "ammo": [
+      {
+        "type": "buck",
+        "caliber": ".410",
+        "count": 10
+      }
+    ],
+    "equipment": "",
+    "holster": "",
+    "holsterR": "",
+    "belt": "",
+    "gunBelt": false,
+    "shield": false,
+    "armor": "",
+    "casterGun": "",
+    "pactFocus": "",
+    "name": "Sister Ruth Hollister",
+    "player": "Showcase",
+    "lineage": "mountain-folk",
+    "sublineage": "gold-miner",
+    "calling": "frontier-preacher",
+    "level": 3,
+    "subclass": "domain-of-the-faithful-sawbones-life",
+    "background": "chapel-hand",
+    "abilities": {
+      "STR": 13,
+      "DEX": 10,
+      "CON": 16,
+      "INT": 8,
+      "WIS": 16,
+      "CHA": 12
+    },
+    "saveProf": {
+      "STR": false,
+      "DEX": false,
+      "CON": false,
+      "INT": false,
+      "WIS": true,
+      "CHA": true
+    },
+    "skillProf": {
+      "Insight": 1,
+      "Religion": 1,
+      "Medicine": 1,
+      "Persuasion": 1
+    },
+    "speed": 25,
+    "speedAuto": true,
+    "hpAuto": false,
+    "hpMax": 27,
+    "hpCurrent": 27,
+    "hpTemp": "",
+    "cantrips": [
+      "Sacred Flame (Brimstone)",
+      "Spare the Dying (Last Rites)",
+      "Light"
+    ],
+    "spells": {
+      "1": [
+        {
+          "name": "Healing Word",
+          "prepared": true
+        },
+        {
+          "name": "Guiding Bolt",
+          "prepared": true
+        },
+        {
+          "name": "Shield of Faith (Badge of Office)",
+          "prepared": true
+        },
+        {
+          "name": "Sanctuary",
+          "prepared": true
+        },
+        {
+          "name": "Bless",
+          "prepared": true
+        },
+        {
+          "name": "Cure Wounds (Trail Medicine)",
+          "prepared": true
+        }
+      ],
+      "2": [
+        {
+          "name": "Aid",
+          "prepared": true
+        },
+        {
+          "name": "Prayer of Healing",
+          "prepared": true
+        },
+        {
+          "name": "Lesser Restoration",
+          "prepared": true
+        },
+        {
+          "name": "Spiritual Weapon",
+          "prepared": true
+        }
+      ],
+      "3": [],
+      "4": [],
+      "5": [],
+      "6": [],
+      "7": [],
+      "8": [],
+      "9": []
+    },
+    "proficienciesLanguages": "Armor (Frontier Preacher): Light, medium armor, shields (chain mail if proficient)\nWeapons (Frontier Preacher): Simple weapons\nYou can speak, read, and write Common and German.",
+    "features": "Chapel Welcome: Free modest lodging and meals at chapels, circuit camps, and friendly creed-houses. Priests aid with information and healing within reason — they won’t fight your battles unless their creed is on the line.",
+    "wizardDone": true,
+    "activeConditions": [],
+    "fightingStyle": "",
+    "kitGrants": {
+      "ammo": {
+        "buck|.410": 10
+      },
+      "items": [
+        "badge-saint-medal-carved-eldorite-hymn-book-holy-symbol"
+      ],
+      "v": 1
+    },
+    "items": [
+      {
+        "uid": "it_mw06u2nrnudp9",
+        "catalogId": "badge-saint-medal-carved-eldorite-hymn-book-holy-symbol",
+        "name": "Holy symbol (badge, saint-medal, carved Eldorite, hymn-book)",
+        "type": "gear",
+        "description": "Holy symbol.",
+        "effect": {
+          "kind": "text",
+          "text": "Holy symbol."
+        },
+        "uses": {
+          "max": null,
+          "recharge": ""
+        },
+        "weight": 1,
+        "price": 500,
+        "forSale": true,
+        "story": false,
+        "art": "",
+        "weaponId": "",
+        "slot": "",
+        "group": "",
+        "properties": "",
+        "weapon": null,
+        "attune": false,
+        "attuned": false,
+        "rarity": "",
+        "bonuses": null,
+        "wear": "",
+        "dmOnly": false,
+        "count": 1,
+        "chargesLeft": null,
+        "playerAdded": false,
+        "approved": true,
+        "addressedTo": "",
+        "dmAllowDrop": false,
+        "dmAllowRob": false,
+        "tags": [],
+        "quality": "",
+        "shelf": "Foci",
+        "stack": false,
+        "noCarry": false,
+        "summoned": false,
+        "meals": null,
+        "water": null,
+        "capacity": null,
+        "fillIncluded": false,
+        "mealWeight": null,
+        "feedDays": null,
+        "fill": null
+      }
+    ],
+    "kitStamp": "frontier-preacher",
+    "focusMigrated": 1,
+    "kitMode": "module",
+    "kitPicks": {
+      "gun": "shotgun",
+      "armor": "scale",
+      "pack": "circuit"
+    },
+    "hitDiceLeft": "3d8",
+    "_preview": {
+      "ac": 10,
+      "init": 0,
+      "speed": 25,
+      "hp": 27,
+      "focus": "Wisdom · Focus: a holy symbol that fits your faith · Prepared as a cleric. No Preacher raises the dead except by Revivify."
+    },
+    "xp": 900,
+    "lineageAsi": {
+      "STR": 0,
+      "DEX": 0,
+      "CON": 2,
+      "INT": 0,
+      "WIS": 1,
+      "CHA": 0
+    },
+    "backstory": "Former mine-camp nurse who found religion and kept the bone saw.",
+    "additionalFeatures": "HP is the showcase brief's 27. Tough as Ore would add 3 more if HP auto is turned on.",
+    "showcase": "dry-fork"
+  }
+}
