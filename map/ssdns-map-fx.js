@@ -480,6 +480,8 @@
     ribbon: { grow: 220, hold: 140, fade: 450 },
     fire: { grow: 300, hold: 0, fade: 280 },
     cold: { grow: 360, hold: 0, fade: 600 },
+    /* Ice Storm: shards fall for grow, then the 20-ft grit and rime. Not the cold needle's clock. */
+    hailstorm: { grow: 520, hold: 280, fade: 1100 },
     lightning: { grow: 70, hold: 90, fade: 260 },
     force: { grow: 240, hold: 0, fade: 260 },
     acid: { grow: 330, hold: 0, fade: 420 },
@@ -610,6 +612,9 @@
     "harm": "deathray",
     "destructive wave": "stomp",
     "cone of cold": "coldcone",
+    /* Ice Storm is a 20-ft hail cylinder. Ray of Frost stays the cold needle. Freezing Sphere stays icebomb. */
+    "ice storm": "hailstorm",
+    "hailstorm": "hailstorm",
     "vicious mockery": "mockery",
     "dissonant whispers": "whispers",
     "mass healing word": "massword",
@@ -711,7 +716,7 @@
     daggers: "220,225,235", swarm: "70,50,30", furnace: "40,34,30", skypillar: "255,125,35",
     icebomb: "200,225,250", sunburst: "255,250,230", deathring: "95,45,100", bead: "255,160,40",
     volley: "90,95,105", charged: "85,120,240", ensnare: "90,95,45", fever: "195,185,110",
-    specter: "215,125,170", stomp: "200,170,110", coldcone: "80,125,185", mockery: "215,125,170",
+    specter: "215,125,170", stomp: "200,170,110", coldcone: "80,125,185", hailstorm: "200,225,250", mockery: "215,125,170",
     whispers: "190,170,225", massword: "205,220,140", masscure: "255,232,170", healcolumn: "255,250,230",
     cage: "85,120,240", token: "230,210,140",
     briar: "90,95,45", foxfire: "150,120,170", chloroform: "190,175,210", jinx: "120,30,30",
@@ -935,6 +940,100 @@
     ctx.restore();
     if (lt > T.grow) bloom(ctx, B, 16, lt - T.grow, "225,240,255", "90,135,195", 2);
   }
+/* Phase 2 grit. Source-over specks so a Love-it shape keeps its fill.
+   n is capped: a lasting zone must not repaint a demo-sized field every frame. */
+function gritBurst(ctx, x, y, t, life, n, seed, radius, cols) {
+  if (!ctx || !(t >= 0) || !(life > 0) || t > life || !(radius > 1)) return;
+  n = Math.max(0, Math.min(40, n || 0));
+  if (!n) return;
+  var u = t / life;
+  var fade = 1 - u;
+  if (fade <= 0) return;
+  var r = rng((seed || 1) + 17);
+  var palette = cols && cols.length ? cols : ["95,80,60", "120,100,75"];
+  var i;
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  for (i = 0; i < n; i++) {
+    var a = r() * Math.PI * 2;
+    var v = 0.25 + r() * 0.75;
+    var d = radius * v * (1 - Math.pow(1 - Math.min(1, u * 1.4), 2));
+    var drop = radius * 0.12 * u * u;
+    ctx.fillStyle = rgba(palette[i % palette.length], fade * (0.4 + r() * 0.45));
+    ctx.fillRect(x + Math.cos(a) * d - 1.1, y + Math.sin(a) * d + drop - 1.1, 2.2, 2.2);
+  }
+  ctx.restore();
+}
+/* Ice Storm. Rock-hard hail in a 20-ft cylinder on the aim point. Shards fall, then grit and rime.
+   No locked storm tile lives under specs/spell-fx, so this stays on the cold palette.
+   Not Ray of Frost's needle, and not Freezing Sphere's lobbed icebomb. The 2-round slick is the zone. */
+function hailstormPaint(ctx, A, B, lt, seed, g) {
+  var time = LOOK_TIME.hailstorm;
+  var life = time.grow + time.hold + time.fade;
+  if (!B || lt < 0 || lt > life) return;
+  var cell = (g && g.cell) || 70;
+  var R = cell * 4;
+  var fall = time.grow;
+  var f = lt < fall + time.hold ? 1 : 1 - clamp((lt - fall - time.hold) / time.fade);
+  var rand = rng((seed || 4) + 19);
+  var i;
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = rgba("70,72,80", 0.34 * f);
+  ctx.beginPath();
+  ctx.arc(B.x, B.y - cell * 1.8, R * 0.42, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  for (i = 0; i < 36; i++) {
+    var ang = rand() * Math.PI * 2;
+    var rad = Math.sqrt(rand()) * R * 0.92;
+    var delay = rand() * 160;
+    var t = lt - delay;
+    if (t < 0) continue;
+    var p = clamp(t / fall);
+    var x = B.x + Math.cos(ang) * rad;
+    var y0 = B.y - cell * (2.2 + rand() * 1.1);
+    var y1 = B.y + (rand() - 0.5) * cell * 0.5;
+    var y = lerp(y0, y1, easeOut(p));
+    var rock = rand() < 0.38;
+    ctx.save();
+    ctx.globalCompositeOperation = rock ? "source-over" : "lighter";
+    ctx.translate(x, y);
+    ctx.rotate(ang + p * 2);
+    ctx.fillStyle = rock ? rgba("95,80,60", 0.9 * f) : rgba("200,225,250", 0.92 * f);
+    ctx.beginPath();
+    ctx.moveTo(0, -8);
+    ctx.lineTo(2.4, 0);
+    ctx.lineTo(0, 7);
+    ctx.lineTo(-2.4, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+  if (lt > fall * 0.72) {
+    var boom = lt - fall * 0.72;
+    var ringR = Math.min(R, R * easeOut(clamp(boom / 220)));
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.strokeStyle = rgba("250,252,255", 0.85 * f);
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(B.x, B.y, ringR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+    gritBurst(ctx, B.x, B.y, boom, time.hold + time.fade, 28, (seed || 4) + 3, R * 0.85, ["95,80,60", "120,100,75", "200,225,250"]);
+    var rime = clamp(boom / 160) * f;
+    if (rime > 0) {
+      ctx.save();
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = rgba("200,225,250", 0.22 * rime);
+      ctx.beginPath();
+      ctx.arc(B.x, B.y, R * 0.96, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+}
   function jagPaint(ctx, A, B, lt, seed) {
     var T = LOOK_TIME.lightning;
     if (lt < 0 || lt > T.grow + T.hold + T.fade) return;
@@ -1426,7 +1525,8 @@ function blastShake(lt, amp, dur) {
 }
 /* Chunk 3 painters that share a key with an older look. The spell name decides.
    Hail of Thorns is the Chunk 5 burst, not this painter. Harm is the Chunk 5 collapse.
-   A bare thunder or cold damage type stays on the old beam. Hunter's Mark stays on brand. */
+   A bare thunder or cold damage type stays on the old beam. Ice Storm is hailstorm, not that needle.
+   Hunter's Mark stays on brand. */
 function chunk3Spell(look, spec) {
   var name = low((spec && (spec.spell || spec.weapon)) || "");
   if (look === "skybolt" || look === "sunshaft" || look === "prism" || look === "meteors" || look === "orb" || look === "produceflame" || look === "sickray" || look === "smitefire" || look === "fear" || look === "blind") return true;
@@ -1538,6 +1638,7 @@ function shakeOf(spec, lt) {
   if (look === "fireball") return blastShake(lt - LOOK_TIME.fireball.grow, 11, 1000);
   if (look === "firecone") return blastShake(lt, 4, 420);
   if (look === "shatter") return blastShake(lt - LOOK_TIME.shatter.grow, 7, 650);
+  if (look === "hailstorm") return blastShake(lt - LOOK_TIME.hailstorm.grow, 6, 420);
   return { x: 0, y: 0 };
 }
 /* Comet from the caster. A short bright tail, not a Fire Bolt line across the whole range. */
@@ -2803,8 +2904,8 @@ function beadsPaint(ctx, A, B, lt, seed) {
     shakeOf: shakeOf
   };
   })();
-  /* Chunk 2 Phase 1 Love-it outlines. Shape + clear effect. Thorn dust, the Hunter's Mark hop,
-     Shocking Grasp's metal-armor flare, and the Flaming Sphere ram stay out of this pass.
+  /* Chunk 2 Phase 1 Love-it outlines. Shape + clear effect. Thorn dust-drag and the coil burst
+     are in the painter. Hunter's Mark hop, Shocking Grasp's metal-armor flare, and the Flaming Sphere ram stay out.
      Ground scorch shares this overlay (above tokens), same as Chunk 1. */
   var Chunk2Fx = (function () {
   var TAU = Math.PI * 2;
@@ -3011,6 +3112,11 @@ function beadsPaint(ctx, A, B, lt, seed) {
       ctx.save(); ctx.globalAlpha = ca; stroke(ctx, c, 4.5, rgba(PAL.thorn.dark, 0.95)); stroke(ctx, c, 2.4, rgba(PAL.thorn.vine, 1));
       for (var q = 3; q < c.length; q += 6) { var Q = c[q], o = norm(B, Q); ctx.beginPath(); ctx.moveTo(Q.x - o.y * 2.5, Q.y + o.x * 2.5); ctx.lineTo(Q.x + o.x * 6, Q.y + o.y * 6); ctx.lineTo(Q.x + o.y * 2.5, Q.y - o.x * 2.5); ctx.closePath(); ctx.fillStyle = rgba(PAL.thorn.tip, 1); ctx.fill(); }
       ctx.restore();
+    }
+    if (lt > 80 && lt < TW.back1) gritBurst(ctx, B.x, B.y, lt - 80, 700, 16, 73, G.cell * 0.65);
+    if (G.yank && lt > TW.y0) {
+      var drag = lp(B0, A, yankP(lt));
+      gritBurst(ctx, drag.x, drag.y, lt - TW.y0, 480, 12, 74, G.cell * 0.4);
     }
     var th = lt - TW.shoot;
     if (th >= 0 && th < 380) {
@@ -3253,7 +3359,9 @@ function beadsPaint(ctx, A, B, lt, seed) {
 
   /* Chunk 3 Phase 1 Love-it outlines. Shape + clear effect. One beat per real cast, hit, or token event.
      Demo clocks (second strike, foe step-in, caster step, smite strip) are not reproduced.
-     Dust, grit, and mote spice stay out. Ground scorch shares this overlay, same as Chunk 1–2. */
+     Phase 2 first cut: Prismatic kicked dust, Sunbeam lane motes, Meteor rock grit, Thunderous flung grit.
+     Still out: Produce Flame extinguish pop, Call Lightning / Branding ultra-low idle, Banishing and Staggering.
+     Ground scorch shares this overlay, same as Chunk 1–2. */
   var Chunk3Fx = (function () {
   var TAU = Math.PI * 2;
   var PAL = {
@@ -3495,6 +3603,20 @@ function beadsPaint(ctx, A, B, lt, seed) {
       stroke(ctx, [A, E], Math.max(6, G.cell * 0.22), rgba(PAL.radiant.glow, 0.22 * ag), 10);
       stroke(ctx, [A, E], 2, rgba(PAL.radiant.core, 0.4 * ag));
     });
+    if (t > SB.grow) {
+      var dustA = env(t, SB.grow, SB.grow + 80, SB.fade, SB.fade + SB.after);
+      if (dustA > 0) {
+        var rd = rng(19), nrm = norm(A, E);
+        ctx.save();
+        ctx.globalCompositeOperation = "source-over";
+        for (var m = 0; m < 18; m++) {
+          var uu = rd(), Pm = lp(A, E, uu), jit = (rd() - 0.5) * G.cell * 0.35;
+          ctx.fillStyle = rgba(m % 2 ? "178,168,150" : "120,100,75", 0.55 * dustA);
+          ctx.fillRect(Pm.x - nrm.y * jit, Pm.y + nrm.x * jit, 2.2, 2.2);
+        }
+        ctx.restore();
+      }
+    }
     sunHits(G).forEach(function (B, i) {
       var along = clamp(dist(A, B) / span);
       var tb = t - SB.grow * along;
@@ -3651,6 +3773,16 @@ function beadsPaint(ctx, A, B, lt, seed) {
         }
         glow(ctx, A.x, A.y, 14, [[0, rgba(PAL.prismGrit, 0.85 * a)], [1, "rgba(190,95,40,0)"]]);
       });
+      ctx.save();
+      ctx.globalCompositeOperation = "source-over";
+      var kicked = rng(91);
+      for (var d = 0; d < 22; d++) {
+        var anD = base - half + kicked() * half * 2;
+        var kick = p * L * (0.15 + kicked() * 0.7);
+        ctx.fillStyle = rgba(kicked() < 0.5 ? "95,80,60" : "120,100,75", 0.55 * a);
+        ctx.fillRect(A.x + Math.cos(anD) * kick, A.y + Math.sin(anD) * kick, 2.4, 2.4);
+      }
+      ctx.restore();
     }
     var marks = (G.hops && G.hops.length) ? G.hops : (targetOf(G) ? [targetOf(G)] : []);
     marks.forEach(function (B, i) { prismFlare(ctx, B, prismKind(B, i), lt - 300 - i * 36, G, 5 + i); });
@@ -3698,6 +3830,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
     var tb = t - MS.travel;
     if (tb >= 0) {
       fireBurst(ctx, B, tb, MS.life, G.cell * 2.15, 30 + (G.beat || 0));
+      gritBurst(ctx, B.x, B.y, tb, 700, 18, 30 + (G.beat || 0), G.cell * 1.4, ["45,28,20", "95,80,60"]);
       if (tb < 420) add(ctx, function () {
         var u = tb / 420;
         ring(ctx, B.x, B.y, G.cell * 0.55 + easeOut(u) * G.cell * 1.85, 4 * (1 - u) + 0.5, rgba(PAL.fire.hot, 1 - u), 12);
@@ -4000,6 +4133,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
             ring(ctx, B.x, B.y, G.rT + easeOut(u) * G.cell * 1.15, 3 * (1 - u) + 0.5, rgba(PAL.thunder.core, 1 - u), 10);
             glow(ctx, B.x, B.y, G.cell * 0.75, [[0, rgba(PAL.thunder.hot, 0.55 * (1 - u))], [1, rgba(PAL.thunder.glow, 0)]]);
           });
+          gritBurst(ctx, B.x, B.y, tb, 620, 16, 21, G.cell * 0.9, ["95,80,60", "120,100,75"]);
         }
         var away = (S && B) ? norm(S, B) : { x: 1, y: 0 };
         var pa = env(tb, 0, 40, 280, 620);
@@ -4099,7 +4233,8 @@ function beadsPaint(ctx, A, B, lt, seed) {
 
   /* Chunk 4 Phase 1 Love-it outlines. Shape + clear effect. One beat per real cast, enter, start, end, Clear, or detonate.
      Demo clocks (foe step-ins, scripted second skins, the DM CLEAR pill) are not reproduced.
-     Dust, grit, and Phase 2 spice stay out. Art idle webms are not in the tip assets, so slots 4–5 loop on the canvas.
+     Phase 2 first cut: Flame Strike and Fire Storm flung dirt, Sunburst dust motes, Freezing Sphere debris.
+     Still out: wall-raise dust, thorn dust, briar grit, Blade Barrier sparks, Hunger whispers. Art idle webms are not in the tip assets, so slots 4–5 loop on the canvas.
      Sticky walls, voids, cubes, swarms, furnace clouds, and the Delayed Blast bead idle on the zone layer.
      Rules radii: Freezing Sphere, Sunburst, and Circle of Death are 60 ft. The Love-it board drew those at 4.5 cells. */
   var Chunk4Fx = (function () {
@@ -4726,6 +4861,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
           ring(ctx, B.x, B.y, G.cell * 0.8 + easeOut(clamp(u)) * G.cell * 1.4, 5 * (1 - clamp(u)) + 0.8, rgba(PAL.radiant.core, 1 - clamp(u)), 14);
         });
         sparks(ctx, B.x, B.y, lt - 120, 16, 77, 120, 1000, PAL.radiant.core, 1.6, -30);
+        gritBurst(ctx, B.x, B.y, lt - 140, 900, 16, 8, G.cell * 1.2, ["95,80,60", "120,100,75"]);
       }
     }
     function stormUnder(ctx, lt, G) {
@@ -4737,6 +4873,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
         var t = lt - i * 100;
         column(ctx, P, G.cell * 2.6, t, G.cell * 0.4, 100, 420, 680, false);
         fireBurst(ctx, P, t - 100, 700, G.cell, 20 + i);
+        if (t >= 140) gritBurst(ctx, P.x, P.y, t - 140, 700, 12, 20 + i, G.cell * 0.7, ["95,80,60", "45,28,20"]);
       });
     }
 
@@ -4807,6 +4944,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
         });
       }
       sparks(ctx, C.x, C.y, td, 24, 25, 420, 900, PAL.cold.core, 1.6, 0);
+      if (td >= 40 && td < 1400) gritBurst(ctx, C.x, C.y, td, 1400, 20, 25, G.cell * 2.2, ["200,225,250", "150,185,225", "95,80,60"]);
     }
 
     /* Sunburst and Circle of Death. Separate skins. Rules radius 60 ft. */
@@ -4826,6 +4964,15 @@ function beadsPaint(ctx, A, B, lt, seed) {
           glow(ctx, C.x, C.y, G.cell * (1.1 + 0.9 * easeOut(lt / 150)), [[0, rgba(PAL.radiant.hot, ca)], [0.35, rgba(PAL.radiant.core, 0.85 * ca)], [1, rgba(PAL.radiant.glow, 0)]]);
           ring(ctx, C.x, C.y, R * easeOut(lt / 450), 10 * (1 - u) + 1.5, rgba(PAL.radiant.glow, 0.7 * (1 - u)), 16);
         });
+        var motes = rng(48);
+        ctx.save();
+        ctx.globalCompositeOperation = "source-over";
+        for (var dm = 0; dm < 18; dm++) {
+          var anM = motes() * TAU, dM = R * (0.2 + motes() * 0.75) * easeOut(clamp(lt / 400));
+          ctx.fillStyle = rgba(dm % 2 ? "178,168,150" : "120,100,75", 0.5 * ca);
+          ctx.fillRect(C.x + Math.cos(anM) * dM, C.y + Math.sin(anM) * dM, 2.2, 2.2);
+        }
+        ctx.restore();
       }
       marksOf(G).forEach(function (B, i) {
         var tb = lt - 200 * clamp(dist(C, B) / Math.max(1, R));
@@ -4993,6 +5140,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
     };
   })();
 
+  /* Chunk 5. Cone of Cold sheds snow past the cone. Conjure Volley kicks a short ground grit. */
   var Chunk5Fx = (function () {
     var TAU = Math.PI * 2;
     var PAL = {
@@ -5268,6 +5416,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
         }
       }
       victims(G).forEach(function (B, i) { sparkHit(ctx, B, lt - 220 - i * 40, 70 + i, G); });
+      if (lt > 180) gritBurst(ctx, Z.x, Z.y, lt - 180, 800, 16, 44, Math.min(R, G.cell * 3), ["120,95,70", "95,80,60"]);
     }
     function lightningUnder(ctx, lt, G) {
       var t = lt - 200; if (t < 0) return;
@@ -5587,6 +5736,20 @@ function beadsPaint(ctx, A, B, lt, seed) {
         var tb = lt - 360 * clamp((dist(S, B) - (G.rS || 0)) / Math.max(1, c.L)) * 0.6;
         flash(ctx, B, tb, 420, G.cell * 0.55, PAL.cold.glow, PAL.cold.hot);
       });
+      var snowA = env(lt, 40, 160, 1100, 1800);
+      if (snowA > 0) {
+        var snow = rng(37);
+        ctx.save();
+        ctx.globalCompositeOperation = "source-over";
+        for (var sn = 0; sn < 14; sn++) {
+          var side = snow() < 0.5 ? 1 : -1;
+          var anS = c.ang + side * (c.half + 0.08 + snow() * 0.2);
+          var dS = (G.rS || 8) + snow() * c.L * 0.8;
+          ctx.fillStyle = rgba("250,252,255", 0.65 * snowA);
+          ctx.fillRect(S.x + Math.cos(anS) * dS, S.y + Math.sin(anS) * dS, 2.2, 2.2);
+        }
+        ctx.restore();
+      }
     }
     function mockery(ctx, lt, G) {
       var A = G.A || G.S, B = primary(G); if (!A || !B) return;
@@ -6463,6 +6626,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
     var T = g && (g.T || g.S);
     var r = (g && (g.rT || g.rS)) || 18;
     if (look === "fire") return firePaint(ctx, A, B, lt, seed);
+    if (look === "hailstorm") return hailstormPaint(ctx, A, (g && g.T) || B, lt, seed, g);
     if (look === "cold") return coldPaint(ctx, A, B, lt);
     if (look === "lightning") return jagPaint(ctx, A, B, lt, seed);
     if (look === "force") return forcePaint(ctx, A, B, lt);

@@ -181,7 +181,7 @@ check("look.produceStays", FX.lookOf({ type: "spell", spell: "Produce Flame" }) 
 check("look.fireball", FX.lookOf({ type: "spell", spell: "Fireball", dmg: "fire" }) === "fireball" && FX.lookOf({ type: "spell", spell: "Fireball" }) === "fireball");
 check("look.wall", FX.lookOf({ type: "spell", spell: "Wall of Fire", dmg: "fire" }) === "" && FX.lookOf({ type: "spell", spell: "Wall of Fire Shell" }) === "");
 check("look.bolt", FX.lookOf({ type: "spell", spell: "Lightning Bolt", dmg: "lightning" }) === "lightning");
-check("look.ice", FX.lookOf({ type: "spell", spell: "Ice Storm", dmg: "bludgeoning and cold" }) === "cold");
+check("look.ice", FX.lookOf({ type: "spell", spell: "Ice Storm", dmg: "bludgeoning and cold" }) === "hailstorm");
 check("look.cloud", FX.lookOf({ type: "spell", spell: "Cloudkill", dmg: "poison" }) === "poison");
 check("look.acid", FX.lookOf({ type: "spell", spell: "Acid Splash", dmg: "acid" }) === "acid" && FX.lookOf({ type: "spell", spell: "Acid Arrow" }) === "acid-arrow");
 check("look.necro", FX.lookOf({ type: "spell", spell: "Chill Touch" }) === "chill-touch" && FX.lookOf({ type: "spell", spell: "Inflict Wounds" }) === "necrotic" && FX.lookOf({ type: "spell", spell: "Blight" }) === "necrotic");

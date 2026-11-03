@@ -87,7 +87,8 @@ check("look.meteor", look("Meteor Swarm", "fire") === "meteors" && look("Firebal
 check("look.guard", look("Guardian of Faith") === "token");
 check("look.orb", look("Chromatic Orb", "cold") === "orb" && look("Chromatic Orb", "fire") === "orb");
 check("look.flame", look("Produce Flame", "fire") === "produceflame" && look("Flame Blade", "fire") === "flameblade");
-check("look.frost", look("Ray of Frost", "cold") === "cold" && look("Ray of Frost Shell") === "cold" && look("Ice Storm", "bludgeoning and cold") === "cold");
+check("look.frost", look("Ray of Frost", "cold") === "cold" && look("Ray of Frost Shell") === "cold");
+check("look.ice", look("Ice Storm", "bludgeoning and cold") === "hailstorm" && look("Hailstorm") === "hailstorm" && look("Freezing Sphere") === "icebomb");
 check("look.sick", look("Ray of Sickness", "poison") === "sickray" && look("Poison Spray") === "poison-spray");
 check("look.smites", look("Searing Smite", "fire") === "smitefire" && look("Branding Smite") === "brand" && look("Hunter's Mark") === "brand" && look("Thunderous Smite") === "thunder" && look("Wrathful Smite") === "fear" && look("Blinding Smite") === "blind");
 check("look.deferred", look("Banishing Smite") === "banish" && look("Staggering Smite") === "stagger");
@@ -181,8 +182,8 @@ check("sanitize.orb", kept && kept.dmg === "poison" && kept.beat === 2 && kept.g
 vm.runInContext(read("assets/js/spell-tokens.js"), sandbox);
 const Tok = sandbox.SSDNSSpellTokens;
 check("held.flame", Tok.isHeld("Produce Flame") === true && Tok.isToken("Produce Flame") === false && Tok.isToken("Guardian of Faith") === true);
-check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.222-p1b") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.235-p1b"));
-check("ver", JSON.parse(read("version.json")).sheet === "0.3.222" && JSON.parse(read("version.json")).dmcc === "0.2.235");
+check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.223-p2a") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.236-p2a"));
+check("ver", JSON.parse(read("version.json")).sheet === "0.3.223" && JSON.parse(read("version.json")).dmcc === "0.2.236");
 
 console.log(failures.length ? "\n" + failures.length + " FAILED" : "\nall chunk3 fx checks passed");
 process.exit(failures.length ? 1 : 0);

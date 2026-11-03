@@ -188,8 +188,8 @@ check("map.wallfire", map.includes("paintWallOfFire"));
 const sheet = read("assets/js/sheet-extras.js");
 const dm = read("dm/assets/js/v2.js");
 check("wire.firestorm", sheet.includes("postPlacedLooks") && dm.includes("fire storm") && sheet.includes("garnish: \"detonate\"") && dm.includes("garnish: \"detonate\""));
-check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.207-c2") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.220-c2"));
-check("ver", JSON.parse(read("version.json")).sheet === "0.3.207" && JSON.parse(read("version.json")).dmcc === "0.2.220");
+check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.223-p2a") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.236-p2a"));
+check("ver", JSON.parse(read("version.json")).sheet === "0.3.223" && JSON.parse(read("version.json")).dmcc === "0.2.236");
 
 console.log(failures.length ? "\n" + failures.length + " FAILED" : "\nall chunk4 fx checks passed");
 process.exit(failures.length ? 1 : 0);
