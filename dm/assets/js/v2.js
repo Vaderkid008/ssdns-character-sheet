@@ -8847,6 +8847,22 @@ function applyForcedSlide(meta) {
   if (slid && slid.moved) DM.toast((meta.targetName || "Target") + (pull ? " pulled " : " pushed ") + feet + " ft");
   return slid;
 }
+/* Vampiric Touch regains half the necrotic dealt on a hit. Hidden-AC casts
+   post an attack and used to drop healHalf, so the spell name counts too. */
+function hitHealsCaster(meta) {
+  if (!meta || meta.heal || meta.kind === "heal" || meta.type === "heal") return false;
+  if (meta.healHalf) return true;
+  const R = window.SSDNSSpellRiders;
+  if (!R || !R.patchRow) return false;
+  const names = [meta.spellName, meta.spell, meta.label, meta.weapon];
+  for (const name of names) {
+    if (typeof name !== "string" || !name) continue;
+    const key = R.spellKey ? R.spellKey(name) : name;
+    const row = R.patchRow({ name: key });
+    if (row && row.healHalf) return true;
+  }
+  return false;
+}
 function applyPlayerHit(meta) {
   if (!meta) return;
   const heal = meta.kind === "heal" || meta.type === "heal" || meta.heal;
@@ -9035,13 +9051,26 @@ function applyPlayerHit(meta) {
     hostMap.setTokenHidden(tokenOf(meta.targetId), true);
     DM.toast((name || "Target") + " is banished (hidden) at " + after + " HP.");
   }
-  if (!heal && meta.healHalf && meta.from && window.SSDNSSpellRiders && window.SSDNSSpellRiders.vampiricHalf) {
-    const back = window.SSDNSSpellRiders.vampiricHalf(applied || amt);
-    if (back > 0) {
+  if (hitHealsCaster(meta) && meta.from) {
+    const halfOf = window.SSDNSSpellRiders && window.SSDNSSpellRiders.vampiricHalf
+      ? window.SSDNSSpellRiders.vampiricHalf(amt)
+      : Math.floor((Number(amt) || 0) / 2);
+    if (halfOf > 0) {
+      const caster = findCombatant({ targetId: meta.from });
+      const casterName = (caster && caster.name) || who;
       applyPlayerHit({
         rollId: (rollId || DM.uid("vamp")) + ":vamp",
-        targetId: meta.from, targetName: who, amount: back, type: "heal", heal: true,
-        from: meta.targetId, characterName: name, label: "Vampiric Touch", _shield: true
+        targetId: meta.from,
+        targetName: casterName,
+        amount: halfOf,
+        type: "heal",
+        heal: true,
+        from: meta.targetId,
+        characterName: "Vampiric Touch",
+        label: "Vampiric Touch",
+        weapon: "Vampiric Touch",
+        dice: "half of " + amt,
+        _shield: true
       });
     }
   }
@@ -9433,6 +9462,7 @@ function resolveIncomingAttack(req, reqId) {
   if (!verdict.miss && applyAmount > 0 && heldOutOfTurn(req)) {
     holdHit({ rollId: rollId, targetId: req.targetId, targetName: (row && row.name) || req.targetName, amount: applyAmount, from: req.from,
       characterName: req.characterName || "Someone", label: req.label, weapon: req.weapon || req.label, dice: req.dice || "", type: "attack", heal: false, melee: !!req.melee,
+      spellName: req.spellName || "", spell: typeof req.spell === "string" ? req.spell : "", healHalf: !!req.healHalf,
       push: atkPush, pull: atkPull, slideOn: atkMove ? atkMove.on : "" },
       (req.characterName || "Someone") + " → " + ((row && row.name) || req.targetName || "target") + " for " + applyAmount);
   } else if (!verdict.miss && applyAmount > 0) {
@@ -9453,6 +9483,8 @@ function resolveIncomingAttack(req, reqId) {
       push: atkPush,
       slideOn: atkMove ? atkMove.on : "",
       healHalf: !!req.healHalf,
+      spellName: req.spellName || "",
+      spell: typeof req.spell === "string" ? req.spell : "",
       banishAt: req.banishAt || 0,
       splash: req.splash || null,
       dc: req.dc
@@ -9534,7 +9566,10 @@ function applyRequest(req, reqId) {
           pull: saveMove && saveMove.dir === "pull" ? saveMove.feet : 0,
           push: saveMove && saveMove.dir !== "pull" ? saveMove.feet : 0,
           slideOn: saveMove ? saveMove.on : "",
-          healHalf: !!req.healHalf, banishAt: req.banishAt || 0,
+          healHalf: !!req.healHalf,
+          spellName: req.spellName || "",
+          spell: typeof req.spell === "string" ? req.spell : "",
+          banishAt: req.banishAt || 0,
           splash: req.splash || null, melee: !!req.melee, dc: req.dc
         };
         const lineAfter = who + " → " + name + " " + dealt + (save && save.failed ? " (failed save)" : " (saved)");
@@ -9621,7 +9656,10 @@ function applyRequest(req, reqId) {
       weapon: req.weapon || req.label, dice: req.dice || "", type: req.type || "", heal: heal, melee: !!req.melee,
       push: plainMove && plainMove.dir !== "pull" ? plainMove.feet : 0,
       pull: plainMove && plainMove.dir === "pull" ? plainMove.feet : 0,
-      slideOn: plainMove ? plainMove.on : "" }, line);
+      slideOn: plainMove ? plainMove.on : "",
+      healHalf: !!req.healHalf,
+      spellName: req.spellName || "",
+      spell: typeof req.spell === "string" ? req.spell : "" }, line);
     return;
   }
   if (fight.damageMode === "approve") {
@@ -9645,6 +9683,8 @@ function applyRequest(req, reqId) {
     push: plainMove && plainMove.dir !== "pull" ? plainMove.feet : 0,
     slideOn: plainMove ? plainMove.on : "",
     healHalf: !!req.healHalf,
+    spellName: req.spellName || "",
+    spell: typeof req.spell === "string" ? req.spell : "",
     banishAt: req.banishAt || 0,
     splash: req.splash || null,
     floorHp: req.floorHp || 0,

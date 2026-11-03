@@ -989,6 +989,7 @@
         delayed: info.delayed,
         delayedDice: info.delayedDice || "",
         melee: !!info.melee,
+        healHalf: !!info.healHalf,
         cover: coverRaw || "",
         coverSet: true,
         type: "attack",
@@ -2830,6 +2831,7 @@
         shots: rolled.shots || null,
         spell: true,
         dmgType: (row && row.type) || damageType || "",
+        healHalf: !!(row && row.healHalf),
         quiet: false
       });
       /* Hidden AC returns before the resolved cast. Spend here or the pip never reaches turnMarkers. */
@@ -2982,6 +2984,16 @@
           if (!isFinite(spellDmg)) spellDmg = 0;
         } else if (spellMissed && rolled.missHalf) {
           spellDmg = rolled.alreadyHalf ? Number(rolled.damageTotal) || 0 : Math.floor((Number(rolled.gross != null ? rolled.gross : rolled.damageTotal) || 0) / 2);
+        }
+      }
+      if (!spellMissed && row && row.healHalf && spellDmg > 0 && !joined()) {
+        var siphon = root.SSDNSSpellRiders && root.SSDNSSpellRiders.vampiricHalf
+          ? root.SSDNSSpellRiders.vampiricHalf(spellDmg)
+          : Math.floor(Number(spellDmg) / 2);
+        if (siphon > 0) {
+          applyDelta(siphon, (spellName || "Vampiric Touch") + " heals you " + siphon);
+          rolled.text += " · you regain " + siphon;
+          rolled.detail = rolled.text;
         }
       }
       if (!(rolled.applyNow === false || rolled.startOnTurn) && !rolled.assigned) {
@@ -3145,6 +3157,7 @@
               label: spellName,
               spell: true,
               spellName: spellName,
+              healHalf: !!(row && row.healHalf),
               melee: true,
               dice: rolled.damageDetail || "",
               formula: rolled.formula || "",
@@ -5209,7 +5222,8 @@
             who: (c && c.name) || "You", targetName: tgt.name, targetId: tgt.id,
             nat: rolled.nat, hitTotal: rolled.result, damage: dmg, dice: rolled.damageDetail || "",
             formula: rolled.formula, rollId: rollId, label: rolled.label || spellName,
-            spellName: spellName, spell: true, dmgType: (row && row.type) || "", quiet: false
+            spellName: spellName, spell: true, dmgType: (row && row.type) || "",
+            healHalf: !!(row && row.healHalf), quiet: false
           });
         }
       } else if (!placed && row.kind === "save" && tgt && tgt.id && joined() && !whisperOn() && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage) {
