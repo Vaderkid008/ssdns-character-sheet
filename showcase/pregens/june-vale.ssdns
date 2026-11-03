@@ -1,0 +1,254 @@
+{
+  "format": "ssdns-character",
+  "schemaVersion": 2,
+  "app": "SSDNS Character Sheet 0.3.220",
+  "id": "c_showcase_june",
+  "createdAt": "2026-11-03T04:20:00.000Z",
+  "updatedAt": "2026-11-03T04:20:00.000Z",
+  "shards": {
+    "white": 0,
+    "blue": 0,
+    "green": 0,
+    "yellow": 0,
+    "purple": 0
+  },
+  "character": {
+    "guns": [
+      {
+        "weapon": "shortbow",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false,
+        "equipped": true
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      }
+    ],
+    "melee": [
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      }
+    ],
+    "ammo": [
+      {
+        "type": "arrows",
+        "caliber": "",
+        "count": 20
+      }
+    ],
+    "equipment": "",
+    "holster": "",
+    "holsterR": "",
+    "belt": "",
+    "gunBelt": false,
+    "shield": false,
+    "armor": "",
+    "casterGun": "",
+    "pactFocus": "",
+    "name": "Juniper \"June\" Vale",
+    "player": "Showcase",
+    "lineage": "aristocrats",
+    "sublineage": "greenwood-kin",
+    "calling": "nature-guide",
+    "level": 3,
+    "subclass": "circle-of-the-open-range-land",
+    "background": "desert-hermit",
+    "abilities": {
+      "STR": 8,
+      "DEX": 15,
+      "CON": 14,
+      "INT": 12,
+      "WIS": 16,
+      "CHA": 10
+    },
+    "saveProf": {
+      "STR": false,
+      "DEX": false,
+      "CON": false,
+      "INT": true,
+      "WIS": true,
+      "CHA": false
+    },
+    "skillProf": {
+      "Medicine": 1,
+      "Religion": 1,
+      "Nature": 1,
+      "Animal Handling": 1
+    },
+    "speed": 35,
+    "speedAuto": true,
+    "hpAuto": false,
+    "hpMax": 24,
+    "hpCurrent": 24,
+    "hpTemp": "",
+    "cantrips": [
+      "Produce Flame (Campfire)",
+      "Thorn Whip (Thorn Lash)"
+    ],
+    "spells": {
+      "1": [
+        {
+          "name": "Entangle (Brush Snare)",
+          "prepared": true
+        },
+        {
+          "name": "Healing Word",
+          "prepared": true
+        },
+        {
+          "name": "Faerie Fire (Foxfire)",
+          "prepared": true
+        },
+        {
+          "name": "Thunderwave (Porch Boom)",
+          "prepared": true
+        }
+      ],
+      "2": [
+        {
+          "name": "Spike Growth (Cholla Patch)",
+          "prepared": true
+        },
+        {
+          "name": "Moonbeam (Hunter's Moon)",
+          "prepared": true
+        }
+      ],
+      "3": [],
+      "4": [],
+      "5": [],
+      "6": [],
+      "7": [],
+      "8": [],
+      "9": []
+    },
+    "proficienciesLanguages": "Armor (Nature Guide): Non-metal armor and shields\nWeapons (Nature Guide): Simple weapons, scimitars (machetes / heavy Bowies)\nYou can speak, read, and write Common and French.",
+    "features": "Vision of Dying Magic: You carry a true vision of magic failing somewhere else — not Neverwinter’s collapse, but a second dying. Work with the DM on what you saw (sky color, a mineral glow, voices, a green land going wrong). It does not hand you a place-name; at most you have a feeling that the advertised America is not the whole truth. The vision drives you, unsettles casters who hear it, and draws heat from people who want such talk buried.",
+    "wizardDone": true,
+    "activeConditions": [],
+    "fightingStyle": "",
+    "kitGrants": {
+      "ammo": {
+        "arrows|": 20
+      },
+      "items": [
+        "carved-walking-stick"
+      ],
+      "v": 1
+    },
+    "items": [
+      {
+        "uid": "it_mw06u2ns3k4qw",
+        "catalogId": "carved-walking-stick",
+        "name": "Carved walking stick",
+        "type": "gear",
+        "description": "A focus taken from the land (BOOK1 L1244). It also counts as the stick for Walking Stick (Shillelagh).",
+        "effect": {
+          "kind": "text",
+          "text": "Nature Guide focus. Walking Stick (Shillelagh) target."
+        },
+        "uses": {
+          "max": null,
+          "recharge": ""
+        },
+        "weight": 4,
+        "price": null,
+        "forSale": false,
+        "story": true,
+        "art": "assets/img/items/weapons/cottonwood-walking-stick.webp",
+        "weaponId": "",
+        "slot": "",
+        "group": "",
+        "properties": "",
+        "weapon": null,
+        "attune": false,
+        "attuned": false,
+        "rarity": "",
+        "bonuses": null,
+        "wear": "",
+        "dmOnly": false,
+        "count": 1,
+        "chargesLeft": null,
+        "playerAdded": false,
+        "approved": true,
+        "addressedTo": "",
+        "dmAllowDrop": false,
+        "dmAllowRob": false,
+        "tags": [],
+        "quality": "",
+        "shelf": "Foci",
+        "stack": false,
+        "noCarry": false,
+        "summoned": false,
+        "meals": null,
+        "water": null,
+        "capacity": null,
+        "fillIncluded": false,
+        "mealWeight": null,
+        "feedDays": null,
+        "fill": null
+      }
+    ],
+    "kitStamp": "nature-guide",
+    "focusMigrated": 1,
+    "kitMode": "module",
+    "kitPicks": {
+      "weapon": "bow",
+      "focus": "stick",
+      "shield": "yes"
+    },
+    "hitDiceLeft": "3d8",
+    "_preview": {
+      "ac": 11,
+      "init": 1,
+      "speed": 35,
+      "hp": 24,
+      "focus": "Wisdom · Focus: something taken from the land · Prepared as a druid. Never subtle."
+    },
+    "xp": 900,
+    "lineageAsi": {
+      "STR": 0,
+      "DEX": 2,
+      "CON": 0,
+      "INT": 0,
+      "WIS": 1,
+      "CHA": 0
+    },
+    "backstory": "Grew up past the last fence line. Thorn Lash can yank a rifleman off the water tower.",
+    "additionalFeatures": "Circle of the Open Range has no coded bonus-spell list on this sheet. Spike Growth and Moonbeam are prepared.",
+    "showcase": "dry-fork"
+  }
+}

@@ -91,19 +91,22 @@ Pack file: `{format:"ssdns-asset-pack", version:1, assets:[]}`.
 
 Encounter Pack v1 is `assets/packs/encounter-pack-v1.ssdns-asset-pack.json`. The Assets panel button **Encounter Pack v1** fetches that file (same origin, next to `map/asset-library.js`) and imports definitions whose ids are not already in the room. A second click does not copy them. File Import still makes a new id when that id is already taken. Pictures are `assets/map-props/asset-*.webp`. The pack stores those as `https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/…` links (`data:` and `blob:` are dropped on import). Soft defaults stay in the JSON: wall lantern and campfire are 20 ft bright + 20 ft dim, the fence gate blocks movement and not sight, and the powder barrel and plunger box keep the off/on picture, the toggle, and the fuse or plunger blast timer. SFX values are bare allow-list filenames.
 
-## Showcase map (N90, sheet 0.3.178 / DMCC 0.2.191)
+## Showcase map (N90 walls, sheet 0.3.220 play seed)
 
 Dry Fork Water Stop is built-in scene `scn_dry_fork` in `map/map-packs.js`. My Maps lists it under Built-in. The DM opens it from that menu. The same scene is on the hidden scene list used by Set floor.
 
 | File | Role |
 |------|------|
-| `map/packs/showcase-dry-fork/showcase-dry-fork_40x30_70px.png` | 2800×2100 map, 40×30 squares, 70 px, no grid |
+| `map/packs/showcase-dry-fork/showcase-dry-fork_40x30_70px.png` | Painted 2800×2100 map, 40×30 squares, 70 px, no grid, tokens, or letters |
 | `map/packs/thumbs/scn_dry_fork.png` | My Maps card |
+| `map/packs/showcase-dry-fork/showcase-dry-fork_40x30_70px_SCHEMATIC.png` | Labeled guide. Not the map image |
 | `map/packs/showcase-dry-fork/showcase-dry-fork.walls.json` | 31 wall segments, Import Walls shape |
-| `map/packs/showcase-dry-fork/showcase-dry-fork.map.json` | Draft zones and spawns. Not loaded. |
-| `map/packs/showcase-dry-fork/LAYOUT-KEY.md` | Layout key for the draft |
+| `map/packs/showcase-dry-fork/showcase-dry-fork.play.json` | Asset tokens, loot stubs, zones, cover, spawns. Copied onto the scene in `map-packs.js` |
+| `map/packs/showcase-dry-fork/showcase-dry-fork.map.json` | Draft zones and spawns. Not loaded by itself |
+| `map/packs/showcase-dry-fork/LAYOUT-KEY.md` | Layout key. Tank cover stays on O3–R6 |
+| `showcase/pregens/*.ssdns` | 12 Module-start level 3 sheets. Open on the sheet |
 
-Opening the scene runs `seedPackWalls`: if that scene has no walls yet, the pack walls are copied in and saved. Import Walls opens with those same walls already filled in, so OK writes them again. No new Firebase path.
+Opening the scene runs `seedPackWalls`: if that scene has no walls yet, the pack walls are copied in and saved. Import Walls opens with those same walls already filled in, so OK writes them again. `seedPackPlay` then places the play tokens once (order board starts off / RED, lanterns and the campfire start lit at 20+20, corral gate closed, Saddlebag unlocked at AE16, Outlaw Stash hidden DC 13 then lock DC 13 at AB18). A room that already had the N90 walls still gets the play seed. No new Firebase path.
 
-`showcase-dry-fork.map.json` is marked schema-unconfirmed. This pack does not place tokens, zones, lights, or encounter rows. Encounter Bot owns that draft.
+The painted tank sits about 2 squares north of layout O3–R6. Jessey kept the paint and the layout hotspots. Ladder S5 and spout Q7 are unchanged. Dust Devils are listed as optional spawns and are not placed. Encounter Pack JSON defaults are unchanged.
 

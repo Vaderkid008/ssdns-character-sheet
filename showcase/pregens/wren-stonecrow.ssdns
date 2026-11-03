@@ -1,0 +1,159 @@
+{
+  "format": "ssdns-character",
+  "schemaVersion": 2,
+  "app": "SSDNS Character Sheet 0.3.220",
+  "id": "c_showcase_wren",
+  "createdAt": "2026-11-03T04:20:00.000Z",
+  "updatedAt": "2026-11-03T04:20:00.000Z",
+  "shards": {
+    "white": 0,
+    "blue": 0,
+    "green": 0,
+    "yellow": 0,
+    "purple": 0
+  },
+  "character": {
+    "guns": [
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      }
+    ],
+    "melee": [
+      {
+        "weapon": "throwing-spear-javelin",
+        "proficient": true,
+        "equipped": true
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      }
+    ],
+    "ammo": [],
+    "equipment": "",
+    "holster": "",
+    "holsterR": "",
+    "belt": "",
+    "gunBelt": false,
+    "shield": false,
+    "armor": "",
+    "casterGun": "",
+    "pactFocus": "",
+    "name": "Wren Stonecrow",
+    "player": "Showcase",
+    "lineage": "pioneers",
+    "sublineage": "",
+    "calling": "tribal-warrior",
+    "level": 3,
+    "subclass": "totem-warrior",
+    "background": "trail-born",
+    "abilities": {
+      "STR": 17,
+      "DEX": 13,
+      "CON": 15,
+      "INT": 8,
+      "WIS": 12,
+      "CHA": 10
+    },
+    "saveProf": {
+      "STR": true,
+      "DEX": false,
+      "CON": true,
+      "INT": false,
+      "WIS": false,
+      "CHA": false
+    },
+    "skillProf": {
+      "Athletics": 1,
+      "Survival": 1,
+      "Perception": 1,
+      "Intimidation": 1
+    },
+    "speed": 30,
+    "speedAuto": true,
+    "hpAuto": false,
+    "hpMax": 32,
+    "hpCurrent": 32,
+    "hpTemp": "",
+    "cantrips": [],
+    "spells": {
+      "1": [],
+      "2": [],
+      "3": [],
+      "4": [],
+      "5": [],
+      "6": [],
+      "7": [],
+      "8": [],
+      "9": []
+    },
+    "proficienciesLanguages": "Armor (Tribal Warrior): Light & medium armor, shields (no heavy)\nWeapons (Tribal Warrior): Simple & martial weapons (guns included), throwing hatchets\nYou can speak, read, and write Common and Swedish.",
+    "features": "Open-Ground Memory: You can find food and water for yourself and up to five others in the wild, given time. You also remember maps and landmarks unusually well.",
+    "wizardDone": true,
+    "activeConditions": [],
+    "fightingStyle": "",
+    "kitStamp": "tribal-warrior",
+    "kitGrants": {
+      "ammo": {},
+      "items": [],
+      "v": 1
+    },
+    "focusMigrated": 1,
+    "kitMode": "module",
+    "kitPicks": {
+      "weapon": "javelin"
+    },
+    "hitDiceLeft": "3d12",
+    "_preview": {
+      "ac": 11,
+      "init": 1,
+      "speed": 30,
+      "hp": 32,
+      "focus": ""
+    },
+    "xp": 900,
+    "lineageAsi": {
+      "STR": 2,
+      "DEX": 0,
+      "CON": 1,
+      "INT": 0,
+      "WIS": 0,
+      "CHA": 0
+    },
+    "backstory": "Big, quiet, and fond of horses. She'll go through a wall before she goes around it.",
+    "showcase": "dry-fork"
+  }
+}

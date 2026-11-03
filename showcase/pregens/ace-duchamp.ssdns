@@ -1,0 +1,228 @@
+{
+  "format": "ssdns-character",
+  "schemaVersion": 2,
+  "app": "SSDNS Character Sheet 0.3.220",
+  "id": "c_showcase_ace",
+  "createdAt": "2026-11-03T04:20:00.000Z",
+  "updatedAt": "2026-11-03T04:20:00.000Z",
+  "shards": {
+    "white": 0,
+    "blue": 0,
+    "green": 0,
+    "yellow": 0,
+    "purple": 0
+  },
+  "character": {
+    "guns": [
+      {
+        "weapon": "herringer-light-pocket-pistol",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": true,
+        "equipped": true,
+        "chamber": "light|.32 Long",
+        "tier": "light"
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      }
+    ],
+    "melee": [
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      }
+    ],
+    "ammo": [
+      {
+        "type": "cartridge",
+        "caliber": "Light",
+        "count": 20
+      }
+    ],
+    "equipment": "",
+    "holster": "",
+    "holsterR": "",
+    "belt": "",
+    "gunBelt": false,
+    "shield": false,
+    "armor": "",
+    "casterGun": "",
+    "pactFocus": "",
+    "name": "Vivian \"Ace\" Duchamp",
+    "player": "Showcase",
+    "lineage": "aristocrats",
+    "sublineage": "night-house",
+    "calling": "gambler",
+    "level": 3,
+    "subclass": "the-burglar-thief",
+    "background": "snake-oil-cardsharp",
+    "abilities": {
+      "STR": 8,
+      "DEX": 17,
+      "CON": 13,
+      "INT": 12,
+      "WIS": 10,
+      "CHA": 15
+    },
+    "saveProf": {
+      "STR": false,
+      "DEX": true,
+      "CON": false,
+      "INT": true,
+      "WIS": false,
+      "CHA": false
+    },
+    "skillProf": {
+      "Deception": 1,
+      "Sleight of Hand": 2,
+      "Stealth": 1,
+      "Perception": 1,
+      "Investigation": 1,
+      "Acrobatics": 1
+    },
+    "speed": 30,
+    "speedAuto": true,
+    "hpAuto": false,
+    "hpMax": 21,
+    "hpCurrent": 21,
+    "hpTemp": "",
+    "cantrips": [],
+    "spells": {
+      "1": [],
+      "2": [],
+      "3": [],
+      "4": [],
+      "5": [],
+      "6": [],
+      "7": [],
+      "8": [],
+      "9": []
+    },
+    "proficienciesLanguages": "Armor (Gambler): Light armor\nWeapons (Gambler): Simple weapons, Herringer pistols, longswords, rapiers, shortswords\nYou can speak, read, and write Common and French.",
+    "features": "Alias on the Felt: You have a second identity with papers good enough for hotels, stages, and low law. You can forge documents well enough to fool a casual check.",
+    "wizardDone": true,
+    "activeConditions": [],
+    "fightingStyle": "",
+    "kitGrants": {
+      "ammo": {
+        "cartridge|light": 20
+      },
+      "items": [
+        "thieves-tools-lock-picks"
+      ],
+      "v": 1
+    },
+    "items": [
+      {
+        "uid": "it_mw06u2nvxze4g",
+        "catalogId": "thieves-tools-lock-picks",
+        "name": "Thieves' tools (lock picks)",
+        "type": "gear",
+        "description": "Lock picks and a soft-entry set.",
+        "effect": {
+          "kind": "text",
+          "text": "Lock picks and a soft-entry set."
+        },
+        "uses": {
+          "max": null,
+          "recharge": ""
+        },
+        "weight": 1,
+        "price": 2500,
+        "forSale": true,
+        "story": false,
+        "art": "",
+        "weaponId": "",
+        "slot": "",
+        "group": "",
+        "properties": "",
+        "weapon": null,
+        "attune": false,
+        "attuned": false,
+        "rarity": "",
+        "bonuses": null,
+        "wear": "",
+        "dmOnly": false,
+        "count": 1,
+        "chargesLeft": null,
+        "playerAdded": false,
+        "approved": true,
+        "addressedTo": "",
+        "dmAllowDrop": false,
+        "dmAllowRob": false,
+        "tags": [],
+        "quality": "",
+        "shelf": "Tools",
+        "stack": false,
+        "noCarry": false,
+        "summoned": false,
+        "meals": null,
+        "water": null,
+        "capacity": null,
+        "fillIncluded": false,
+        "mealWeight": null,
+        "feedDays": null,
+        "fill": null
+      }
+    ],
+    "kitStamp": "gambler",
+    "focusMigrated": 1,
+    "kitMode": "module",
+    "kitPicks": {
+      "ranged": "pistol",
+      "pack": "alley"
+    },
+    "hitDiceLeft": "3d8",
+    "_preview": {
+      "ac": 12,
+      "init": 2,
+      "speed": 30,
+      "hp": 21,
+      "focus": ""
+    },
+    "xp": 900,
+    "lineageAsi": {
+      "STR": 0,
+      "DEX": 2,
+      "CON": 0,
+      "INT": 0,
+      "WIS": 0,
+      "CHA": 1
+    },
+    "backstory": "Riverboat cardsharp. Fast Hands puts her on the Stash lock while the bullets are still flying.",
+    "additionalFeatures": "Lockpick-test character. Sleight of Hand is expertise. Thieves' tools come from the kit; the sheet has no separate tools-expertise field.",
+    "showcase": "dry-fork"
+  }
+}

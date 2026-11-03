@@ -11251,6 +11251,30 @@ function seedPackWalls(sc) {
   saveScene(sc.id);
   return true;
 }
+/* 0.3.220: first open of a built-in scene with play data drops its assets, loot, and start spots.
+   A room that already has the N90 walls still gets this once (seededPlay is separate from seededPack). */
+function seedPackPlay(sc) {
+  if (role !== 'dm' || !sc || !sc.play) return false;
+  const sd = sceneData(sc.id);
+  if (sd.seededPlay) return false;
+  if (!sd.ambient && sc.play.ambient) sd.ambient = sc.play.ambient;
+  if (Array.isArray(sc.play.zones)) sd.zones = JSON.parse(JSON.stringify(sc.play.zones));
+  if (Array.isArray(sc.play.spawns)) sd.spawns = JSON.parse(JSON.stringify(sc.play.spawns));
+  if (Array.isArray(sc.play.cover)) sd.cover = JSON.parse(JSON.stringify(sc.play.cover));
+  (sc.play.tokens || []).forEach(t => {
+    if (!t || !t.id || t.kind === 'player' || t.ownerUid) return;
+    if (shared.tokens[t.id]) return;
+    const tok = JSON.parse(JSON.stringify(t));
+    tok.sceneId = sc.id;
+    shared.tokens[tok.id] = tok;
+    const live = state.tokens.find(x => x.id === tok.id);
+    if (live) Object.assign(live, tok); else state.tokens.push(JSON.parse(JSON.stringify(tok)));
+    saveToken(tok.id);
+  });
+  sd.seededPlay = true;
+  saveScene(sc.id);
+  return true;
+}
 function restoreSnapshot(sid, snap, opts) {
   if (role !== 'dm' || !snap) return false;
   opts = opts || {};
@@ -11366,7 +11390,9 @@ function swapScene(id) {
     state.dmView = id;
     const sel = q('sceneSelect');
     if (sel) { fillSceneSelect(); sel.value = id; }
-    if (!seedPackWalls(sc) && library[id] && library[id].snapshot) restoreSnapshot(id, library[id].snapshot);
+    const seededWalls = seedPackWalls(sc);
+    seedPackPlay(sc);
+    if (!seededWalls && library[id] && library[id].snapshot) restoreSnapshot(id, library[id].snapshot);
   }
   loadSceneImage(id, { center: true });
   const sd = sceneData();

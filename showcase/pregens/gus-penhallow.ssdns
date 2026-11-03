@@ -1,0 +1,272 @@
+{
+  "format": "ssdns-character",
+  "schemaVersion": 2,
+  "app": "SSDNS Character Sheet 0.3.220",
+  "id": "c_showcase_gus",
+  "createdAt": "2026-11-03T04:20:00.000Z",
+  "updatedAt": "2026-11-03T04:20:00.000Z",
+  "shards": {
+    "white": 0,
+    "blue": 0,
+    "green": 0,
+    "yellow": 0,
+    "purple": 0
+  },
+  "character": {
+    "guns": [
+      {
+        "weapon": "dullards-plinker-revolver",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": true,
+        "equipped": true,
+        "chamber": "light|.22 LR",
+        "tier": "light",
+        "dirty": true
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      }
+    ],
+    "melee": [
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      }
+    ],
+    "ammo": [
+      {
+        "type": "cartridge",
+        "caliber": "Light",
+        "count": 20
+      }
+    ],
+    "equipment": "",
+    "holster": "",
+    "holsterR": "",
+    "belt": "",
+    "gunBelt": false,
+    "shield": false,
+    "armor": "",
+    "casterGun": "",
+    "pactFocus": "",
+    "name": "Dr. Augustina \"Gus\" Penhallow",
+    "player": "Showcase",
+    "lineage": "merchants",
+    "sublineage": "clockmaker",
+    "calling": "scholar",
+    "level": 3,
+    "subclass": "law-of-thermodynamic-transfer-evocation",
+    "background": "tinker",
+    "abilities": {
+      "STR": 8,
+      "DEX": 13,
+      "CON": 15,
+      "INT": 17,
+      "WIS": 12,
+      "CHA": 10
+    },
+    "saveProf": {
+      "STR": false,
+      "DEX": false,
+      "CON": false,
+      "INT": true,
+      "WIS": true,
+      "CHA": false
+    },
+    "skillProf": {
+      "Insight": 1,
+      "Investigation": 1,
+      "Arcana": 1,
+      "Medicine": 1
+    },
+    "speed": 25,
+    "speedAuto": true,
+    "hpAuto": false,
+    "hpMax": 20,
+    "hpCurrent": 20,
+    "hpTemp": "",
+    "cantrips": [
+      "Fire Bolt (Powder Spark)",
+      "Light (Lucifer Match)",
+      "Mage Hand (Long Arm)"
+    ],
+    "spells": {
+      "1": [
+        {
+          "name": "Shield (Magnesium Flash)",
+          "prepared": true
+        },
+        {
+          "name": "Magic Missile (Hex Needles)",
+          "prepared": true
+        },
+        {
+          "name": "Sleep (Chloroform)",
+          "prepared": true
+        },
+        {
+          "name": "Grease (Axle Grease)",
+          "prepared": true
+        },
+        {
+          "name": "Burning Hands (Powder Fan)",
+          "prepared": false
+        },
+        {
+          "name": "Detect Magic (Galvanometer)",
+          "prepared": false
+        },
+        {
+          "name": "Identify (Field Test)",
+          "prepared": false
+        },
+        {
+          "name": "Find Familiar (Dust Familiar)",
+          "prepared": false
+        }
+      ],
+      "2": [
+        {
+          "name": "Scorching Ray (Burning Glass)",
+          "prepared": true
+        },
+        {
+          "name": "Web (Flypaper)",
+          "prepared": true
+        }
+      ],
+      "3": [],
+      "4": [],
+      "5": [],
+      "6": [],
+      "7": [],
+      "8": [],
+      "9": []
+    },
+    "proficienciesLanguages": "Armor (Scholar): None\nWeapons (Scholar): Daggers, quarterstaffs (weighted walking canes), darts, slings, Herringer pistols, the Dullards Plinker\nYou can speak, read, and write Common and Cantonese.",
+    "features": "Maker’s Mark: Craft-folk and claim engineers offer bench space, parts leads, and introductions. Fancy spark-device work draws investors — and the wrong kind of interest. Unpaid “partners” may appear. Guild-lingo: shop talk of gunsmiths, engineers and tinkers. Not a language, no slot. Without it others miss technical details; when the DM calls it, checks relying on that detail are at disadvantage or fail.",
+    "wizardDone": true,
+    "activeConditions": [],
+    "fightingStyle": "",
+    "kitGrants": {
+      "ammo": {
+        "cartridge|light": 20
+      },
+      "items": [
+        "chemical-field-ledger"
+      ],
+      "v": 1
+    },
+    "items": [
+      {
+        "uid": "it_mw06u2ny4vkmb",
+        "catalogId": "chemical-field-ledger",
+        "name": "Chemical Field Ledger",
+        "type": "gear",
+        "description": "Your notes, formulas and field sketches. It is your focus and your spellbook: you prepare your spells from it (BOOK1 L2100). Lose it and you lose both.",
+        "effect": {
+          "kind": "text",
+          "text": "Scholar focus and spellbook."
+        },
+        "uses": {
+          "max": null,
+          "recharge": ""
+        },
+        "weight": 3,
+        "price": null,
+        "forSale": false,
+        "story": true,
+        "art": "assets/img/items/brass-bound-hymn-book.webp",
+        "weaponId": "",
+        "slot": "",
+        "group": "",
+        "properties": "",
+        "weapon": null,
+        "attune": false,
+        "attuned": false,
+        "rarity": "",
+        "bonuses": null,
+        "wear": "",
+        "dmOnly": false,
+        "count": 1,
+        "chargesLeft": null,
+        "playerAdded": false,
+        "approved": true,
+        "addressedTo": "",
+        "dmAllowDrop": false,
+        "dmAllowRob": false,
+        "tags": [],
+        "quality": "",
+        "shelf": "Foci",
+        "stack": false,
+        "noCarry": false,
+        "summoned": false,
+        "meals": null,
+        "water": null,
+        "capacity": null,
+        "fillIncluded": false,
+        "mealWeight": null,
+        "feedDays": null,
+        "fill": null
+      }
+    ],
+    "kitStamp": "scholar",
+    "focusMigrated": 1,
+    "kitMode": "module",
+    "kitPicks": {
+      "weapon": "plinker",
+      "pack": "book"
+    },
+    "hitDiceLeft": "3d6",
+    "_preview": {
+      "ac": 11,
+      "init": 1,
+      "speed": 25,
+      "hp": 20,
+      "focus": "Intelligence · Focus: any scientific instrument or medium you devise · Spells copied into your Chemical Field Ledger, prepared as a wizard."
+    },
+    "xp": 900,
+    "lineageAsi": {
+      "STR": 0,
+      "DEX": 0,
+      "CON": 1,
+      "INT": 2,
+      "WIS": 0,
+      "CHA": 0
+    },
+    "backstory": "Traveling lecturer who swears it isn't magic. She'll study the telegraph first.",
+    "showcase": "dry-fork"
+  }
+}
