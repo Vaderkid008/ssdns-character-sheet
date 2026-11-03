@@ -3578,6 +3578,69 @@ function paintCondWordPills(ctx, s, r, raws) {
   });
   ctx.restore();
 }
+/* 0.3.217 / 0.2.230: DM portrait HP bar. The old under-name bar sits in the next
+   square, so the token below paints over it. This one stays on the bottom of the
+   portrait, under the downed X. Players keep the under-name bar. Unknown max
+   draws nothing. 0 HP is an empty track with a red edge. Temp HP stays on the card. */
+function paintDmTokenHpBar(ctx, s, r, hp) {
+  if (!ctx || !s || !(r > 0) || !hp || !(Number(hp.max) > 0)) return;
+  const max = Number(hp.max);
+  const curRaw = Number(hp.cur);
+  const cur = isFinite(curRaw) ? Math.max(0, curRaw) : 0;
+  const pct = Math.max(0, Math.min(1, cur / max));
+  const compact = condPillCompact();
+  const bh = compact
+    ? Math.max(3, Math.min(4, Math.round(r * 0.14)))
+    : Math.max(5, Math.min(11, Math.round(r * 0.32)));
+  const pad = Math.max(1.25, r * 0.05);
+  let barY = s.y + r - pad - bh;
+  const underX = s.y + r * 0.64;
+  if (barY < underX) barY = underX;
+  const barBottom = Math.min(s.y + r - 1, barY + bh);
+  const drawH = Math.max(3, barBottom - barY);
+  const midY = barY + drawH / 2;
+  const dy = midY - s.y;
+  const half = Math.sqrt(Math.max(0, r * r - dy * dy)) - 1.25;
+  if (!(half > 3)) return;
+  const bw = half * 2;
+  const x = s.x - half;
+  const dead = cur <= 0;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(s.x, s.y, Math.max(1, r - 1.25), 0, Math.PI * 2);
+  ctx.clip();
+  ctx.fillStyle = 'rgba(18,14,10,0.92)';
+  ctx.fillRect(x, barY, bw, drawH);
+  if (pct > 0) {
+    ctx.fillStyle = pct > 0.5 ? '#4caf50' : pct > 0.25 ? '#ff9800' : '#f44336';
+    ctx.fillRect(x, barY, bw * pct, drawH);
+  }
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = dead ? '#e74c3c' : 'rgba(232,220,200,0.92)';
+  ctx.strokeRect(x + 0.5, barY + 0.5, Math.max(0, bw - 1), Math.max(0, drawH - 1));
+  if (!compact && r >= 24 && drawH >= 8) {
+    const label = String(Math.round(cur)) + '/' + String(Math.round(max));
+    let fontPx = Math.min(11, Math.max(8, Math.floor(drawH - 1)));
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold ' + fontPx + 'px system-ui, sans-serif';
+    let tw = condTextWidth(ctx, label);
+    while (fontPx > 8 && tw > bw - 4) {
+      fontPx -= 1;
+      ctx.font = 'bold ' + fontPx + 'px system-ui, sans-serif';
+      tw = condTextWidth(ctx, label);
+    }
+    if (tw <= bw - 2) {
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(12,8,6,0.9)';
+      ctx.strokeText(label, s.x, midY + 0.5);
+      ctx.fillStyle = dead ? '#f0b4ae' : '#fff8e8';
+      ctx.fillText(label, s.x, midY + 0.5);
+    }
+  }
+  ctx.restore();
+}
 function paintRangeControls() {
   const on = !!state.showRange;
   const box = q('showRange');
@@ -4394,6 +4457,10 @@ function draw() {
     }
 
     const barHp = underTokenHp(t);
+    /* Portrait bar is DM-only. Assets, chests, and spell pieces are not creatures. */
+    if (role === 'dm' && barHp && !t.spellPiece && t.kind !== 'asset' && t.kind !== 'chest') {
+      paintDmTokenHpBar(ctx, s, r, barHp);
+    }
     /* Down X for the DM still comes from the real pool. Players only get it from public status. */
     let hpCur = null;
     let hpMax = null;
@@ -4466,9 +4533,9 @@ function draw() {
     }
     ctx.restore();
 
-    /* HP bar under the name. DM always. A player sees their own PC via canControl,
-       and an enemy or NPC only when that combatant's reveal.hp is public. */
-    if (barHp && barHp.max) {
+    /* Under-name bar stays the player view: own PC via canControl, or an enemy
+       only when that combatant's reveal.hp is public. The DM uses the portrait bar. */
+    if (role !== 'dm' && barHp && barHp.max) {
       ctx.save();
       if (nudge && (nudge.dx || nudge.dy)) ctx.translate(nudge.dx || 0, nudge.dy || 0);
       const pct = Math.max(0, Math.min(1, (Number(barHp.cur) || 0) / barHp.max));
