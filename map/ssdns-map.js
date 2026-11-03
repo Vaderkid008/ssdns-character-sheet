@@ -522,6 +522,7 @@ toolbar.innerHTML = `
   <span data-act="zoomLabel">1.00×</span>
   <button data-act="reset">Reset view</button>
   <button data-act="fxBtn" type="button" class="ssm-fx-btn" title="Attack effects on the map (firing lines). Saved for you on this device.">Effects: ON</button>
+  <button data-act="condPillBtn" type="button" class="ssm-cond-pill-btn" title="Condition pills on tokens. Normal is the olive and gold word over the token. Compact is a smaller bubble. Saved for you on this device.">Pills: Normal</button>
   ${role === 'dm'
     ? `<button data-act="challengeBtn" type="button" class="ssm-challenge" title="Challenge picked players. Same check picker as the DMCC bar.">Challenge</button>
     <button data-act="shortRestBtn" type="button" title="Short rest for every seated player. Same command as Fight → Short rest (party).">Short rest (party)</button>
@@ -3501,28 +3502,42 @@ function condTextWidth(ctx, txt) {
   } catch (e) {}
   return String(txt || '').length * 7.2;
 }
-/* Word pills on the token (player Map and DMCC Map share this paint). Option B size lock (~1.65×, #190):
-   pill height ~28px on a medium token — the old symbol disc was Math.max(22, r * 0.97), icon ~16px, 2px ring.
+/* Per viewer. Normal is the default. Compact is the smaller bubble. Not synced to the room. */
+function condPillCompact() {
+  try { return localStorage.getItem('ssdns.map.condPills') === 'compact'; } catch (e) { return false; }
+}
+/* Word pills on the token (player Map and DMCC Map share this paint).
+   Normal locks the circled olive/gold chip: dark olive fill, thin gold edge, cream word,
+   15×11 type, centered just above the token. Compact is that same chip, smaller.
+   Unconscious is not a pill — the downed X on the token is the mark.
    Exhaustion uses EXHAUSTION N until that word is wider than POISONED at this size, then EXH N. */
 function paintCondWordPills(ctx, s, r, raws) {
   if (!ctx || !raws || !raws.length || !s) return;
-  const shown = raws.slice(0, 2);
-  const extra = raws.length - shown.length;
-  const rows = shown.length + (extra > 0 ? 1 : 0);
-  const gap = 3;
-  let pillH = Math.max(22, Math.min(28, r * 0.97));
-  const budgetH = Math.max(pillH, r * 2);
-  if (rows * pillH + (rows - 1) * gap > budgetH) {
-    pillH = Math.max(18, Math.floor((budgetH - (rows - 1) * gap) / rows));
-  }
-  const fontPx = Math.max(10, Math.round(pillH * 0.46));
-  const padX = Math.max(8, Math.round(pillH * 0.5));
+  const visible = [];
+  raws.forEach(raw => {
+    const label = String((raw && typeof raw === 'object' ? (raw.name || raw.label) : raw) || '').trim();
+    if (!label || /^unconscious\b/i.test(label)) return;
+    visible.push(raw);
+  });
+  if (!visible.length) return;
+  const shown = visible.slice(0, 2);
+  const extra = visible.length - shown.length;
+  const compact = condPillCompact();
+  const pillH = compact ? 11 : 15;
+  const fontPx = compact ? 8 : 11;
+  const pad = compact ? 8 : 12;
+  const lineW = compact ? 1 : 1.3;
+  const gap = compact ? 2 : 3;
+  const lift = compact ? 10 : 14;
+  const fill = 'rgba(36,36,16,0.92)';
+  const edge = 'rgba(195,185,110,1)';
+  const ink = 'rgba(230,225,170,1)';
   ctx.save();
   ctx.font = 'bold ' + fontPx + 'px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const textW = (txt) => condTextWidth(ctx, txt);
-  const fitBudget = Math.max(textW('POISONED'), r * 2.35 - padX * 2);
+  const fitBudget = Math.max(textW('POISONED'), r * 2.35 - pad);
   const C = window.SSDNSConditions;
   const words = shown.map(raw => {
     if (C && typeof C.pillWordFit === 'function') return C.pillWordFit(raw, textW, fitBudget);
@@ -3532,13 +3547,10 @@ function paintCondWordPills(ctx, s, r, raws) {
   }).filter(Boolean);
   if (extra > 0) words.push('+' + extra);
   if (!words.length) { ctx.restore(); return; }
-  const totalH = words.length * pillH + (words.length - 1) * gap;
-  let top = s.y - r + Math.max(2, pillH * 0.12);
-  const limit = s.y + r * 0.62;
-  if (top + totalH > limit) top = Math.max(s.y - r - pillH * 0.2, limit - totalH);
+  const anchor = s.y - r - lift;
   words.forEach((txt, i) => {
-    const w = Math.max(pillH, textW(txt) + padX * 2);
-    const cy = top + pillH / 2 + i * (pillH + gap);
+    const w = Math.max(pillH, textW(txt) + pad);
+    const cy = anchor - i * (pillH + gap);
     const x = s.x;
     const rad = pillH / 2;
     const left = x - w / 2;
@@ -3552,12 +3564,12 @@ function paintCondWordPills(ctx, s, r, raws) {
     ctx.arcTo(left, y1, left, y0, rad);
     ctx.arcTo(left, y0, right, y0, rad);
     ctx.closePath();
-    ctx.fillStyle = 'rgba(110,36,48,0.94)';
+    ctx.fillStyle = fill;
     ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = 'rgba(232,220,200,0.92)';
+    ctx.lineWidth = lineW;
+    ctx.strokeStyle = edge;
     ctx.stroke();
-    ctx.fillStyle = '#fff8f4';
+    ctx.fillStyle = ink;
     ctx.fillText(txt, x, cy + 0.5);
   });
   ctx.restore();
@@ -4410,7 +4422,7 @@ function draw() {
     paintAssetChip(ctx, t, s, r);
     const condRaws = tokenConditionRaws(t);
     /* B2: DM-only link badge. Players never reach a hidden token, and this mark is role-gated too.
-       A word pill sits on the top of the token, so the mark drops to the lower corner while a condition is showing. */
+       The word pill sits above the token, so this mark stays on the upper corner. */
     if (role === 'dm' && !t.spellPiece && t.kind !== 'asset') {
       const linkedSheet = !!(t.ownerUid && partyList().some(p => p && (p.uid || p.id) === t.ownerUid));
       const mark = linkedSheet ? '⛓' : '⚠';
@@ -4418,7 +4430,7 @@ function draw() {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const bx = s.x + r * 0.72;
-      const by = condRaws.length ? (s.y + r * 0.72) : (s.y - r * 0.72);
+      const by = s.y - r * 0.72;
       ctx.beginPath();
       ctx.arc(bx, by, Math.max(7, r * 0.28), 0, Math.PI * 2);
       ctx.fillStyle = linkedSheet ? 'rgba(40, 90, 48, 0.95)' : 'rgba(120, 72, 16, 0.95)';
@@ -4429,8 +4441,8 @@ function draw() {
       ctx.fillStyle = '#fff8e8';
       ctx.fillText(mark, bx, by + 0.5);
     }
-    /* Word pills stay inside this token's alpha, so a hidden token stays dim. The sheet / DMCC conditions
-       reach the token (players read the masked initiative copy, so a hidden enemy shows them nothing).
+    /* Word pills sit above the token and stay inside this token's alpha, so a hidden token stays dim.
+       The sheet / DMCC conditions reach the token (players read the masked initiative copy, so a hidden enemy shows them nothing).
        Painted after the link badge so the word is not covered. */
     paintCondWordPills(ctx, s, r, condRaws);
     if (state.selected && state.selected.id === t.id && host.rounds) {
@@ -10250,6 +10262,22 @@ if (q('fxBtn')) {
   });
   on(window, 'ssdns-map-fx-pref', () => { if (!fxOn()) fxStopAll(); paintFxBtn(); });
   paintFxBtn();
+}
+function paintCondPillBtn() {
+  const b = q('condPillBtn');
+  if (!b) return;
+  const compact = condPillCompact();
+  b.textContent = 'Pills: ' + (compact ? 'Compact' : 'Normal');
+  b.setAttribute('data-size', compact ? 'compact' : 'normal');
+  b.setAttribute('aria-pressed', compact ? 'true' : 'false');
+}
+if (q('condPillBtn')) {
+  q('condPillBtn').addEventListener('click', () => {
+    try { localStorage.setItem('ssdns.map.condPills', condPillCompact() ? 'normal' : 'compact'); } catch (e) {}
+    paintCondPillBtn();
+    requestDraw();
+  });
+  paintCondPillBtn();
 }
 q('reset').addEventListener('click', () => {
   const { cols, rows, px } = state.scene.grid;
