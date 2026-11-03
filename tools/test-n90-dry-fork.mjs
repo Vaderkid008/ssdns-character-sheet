@@ -25,10 +25,10 @@ function pngSize(rel) {
 }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.224" && version.sheetBuild === "sheet-playtest-v03224", JSON.stringify(version));
-check("ver.dmcc", version.dmcc === "0.2.237" && version.dmccBuild === "dmcc-playtest-v02237");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.224"') && read("assets/js/app.js").includes("sheet-playtest-v03224"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.237"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02237"));
+check("ver.sheet", version.sheet === "0.3.225" && version.sheetBuild === "sheet-playtest-v03225", JSON.stringify(version));
+check("ver.dmcc", version.dmcc === "0.2.238" && version.dmccBuild === "dmcc-playtest-v02238");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.225"') && read("assets/js/app.js").includes("sheet-playtest-v03225"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.238"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02238"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js database.rules.json", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 

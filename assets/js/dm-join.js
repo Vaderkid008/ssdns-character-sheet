@@ -740,6 +740,7 @@
     if (entry.zoneBudget) row.zoneBudget = Number(entry.zoneBudget) || 0;
     if (row.dc == null && entry.dc != null && entry.dc !== "" && isFinite(Number(entry.dc))) row.dc = Number(entry.dc);
     if (entry.banishAt) row.banishAt = Number(entry.banishAt) || 0;
+    if (entry.healHalf) row.healHalf = true;
     if (entry.riderSave) row.riderSave = String(entry.riderSave);
     if (entry.riderOnFail) row.riderOnFail = String(entry.riderOnFail);
     if (entry.riderSpell) row.riderSpell = String(entry.riderSpell);
@@ -785,6 +786,7 @@
       arrow: String(entry.arrow || "").slice(0, 160)
     };
     if (entry.melee) row.melee = true;
+    if (entry.healHalf) row.healHalf = true;
     if (Number(entry.push) > 0) row.push = Number(entry.push) || 0;
     if (Number(entry.pull) > 0) row.pull = Number(entry.pull) || 0;
     if (entry.slot != null && entry.slot !== "") row.slot = Number(entry.slot) || 0;
