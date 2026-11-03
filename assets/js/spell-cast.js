@@ -43,9 +43,19 @@
     }
     return "";
   }
+  /* "spell:2:Shatter (Resonance)" and "Shatter (L2) · save" are the same book row. */
+  function castTitle(name) {
+    var s = String(name || "").trim();
+    s = s.replace(/^cast\s+/i, "");
+    s = s.replace(/^spell:/i, "");
+    s = s.replace(/^\d+:/, "");
+    var head = s.split(" · ")[0];
+    head = head.replace(/\s*\(L\d+\)\s*$/i, "").trim();
+    return head || s;
+  }
   function lookup(name) {
     var map = build();
-    var raw = stripAlias(name);
+    var raw = stripAlias(castTitle(name));
     var aliased = aliasPhb(raw);
     if (aliased) raw = aliased;
     if (norm(raw) === "pact shot" || /pact shot/i.test(String(name || ""))) {
