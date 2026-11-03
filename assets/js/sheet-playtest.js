@@ -1242,6 +1242,13 @@
   function unusableRow(row) {
     return !!(root.SSDNSApplied && root.SSDNSApplied.isUnusableTarget && root.SSDNSApplied.isUnusableTarget(row));
   }
+  /* 0.3.216: Unconscious / 0 HP stay off the target list until the DM turns Show downed on. */
+  function downedHidden(row) {
+    var A = root.SSDNSApplied;
+    if (!A || !A.isDownedTarget || !A.isDownedTarget(row)) return false;
+    if (A.showDowned && A.showDowned()) return false;
+    return true;
+  }
   function stripStatus(row) {
     var pub = (row && lastTargets[row.id]) || {};
     var revealed = pub.revealed || {};
@@ -1658,6 +1665,10 @@
     showYourTurn: showYourTurn,
     turnKey: function () { return shownTurn; },
     showTurn: function (init) {
+      if (init && root.SSDNSApplied && root.SSDNSApplied.setShowDowned && root.SSDNSApplied.showDowned) {
+        var show = !!init.showDowned;
+        if (root.SSDNSApplied.showDowned() !== show) root.SSDNSApplied.setShowDowned(show);
+      }
       var fightOn = !!(init && init.started && init.order && init.order.length);
       if (combatWasOn && !fightOn) clearSheetAim();
       combatWasOn = fightOn;
@@ -1802,6 +1813,7 @@
       var blockedIds = {};
       rows.forEach(function (row) {
         if (row.mapHidden || String(row.id) === "__free") return;
+        if (downedHidden(row)) { blockedIds[row.id] = 1; return; }
         var seen = sightOf(row.id);
         if (seen && seen.visible === false) { blockedIds[row.id] = 1; return; }
         var revealed = row.revealed || {};
@@ -1836,7 +1848,7 @@
       });
       sel.innerHTML = html;
       var kept = keep && !blockedIds[keep] && rows.some(function (row) { return String(row.id) === String(keep); });
-      var aimNow = pendingAim && rows.some(function (row) { return String(row.id) === String(pendingAim); });
+      var aimNow = pendingAim && !blockedIds[pendingAim] && rows.some(function (row) { return String(row.id) === String(pendingAim); });
       if (aimNow) {
         sel.value = String(pendingAim);
         sel.setAttribute("data-last-enemy", String(pendingAim));
@@ -1850,6 +1862,12 @@
       if (!root.__ssdnsSightBound && root.addEventListener) {
         root.__ssdnsSightBound = true;
         root.addEventListener("ssdns-map-sight", function () {
+          if (root.SSDNSPlaytest && root.SSDNSPlaytest.setTargets) root.SSDNSPlaytest.setTargets(lastTargets);
+        });
+      }
+      if (!root.__ssdnsDownedBound && root.addEventListener) {
+        root.__ssdnsDownedBound = true;
+        root.addEventListener("ssdns-show-downed", function () {
           if (root.SSDNSPlaytest && root.SSDNSPlaytest.setTargets) root.SSDNSPlaytest.setTargets(lastTargets);
         });
       }

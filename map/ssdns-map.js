@@ -453,6 +453,8 @@ const state = {
   minStrength: 1.0,
   currentTurnId: null,
   showRange: false,
+  /* DM "Show downed". Off hides Unconscious / 0 HP from targeting and saves. Room setting, not this device. */
+  showDowned: false,
   /* Yellow bright / blue dim / gray darkvision measurement strokes. Off: lighting wash and FOV stay, the rings do not. DM only. */
   showLightRings: false,
   /* B13: in a fight, green reach and click-to-walk are off until the strip Move chip is on.
@@ -523,6 +525,7 @@ toolbar.innerHTML = `
   <button data-act="reset">Reset view</button>
   <button data-act="fxBtn" type="button" class="ssm-fx-btn" title="Attack effects on the map (firing lines). Saved for you on this device.">Effects: ON</button>
   <button data-act="condPillBtn" type="button" class="ssm-cond-pill-btn" title="Condition pills on tokens. Normal is the olive and gold word over the token. Compact is a smaller bubble. Saved for you on this device.">Pills: Normal</button>
+  ${role === 'dm' ? `<button data-act="showDownedBtn" type="button" class="ssm-fx-btn" aria-pressed="false" title="Unconscious and 0 HP tokens stay out of targeting and saves. Turn this on to include them. The room follows this switch.">Show downed: OFF</button>` : ``}
   ${role === 'dm'
     ? `<button data-act="challengeBtn" type="button" class="ssm-challenge" title="Challenge picked players. Same check picker as the DMCC bar.">Challenge</button>
     <button data-act="shortRestBtn" type="button" title="Short rest for every seated player. Same command as Fight → Short rest (party).">Short rest (party)</button>
@@ -3151,6 +3154,7 @@ function zoneTurnKey() {
 }
 function dispatchZoneTicks(ticks, mover, from, to) {
   if (!ticks || !ticks.length) return;
+  if (hideDownedToken(mover)) return;
   const Z = window.SSDNSSpellZones;
   state.zoneSeen = state.zoneSeen || {};
   const turnKey = zoneTurnKey();
@@ -5088,7 +5092,7 @@ function nearestHostileFeet(shooter) {
   if (!shooter) return null;
   let hostile = null;
   (state.tokens || []).forEach(t => {
-    if (!t || t.id === shooter.id || !t.pos || t.spellPiece || t.notTargetable) return;
+    if (!t || t.id === shooter.id || !t.pos || t.spellPiece || t.notTargetable || hideDownedToken(t)) return;
     const otherPc = !!t.ownerUid;
     const hostileTok = shooter.ownerUid ? !otherPc : otherPc;
     if (!hostileTok) return;
@@ -5219,7 +5223,7 @@ function pendingValidTokens() {
   if (!pend) return [];
   const ids = Array.isArray(state.pendingValid) ? state.pendingValid : [];
   return (state.tokens || []).filter(t => {
-    if (!t || !t.pos || t.spellPiece || t.notTargetable) return false;
+    if (!t || !t.pos || t.spellPiece || t.notTargetable || hideDownedToken(t)) return false;
     if (t.id === pend.tokenId) return pend.spellKind === 'heal';
     if (!ids.length) return !t.hidden;
     return ids.indexOf(tokenCombatant(t.id)) >= 0 || ids.indexOf(t.id) >= 0 || (t.ownerUid && ids.indexOf(t.ownerUid) >= 0);
@@ -5317,6 +5321,7 @@ function tokensInBlast(area, origins, facing, excludeId) {
   const out = [];
   (state.tokens || []).forEach(t => {
     if (!t || !t.pos) return;
+    if (hideDownedToken(t)) return;
     if (t.hidden && role !== "dm") return;
     if (!onViewedScene(t)) return;
     if (excludeId && area.self && (t.id === excludeId || t.ownerUid === excludeId || t.combatantId === excludeId)) return;
@@ -5449,6 +5454,15 @@ function confirmBlast() {
   const L = window.SSDNSLighting;
   const spec = L && L.emitter ? L.emitter((b.spec && b.spec.name) || "") : null;
   const casterTok = blastCaster(b.spec);
+  if (anchor && hideDownedToken(anchor) && spec && L.needsUnwillingSave && L.needsUnwillingSave(spec, anchor, casterTok)) {
+    toast('Down. Turn on Show downed to include them.');
+    const resolveSkip = b.resolve;
+    state.blast = null;
+    paintBlastBanner();
+    draw();
+    if (resolveSkip) resolveSkip(null);
+    return;
+  }
   if (anchor && spec && L.needsUnwillingSave && L.needsUnwillingSave(spec, anchor, casterTok)) {
     const dc = Number(b.spec && b.spec.dc) || 0;
     const mod = Number(anchor.dexMod || anchor.dex || 0) || 0;
@@ -6214,6 +6228,10 @@ function showAssetMenu(token) {
 function selectToken(token) {
   if (!token) return;
   if (state.pendingTarget && role === 'dm') {
+    if (hideDownedToken(token)) {
+      toast('Down. Turn on Show downed to include them.');
+      return;
+    }
     if (token.id === state.pendingTarget.tokenId && state.pendingTarget.spellKind !== 'heal') {
       toast('Pick a different token');
       return;
@@ -6977,6 +6995,41 @@ function reactorFacts(t) {
     } catch (e) {}
   }
   return { status: status || '', hp: hp, noHpPool: noHpPool, conditions: tokenConditions(t) };
+}
+/* 0.3.216 / 0.2.229: Unconscious or 0 HP. No HP pool is down only from status or the condition.
+   Show downed (DM, room-wide, default off) puts them back on the target list and into saves. */
+function showDownedNow() {
+  const A = window.SSDNSApplied;
+  if (A && typeof A.showDowned === 'function') return !!A.showDowned();
+  return !!state.showDowned;
+}
+function tokenDowned(t) {
+  if (!t || t.spellPiece || t.kind === 'asset' || t.kind === 'chest') return false;
+  const facts = reactorFacts(t);
+  const row = {
+    kind: t.ownerUid ? 'player' : (t.kind || ''),
+    status: facts.status || '',
+    hp: facts.hp,
+    noHpPool: !!facts.noHpPool,
+    conditions: facts.conditions || []
+  };
+  const A = window.SSDNSApplied;
+  if (A && typeof A.isDownedTarget === 'function') return !!A.isDownedTarget(row);
+  const status = String(row.status || '');
+  if (/^(down|dead|unconscious|dying)$/i.test(status)) return true;
+  if ((row.conditions || []).some(name => /unconscious|dead|dying/i.test(String(name || '')))) return true;
+  const hp = row.hp;
+  return hp != null && hp !== '' && isFinite(Number(hp)) && Number(hp) <= 0 && !row.noHpPool;
+}
+function hideDownedToken(t) {
+  return tokenDowned(t) && !showDownedNow();
+}
+function adoptShowDowned(on) {
+  const next = !!on;
+  state.showDowned = next;
+  const A = window.SSDNSApplied;
+  if (A && typeof A.setShowDowned === 'function' && typeof A.showDowned === 'function' && A.showDowned() !== next) A.setShowDowned(next);
+  paintShowDownedBtn();
 }
 function reactorPlayerId(t) {
   if (!t) return '';
@@ -10279,6 +10332,42 @@ if (q('condPillBtn')) {
   });
   paintCondPillBtn();
 }
+function paintShowDownedBtn() {
+  const b = q('showDownedBtn');
+  if (!b) return;
+  const on = showDownedNow();
+  b.textContent = 'Show downed: ' + (on ? 'ON' : 'OFF');
+  b.classList.toggle('active', on);
+  b.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+function toggleShowDowned() {
+  const next = !showDownedNow();
+  if (window.SSDNSMapFight && typeof window.SSDNSMapFight.setShowDowned === 'function') {
+    try { window.SSDNSMapFight.setShowDowned(next); } catch (e) {
+      adoptShowDowned(next);
+      if (role === 'dm') write('table/initiative/showDowned', next);
+    }
+  } else {
+    adoptShowDowned(next);
+    if (role === 'dm') write('table/initiative/showDowned', next);
+  }
+  state.showDowned = next;
+  paintShowDownedBtn();
+  if (state.drawerOpen) { try { renderDrawer(); } catch (e) {} }
+  try { renderActions(); } catch (e) {}
+  requestDraw();
+}
+if (q('showDownedBtn')) {
+  q('showDownedBtn').addEventListener('click', () => toggleShowDowned());
+  paintShowDownedBtn();
+}
+on(window, 'ssdns-show-downed', () => {
+  state.showDowned = showDownedNow();
+  paintShowDownedBtn();
+  if (state.drawerOpen) { try { renderDrawer(); } catch (e) {} }
+  try { renderActions(); } catch (e) {}
+  requestDraw();
+});
 q('reset').addEventListener('click', () => {
   const { cols, rows, px } = state.scene.grid;
   state.view.x = (cols * px) / 2;
@@ -11174,6 +11263,7 @@ async function loadSceneImage(sceneId, opts) {
     const prevId = state.currentTurnId;
     const prevStarted = !!(state.initiative && state.initiative.started);
     state.initiative = initiative || { order: [], turn: 0 };
+    if (initiative && Object.prototype.hasOwnProperty.call(initiative, 'showDowned')) adoptShowDowned(!!initiative.showDowned);
     noteLightRound(state.initiative);
     /* N76: an ended map initiative heals a stale sheet lock before the next Attack click.
        A live fight stays with showTurn. A null payload is only the local placeholder and must not clear a real fight. */
@@ -11256,7 +11346,7 @@ async function loadSceneImage(sceneId, opts) {
     const aim = actor && actor.lastTargetId ? String(actor.lastTargetId) : "";
     if (!aim) return;
     const tok = tokenByRef(aim);
-    if (!tok) return;
+    if (!tok || hideDownedToken(tok)) return;
     if (role === "player") {
       if (!myTurnRow(actor)) return;
       state.playerTarget = aim;
@@ -11699,6 +11789,8 @@ async function loadSceneImage(sceneId, opts) {
       if (!o) return;
       const id = o.id != null ? String(o.id) : '';
       if (!id || id === FREE_SHOT || options.some(x => x.id === id)) return;
+      const aimed = tokenByRef(id);
+      if (aimed && hideDownedToken(aimed)) return;
       /* fog-aware targeting: only what this player can see; past long range is listed but can't be picked */
       const seen = targetSight(id);
       if (seen && !seen.visible) return;
@@ -11834,6 +11926,10 @@ async function loadSceneImage(sceneId, opts) {
     extra = extra || {};
     const tokenId = state.selected ? state.selected.id : null;
     const targetId = extra.targetId != null ? extra.targetId : ((state.rowTargets && state.rowTargets[id]) || state.playerTarget || '');
+    if (targetId && targetId !== FREE_SHOT) {
+      const aimedTok = tokenByRef(targetId);
+      if (aimedTok && hideDownedToken(aimedTok)) { toast('Down. The DM can show downed targets.'); return; }
+    }
     /* fog-aware targeting: the picked attack becomes the weapon the Target list and the grey wash measure */
     const gunN = String(id).match(/^(?:gunroll|fan|offhand):(\d+)/);
     const pickIds = gunN ? ['gun:' + gunN[1], id] : [id];

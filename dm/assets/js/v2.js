@@ -127,6 +127,12 @@ function loadLocalTable() {
     turnFields(raw);
     if (raw.held && typeof raw.held === "object") fight.held = Object.assign({}, raw.held);
     if (raw.damageMode === "approve" || raw.damageMode === "auto") fight.damageMode = raw.damageMode;
+    if (raw.showDowned != null) {
+      fight.showDowned = !!raw.showDowned;
+      if (window.SSDNSApplied && window.SSDNSApplied.setShowDowned && window.SSDNSApplied.showDowned && window.SSDNSApplied.showDowned() !== fight.showDowned) {
+        window.SSDNSApplied.setShowDowned(fight.showDowned);
+      }
+    }
   } catch (e) {}
   try {
     const packs = JSON.parse(localStorage.getItem(PACK_KEY) || "null");
@@ -140,7 +146,8 @@ function saveLocalTable() {
       stock: fight.stock, packs: fight.packs, condMap: fight.condMap || {}, removed: fight.removed || {}, departed: fight.departed || {}, undos: fight.undos || {}, damageMode: fight.damageMode === "approve" ? "approve" : "auto", updatedAt: fight.updatedAt,
       seq: fight.seq || 0, turnStarts: fight.turnStarts || {}, undo: fight.undo || [], markers: fight.markers || {},
       unlock: fight.unlock || {}, oa: fight.oa || {}, held: fight.held || {},
-      campaignDay: fight.campaignDay || 1, gunClean: fight.gunClean || {}
+      campaignDay: fight.campaignDay || 1, gunClean: fight.gunClean || {},
+      showDowned: !!(window.SSDNSApplied && window.SSDNSApplied.showDowned && window.SSDNSApplied.showDowned())
     }));
     localStorage.setItem(PACK_KEY, JSON.stringify(fight.packs));
   } catch (e) {}
@@ -521,7 +528,8 @@ async function writeRemoteTableOnce() {
       initiative: { round: fight.round, turn: fight.turn, started: !!fight.started, recruit: fight.recruit !== false, order: visibleOrder,
         seq: fight.seq || 0, turnStarts: fight.turnStarts || {}, undo: fight.undo || [], markers: fight.markers || {},
         unlock: fight.unlock || {}, oa: fight.oa || {},
-        campaignDay: fight.campaignDay || 1, gunClean: fight.gunClean || {} },
+        campaignDay: fight.campaignDay || 1, gunClean: fight.gunClean || {},
+        showDowned: !!(window.SSDNSApplied && window.SSDNSApplied.showDowned && window.SSDNSApplied.showDowned()) },
       store: fight.stock,
       packs: fight.packs,
       storeOpen: !!fight.storeOpen,
@@ -603,6 +611,12 @@ function applyRemoteTable(v) {
     if (init.turn != null) fight.turn = init.turn;
     if (init.started != null) fight.started = !!init.started;
     if (init.recruit != null) fight.recruit = !!init.recruit;
+    if (init.showDowned != null) {
+      fight.showDowned = !!init.showDowned;
+      if (window.SSDNSApplied && window.SSDNSApplied.setShowDowned && window.SSDNSApplied.showDowned && window.SSDNSApplied.showDowned() !== fight.showDowned) {
+        window.SSDNSApplied.setShowDowned(fight.showDowned);
+      }
+    }
     turnFields(init);
     if (Array.isArray(v.store)) fight.stock = v.store;
     if (Array.isArray(v.packs)) fight.packs = v.packs;
@@ -2009,8 +2023,15 @@ function releaseBeads(row, ended) {
   }
   dropped.forEach((z) => { if (z.blast) detonateBead(z, row); });
 }
+/* 0.2.229: hidden downed creatures are not in the area and do not roll the save. */
+function downedHidden(row) {
+  const A = window.SSDNSApplied;
+  if (!row || !A || typeof A.isDownedTarget !== "function" || !A.isDownedTarget(row)) return false;
+  return !(A.showDowned && A.showDowned());
+}
 function deliverZoneTick(tick, who, caster) {
   if (!tick || !who) return;
+  if (downedHidden(who)) return;
   if (tick.hostile && !zoneHostile(caster, who)) return;
   const finish = (amount, formula) => {
     zoneApplyAmount(Object.assign({}, tick, { formula: formula || tick.formula }), who, caster, amount);
@@ -2332,6 +2353,7 @@ function applyRiderOutcome(caster, who, tick, settled) {
   }
 }
 function deliverRiderTick(caster, who, tick, when) {
+  if (downedHidden(who)) return;
   const R = window.SSDNSSpellRiders;
   const finish = (save) => {
     const settled = R.settleTick(caster.spellMarks, tick, save || {});
@@ -5243,6 +5265,7 @@ async function askAttackSave(row, atk, target, spec, mode) {
     fromName: row.name || "",
     auto: mode === "auto"
   });
+  if (save && save.skipped) return save;
   if ((DM.state.demo || mode === "auto") && !save.logged) {
     await DM.pushRoll({
       who: target.name || row.name, label: (atk.name || "Save"), formula: "1d20" + signed(save.mod || 0),
@@ -5255,6 +5278,7 @@ async function applySaveDamage(row, atk, target, mode) {
   const spec = atk && atk.saveDamage;
   if (!row || !spec) return "";
   const save = await askAttackSave(row, atk, target, spec, mode);
+  if (save && save.skipped) return "";
   const rolled = DM.parseDice(spec.damage || "");
   const full = rolled ? rolled.total : 0;
   const amount = !save.failed ? (spec.onSave === "half" && window.SSDNSApplied ? window.SSDNSApplied.halved(full) : (spec.onSave === "half" ? Math.floor(full / 2) : 0)) : full;
@@ -5279,6 +5303,7 @@ async function applySaveEffect(row, atk, target, mode) {
   const spec = atk && atk.saveEffect;
   if (!row || !spec) return "";
   const save = await askAttackSave(row, atk, target, spec, mode);
+  if (save && save.skipped) return "";
   const text = atk.notes || "The DM resolves this effect.";
   return save.line + " · " + text;
 }
@@ -6992,8 +7017,11 @@ function requestPlayerSave(opts) {
   const dc = Number(opts.dc);
   const found = resolveStrikeTarget(opts.targetId);
   const target = found || { id: opts.targetId, name: opts.targetName || opts.targetId || "Target", kind: opts.kind || "" };
-  const npc = subjectKindOf(target) !== "player";
   const id = DM.uid("save");
+  if (downedHidden(target)) {
+    return Promise.resolve({ id: id, blocked: true, failed: false, skipped: true, downed: true, logged: true, line: "", total: 0, nat: 0, mod: 0, target: target });
+  }
+  const npc = subjectKindOf(target) !== "player";
   const cov = window.SSDNSApplied && window.SSDNSApplied.coverSaveBonus
     ? window.SSDNSApplied.coverSaveBonus(coverValue(target), ability, { noCover: /sacred flame/i.test(opts.label || "") })
     : { bonus: 0, blocked: false, note: "", title: "" };
@@ -12733,6 +12761,14 @@ async function mapDropLoot(detail) {
   return box.id;
 }
 window.SSDNSMapFight = {
+  setShowDowned(on) {
+    fight.showDowned = !!on;
+    if (window.SSDNSApplied && window.SSDNSApplied.setShowDowned && window.SSDNSApplied.showDowned && window.SSDNSApplied.showDowned() !== fight.showDowned) {
+      window.SSDNSApplied.setShowDowned(fight.showDowned);
+    }
+    saveRemoteTable();
+    try { renderFight(); } catch (e) {}
+  },
   linkedTokenIds() { return linkedTokenIds(); },
   clearStale() { return clearStaleTokens(); },
   duplicate(detail) { return duplicateCombatant(detail); },
@@ -12841,7 +12877,7 @@ window.SSDNSMapFight = {
     const row = i >= 0 ? fight.order[i] : null;
     let list = combatTargets(row);
     const remembered = rememberedTarget(row);
-    if (remembered && !list.some((p) => p.id === remembered.id)) list = list.concat([remembered]);
+    if (remembered && !downedHidden(remembered) && !list.some((p) => p.id === remembered.id)) list = list.concat([remembered]);
     let selected = "";
     const hinted = detail.selectedCombatantId || detail.selectedTokenId || "";
     if (hinted && list.some((p) => p.id === hinted)) selected = hinted;
