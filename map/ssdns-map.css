@@ -931,6 +931,29 @@ body.map-fullscreen #mapMount > .ssm-drawer.placed {
 .ssm-cond-x { min-height: 0; min-width: 18px; padding: 0 4px; line-height: 1; }
 .ssm-hpbar { height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
 .ssm-hpbar > span { display: block; height: 100%; background: #4caf50; }
+/* Enemy drawer: the bar sits in the AC / HP / Speed row, same bands as the map token. */
+.ssm-vitals {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 12px;
+  padding: 6px 2px 4px;
+  border-bottom: 1px solid #5a4e40;
+}
+.ssm-vital-hp { flex: 1 1 140px; min-width: 120px; display: flex; flex-direction: column; gap: 4px; }
+.ssm-hpnum { font-weight: 700; }
+.ssm-hpbar-row {
+  height: 14px;
+  background: #1a120e;
+  border: 1px solid rgba(232, 220, 200, 0.92);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.ssm-hpbar-row.is-mid > span { background: #ff9800; }
+.ssm-hpbar-row.is-low > span { background: #f44336; }
+.ssm-hpbar-row.is-dead { border-color: #e74c3c; }
+.ssm-dmtools { margin-top: 12px; padding-top: 8px; border-top: 1px solid #5a4e40; }
+.ssm-dmtools > .ssm-section:first-child { color: #e2c56a; }
 .ssm-deaths { color: #e2c56a; font-size: 11px; }
 .ssm-act { display: flex; align-items: center; gap: 6px; }
 .ssm-drawer .ssm-speed { display: inline-flex; margin-left: 4px; }

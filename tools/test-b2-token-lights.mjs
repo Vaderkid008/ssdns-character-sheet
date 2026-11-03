@@ -316,7 +316,7 @@ const withEnemy = publicBag(live, "DUST");
 const enemyId = Object.keys(withEnemy).find((id) => id !== "ply_wade");
 const enemyPos = enemyId && withEnemy[enemyId].pos;
 const bare = act(dmEl, "drawer");
-check("drawer.unlinked", !!(bare && bare.textContent.includes("No fight card linked") && bare.textContent.includes("⚠ Not linked to a sheet") && act(dmEl, "dmTorch") && act(dmEl, "dmDarkvision")), bare && bare.textContent.slice(0, 180));
+check("drawer.unlinked", !!(bare && bare.textContent.includes("No fight card linked") && !bare.textContent.includes("Not linked to a sheet") && act(dmEl, "dmTorch") && act(dmEl, "dmDarkvision")), bare && bare.textContent.slice(0, 180));
 const enemyTorch = act(dmEl, "dmTorch");
 enemyTorch.checked = true;
 enemyTorch.dispatchEvent(new w.Event("change", { bubbles: true }));
