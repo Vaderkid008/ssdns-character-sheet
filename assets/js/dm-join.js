@@ -738,6 +738,7 @@
     if (entry.crit) row.crit = true;
     if (entry.zoneId) row.zoneId = entry.zoneId;
     if (entry.zoneBudget) row.zoneBudget = Number(entry.zoneBudget) || 0;
+    if (row.dc == null && entry.dc != null && entry.dc !== "" && isFinite(Number(entry.dc))) row.dc = Number(entry.dc);
     return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row).then(function () {
       return { ok: true };
     }).catch(function (e) {

@@ -1878,11 +1878,12 @@ let turnGate = 0;
 function zoneTokenOf(row) {
   const host = window.SSDNSMapHost;
   if (!row || !host) return null;
-  const id = row.mapTokenId || row.playerId || row.id;
+  const linked = typeof liveMapTokenId === "function" ? liveMapTokenId(row) : "";
+  const id = linked || row.mapTokenId || row.playerId || row.id;
   let snap = null;
   if (typeof host.tokenSnapshot === "function") snap = host.tokenSnapshot(id) || host.tokenSnapshot(row.id) || host.tokenSnapshot(row.playerId);
   if (!snap && typeof host.tokenPos === "function") {
-    const p = host.tokenPos(row.mapTokenId || row.id);
+    const p = host.tokenPos(linked || row.mapTokenId || row.id);
     if (p) snap = { x: p.x, y: p.y, size: 1 };
   }
   if (!snap || snap.x == null) return null;
@@ -2038,10 +2039,13 @@ function deliverZoneTick(tick, who, caster) {
     chargeZone(tick, amount);
   };
   if (tick.save) {
-    const dc = tick.dc != null ? tick.dc : (caster && caster.card && caster.card.spellcasting ? caster.card.spellcasting.dc : "");
+    const dc = (tick.dc != null && tick.dc !== "" && isFinite(Number(tick.dc))) ? Number(tick.dc) : riderDc(caster);
     const shapeNote = tick.shapechanger ? " · shapechanger has disadvantage" : "";
     DM.toast("SAVE " + (tick.spell || "Zone") + " " + (tick.when || "") + " " + tick.save + (tick.dice ? " or " + tick.dice + " " + (tick.type || "") : "") + shapeNote);
-    if (dc === "" || dc == null || !isFinite(Number(dc))) return;
+    if (dc == null || !isFinite(Number(dc))) {
+      DM.toast((tick.spell || "Zone") + ": no spell DC, so the save is not rolled.");
+      return;
+    }
     const shapechanger = tick.shapechanger && /shapechanger|lycanthrope|doppelganger/i.test(((who && (who.type || who.name)) || "") + " " + ((who.card && who.card.type) || ""));
     requestPlayerSave({
       targetId: who.playerId || who.id, targetName: who.name, ability: tick.save, dc: dc,
@@ -2255,7 +2259,8 @@ function commitRider(caster, known, opts) {
     crit: !!opts.crit,
     failed: opts.failed,
     disease: opts.disease || "",
-    rolledDelayed: opts.rolledDelayed || null
+    rolledDelayed: opts.rolledDelayed || null,
+    dc: opts.dc != null && opts.dc !== "" ? opts.dc : riderDc(caster)
   });
   if (!landed || !landed.changed) return landed;
   caster.spellMarks = landed.bag;
@@ -2304,7 +2309,8 @@ function absorbRider(req, outcome) {
     crit: !!(outcome.crit || req.crit),
     failed: failed,
     disease: req.disease || "",
-    rolledDelayed: delayed && (delayed.total || delayed.formula) ? delayed : null
+    rolledDelayed: delayed && (delayed.total || delayed.formula) ? delayed : null,
+    dc: req.dc
   });
   saveRemoteTable();
 }
@@ -2365,10 +2371,13 @@ function deliverRiderTick(caster, who, tick, when) {
     finish({ failed: false, auto: true });
     return;
   }
-  const dc = riderDc(caster);
+  const dc = (tick.dc != null && tick.dc !== "" && isFinite(Number(tick.dc))) ? Number(tick.dc) : riderDc(caster);
   const diceBit = tick.dice ? (String(tick.dice) + (tick.type ? " " + tick.type : "")) : "";
   DM.toast("SAVE " + (tick.spell || "Spell") + " " + when + " of turn " + tick.save + (diceBit ? " or " + diceBit : ""));
-  if (dc == null || !isFinite(Number(dc))) return;
+  if (dc == null || !isFinite(Number(dc))) {
+    DM.toast((tick.spell || "Spell") + ": no spell DC, so the save is not counted.");
+    return;
+  }
   requestPlayerSave({
     targetId: who.playerId || who.id,
     targetName: who.name,
@@ -3618,7 +3627,8 @@ function reachBlock(name, known, fromRow, targetId, opts) {
   if (!targetId && /touch/i.test(range) && !allow) return Area.touchBlock(null, range, { allowUnmeasured: false });
   const target = targetId ? (aimRow(targetId) || findCombatant({ targetId: targetId })) : null;
   const feet = target ? feetBetweenRows(fromRow, target) : null;
-  return Area.rangeBlock(feet, range, { allowUnmeasured: allow, area: !!(opts && opts.area) });
+  const measured = feet != null && feet !== "" && isFinite(Number(feet));
+  return Area.rangeBlock(feet, range, { allowUnmeasured: allow || !measured, area: !!(opts && opts.area) });
 }
 function askSpellDarts(row, name, count, presetId, known, noun) {
   const n = Math.max(1, Number(count) || 1);
@@ -7792,6 +7802,34 @@ async function castAreaSpell(opts) {
           hit: true, miss: false, failed: !!(save.failed && !save.blocked)
         });
       }
+    }
+  } else if (!defer && kind === "attack" && rolled && rolled.attack && tokens.length) {
+    const t = tokens[0];
+    const tid = t.combatantId || t.ownerUid || t.id;
+    const whoT = resolveStrikeTarget(tid) || { id: tid, name: t.name || "" };
+    const ac = knownNumber(whoT.ac);
+    const nat = Number(rolled.nat);
+    const total = Number(rolled.result);
+    const have = ac != null && isFinite(Number(ac));
+    const hit = nat !== 1 && (nat === 20 || !have || total >= Number(ac));
+    detail += " · attacks " + (whoT.name || "someone");
+    if (have) detail += " AC " + ac;
+    detail += hit ? " HIT" : " MISS";
+    if (tokens.length > 1) detail += " (" + (tokens.length - 1) + " other in reach not struck)";
+    const dmg = hit ? (Number(rolled.damageTotal) || 0) : 0;
+    if (dmg > 0 && fight.damageMode !== "approve") {
+      applyPlayerHit({
+        rollId: DM.uid("spell"), targetId: whoT.id || tid, targetName: whoT.name || t.name || "",
+        amount: dmg, from: opts.fromId, characterName: opts.who, label: opts.name, weapon: opts.name,
+        type: "damage", melee: true, dice: (rolled && rolled.damageDetail) || ""
+      });
+      detail += " · " + dmg;
+    }
+    if (hit) {
+      commitRider(opts.row, opts.known, {
+        slot: opts.slotLevel, targetId: whoT.id || tid, targetName: whoT.name || t.name || "",
+        hit: true, miss: false, crit: nat === 20, dc: opts.dc
+      });
     }
   } else if (kind === "none" || kind === "rider" || kind === "utility") {
     const buff = window.SSDNSSpellArea && window.SSDNSSpellArea.buffOf && window.SSDNSSpellArea.buffOf(opts.name);

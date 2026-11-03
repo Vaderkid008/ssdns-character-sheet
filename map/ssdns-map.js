@@ -1656,6 +1656,35 @@ function fxStopAll() {
   }
   if (was) { try { draw(); } catch (e) {} }
 }
+/* Chain hops travel as fight-row ids. Public tokens omit combatantId, so a player
+   map cannot resolve them and the extra bolts never draw. Stamp the square the
+   party can see. A hidden token or a square outside party sight is left out. */
+function fxPublicPoints(list, seen) {
+  if (!Array.isArray(list) || !list.length || typeof seen !== "function") return null;
+  const out = [];
+  list.forEach(item => {
+    if (!item || out.length >= 10) return;
+    let x = Number(item.x);
+    let y = Number(item.y);
+    let id = "";
+    if (typeof item === "string" || typeof item === "number") id = String(item);
+    else if (item.id) id = String(item.id);
+    if (!isFinite(x) || !isFinite(y)) {
+      const t = fxTokenRaw(id);
+      if (!t || !t.pos || t.hidden) return;
+      const c = fxCenter(t);
+      x = c.x;
+      y = c.y;
+    }
+    if (!seen(x, y)) return;
+    const row = { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+    if (id && /^[A-Za-z0-9_-]{1,80}$/.test(id)) row.id = id;
+    if (item.miss || item.result === "miss") row.miss = true;
+    if (item.result) row.result = item.result;
+    out.push(row);
+  });
+  return out.length ? out : null;
+}
 /** DM only: what players may receive for this effect. null = players get nothing. Never carries a hidden token. */
 function fxPublic(spec) {
   if (role !== 'dm' || !FXA || !spec) return null;
@@ -1670,8 +1699,6 @@ function fxPublic(spec) {
     facing: spec.facing,
     nat: spec.nat, crit: spec.crit, critMin: spec.critMin, heard: spec.heard, scene: S.sceneId || ''
   };
-  if (spec.hops) pub.hops = spec.hops;
-  if (spec.rays) pub.rays = spec.rays;
   if (spec.dust) pub.dust = true;
   if (spec.crumbOnly) pub.crumbOnly = true;
   if (spec.pulse) pub.pulse = true;
@@ -1687,6 +1714,10 @@ function fxPublic(spec) {
   const sc = fxCenter(S);
   const sid = S.sceneId || 'scn_dustyspur01';
   const seen = (x, y) => fxPublicSees(x, y, sid);
+  const hopPub = fxPublicPoints(spec.hops, seen);
+  const rayPub = fxPublicPoints(spec.rays, seen);
+  if (hopPub) pub.hops = hopPub;
+  if (rayPub) pub.rays = rayPub;
   const point = !T ? fxPoint(spec) : null;
   if (S.hidden || !seen(sc.x, sc.y)) {
     const aim = T ? fxCenter(T) : point;
@@ -5277,7 +5308,9 @@ function touchGate(attack, shooterId, targetToken) {
   if (!/touch/i.test(String(range))) return "";
   const kind = attack.kind || attack.spellKind || "";
   const feet = targetToken ? feetBetween(tokenByRef(shooterId), targetToken) : null;
-  return Area.touchBlock(feet, range, { allowUnmeasured: kind === "heal" });
+  const measured = feet != null && feet !== "" && isFinite(Number(feet));
+  /* A failed measurement is not "across the room". Touch still stops when the map can see more than 5 ft. */
+  return Area.touchBlock(feet, range, { allowUnmeasured: kind === "heal" || !measured });
 }
 function armAttack(attack, targetId, shooterId) {
   const sid = shooterId || (role === 'player' ? uid : '');
