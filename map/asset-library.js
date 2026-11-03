@@ -1,7 +1,9 @@
 /* N86 Asset Library (sheet 0.3.173 / DMCC 0.2.186).
    DM-only definitions at map/dm/assetLibrary/<id>, per room, plus an ssdns-asset-pack.
-   Encounter Pack v1 (sheet 0.3.201 / DMCC 0.2.214) is the Assets button that fetches
-   assets/packs/encounter-pack-v1.ssdns-asset-pack.json and skips ids already in the room.
+   Encounter Pack v1 (sheet 0.3.201 / DMCC 0.2.214) and Encounter Pack v2
+   (sheet 0.3.221 / DMCC 0.2.234) are Assets buttons. Each fetches its pack
+   (assets/packs/encounter-pack-v1.ssdns-asset-pack.json or
+   assets/packs/encounter-pack-v2.ssdns-asset-pack.json) and skips ids already in the room.
    Placed instances are map tokens (kind "asset"). Live actions: toggle, open/close, light.
    Health, trap, range, links, and immunities save their fields and stay stubs.
    Door Interact and Turn# fuse UI are N87. interact.dmApprove is stored and not enforced. */
@@ -10,6 +12,12 @@
   var PACK_FORMAT = "ssdns-asset-pack";
   var STARTER_PACK = "assets/packs/encounter-pack-v1.ssdns-asset-pack.json";
   var STARTER_LABEL = "Encounter Pack v1";
+  var STARTER_PACK_V2 = "assets/packs/encounter-pack-v2.ssdns-asset-pack.json";
+  var STARTER_LABEL_V2 = "Encounter Pack v2";
+  var STARTER_PACKS = [
+    { key: "v1", path: STARTER_PACK, label: STARTER_LABEL, title: "Load the 8 starter map props. Skips any id already in this library." },
+    { key: "v2", path: STARTER_PACK_V2, label: STARTER_LABEL_V2, title: "Load the 8 frontier cover and rail props. Skips any id already in this library." }
+  ];
   var ACTION_IDS = ["toggle", "open", "light", "health", "trap", "range", "links", "immunities"];
   var LIVE = { toggle: 1, open: 1, light: 1 };
   var SFX_KEYS = ["interact", "on", "off", "open", "close"];
@@ -210,17 +218,25 @@
     });
     return { entries: out, skipped: skipped, kept: kept, warn: skipped ? skipped + " asset(s) skipped (each needs a name)." : "" };
   }
-  function starterPackUrl() {
+  function packByKey(key) {
+    var i;
+    for (i = 0; i < STARTER_PACKS.length; i++) {
+      if (STARTER_PACKS[i].key === key) return STARTER_PACKS[i];
+    }
+    return STARTER_PACKS[0];
+  }
+  function starterPackUrl(rel) {
+    rel = rel || STARTER_PACK;
     var nodes = root.document && root.document.getElementsByTagName ? root.document.getElementsByTagName("script") : [];
     var i, src;
     for (i = 0; i < nodes.length; i++) {
       src = nodes[i].src || "";
       if (src.indexOf("asset-library.js") >= 0) {
-        return src.replace(/map\/asset-library\.js(\?.*)?$/, STARTER_PACK);
+        return src.replace(/map\/asset-library\.js(\?.*)?$/, rel);
       }
     }
     var loc = (root.location && root.location.pathname) || "";
-    return (/\/dm(\/|$)/.test(loc) ? "../" : "") + STARTER_PACK;
+    return (/\/dm(\/|$)/.test(loc) ? "../" : "") + rel;
   }
 
   function axisGap(origin, span, other, otherSpan) {
@@ -759,10 +775,10 @@
     var body = ui.dlg.querySelector(".ml-body");
     body.innerHTML =
       '<div class="ml-head"><h2>Assets</h2><input type="search" class="ml-search" placeholder="Search assets" aria-label="Search assets" value="' + esc(ui.query) + '">' +
-      '<div class="ml-tools"><button type="button" class="btn sm btn-primary" data-al-add>Add</button><button type="button" class="btn sm" data-al-export>Export pack</button><label class="btn sm ml-import">Import pack<input type="file" accept="application/json,.json" data-al-import hidden></label><button type="button" class="btn sm" data-al-starter title="Load the 8 starter map props. Skips any id already in this library."' + (ui.starterBusy ? " disabled" : "") + ">" + esc(STARTER_LABEL) + '</button><button type="button" class="btn sm" data-al-close>Close</button></div></div>' +
+      '<div class="ml-tools"><button type="button" class="btn sm btn-primary" data-al-add>Add</button><button type="button" class="btn sm" data-al-export>Export pack</button><label class="btn sm ml-import">Import pack<input type="file" accept="application/json,.json" data-al-import hidden></label>' + starterButtons() + '<button type="button" class="btn sm" data-al-close>Close</button></div></div>' +
       (ui.editing ? formHtml(ui.editing) : "") +
-      '<div class="ml-grid" role="list">' + (list.map(card).join("") || '<p class="fine">No assets yet. Add one, import a pack, or load ' + esc(STARTER_LABEL) + '.</p>') + "</div>" +
-      '<p class="fine ml-foot">Assets save in this room. ' + esc(STARTER_LABEL) + ' loads the eight starter props (lantern, campfire, gate, and the rest). Export a pack to move them to another campaign. Place, then click a square. On/off, Open/close, and Light work now. The other properties are saved for later.</p>';
+      '<div class="ml-grid" role="list">' + (list.map(card).join("") || '<p class="fine">No assets yet. Add one, import a pack, or load ' + esc(STARTER_LABEL) + ' or ' + esc(STARTER_LABEL_V2) + '.</p>') + "</div>" +
+      '<p class="fine ml-foot">Assets save in this room. ' + esc(STARTER_LABEL) + ' loads the eight starter props (lantern, campfire, gate, and the rest). ' + esc(STARTER_LABEL_V2) + ' loads the eight frontier props (trough, hitching rail, strongbox, and the rest). Export a pack to move them to another campaign. Place, then click a square. On/off, Open/close, and Light work now. The other properties are saved for later.</p>';
     var s = body.querySelector(".ml-search");
     if (s && ui.focusSearch) { s.focus(); var n = s.value.length; if (s.setSelectionRange) s.setSelectionRange(n, n); ui.focusSearch = false; }
   }
@@ -850,7 +866,7 @@
       return;
     }
     if (t.hasAttribute("data-al-preview")) { previewSfx(t.getAttribute("data-al-preview")); return; }
-    if (t.hasAttribute("data-al-starter")) { loadStarterPack(); return; }
+    if (t.hasAttribute("data-al-starter")) { loadStarterPack(t.getAttribute("data-al-starter") || "v1"); return; }
     if (t.hasAttribute("data-al-export")) {
       var pack = exportPack(lib);
       var blob = new root.Blob([JSON.stringify(pack, null, 1)], { type: "application/json" });
@@ -863,28 +879,34 @@
       toast("Exported " + pack.assets.length + " asset(s)");
     }
   }
-  function loadStarterPack() {
+  function starterButtons() {
+    return STARTER_PACKS.map(function (p) {
+      return '<button type="button" class="btn sm" data-al-starter="' + esc(p.key) + '" title="' + esc(p.title) + '"' + (ui.starterBusy ? " disabled" : "") + ">" + esc(p.label) + "</button>";
+    }).join("");
+  }
+  function loadStarterPack(key) {
+    var pack = packByKey(key || "v1");
     if (!ui.api || ui.starterBusy) return;
-    if (!root.fetch) { toast("This browser can't load " + STARTER_LABEL + "."); return; }
+    if (!root.fetch) { toast("This browser can't load " + pack.label + "."); return; }
     ui.starterBusy = true;
     render();
-    toast("Loading " + STARTER_LABEL + "…");
-    root.fetch(starterPackUrl(), { cache: "no-cache" }).then(function (r) {
-      if (!r.ok) throw new Error(STARTER_LABEL + " file missing (" + r.status + ").");
+    toast("Loading " + pack.label + "…");
+    root.fetch(starterPackUrl(pack.path), { cache: "no-cache" }).then(function (r) {
+      if (!r.ok) throw new Error(pack.label + " file missing (" + r.status + ").");
       return r.json();
     }).then(function (obj) {
       var res = importPack(obj, ui.api.library(), { skipExisting: true });
       res.entries.forEach(function (en) { ui.api.save(en); });
-      if (!res.entries.length && res.kept) toast(STARTER_LABEL + " is already in this library.");
-      else if (!res.entries.length) toast(res.warn || ("Couldn't read " + STARTER_LABEL + "."));
+      if (!res.entries.length && res.kept) toast(pack.label + " is already in this library.");
+      else if (!res.entries.length) toast(res.warn || ("Couldn't read " + pack.label + "."));
       else {
-        var msg = "Added " + res.entries.length + " from " + STARTER_LABEL;
+        var msg = "Added " + res.entries.length + " from " + pack.label;
         if (res.kept) msg += " (" + res.kept + " already here)";
         if (res.warn) msg += ". " + res.warn;
         toast(msg);
       }
     }).catch(function (err) {
-      toast(err && err.message ? err.message : ("Couldn't load " + STARTER_LABEL + "."));
+      toast(err && err.message ? err.message : ("Couldn't load " + pack.label + "."));
     }).then(function () {
       ui.starterBusy = false;
       render();
@@ -972,6 +994,8 @@
     importPack: importPack,
     starterPackUrl: starterPackUrl,
     STARTER_PACK: STARTER_PACK,
+    STARTER_PACK_V2: STARTER_PACK_V2,
+    STARTER_PACKS: STARTER_PACKS,
     feetBetween: feetBetween,
     reachGate: reachGate,
     reachText: reachText,

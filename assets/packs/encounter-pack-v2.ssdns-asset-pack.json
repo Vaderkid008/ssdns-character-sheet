@@ -1,0 +1,542 @@
+{
+  "format": "ssdns-asset-pack",
+  "version": 1,
+  "exportedAt": "2026-11-03T04:29:54Z",
+  "assets": [
+    {
+      "id": "ast_water-trough",
+      "name": "Water Trough",
+      "size": 2,
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-water-trough-off.webp",
+      "images": [
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-water-trough-off.webp",
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-water-trough-on.webp"
+      ],
+      "sfx": {
+        "interact": "",
+        "on": "ui-tick.mp3",
+        "off": "ui-back.mp3",
+        "open": "",
+        "close": ""
+      },
+      "props": {
+        "light": {
+          "on": false,
+          "bright": 0,
+          "dim": 0,
+          "color": ""
+        },
+        "toggle": {
+          "on": false,
+          "labelOn": "Fill",
+          "labelOff": "Empty"
+        },
+        "gate": {
+          "open": true,
+          "blocksMove": false,
+          "blocksSight": false
+        },
+        "health": {
+          "max": 15,
+          "cover": "half"
+        },
+        "trap": {
+          "attack": 0,
+          "dc": 0,
+          "save": "",
+          "damage": "",
+          "onFail": ""
+        },
+        "range": {
+          "feet": 0,
+          "condition": "",
+          "effect": ""
+        },
+        "links": [],
+        "immunities": [],
+        "timer": {
+          "mode": "",
+          "fuseRounds": 0
+        }
+      },
+      "interact": {
+        "reachFt": 5,
+        "actions": [
+          "toggle"
+        ],
+        "dmApprove": false
+      },
+      "targetable": false,
+      "hiddenFromPlayers": false,
+      "notes": "Long horse trough. Off = empty, on = full. Half cover, 15 HP stub. Size 2.",
+      "v": 1
+    },
+    {
+      "id": "ast_hitching-rail",
+      "name": "Hitching Rail",
+      "size": 2,
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-hitching-rail.webp",
+      "images": [
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-hitching-rail.webp"
+      ],
+      "sfx": {
+        "interact": "",
+        "on": "",
+        "off": "",
+        "open": "",
+        "close": ""
+      },
+      "props": {
+        "light": {
+          "on": false,
+          "bright": 0,
+          "dim": 0,
+          "color": ""
+        },
+        "toggle": {
+          "on": false,
+          "labelOn": "On",
+          "labelOff": "Off"
+        },
+        "gate": {
+          "open": true,
+          "blocksMove": false,
+          "blocksSight": false
+        },
+        "health": {
+          "max": 20,
+          "cover": "half"
+        },
+        "trap": {
+          "attack": 0,
+          "dc": 0,
+          "save": "",
+          "damage": "",
+          "onFail": ""
+        },
+        "range": {
+          "feet": 0,
+          "condition": "",
+          "effect": ""
+        },
+        "links": [],
+        "immunities": [],
+        "timer": {
+          "mode": "",
+          "fuseRounds": 0
+        }
+      },
+      "interact": {
+        "reachFt": 5,
+        "actions": [],
+        "dmApprove": false
+      },
+      "targetable": false,
+      "hiddenFromPlayers": false,
+      "notes": "Post-and-rail hitch. Half cover, 20 HP stub. Size 2. Horses tie here (flavor).",
+      "v": 1
+    },
+    {
+      "id": "ast_tripwire-post",
+      "name": "Tripwire Post",
+      "size": 1,
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-tripwire-post-off.webp",
+      "images": [
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-tripwire-post-off.webp",
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-tripwire-post-on.webp"
+      ],
+      "sfx": {
+        "interact": "",
+        "on": "ui-tick.mp3",
+        "off": "thud.wav",
+        "open": "",
+        "close": ""
+      },
+      "props": {
+        "light": {
+          "on": false,
+          "bright": 0,
+          "dim": 0,
+          "color": ""
+        },
+        "toggle": {
+          "on": false,
+          "labelOn": "Arm wire",
+          "labelOff": "Spring / cut"
+        },
+        "gate": {
+          "open": true,
+          "blocksMove": false,
+          "blocksSight": false
+        },
+        "health": {
+          "max": 0,
+          "cover": ""
+        },
+        "trap": {
+          "attack": 0,
+          "dc": 13,
+          "save": "dex",
+          "damage": "1d6",
+          "onFail": "prone"
+        },
+        "range": {
+          "feet": 0,
+          "condition": "",
+          "effect": ""
+        },
+        "links": [],
+        "immunities": [],
+        "timer": {
+          "mode": "",
+          "fuseRounds": 0
+        }
+      },
+      "interact": {
+        "reachFt": 5,
+        "actions": [
+          "toggle"
+        ],
+        "dmApprove": false
+      },
+      "targetable": false,
+      "hiddenFromPlayers": false,
+      "notes": "Stake with a trip line. Off = idle stake, on = wire armed. Trap fields are stub until N87; DM rules the trip.",
+      "v": 1
+    },
+    {
+      "id": "ast_strongbox",
+      "name": "Strongbox",
+      "size": 1,
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-strongbox-closed.webp",
+      "images": [
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-strongbox-closed.webp",
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-strongbox-open.webp"
+      ],
+      "sfx": {
+        "interact": "",
+        "on": "",
+        "off": "",
+        "open": "ui-tick.mp3",
+        "close": "thud.wav"
+      },
+      "props": {
+        "light": {
+          "on": false,
+          "bright": 0,
+          "dim": 0,
+          "color": ""
+        },
+        "toggle": {
+          "on": false,
+          "labelOn": "On",
+          "labelOff": "Off"
+        },
+        "gate": {
+          "open": false,
+          "blocksMove": true,
+          "blocksSight": false
+        },
+        "health": {
+          "max": 25,
+          "cover": "three-quarters"
+        },
+        "trap": {
+          "attack": 0,
+          "dc": 0,
+          "save": "",
+          "damage": "",
+          "onFail": ""
+        },
+        "range": {
+          "feet": 0,
+          "condition": "",
+          "effect": ""
+        },
+        "links": [],
+        "immunities": [],
+        "timer": {
+          "mode": "",
+          "fuseRounds": 0
+        }
+      },
+      "interact": {
+        "reachFt": 5,
+        "actions": [
+          "open"
+        ],
+        "dmApprove": false
+      },
+      "targetable": false,
+      "hiddenFromPlayers": false,
+      "notes": "Iron-banded strongbox. Closed = three-quarters cover. Open/Close swaps the lid art. Loot is separate (chest / Give).",
+      "v": 1
+    },
+    {
+      "id": "ast_baggage-cart",
+      "name": "Baggage Cart",
+      "size": 2,
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-baggage-cart.webp",
+      "images": [
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-baggage-cart.webp"
+      ],
+      "sfx": {
+        "interact": "",
+        "on": "",
+        "off": "",
+        "open": "",
+        "close": ""
+      },
+      "props": {
+        "light": {
+          "on": false,
+          "bright": 0,
+          "dim": 0,
+          "color": ""
+        },
+        "toggle": {
+          "on": false,
+          "labelOn": "On",
+          "labelOff": "Off"
+        },
+        "gate": {
+          "open": true,
+          "blocksMove": false,
+          "blocksSight": false
+        },
+        "health": {
+          "max": 30,
+          "cover": "three-quarters"
+        },
+        "trap": {
+          "attack": 0,
+          "dc": 0,
+          "save": "",
+          "damage": "",
+          "onFail": ""
+        },
+        "range": {
+          "feet": 0,
+          "condition": "",
+          "effect": ""
+        },
+        "links": [],
+        "immunities": [],
+        "timer": {
+          "mode": "",
+          "fuseRounds": 0
+        }
+      },
+      "interact": {
+        "reachFt": 5,
+        "actions": [],
+        "dmApprove": false
+      },
+      "targetable": false,
+      "hiddenFromPlayers": false,
+      "notes": "Platform baggage cart. Three-quarters cover, 30 HP stub. Size 2. DM can shove along a platform (flavor).",
+      "v": 1
+    },
+    {
+      "id": "ast_switch-stand",
+      "name": "Switch Stand",
+      "size": 1,
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-switch-stand-off.webp",
+      "images": [
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-switch-stand-off.webp",
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-switch-stand-on.webp"
+      ],
+      "sfx": {
+        "interact": "",
+        "on": "thud.wav",
+        "off": "ui-back.mp3",
+        "open": "",
+        "close": ""
+      },
+      "props": {
+        "light": {
+          "on": false,
+          "bright": 0,
+          "dim": 0,
+          "color": ""
+        },
+        "toggle": {
+          "on": false,
+          "labelOn": "Throw switch",
+          "labelOff": "Reset switch"
+        },
+        "gate": {
+          "open": true,
+          "blocksMove": false,
+          "blocksSight": false
+        },
+        "health": {
+          "max": 15,
+          "cover": "half"
+        },
+        "trap": {
+          "attack": 0,
+          "dc": 0,
+          "save": "",
+          "damage": "",
+          "onFail": ""
+        },
+        "range": {
+          "feet": 0,
+          "condition": "",
+          "effect": ""
+        },
+        "links": [],
+        "immunities": [],
+        "timer": {
+          "mode": "",
+          "fuseRounds": 0
+        }
+      },
+      "interact": {
+        "reachFt": 5,
+        "actions": [
+          "toggle"
+        ],
+        "dmApprove": false
+      },
+      "targetable": false,
+      "hiddenFromPlayers": false,
+      "notes": "Rail switch stand. Off = main line, on = siding thrown. Half cover. What the rails do is DM-ruled until linked switches ship.",
+      "v": 1
+    },
+    {
+      "id": "ast_coal-bin",
+      "name": "Coal Bin",
+      "size": 2,
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-coal-bin.webp",
+      "images": [
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-coal-bin.webp"
+      ],
+      "sfx": {
+        "interact": "",
+        "on": "",
+        "off": "",
+        "open": "",
+        "close": ""
+      },
+      "props": {
+        "light": {
+          "on": false,
+          "bright": 0,
+          "dim": 0,
+          "color": ""
+        },
+        "toggle": {
+          "on": false,
+          "labelOn": "On",
+          "labelOff": "Off"
+        },
+        "gate": {
+          "open": true,
+          "blocksMove": false,
+          "blocksSight": false
+        },
+        "health": {
+          "max": 40,
+          "cover": "three-quarters"
+        },
+        "trap": {
+          "attack": 0,
+          "dc": 0,
+          "save": "",
+          "damage": "",
+          "onFail": ""
+        },
+        "range": {
+          "feet": 0,
+          "condition": "",
+          "effect": ""
+        },
+        "links": [],
+        "immunities": [],
+        "timer": {
+          "mode": "",
+          "fuseRounds": 0
+        }
+      },
+      "interact": {
+        "reachFt": 5,
+        "actions": [],
+        "dmApprove": false
+      },
+      "targetable": false,
+      "hiddenFromPlayers": false,
+      "notes": "Open coal bin / crib. Three-quarters cover, 40 HP stub. Size 2.",
+      "v": 1
+    },
+    {
+      "id": "ast_rain-barrel",
+      "name": "Rain Barrel",
+      "size": 1,
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-rain-barrel-off.webp",
+      "images": [
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-rain-barrel-off.webp",
+        "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-rain-barrel-on.webp"
+      ],
+      "sfx": {
+        "interact": "",
+        "on": "thud.wav",
+        "off": "ui-back.mp3",
+        "open": "",
+        "close": ""
+      },
+      "props": {
+        "light": {
+          "on": false,
+          "bright": 0,
+          "dim": 0,
+          "color": ""
+        },
+        "toggle": {
+          "on": false,
+          "labelOn": "Tip over",
+          "labelOff": "Set upright"
+        },
+        "gate": {
+          "open": true,
+          "blocksMove": false,
+          "blocksSight": false
+        },
+        "health": {
+          "max": 12,
+          "cover": "half"
+        },
+        "trap": {
+          "attack": 0,
+          "dc": 0,
+          "save": "",
+          "damage": "",
+          "onFail": ""
+        },
+        "range": {
+          "feet": 0,
+          "condition": "",
+          "effect": ""
+        },
+        "links": [],
+        "immunities": [],
+        "timer": {
+          "mode": "",
+          "fuseRounds": 0
+        }
+      },
+      "interact": {
+        "reachFt": 5,
+        "actions": [
+          "toggle"
+        ],
+        "dmApprove": false
+      },
+      "targetable": false,
+      "hiddenFromPlayers": false,
+      "notes": "Wooden rain barrel. Off = upright (half cover), on = tipped (puddle / no cover). DM rules the wet square.",
+      "v": 1
+    }
+  ]
+}
