@@ -1924,7 +1924,9 @@ function shatterPaint(ctx, A, B, lt, seed, g) {
   if (!A || !B || lt < 0 || lt > life) return;
   var cell = (g && g.cell) || 70, sc = loveScale(cell);
   var d = dirOf(A, B);
-  if (d.d < 16) { thunderPaint(ctx, A, B, lt, seed); return; }
+  /* A point on the caster used to fall through to the short thunder ring and the 10-ft
+     glass burst never drew. The wedge needs a throw. The burst still belongs on the point. */
+  var close = d.d < 16;
   var ang = Math.atan2(d.y, d.x), half = 0.28, len = d.d;
   var R = cell * 2;                                    /* 10-ft radius at the point */
   var grow = easeOut(Math.min(1, lt / time.grow));
@@ -1933,7 +1935,7 @@ function shatterPaint(ctx, A, B, lt, seed, g) {
   var bt = lt - time.grow;                             /* time since the wave reached the point */
   var i, k;
   /* wedge body: dust-brown fill growing from the caster with a pale rim */
-  var wf = f * (1 - clamp((lt - end) / 500));
+  var wf = close ? 0 : f * (1 - clamp((lt - end) / 500));
   if (wf > 0) {
     var reach = len * grow;
     ctx.save();

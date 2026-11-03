@@ -1903,10 +1903,11 @@ function zoneRoll(expr) {
   return { formula: String(expr || ""), faces: [], total: 0 };
 }
 function zoneApplyAmount(tick, who, caster, amount) {
-  if (!(amount > 0) || fight.damageMode === "approve") {
-    if (amount > 0) DM.toast((tick.spell || "Zone") + " " + (tick.formula || tick.dice || "") + " = " + amount + " " + (tick.type || "") + " (held)");
-    return;
+  if (amount > 0) {
+    const line = (tick.spell || "Zone") + " " + (tick.formula || tick.dice || "") + " = " + amount + " " + (tick.type || "") + (fight.damageMode === "approve" ? " (held)" : "");
+    DM.toast(line);
   }
+  if (!(amount > 0) || fight.damageMode === "approve") return;
   applyPlayerHit({
     rollId: DM.uid("zone"), targetId: who.playerId || who.id, targetName: who.name,
     amount: amount, from: (caster && (caster.playerId || caster.id)) || "", characterName: (caster && caster.name) || "",
@@ -2186,7 +2187,14 @@ window.addEventListener("ssdns-zone-tick", (ev) => {
   const ticks = ev && ev.detail && ev.detail.ticks;
   if (!ticks || !ticks.length || typeof fight === "undefined" || !fight) return;
   const tokenId = ev.detail.tokenId;
-  const who = (fight.order || []).find((r) => r && (r.mapTokenId === tokenId || r.id === tokenId || r.playerId === tokenId)) || { id: tokenId, name: (ticks[0] && ticks[0].targetName) || "Someone", kind: ev.detail.kind || "" };
+  const tickIds = {};
+  ticks.forEach((tick) => { if (tick && tick.targetId) tickIds[String(tick.targetId)] = 1; });
+  if (tokenId) tickIds[String(tokenId)] = 1;
+  const who = (fight.order || []).find((r) => {
+    if (!r) return false;
+    const live = typeof liveMapTokenId === "function" ? liveMapTokenId(r) : "";
+    return [r.mapTokenId, r.id, r.playerId, live].some((id) => id && tickIds[String(id)]);
+  }) || { id: tokenId, name: (ticks[0] && ticks[0].targetName) || "Someone", kind: ev.detail.kind || "" };
   const seen = fight.zoneSeen || (fight.zoneSeen = {});
   const Z = window.SSDNSSpellZones;
   const turnKey = (fight.round || 1) + ":" + (fight.turn || 0);
@@ -2362,11 +2370,16 @@ function applyRiderOutcome(caster, who, tick, settled) {
 }
 function deliverRiderTick(caster, who, tick, when) {
   if (downedHidden(who)) return;
+  const aimed = (tick && tick.targetId && findCombatant({ id: tick.targetId, playerId: tick.targetId })) || who;
+  if (/phantasmal killer/i.test(String((tick && tick.spell) || ""))) {
+    const knownPk = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(tick.spell) : { type: "psychic" };
+    spellMapFx((caster && (caster.mapTokenId || caster.playerId || caster.id)) || "", aimed.playerId || aimed.id, tick.spell, knownPk, "hit", { pulse: true });
+  }
   const R = window.SSDNSSpellRiders;
   const finish = (save) => {
     const settled = R.settleTick(caster.spellMarks, tick, save || {});
     caster.spellMarks = settled.bag;
-    applyRiderOutcome(caster, who, tick, settled);
+    applyRiderOutcome(caster, aimed, tick, settled);
     saveRemoteTable();
   };
   if (!tick.save || tick.auto) {
@@ -2381,8 +2394,8 @@ function deliverRiderTick(caster, who, tick, when) {
     return;
   }
   requestPlayerSave({
-    targetId: who.playerId || who.id,
-    targetName: who.name,
+    targetId: aimed.playerId || aimed.id,
+    targetName: aimed.name,
     ability: tick.save,
     dc: dc,
     label: tick.spell || "Spell",
@@ -2398,7 +2411,7 @@ function deliverRiderTick(caster, who, tick, when) {
 function riderPhase(who, when) {
   const R = window.SSDNSSpellRiders;
   if (!R || !R.phaseTicks || !R.settleTick || !who) return;
-  const ids = [who.playerId, who.id, who.mapTokenId].filter(Boolean);
+  const ids = [who.playerId, who.id, who.mapTokenId, typeof liveMapTokenId === "function" ? liveMapTokenId(who) : ""].filter(Boolean);
   (fight.order || []).forEach((caster) => {
     if (!caster || !caster.spellMarks) return;
     const phased = R.phaseTicks(caster.spellMarks, ids, when);
@@ -3601,7 +3614,7 @@ function castReactOffer(view) {
   const row = fightRowById(view && view.reactorId);
   if (!row || !view || !view.spellName) return;
   window.SSDNSReact.castingReaction = true;
-  Promise.resolve(castDmReactionSpell(row, view.spellName, view.spellLevel || 0)).then(function () {
+  Promise.resolve(castDmReactionSpell(row, view.spellName, view.spellLevel || 0, view)).then(function () {
     window.SSDNSReact.castingReaction = false;
   }, function () { window.SSDNSReact.castingReaction = false; });
 }
@@ -4053,7 +4066,51 @@ function enemySpellIndex(row, name) {
   const want = enemySpellBase(name);
   return list.findIndex((s) => enemySpellBase(typeof s === "string" ? s : (s && (s.name || s.id))) === want);
 }
-async function castDmReactionSpell(row, name, level) {
+async function castHellishReaction(row, level, view) {
+  const targetId = (view && (view.damagerId || view.casterId)) || "";
+  const target = targetId ? (resolveStrikeTarget(targetId) || { id: targetId, name: (view && (view.damagerName || view.casterName)) || "Someone" }) : null;
+  if (!target || !target.id) { DM.toast("Hellish Rebuke needs the creature that dealt the damage."); return false; }
+  const pid = row.playerId || row.id;
+  const p = DM.state.players && DM.state.players[pid];
+  const s = (p && p.snapshot) || {};
+  level = parseInt(level, 10) || 1;
+  if (level) {
+    s.spells = s.spells || {};
+    s.spells.slots = s.spells.slots || {};
+    s.spells.spent = s.spells.spent || {};
+    const totalSlots = Number(s.spells.slots[level] || 0);
+    const used = Number(s.spells.spent[level] || 0);
+    if (!totalSlots || used >= totalSlots) { DM.toast("No level-" + level + " slot left"); return false; }
+    s.spells.spent[level] = used + 1;
+    await DM.pushCommand({ type: "hex_spend", to: pid, payload: { level: level }, from: DM.state.uid });
+  }
+  const Cast = window.SSDNSSpellCast;
+  const rolled = Cast && Cast.rollCast ? Cast.rollCast({
+    spellName: "Hellish Rebuke", slotLevel: level, characterLevel: s.level,
+    attackBonus: atkNumber(s.spellAtk), spellMod: s.spellMod, dc: s.spellDC
+  }) : null;
+  const known = { type: "fire", name: "Hellish Rebuke" };
+  spellMapFx(row.mapTokenId || row.id, target.id, "Hellish Rebuke", known, "hit");
+  if (window.SSDNSAudio) window.SSDNSAudio.play(window.SSDNSAudio.spellCue ? window.SSDNSAudio.spellCue({ name: "Hellish Rebuke", kind: "save" }) : "spellcast");
+  const save = await requestPlayerSave({
+    targetId: target.id, targetName: target.name, ability: "DEX",
+    dc: s.spellDC, label: "Hellish Rebuke",
+    damage: (rolled && (rolled.damageDetail || rolled.text)) || "2d10 fire",
+    fromName: row.name || ""
+  });
+  let amount = save && save.blocked ? 0 : Number(rolled && (rolled.damageTotal != null ? rolled.damageTotal : rolled.result)) || 0;
+  if (save && !save.failed && !save.blocked) amount = Math.floor(amount / 2);
+  if (save && save.line) DM.toast(save.line);
+  if (amount > 0 && fight.damageMode !== "approve") {
+    applyPlayerHit({
+      rollId: DM.uid("spell"), targetId: target.id, targetName: target.name, amount: amount,
+      from: row.id, characterName: row.name, label: "Hellish Rebuke", weapon: "Hellish Rebuke", type: "damage"
+    });
+  }
+  DM.toast((rolled && rolled.text) || ((row.name || "PC") + " casts Hellish Rebuke"));
+  return true;
+}
+async function castDmReactionSpell(row, name, level, view) {
   if (!name) { DM.toast("No spell"); return; }
   if (row.kind !== "player") {
     /* Load the stat block only when this spell is not already on the card.
@@ -4065,9 +4122,16 @@ async function castDmReactionSpell(row, name, level) {
     }
     if (n < 0) { DM.toast("No spell"); return; }
     const i = fight.order.indexOf(row);
-    const ok = await cardCast(i < 0 ? fight.order.indexOf(fightRowById(row.id)) : i, n);
+    const damager = view && (view.damagerId || view.casterId);
+    const ok = await cardCast(i < 0 ? fight.order.indexOf(fightRowById(row.id)) : i, n, damager ? { targetId: String(damager), reactGo: true } : { reactGo: true });
     if (!ok) return;
     await spendEnemyPip(row, "reaction", "Casting " + name);
+    return;
+  }
+  if (/hellish rebuke/i.test(name || "")) {
+    const cast = await castHellishReaction(row, level, view);
+    if (!cast) return;
+    spendPlayerReaction(row);
     return;
   }
   const ok = await castDmRunSpell(row, name, level);
@@ -5401,6 +5465,21 @@ function onEnemySheetClick(e) {
           rollId: DM.uid("spell"), targetId: one.id, targetName: one.name, amount: rolled.damageTotal || 0,
           from: row.id, characterName: row.name, label: spellName, type: "damage"
         });
+        if (/heat metal/i.test(spellName || "")) {
+          const heatDc = (row.card && row.card.spellcasting && row.card.spellcasting.dc) || riderDc(row);
+          DM.toast((one.name || "Creature") + ": fire damage landed. CON save only to drop the object.");
+          if (heatDc != null && isFinite(Number(heatDc))) {
+            requestPlayerSave({
+              targetId: one.id, targetName: one.name, ability: "CON", dc: heatDc,
+              label: "Heat Metal", damage: "", fromName: row.name || ""
+            }).then((save) => {
+              const line = window.SSDNSSpellRiders && window.SSDNSSpellRiders.objectDropLine
+                ? window.SSDNSSpellRiders.objectDropLine("Heat Metal", one.name, !!(save && save.failed && !save.blocked))
+                : "";
+              if (line) DM.toast(line);
+            }).catch(() => {});
+          }
+        }
         if (/witch bolt|heat metal|hex|hunter's mark/i.test(spellName || "")) {
           const knownPulse = window.SSDNSSpellCast && window.SSDNSSpellCast.lookup ? window.SSDNSSpellCast.lookup(spellName) : null;
           spellMapFx(row.id, one.id, spellName, knownPulse, "hit", { pulse: true });
@@ -7919,6 +7998,8 @@ async function castAreaSpell(opts) {
 function askSaveSpell(row, name, known) {
   const players = combatTargets(row);
   const casting = (row.card && row.card.spellcasting) || {};
+  const named = String(name || "").toLowerCase();
+  const pickFresh = named === "phantasmal killer";
   const ability = (known && known.save) || "WIS";
   const dc = casting.dc == null ? "" : casting.dc;
   const dice = (known && known.dice) || "";
@@ -7927,11 +8008,17 @@ function askSaveSpell(row, name, known) {
   return new Promise((resolve) => {
     const dlg = document.createElement("dialog");
     dlg.className = "dlg";
-    const options = targetMenu(players, defaultCombatTarget(row, players));
-    dlg.innerHTML = `<form method="dialog"><h2>${esc(name)} save</h2><p class="fine">${esc(row.name || "Enemy")} casts a save spell.</p><label>Target <select id="saveTarget">${options}</select></label><label>Save <input id="saveAbility" value="${esc(ability)}" aria-label="Save ability"></label><label>DC <input id="saveDc" type="number" value="${esc(dc)}"></label><label>Damage on a fail <input id="saveDice" value="${esc(dice)}${type ? " " + esc(type) : ""}"></label><label>Rider on a fail <input id="saveRider" value="${esc(rider)}"></label><div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit">Ask for the save</button></div></form>`;
+    const picked = pickFresh ? "" : defaultCombatTarget(row, players);
+    const options = (pickFresh ? `<option value="">Choose the creature</option>` : "") + targetMenu(players, picked);
+    const fine = pickFresh
+      ? "Wisdom save for Frightened. 4d10 psychic is the failed save at the end of that creature's turn, not this cast."
+      : (esc(row.name || "Enemy") + " casts a save spell.");
+    dlg.innerHTML = `<form method="dialog"><h2>${esc(name)} save</h2><p class="fine">${fine}</p><label>Target <select id="saveTarget">${options}</select></label><label>Save <input id="saveAbility" value="${esc(ability)}" aria-label="Save ability"></label><label>DC <input id="saveDc" type="number" value="${esc(dc)}"></label><label>${pickFresh ? "Later damage" : "Damage on a fail"} <input id="saveDice" value="${esc(dice)}${type ? " " + esc(type) : ""}"></label><label>Rider on a fail <input id="saveRider" value="${esc(pickFresh ? "Frightened" : rider)}"></label><div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit">Ask for the save</button></div></form>`;
     const finish = (ok) => {
+      const chosenId = (dlg.querySelector("#saveTarget") || {}).value || "";
+      if (ok && pickFresh && !chosenId) { DM.toast("Choose the creature Phantasmal Killer frightens."); return; }
       const payload = ok ? {
-        targetId: (dlg.querySelector("#saveTarget") || {}).value || "",
+        targetId: chosenId,
         ability: (dlg.querySelector("#saveAbility") || {}).value || ability,
         dc: (dlg.querySelector("#saveDc") || {}).value,
         damage: (dlg.querySelector("#saveDice") || {}).value || "",
@@ -8241,7 +8328,7 @@ async function cardCast(i, n, opts) {
       });
     }
     const cond = asked.rider || spellConditionName(spell);
-    if (failed && cond) {
+    if (failed && cond && !(window.SSDNSSpellRiders && window.SSDNSSpellRiders.objectDropLine && window.SSDNSSpellRiders.objectDropLine(name, target.name, true))) {
       const named = /prone/i.test(cond) ? "Prone" : (/^disadvantage$/i.test(cond) ? "Disadvantage" : cond);
       const knownChip = !!(known && (known.onFail || known.onHit));
       if (CONDITIONS.indexOf(named) >= 0 || named === "Disadvantage" || knownChip) {
@@ -8304,6 +8391,23 @@ async function cardCast(i, n, opts) {
     await saveRemoteTable();
     renderFight();
     DM.toast(cardDetail);
+    return true;
+  }
+  if (kind === "weapon" && window.SSDNSSpellRiders && window.SSDNSSpellRiders.ridesWeapon && window.SSDNSSpellRiders.ridesWeapon(known || { name: name })) {
+    spendSpellSlot(card, level);
+    const armed = window.SSDNSSpellRiders.arm(row.spellMarks, {
+      name: name, row: known, slot: level, casterId: row.playerId || row.id, armPending: true
+    });
+    row.spellMarks = armed.bag;
+    let ready = row.name + " readies " + name;
+    if (armed.logs && armed.logs.length) ready += " · " + armed.logs.join(" · ");
+    if (spellConcentrates(spell, known)) ready += noteConcentration(row, name, level);
+    spellMapFx(row.id, row.id, name, known, "hit");
+    await publishCardRoll(row, ready, 0, { formula: "—", spell: true });
+    playCue();
+    await saveRemoteTable();
+    renderFight();
+    DM.toast(ready);
     return true;
   }
   let targetId = direct;
@@ -9437,7 +9541,10 @@ function applyRequest(req, reqId) {
         if (fight.damageMode === "approve" || heldOutOfTurn(req)) holdHit(hit, lineAfter);
         else applyPlayerHit(hit);
       }
-      if (save && save.failed && req.condition) {
+      const dropLine = window.SSDNSSpellRiders && window.SSDNSSpellRiders.objectDropLine
+        ? window.SSDNSSpellRiders.objectDropLine(req.spell || req.label || "", name, !!(save && save.failed && !save.blocked))
+        : "";
+      if (!dropLine && save && save.failed && req.condition) {
         const caster = { id: req.from || "", name: who, kind: "player" };
         const tgt = row || { id: req.targetId, name: name };
         try { await rememberCondition(caster, tgt, req.condition, null, { spell: req.spell || req.label || "", conc: !!req.conc }); } catch (err) {}
@@ -9490,6 +9597,23 @@ function applyRequest(req, reqId) {
   if (!row && !req.targetId && blankLabel(req.targetName)) {
     DM.toast("Pick a target");
     return;
+  }
+  if (!heal && req.riderSave && req.targetId) {
+    const riderDcN = req.dc != null && req.dc !== "" && isFinite(Number(req.dc)) ? Number(req.dc) : riderDc(findCombatant({ id: req.from, playerId: req.from }));
+    if (riderDcN == null) DM.toast((req.riderSpell || "Smite") + ": no spell DC, so the " + req.riderSave + " save is not rolled.");
+    else {
+      requestPlayerSave({
+        targetId: req.targetId, targetName: name, ability: req.riderSave, dc: riderDcN,
+        label: req.riderSpell || "Smite", fromName: who
+      }).then((save) => {
+        if (save && save.line) DM.toast(save.line);
+        if (save && save.failed && !save.blocked && req.riderOnFail) {
+          const caster = findCombatant({ id: req.from, playerId: req.from }) || { id: req.from || "", name: who };
+          rememberCondition(caster, row || { id: req.targetId, name: name }, req.riderOnFail, null, { spell: req.riderSpell || "", conc: true }).catch(() => {});
+          DM.toast((name || "Creature") + " is " + req.riderOnFail + " (" + (req.riderSpell || "Smite") + ")");
+        }
+      }).catch(() => {});
+    }
   }
   const plainMove = heal ? null : slideMove(req, null);
   if (heldOutOfTurn(req)) {

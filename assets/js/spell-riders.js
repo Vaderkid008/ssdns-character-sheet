@@ -693,6 +693,7 @@
     var kept = [];
     var splashHit = null;
     var banishHit = 0;
+    var hitSave = null;
     next.marks.forEach(function (mark) {
       if (mark.kind !== "smite" || !mark.pending) { kept.push(mark); return; }
       if (!weaponAttack || !weaponOk(mark, ctx)) { kept.push(mark); return; }
@@ -718,8 +719,14 @@
       mark.pending = false;
       mark.targetId = ctx.targetId || "";
       if (mark.onFail && !pushNote(mark.onFail)) {
-        mark.chip = mark.onFail;
-        chips.push(chip(mark.onFail, ctx.targetId, mark.spell, !!mark.conc, ctx.casterId || ""));
+        /* Staggering Smite's WIS save is the condition only. The psychic dice already rode the hit. */
+        if (mark.save && norm(mark.spell) === "staggering smite") {
+          hitSave = { ability: mark.save, onFail: mark.onFail, spell: mark.spell, targetId: ctx.targetId || "" };
+          logs.push(mark.save + " save or " + mark.onFail + " (this hit; the attack still lands)");
+        } else {
+          mark.chip = mark.onFail;
+          chips.push(chip(mark.onFail, ctx.targetId, mark.spell, !!mark.conc, ctx.casterId || ""));
+        }
       }
       if (mark.push) logs.push("pushed " + mark.push + " ft");
       if (mark.banishAt) logs.push("banished if this hit leaves the target at " + mark.banishAt + " HP or fewer (no save)");
@@ -749,7 +756,21 @@
     next.marks = kept;
     var total = 0;
     riders.forEach(function (r) { total += r.total; });
-    return { bag: next, riders: riders, logs: logs, chips: chips, removed: removed, total: total, splash: splashHit, banishAt: banishHit };
+    return { bag: next, riders: riders, logs: logs, chips: chips, removed: removed, total: total, splash: splashHit, banishAt: banishHit, hitSave: hitSave };
+  }
+  /* Staggering Smite and Banishing Smite ride the next weapon hit. They do not roll their own attack. */
+  function ridesWeapon(row) {
+    var spec = row && row.name ? patchRow(row) : null;
+    if (!spec) return false;
+    var key = norm(spec.name);
+    return key === "staggering smite" || key === "banishing smite";
+  }
+  function objectDropLine(spell, who, failed) {
+    var key = norm(spell);
+    if (key !== "heat metal") return "";
+    var name = who || "The creature";
+    if (failed) return name + " drops the object (Heat Metal). The fire damage already landed. Nothing leaves inventory.";
+    return name + " keeps hold of the object (Heat Metal). The fire damage still lands.";
   }
 
   function onHitSpell(bag, opts) {
@@ -924,16 +945,25 @@
       }));
     }
 
+    if (key === "heat metal") {
+      var dropLine = objectDropLine(name, opts.targetName || "The creature", failed);
+      if (dropLine) logs.push(dropLine);
+      return { bag: next, logs: logs, chips: [], removed: [], changed: !!dropLine };
+    }
+
     if (key === "phantasmal killer") {
       if (!failed) return unchanged;
       var later = (row && row.later) || {};
       var saveAb = later.save || "WIS";
       if (hasTick(next, { spell: name, targetId: opts.targetId || "", when: "end", save: saveAb })) return unchanged;
       var dice = upDice(later.dice || (row && row.dice) || "4d10", later.up || (row && row.up) || "1d10", slot, (row && row.level) || 4);
-      addTick(next, {
+      var pkTick = {
         spell: name, targetId: opts.targetId || "", when: "end", save: saveAb, dice: dice,
         type: later.type || (row && row.type) || "psychic", endOnSuccess: true, conc: true
-      });
+      };
+      var pkDc = Number(opts.dc);
+      if (isFinite(pkDc) && pkDc > 0) pkTick.dc = pkDc;
+      addTick(next, pkTick);
       if (!next.conc) next.conc = name;
       chips.push(chip("Frightened", opts.targetId, name, true, opts.casterId || ""));
       logs.push("end of each turn: " + saveAb + " save or " + dice + " psychic; a success ends it");
@@ -1526,6 +1556,8 @@
     needsOptions: needsOptions,
     arm: arm,
     attackRiders: attackRiders,
+    ridesWeapon: ridesWeapon,
+    objectDropLine: objectDropLine,
     onHitSpell: onHitSpell,
     contagionSave: contagionSave,
     contagionChip: contagionChip,

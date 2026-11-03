@@ -739,6 +739,10 @@
     if (entry.zoneId) row.zoneId = entry.zoneId;
     if (entry.zoneBudget) row.zoneBudget = Number(entry.zoneBudget) || 0;
     if (row.dc == null && entry.dc != null && entry.dc !== "" && isFinite(Number(entry.dc))) row.dc = Number(entry.dc);
+    if (entry.banishAt) row.banishAt = Number(entry.banishAt) || 0;
+    if (entry.riderSave) row.riderSave = String(entry.riderSave);
+    if (entry.riderOnFail) row.riderOnFail = String(entry.riderOnFail);
+    if (entry.riderSpell) row.riderSpell = String(entry.riderSpell);
     return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row).then(function () {
       return { ok: true };
     }).catch(function (e) {
@@ -3019,13 +3023,8 @@
     var P = root.SSDNSActionPips;
     if (!P || !view || !view.spellName) return;
     var target = view.damagerId || view.casterId || "";
-    if (target) {
-      var sel = document.querySelector("#atkTarget");
-      if (sel && sel.querySelector('option[value="' + String(target).replace(/"/g, "") + '"]')) {
-        sel.value = String(target);
-        try { sel.dispatchEvent(new Event("change", { bubbles: true })); } catch (e) {}
-      }
-    }
+    var targetName = view.damagerName || view.casterName || "";
+    if (target) aimCastTarget(target, targetName);
     root.SSDNSReact.castingReaction = true;
     try {
       if (P.spell) P.spell(view.spellName);

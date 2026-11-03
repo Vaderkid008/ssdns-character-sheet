@@ -18,10 +18,10 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.221" && version.sheetBuild === "sheet-playtest-v03221");
-check("ver.dmcc", version.dmcc === "0.2.234" && version.dmccBuild === "dmcc-playtest-v02234");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.221"') && read("assets/js/app.js").includes("sheet-playtest-v03221"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.234"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02234"));
+check("ver.sheet", version.sheet === "0.3.222" && version.sheetBuild === "sheet-playtest-v03222");
+check("ver.dmcc", version.dmcc === "0.2.235" && version.dmccBuild === "dmcc-playtest-v02235");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.222"') && read("assets/js/app.js").includes("sheet-playtest-v03222"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.235"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02235"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js database.rules.json", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
@@ -87,7 +87,7 @@ check("ui.paths", lib.includes(packPath) && lib.includes("assets/packs/encounter
 const sheet = read("index.html");
 const dm = read("dm/index.html");
 check("html.sheet", sheet.includes("map/asset-library.js?v=0.3.221-encounter2") && sheet.includes("map/ssdns-map.js?v=0.3.221-encounter2"));
-check("html.dm", dm.includes("../map/asset-library.js?v=0.2.234-encounter2") && dm.includes("assets/js/dmcc.js?v=0.2.234-encounter2") && dm.includes("../map/ssdns-map.js?v=0.2.234-encounter2"));
+check("html.dm", dm.includes("../map/asset-library.js?v=0.2.234-encounter2") && dm.includes("assets/js/dmcc.js?v=0.2.235-p1b") && dm.includes("../map/ssdns-map.js?v=0.2.234-encounter2"));
 check("docs", read("map/DATA.md").includes("Encounter Pack v2") && read("docs/SCHEMA.md").includes("encounter-pack-v2.ssdns-asset-pack.json"));
 
 const doc = {
