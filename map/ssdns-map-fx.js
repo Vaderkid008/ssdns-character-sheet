@@ -3950,7 +3950,9 @@ function beadsPaint(ctx, A, B, lt, seed) {
         var age = ((lt / 1400) + r2()) % 1, an2 = r2() * TAU;
         glow(ctx, B.x + Math.cos(an2) * G.rT * 0.75, B.y + Math.sin(an2) * G.rT * 0.55 - age * 20, 6 + age * 6, [[0, rgba(PAL.poison.core, 0.32 * sa * Math.sin(Math.PI * age))], [1, rgba(PAL.poison.glow, 0)]]);
       }
-      pill(ctx, B.x, B.y - G.rT - 14, "POISONED", sa, "rgba(36,36,16,0.92)", rgba(PAL.poison.core, 1), "rgba(230,225,170,1)");
+      /* Lasting POISONED word is the map condition chip (same olive/gold, over the token).
+         A quiet rider must not stack a second pill on that chip. The cast still flashes the word. */
+      if (!G.quiet) pill(ctx, B.x, B.y - G.rT - 14, "POISONED", sa, "rgba(36,36,16,0.92)", rgba(PAL.poison.core, 1), "rgba(230,225,170,1)");
     }
   }
 
