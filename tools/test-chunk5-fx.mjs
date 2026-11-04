@@ -171,7 +171,7 @@ const dm = read("dm/assets/js/v2.js");
 check("wire.hops", sheet.includes("conjure barrage|conjure volley|cone of cold|destructive wave") && dm.includes("cone of cold|destructive wave"));
 check("wire.skin", sheet.includes('pickedMode === "radiant"') && dm.includes('mode === "radiant"'));
 check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.223-p2a") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.236-p2a"));
-check("ver", JSON.parse(read("version.json")).sheet === "0.3.226" && JSON.parse(read("version.json")).dmcc === "0.2.239");
+check("ver", JSON.parse(read("version.json")).sheet === "0.3.227" && JSON.parse(read("version.json")).dmcc === "0.2.240");
 
 console.log(failures.length ? "\n" + failures.length + " FAILED" : "\nall chunk5 fx checks passed");
 process.exit(failures.length ? 1 : 0);
