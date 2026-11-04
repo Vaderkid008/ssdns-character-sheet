@@ -146,7 +146,7 @@ check("map.tint", map.includes("fxHealSlot") && map.includes("healIndex") && map
 check("wire.dm", dm.includes("function chipsPresent") && dm.includes("fxExtra.cleared") && dm.includes("healed.slice(1)"));
 check("wire.sheet", sheet.includes("function healFxExtra") && sheet.includes("extra.cleared"));
 check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.223-p2a") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.236-p2a"));
-check("ver", JSON.parse(read("version.json")).sheet === "0.3.226" && JSON.parse(read("version.json")).dmcc === "0.2.239");
+check("ver", JSON.parse(read("version.json")).sheet === "0.3.227" && JSON.parse(read("version.json")).dmcc === "0.2.240");
 
 console.log(failures.length ? "\n" + failures.length + " FAILED" : "\nall chunk6 fx checks passed");
 process.exit(failures.length ? 1 : 0);
