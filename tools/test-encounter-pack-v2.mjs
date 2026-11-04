@@ -18,10 +18,10 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.227" && version.sheetBuild === "sheet-playtest-v03227");
-check("ver.dmcc", version.dmcc === "0.2.240" && version.dmccBuild === "dmcc-playtest-v02240");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.227"') && read("assets/js/app.js").includes("sheet-playtest-v03227"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.240"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02240"));
+check("ver.sheet", version.sheet === "0.3.228" && version.sheetBuild === "sheet-playtest-v03228");
+check("ver.dmcc", version.dmcc === "0.2.241" && version.dmccBuild === "dmcc-playtest-v02241");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.228"') && read("assets/js/app.js").includes("sheet-playtest-v03228"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.241"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02241"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js database.rules.json", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
@@ -86,8 +86,8 @@ check("ui.buttons", lib.includes('data-al-starter="' + "' + esc(p.key) + '" + '"
 check("ui.paths", lib.includes(packPath) && lib.includes("assets/packs/encounter-pack-v1.ssdns-asset-pack.json") && lib.includes("skipExisting") && L.STARTER_PACK_V2 === packPath && L.STARTER_PACKS.length === 2);
 const sheet = read("index.html");
 const dm = read("dm/index.html");
-check("html.sheet", sheet.includes("map/asset-library.js?v=0.3.221-encounter2") && sheet.includes("map/ssdns-map.js?v=0.3.226-shatter"));
-check("html.dm", dm.includes("../map/asset-library.js?v=0.2.234-encounter2") && dm.includes("assets/js/dmcc.js?v=0.2.240-n62paint") && dm.includes("../map/ssdns-map.js?v=0.2.239-shatter"));
+check("html.sheet", sheet.includes("map/asset-library.js?v=0.3.221-encounter2") && sheet.includes("map/ssdns-map.js?v=0.3.228-drawscroll"));
+check("html.dm", dm.includes("../map/asset-library.js?v=0.2.234-encounter2") && dm.includes("assets/js/dmcc.js?v=0.2.241-drawscroll") && dm.includes("../map/ssdns-map.js?v=0.2.241-drawscroll"));
 check("docs", read("map/DATA.md").includes("Encounter Pack v2") && read("docs/SCHEMA.md").includes("encounter-pack-v2.ssdns-asset-pack.json"));
 
 const doc = {

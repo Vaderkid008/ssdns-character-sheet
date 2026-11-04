@@ -13142,6 +13142,11 @@ async function loadSceneImage(sceneId, opts) {
   function paintPlayerFight() {
     const slot = q('actionSlot');
     if (!slot) return;
+    /* 0.3.228: the player card is the scrolling menu. A pick rebuilds the rows
+       under the focused control, and the browser then jumps that scroller to the top. */
+    const panel = (slot.closest && slot.closest('.ssdns-playercard')) || q('playerCard') || slot;
+    const keep = readPanelScroll(panel);
+    releasePanelFocus(panel);
     const n62on = slot.hasAttribute('data-n62-bind');
     const root = n62on ? (q('playerCard') || slot) : slot;
     const card = playerFightModel();
@@ -13360,6 +13365,8 @@ async function loadSceneImage(sceneId, opts) {
         requestDraw();
       });
     });
+    writePanelScroll(panel, keep);
+    schedulePanelScroll(panel, keep);
   }
   /* B14: the token card docks like map chat (player left, DM right). Drag the head to float it,
      drop the pointer on a side edge to dock there again. Open/collapsed, side, and float spot
@@ -13667,8 +13674,70 @@ async function loadSceneImage(sceneId, opts) {
         dropBtn +
       '</div>';
   }
+  /* 0.3.228: token drawer and player card. innerHTML rebuilds the scrolling
+     body (and Chrome drops scroll when the focused row is removed). Remember
+     both the card and the body, then put that scroll back after the paint. */
+  function readPanelScroll(root) {
+    if (!root || !root.querySelector) return null;
+    const body = root.querySelector('.ssm-drawer-body, .ssm-card-body');
+    const live = {
+      rootTop: root.scrollTop || 0,
+      rootLeft: root.scrollLeft || 0,
+      bodyTop: body ? (body.scrollTop || 0) : 0,
+      bodyLeft: body ? (body.scrollLeft || 0) : 0
+    };
+    /* A second pick in the same frame can land after the browser has already
+       zeroed the scroller and before the frame restore. Keep the scroll we
+       meant to put back, unless the user has moved to a new offset. */
+    const pending = root._panelScrollKeep;
+    if (!pending) return live;
+    return {
+      rootTop: live.rootTop || pending.rootTop || 0,
+      rootLeft: live.rootLeft || pending.rootLeft || 0,
+      bodyTop: live.bodyTop || pending.bodyTop || 0,
+      bodyLeft: live.bodyLeft || pending.bodyLeft || 0
+    };
+  }
+  function writePanelScroll(root, keep) {
+    if (!root || !keep) return;
+    if (root.scrollTop !== keep.rootTop) root.scrollTop = keep.rootTop;
+    if (keep.rootLeft && root.scrollLeft !== keep.rootLeft) root.scrollLeft = keep.rootLeft;
+    const body = root.querySelector('.ssm-drawer-body, .ssm-card-body');
+    if (!body) return;
+    if (body.scrollTop !== keep.bodyTop) body.scrollTop = keep.bodyTop;
+    if (keep.bodyLeft && body.scrollLeft !== keep.bodyLeft) body.scrollLeft = keep.bodyLeft;
+  }
+  function releasePanelFocus(root) {
+    const active = document.activeElement;
+    if (!active || !root || !root.contains || !root.contains(active)) return;
+    const tag = active.tagName;
+    if (tag !== 'BUTTON' && tag !== 'SELECT' && tag !== 'A') return;
+    try { active.blur(); } catch (e) {}
+  }
+  function schedulePanelScroll(root, keep) {
+    if (!root || !keep) return;
+    root._panelScrollKeep = keep;
+    if (typeof requestAnimationFrame !== 'function') {
+      root._panelScrollKeep = null;
+      return;
+    }
+    const gen = (root._panelScrollGen = (root._panelScrollGen || 0) + 1);
+    requestAnimationFrame(() => {
+      if (root._panelScrollGen !== gen) return;
+      writePanelScroll(root, keep);
+      if (root._panelScrollGen === gen) root._panelScrollKeep = null;
+    });
+  }
   function renderDrawer() {
     if (role !== 'dm' || !state.drawerOpen) return;
+    const panel = q('drawer');
+    const keep = readPanelScroll(panel);
+    releasePanelFocus(panel);
+    const done = () => {
+      const next = q('drawer');
+      writePanelScroll(next, keep);
+      schedulePanelScroll(next, keep);
+    };
     let d = q('drawer');
     if (!d) {
       d = document.createElement('aside');
@@ -13737,6 +13806,7 @@ async function loadSceneImage(sceneId, opts) {
         closeDrawer();
       });
       syncDockChrome(d);
+      done();
       return;
     }
     const card = lookupCard(tokenId);
@@ -13775,6 +13845,7 @@ async function loadSceneImage(sceneId, opts) {
       bindLightHands(d, tokenId);
       bindBomb(d, bare);
       syncDockChrome(d);
+      done();
       return;
     }
     const isPc = card.kind === 'pc';
@@ -14409,6 +14480,7 @@ async function loadSceneImage(sceneId, opts) {
     d.querySelector('[data-act="deathBtn"]').addEventListener('click', () => emit('drawer:deathsave', detail()));
     d.querySelector('[data-act="undoBtnD"]').addEventListener('click', () => emit('drawer:undo', detail()));
     syncDockChrome(d);
+    done();
   }
   function refreshCard(tokenId) {
     /* 0.3.64: the token ammo badge is drawn on the canvas from host.rounds(); the sheet's publishGunCard and the
