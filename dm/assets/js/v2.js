@@ -1902,16 +1902,32 @@ function zoneRoll(expr) {
   if (R && R.rollExpr) return R.rollExpr(expr, false);
   return { formula: String(expr || ""), faces: [], total: 0 };
 }
+function facedDice(rolled, type) {
+  const faces = (rolled && rolled.faces) || [];
+  const marks = faces.map((n) => "«" + n + "»").join(" ");
+  const formula = (rolled && rolled.formula) || "";
+  return formula + (marks ? " " + marks : "") + " = " + ((rolled && rolled.total) || 0) + (type ? " " + type : "");
+}
 function zoneApplyAmount(tick, who, caster, amount) {
-  if (amount > 0) {
-    const line = (tick.spell || "Zone") + " " + (tick.formula || tick.dice || "") + " = " + amount + " " + (tick.type || "") + (fight.damageMode === "approve" ? " (held)" : "");
-    DM.toast(line);
+  const faceList = tick.faces || [];
+  const faces = faceList.map((n) => "«" + n + "»").join(" ");
+  const formula = tick.formula || tick.dice || "";
+  const full = faceList.length ? faceList.reduce((sum, n) => sum + (Number(n) || 0), 0) : amount;
+  const shown = formula + (faces ? " " + faces : "") + " = " + full + (tick.type ? " " + tick.type : "");
+  const dealt = amount > 0 && amount < full ? " · " + amount + " dealt" : (amount > 0 ? "" : " · none");
+  const line = (tick.spell || "Zone") + " " + shown + dealt + (fight.damageMode === "approve" && amount > 0 ? " (held)" : "");
+  if (formula || amount > 0) DM.toast(line);
+  if (faces && DM.pushRoll) {
+    DM.pushRoll({
+      who: (who && who.name) || "Someone", label: tick.spell || "Zone", formula: formula,
+      result: full, detail: line, rolls: faceList, private: false
+    });
   }
   if (!(amount > 0) || fight.damageMode === "approve") return;
   applyPlayerHit({
     rollId: DM.uid("zone"), targetId: who.playerId || who.id, targetName: who.name,
     amount: amount, from: (caster && (caster.playerId || caster.id)) || "", characterName: (caster && caster.name) || "",
-    label: tick.spell || "Zone", weapon: tick.spell || "", type: "damage", dice: tick.formula || tick.dice || ""
+    label: tick.spell || "Zone", weapon: tick.spell || "", type: "damage", dice: shown
   });
 }
 function casterForZone(zone) {
@@ -2037,14 +2053,14 @@ function deliverZoneTick(tick, who, caster) {
   if (!tick || !who) return;
   if (downedHidden(who)) return;
   if (tick.hostile && !zoneHostile(caster, who)) return;
-  const finish = (amount, formula) => {
-    zoneApplyAmount(Object.assign({}, tick, { formula: formula || tick.formula }), who, caster, amount);
+  const finish = (amount, formula, faces) => {
+    zoneApplyAmount(Object.assign({}, tick, { formula: formula || tick.formula, faces: faces || tick.faces || [] }), who, caster, amount);
     chargeZone(tick, amount);
   };
   if (tick.save) {
     const dc = (tick.dc != null && tick.dc !== "" && isFinite(Number(tick.dc))) ? Number(tick.dc) : riderDc(caster);
     const shapeNote = tick.shapechanger ? " · shapechanger has disadvantage" : "";
-    DM.toast("SAVE " + (tick.spell || "Zone") + " " + (tick.when || "") + " " + tick.save + (tick.dice ? " or " + tick.dice + " " + (tick.type || "") : "") + shapeNote);
+    DM.toast("SAVE " + (tick.spell || "Zone") + " " + (tick.when || "") + " " + tick.save + (tick.type ? " or " + tick.type : "") + shapeNote);
     if (dc == null || !isFinite(Number(dc))) {
       DM.toast((tick.spell || "Zone") + ": no spell DC, so the save is not rolled.");
       return;
@@ -2052,7 +2068,7 @@ function deliverZoneTick(tick, who, caster) {
     const shapechanger = tick.shapechanger && /shapechanger|lycanthrope|doppelganger/i.test(((who && (who.type || who.name)) || "") + " " + ((who.card && who.card.type) || ""));
     requestPlayerSave({
       targetId: who.playerId || who.id, targetName: who.name, ability: tick.save, dc: dc,
-      label: tick.spell || "Zone", damage: (tick.dice || "") + " " + (tick.type || ""), fromName: (caster && caster.name) || "",
+      label: tick.spell || "Zone", damage: (tick.type || "damage"), fromName: (caster && caster.name) || "",
       disadvantage: !!shapechanger
     }).then((save) => {
       if (!save) return;
@@ -2062,7 +2078,7 @@ function deliverZoneTick(tick, who, caster) {
       if (save.blocked) amount = 0;
       else if (!save.failed) amount = tick.half ? Math.floor(amount / 2) : 0;
       else if (!tick.dice) amount = 0;
-      finish(amount, rolled.formula);
+      finish(amount, rolled.formula, rolled.faces);
       if (save.failed && !save.blocked && tick.onFail) {
         const tgt = (fight.order || []).find((r) => r && (r.playerId === (who.playerId || who.id) || r.id === (who.playerId || who.id))) || who;
         rememberCondition(caster || { id: tick.casterId || "", name: tick.spell || "" }, tgt, tick.onFail, null, { spell: tick.spell || "", conc: false }).catch(() => {});
@@ -2071,7 +2087,7 @@ function deliverZoneTick(tick, who, caster) {
     }).catch(() => {});
     return;
   }
-  finish(tick.amount, tick.formula);
+  finish(tick.amount, tick.formula, tick.faces);
 }
 function endRemovedZones(removed) {
   if (!removed || !removed.length || typeof fight === "undefined" || !fight) return;
@@ -3621,13 +3637,17 @@ function castReactOffer(view) {
 function feetBetweenCombatants(aId, bRow) {
   const host = window.SSDNSMapHost;
   if (!host || typeof host.feetBetween !== "function" || !aId || !bRow) return null;
-  const b = bRow.mapTokenId || bRow.playerId || bRow.id;
+  const b = rowTokenId(bRow);
   try { return host.feetBetween(aId, b); } catch (e) { return null; }
+}
+function rowTokenId(row) {
+  if (!row) return "";
+  const live = typeof liveMapTokenId === "function" ? liveMapTokenId(row) : "";
+  return live || row.mapTokenId || row.playerId || row.id || "";
 }
 function feetBetweenRows(aRow, bRow) {
   if (!aRow || !bRow) return null;
-  const a = aRow.mapTokenId || aRow.playerId || aRow.id;
-  return feetBetweenCombatants(a, bRow);
+  return feetBetweenCombatants(rowTokenId(aRow), bRow);
 }
 function spellRangeText(name, known) {
   const Cast = window.SSDNSSpellCast;
@@ -6043,9 +6063,26 @@ function coverDustFx() {
 }
 function dropDustToken(subjectId) {
   const host = window.SSDNSMapHost;
-  if (!subjectId || !host || typeof host.dropTokenKeepRow !== "function") return;
+  if (!subjectId || !host) return;
   const row = findCombatant({ id: subjectId, targetId: subjectId, mapTokenId: subjectId });
-  host.dropTokenKeepRow(subjectId);
+  const ids = [];
+  const pushId = (id) => { if (id && ids.indexOf(id) < 0) ids.push(id); };
+  pushId(subjectId);
+  if (row) {
+    pushId(typeof liveMapTokenId === "function" ? liveMapTokenId(row) : "");
+    pushId(row.mapTokenId);
+    pushId(row.id);
+    pushId(row.playerId);
+  }
+  let dropped = false;
+  if (typeof host.dropTokenKeepRow === "function") {
+    ids.forEach((id) => { if (host.dropTokenKeepRow(id)) dropped = true; });
+  }
+  if (!dropped && typeof host.removeToken === "function") {
+    ids.forEach((id) => {
+      if (host.hasToken && host.hasToken(id)) { host.removeToken(id); dropped = true; }
+    });
+  }
   if (!row) return;
   const still = row.mapTokenId && host.hasToken && host.hasToken(row.mapTokenId);
   if (!still) delete row.mapTokenId;
@@ -6468,6 +6505,12 @@ async function rollSpellAt(row, spellId, targetId) {
   s.spells = s.spells || {};
   s.spells.slots = s.spells.slots || {};
   s.spells.spent = s.spells.spent || {};
+  let pickedDisease = "";
+  const optNeed = window.SSDNSSpellRiders && window.SSDNSSpellRiders.needsOptions ? window.SSDNSSpellRiders.needsOptions(known) : null;
+  if (optNeed && optNeed.kind === "disease") {
+    pickedDisease = await askSpellPick((name || "Contagion") + " — disease", optNeed.options || []);
+    if (!pickedDisease) return false;
+  }
   if (level) {
     const totalSlots = Number(s.spells.slots[level] || 0);
     const used = Number(s.spells.spent[level] || 0);
@@ -6519,6 +6562,14 @@ async function rollSpellAt(row, spellId, targetId) {
         rollId: id, targetId: target.id, targetName: target.name, amount: rolled.damageTotal,
         from: row.id, characterName: row.name, weapon: name, label: name, type: "damage"
       });
+    }
+    if (window.SSDNSSpellRiders && window.SSDNSSpellRiders.landResolved) {
+      const landedHit = commitRider(row, known, {
+        slot: level, targetId: target.id, targetName: target.name,
+        hit: hit, miss: !hit, crit: nat === 20 && hit,
+        disease: pickedDisease, dc: s.spellDC
+      });
+      if (landedHit && landedHit.logs && landedHit.logs.length) detail += " · " + landedHit.logs.join(" · ");
     }
   } else if (kind === "save" && (target || (multiPicks && multiPicks.length))) {
     const saveList = multiPicks && multiPicks.length ? multiPicks : [target];
@@ -7865,8 +7916,11 @@ async function castAreaSpell(opts) {
   if (chosen && window.SSDNSSpellRiders && window.SSDNSSpellRiders.keepChosen) tokens = window.SSDNSSpellRiders.keepChosen(tokens, chosen);
   const names = tokens.map((t) => t.name).filter(Boolean);
   let detail = (opts.who || "Someone") + " casts " + opts.name;
-  if (rolled && rolled.text) detail += " · " + rolled.text;
-  detail += names.length ? (" · " + names.join(", ")) : " · nobody in the area";
+  if (/hunger of hadar/i.test(opts.name || "")) {
+    const cold = openHadarCold(tokens, opts);
+    detail += cold.length ? (" · " + cold.join(" · ")) : " · nobody in the sphere";
+  } else if (rolled && rolled.text) detail += " · " + rolled.text;
+  if (!/hunger of hadar/i.test(opts.name || "")) detail += names.length ? (" · " + names.join(", ")) : " · nobody in the area";
   const zoneLine = adoptCastZone(opts.row, opts.name, placed, opts.slotLevel, opts.dc, zoneExtra);
   if (zoneLine) detail += " · " + zoneLine;
   const defer = window.SSDNSSpellZones && window.SSDNSSpellZones.defersCast && window.SSDNSSpellZones.defersCast(opts.name);
@@ -7994,6 +8048,57 @@ async function castAreaSpell(opts) {
     else if (area.does) detail += " · " + area.does;
   }
   return { ok: true, detail: detail, rolled: rolled, names: names };
+}
+function askSpellPick(title, options) {
+  const list = options || [];
+  if (!list.length) return Promise.resolve("");
+  return new Promise((resolve) => {
+    const dlg = document.createElement("dialog");
+    dlg.className = "dlg";
+    const buttons = list.map((name) => `<button class="btn sm" type="submit" value="${esc(name)}" style="margin:0 6px 6px 0">${esc(name)}</button>`).join("");
+    dlg.innerHTML = `<form method="dialog"><h2>${esc(title || "Choose")}</h2><div>${buttons}</div><div class="dlg-foot"><button class="btn" value="" type="submit">Cancel</button></div></form>`;
+    let done = false;
+    const finish = (value) => {
+      if (done) return;
+      done = true;
+      if (dlg.close) dlg.close();
+      if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+      resolve(value || "");
+    };
+    dlg.querySelectorAll("button").forEach((btn) => {
+      btn.addEventListener("click", () => { finish(btn.value || ""); });
+    });
+    dlg.querySelector("form").addEventListener("submit", (e) => { e.preventDefault(); });
+    dlg.addEventListener("cancel", (e) => { e.preventDefault(); finish(""); });
+    document.body.appendChild(dlg);
+    openDialog(dlg);
+  });
+}
+function openHadarCold(tokens, opts) {
+  opts = opts || {};
+  const lines = [];
+  (tokens || []).forEach((t) => {
+    if (!t) return;
+    const tid = t.combatantId || t.ownerUid || t.id;
+    if (!tid) return;
+    const rolled = zoneRoll("2d6");
+    const shown = facedDice(rolled, "cold");
+    lines.push((t.name || "creature") + " " + shown);
+    if ((rolled.total || 0) > 0 && fight.damageMode !== "approve") {
+      applyPlayerHit({
+        rollId: DM.uid("hadar"), targetId: tid, targetName: t.name || "", amount: rolled.total,
+        from: opts.fromId || "", characterName: opts.who || "", label: "Hunger of Hadar",
+        weapon: "Hunger of Hadar", type: "damage", dice: shown
+      });
+    }
+    if (DM.pushRoll) {
+      DM.pushRoll({
+        who: opts.who || "Someone", label: "Hunger of Hadar", formula: rolled.formula || "2d6",
+        result: rolled.total, detail: (t.name || "creature") + " " + shown, rolls: rolled.faces || [], private: false
+      });
+    }
+  });
+  return lines;
 }
 function askSaveSpell(row, name, known) {
   const players = combatTargets(row);
@@ -8426,6 +8531,12 @@ async function cardCast(i, n, opts) {
   const bonus = Number(casting.attack) || 0;
   const ac = adj.ac;
   if (ac == null) { DM.toast((target.name || "Target") + " has no AC"); return; }
+  let cardDisease = "";
+  const cardOpt = window.SSDNSSpellRiders && window.SSDNSSpellRiders.needsOptions ? window.SSDNSSpellRiders.needsOptions(known) : null;
+  if (cardOpt && cardOpt.kind === "disease") {
+    cardDisease = await askSpellPick((name || "Contagion") + " — disease", cardOpt.options || []);
+    if (!cardDisease) return;
+  }
   spendSpellSlot(card, level);
   row.lastAttackerId = targetId;
   rememberLastTarget(row, targetId);
@@ -8484,7 +8595,8 @@ async function cardCast(i, n, opts) {
   if (known) {
     const landedHit = commitRider(row, known, {
       slot: level, targetId: target.id, targetName: target.name,
-      hit: hit, miss: !hit, crit: nat === 20 && hit, failed: riderFailed
+      hit: hit, miss: !hit, crit: nat === 20 && hit, failed: riderFailed,
+      disease: cardDisease, dc: casting.dc
     });
     if (landedHit && landedHit.logs && landedHit.logs.length) detail += " · " + landedHit.logs.join(" · ");
   }
@@ -12721,8 +12833,8 @@ function grabFeet(actor, target, hinted) {
   if (hinted != null && hinted !== "" && isFinite(Number(hinted))) return Number(hinted);
   const host = window.SSDNSMapHost;
   if (!host || typeof host.feetBetween !== "function" || !actor || !target) return null;
-  const a = actor.mapTokenId || actor.playerId || actor.id;
-  const b = target.mapTokenId || target.playerId || target.id;
+  const a = rowTokenId(actor);
+  const b = rowTokenId(target);
   const n = host.feetBetween(a, b);
   return n == null || n === "" || !isFinite(Number(n)) ? null : Number(n);
 }

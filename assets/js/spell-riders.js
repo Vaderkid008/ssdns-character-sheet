@@ -12,6 +12,8 @@
     "conjure volley": 1, "destructive wave": 1, "prismatic spray": 1
   };
   var DISEASES = ["Blinding Sickness", "Filth Fever", "Flesh Rot", "Mindfire", "Seizure", "Slimy Doom"];
+  /* PHB disease that is also a catalog condition. The rest stay on the disease chip. */
+  var DISEASE_COND = { "blinding sickness": ["Blinded"] };
 
   function norm(s) {
     return String(s || "").toLowerCase().replace(/\./g, "").replace(/\s+/g, " ").trim();
@@ -452,6 +454,10 @@
   function hexChip(ability) {
     return "Hexed (" + String(ability || "WIS").toUpperCase() + ")";
   }
+  function diseaseConds(name) {
+    var list = DISEASE_COND[norm(name)];
+    return list ? list.slice() : [];
+  }
   function contagionChip(s, f) {
     function dots(n, on) {
       var i, out = "";
@@ -783,7 +789,16 @@
     var chips = [];
     if (opts.miss) return { bag: next, logs: ["MISS"], chips: chips, noDamage: !!(row && row.noDamage) };
     if (key === "contagion") {
+      var contagionDc = Number(opts.dc);
       if (hasTick(next, { spell: name, targetId: opts.targetId || "", when: "end", contagion: true })) {
+        if (isFinite(contagionDc) && contagionDc > 0) {
+          next.ticks.forEach(function (t) {
+            if (!t || !t.contagion) return;
+            if (opts.targetId && t.targetId && String(t.targetId) !== String(opts.targetId)) return;
+            if (!(Number(t.dc) > 0)) t.dc = contagionDc;
+          });
+          return { bag: next, logs: [], chips: [], removed: [], noDamage: true, changed: true };
+        }
         return { bag: next, logs: [], chips: [], removed: [], noDamage: true, changed: false };
       }
       var disease = opts.disease || DISEASES[2];
@@ -792,7 +807,6 @@
         chip: "Poisoned", disease: disease, success: 0, fail: 0
       });
       var contagionTick = { spell: name, targetId: opts.targetId || "", when: "end", save: "CON", contagion: true, disease: disease };
-      var contagionDc = Number(opts.dc);
       if (isFinite(contagionDc) && contagionDc > 0) contagionTick.dc = contagionDc;
       addTick(next, contagionTick);
       chips.push(chip("Poisoned", opts.targetId, name, false, opts.casterId || ""));
@@ -837,6 +851,9 @@
         mark.done = true;
         removed.push(chip("Poisoned", mark.targetId, mark.spell, false, ""));
         chips.push(chip(mark.chip, mark.targetId, mark.spell, false, ""));
+        diseaseConds(mark.disease).forEach(function (condName) {
+          chips.push(chip(condName, mark.targetId, mark.spell, false, ""));
+        });
         logs.push(mark.chip);
       } else if (mark.success >= 3) {
         mark.done = true;
@@ -1584,6 +1601,7 @@
     hexChip: hexChip,
     rollExpr: rollExpr,
     diseases: DISEASES.slice(),
+    diseaseConds: diseaseConds,
     sustainSpec: sustainSpec,
     noteSustain: noteSustain,
     sustainReady: sustainReady,

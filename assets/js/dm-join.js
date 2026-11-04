@@ -791,6 +791,7 @@
     if (Number(entry.pull) > 0) row.pull = Number(entry.pull) || 0;
     if (entry.slot != null && entry.slot !== "") row.slot = Number(entry.slot) || 0;
     if (entry.disease) row.disease = entry.disease;
+    if (entry.dc != null && entry.dc !== "" && isFinite(Number(entry.dc))) row.dc = Number(entry.dc);
     if (entry.delayed) row.delayed = entry.delayed;
     if (entry.delayedDice) row.delayedDice = entry.delayedDice;
     if (Number(entry.critMin) >= 2 && Number(entry.critMin) < 20) row.critMin = Number(entry.critMin); /* Champion / Dead Eye crit range */

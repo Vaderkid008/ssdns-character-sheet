@@ -1898,7 +1898,8 @@
         name: spellName, row: row, miss: false,
         targetId: tgt && tgt.id, targetName: tgt && tgt.name,
         disease: castSpellAttackNow._disease || "",
-        casterId: root.SSDNSDmJoin && root.SSDNSDmJoin.uid ? root.SSDNSDmJoin.uid() : ""
+        casterId: root.SSDNSDmJoin && root.SSDNSDmJoin.uid ? root.SSDNSDmJoin.uid() : "",
+        dc: root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute().spellDC : ""
       });
       c.spellMarks = landed.bag;
       publishChips(landed.chips, false);
@@ -2401,6 +2402,38 @@
     }
     return "";
   }
+  function facedDice(rolled, type) {
+    var faces = (rolled && rolled.faces) || [];
+    var marks = faces.map(function (n) { return "«" + n + "»"; }).join(" ");
+    var formula = (rolled && rolled.formula) || "";
+    return formula + (marks ? " " + marks : "") + " = " + ((rolled && rolled.total) || 0) + (type ? " " + type : "");
+  }
+  /* Creatures already in the sphere take the cold when it opens. The cast log used to
+     print an unapplied 2d6, which the feed drew as a blank die. */
+  function openHadarCold(placed, rollId) {
+    var R = root.SSDNSSpellRiders;
+    var lines = [];
+    (placed && placed.tokens || []).forEach(function (t, idx) {
+      var id = blastTargetId(t);
+      if (!id) return;
+      var rolled = R && R.rollExpr ? R.rollExpr("2d6", false) : { formula: "2d6", faces: [], total: 0 };
+      var bit = facedDice(rolled, "cold");
+      lines.push((t.name || "creature") + " " + bit);
+      if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage) {
+        root.SSDNSDmJoin.postDamage({
+          amount: rolled.total,
+          label: "Hunger of Hadar",
+          type: "spell",
+          dice: bit,
+          targetId: id,
+          targetName: t.name || "",
+          rollId: (rollId || "hadar") + "_c" + idx,
+          spell: "Hunger of Hadar"
+        });
+      }
+    });
+    return lines;
+  }
   function postAppear(spellName, placed, dc, rollId) {
     var Z = root.SSDNSSpellZones;
     var c = ch();
@@ -2832,6 +2865,7 @@
         spell: true,
         dmgType: (row && row.type) || damageType || "",
         healHalf: !!(row && row.healHalf),
+        dc: (v.spellDC != null && v.spellDC !== "" && isFinite(Number(v.spellDC))) ? Number(v.spellDC) : "",
         quiet: false
       });
       /* Hidden AC returns before the resolved cast. Spend here or the pip never reaches turnMarkers. */
@@ -2954,6 +2988,12 @@
       noteSpellLight(spellName);
       postAppear(spellName, placedBlast, v.spellDC, rollId);
       postPlacedLooks(spellName, row, placedBlast, rollId);
+      if (phbKey(spellName) === "hunger of hadar") {
+        var coldLines = openHadarCold(placedBlast, rollId);
+        rolled.text = ((c && c.name) || "You") + " casts Hunger of Hadar";
+        rolled.text += coldLines.length ? (" · " + coldLines.join(" · ")) : " · nobody in the sphere";
+        rolled.detail = rolled.text;
+      }
       rolled.detail = rolled.text;
     } else if (row && (row.kind === "none" || row.kind === "rider" || row.kind === "utility")) {
       var buffLine = applySpellBuff(spellName, slot);
