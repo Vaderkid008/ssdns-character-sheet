@@ -555,6 +555,21 @@
     }
 
     if (kind === "auto") {
+      /* Hunger of Hadar's 2d6 is rolled per creature when the sphere opens and again
+         on the acid save. A cast line that only says "2d6" paints a blank die and never lands. */
+      if (norm(name) === "hunger of hadar") {
+        var hadarText = name + gun + " · cold on each creature in the sphere · end of turn DEX save, none of the acid on a success";
+        var hadarPack = pack(hadarText, false, null, false, "—", 0, hadarText, "");
+        hadarPack.text = hadarText;
+        hadarPack.detail = hadarText;
+        hadarPack.damageTotal = 0;
+        hadarPack.damageDetail = "";
+        hadarPack.kind = "auto";
+        hadarPack.applyNow = false;
+        hadarPack.zoneHold = true;
+        if (row.tickEnd) hadarPack.tickEnd = row.tickEnd;
+        return hadarPack;
+      }
       var autoRoll = bundle(shaped(), false);
       var atext = name + gun + " · " + autoRoll.text;
       if (row.tickEnd) atext += " · end of turn " + (row.tickEnd.save || "DEX") + " or " + row.tickEnd.dice + " " + (row.tickEnd.type || "");

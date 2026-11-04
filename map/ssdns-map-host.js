@@ -1115,9 +1115,14 @@
     map.removeToken(id);
   }
   function tokenForPlayer(pid) {
-    if (!isDmPage() || !map || typeof map.tokenForPlayer !== "function") return "";
+    if (!map || typeof map.tokenForPlayer !== "function") return "";
     var token = map.tokenForPlayer(pid);
     return token && token.id ? token.id : "";
+  }
+  function dropTokenKeepRow(id) {
+    if (!isDmPage() || !map || typeof map.dropTokenKeepRow !== "function") return false;
+    try { return !!map.dropTokenKeepRow(id); }
+    catch (e) { return false; }
   }
   function hasToken(id) {
     return !!(isDmPage() && map && typeof map.hasToken === "function" && map.hasToken(id));
@@ -1164,6 +1169,7 @@
       catch (e) { return ""; }
     },
     removeToken: removeToken,
+    dropTokenKeepRow: dropTokenKeepRow,
     tokenForPlayer: tokenForPlayer,
     hasToken: hasToken,
     releaseToken: releaseToken,

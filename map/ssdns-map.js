@@ -5219,24 +5219,36 @@ function feetBetween(a, b) {
   if (!a || !b || !a.pos || !b.pos) return null;
   const sa = tokSquares(a.size);
   const sb = tokSquares(b.size);
-  const gap = Math.max(axisGap(a.pos.x, sa, b.pos.x, sb), axisGap(a.pos.y, sa, b.pos.y, sb));
+  /* Top-left of the square. A stored centre (n + 0.5) floors onto that square,
+     so two Medium tokens sharing an edge stay 1 square / 5 ft, not 10. */
+  const ax = Math.floor(Number(a.pos.x) + 1e-6);
+  const ay = Math.floor(Number(a.pos.y) + 1e-6);
+  const bx = Math.floor(Number(b.pos.x) + 1e-6);
+  const by = Math.floor(Number(b.pos.y) + 1e-6);
+  if (![ax, ay, bx, by].every((n) => isFinite(n))) return null;
+  const gap = Math.max(axisGap(ax, sa, bx, sb), axisGap(ay, sa, by, sb));
   return gap * 5;
 }
 function tokenByRef(id) {
   if (!id) return null;
-  const direct = (state.tokens || []).find(t => t && (t.id === id || t.combatantId === id || t.ownerUid === id));
-  if (direct) return direct;
+  const all = state.tokens || [];
+  const exact = all.find(t => t && t.id === id);
+  if (exact) return exact;
+  const body = all.filter(t => t && !t.spellPiece);
+  const combat = body.find(t => t && t.combatantId === id);
+  if (combat) return combat;
+  const player = body.find(t => t && t.kind === "player" && (t.ownerUid === id || t.sheetId === id));
+  if (player) return player;
   /* Public tokens omit combatantId. The fight row's mapTokenId is how a sheet target id finds the square. */
   const order = (state.initiative && state.initiative.order) || [];
   const row = order.find(r => r && (r.id === id || r.playerId === id || r.mapTokenId === id));
-  if (!row) return null;
-  return (state.tokens || []).find(t => t && (
-    t.id === row.id ||
-    (row.mapTokenId && t.id === row.mapTokenId) ||
-    (t.combatantId && (t.combatantId === row.id || t.combatantId === row.playerId)) ||
-    (row.playerId && t.ownerUid === row.playerId) ||
-    (row.kind === "player" && row.id && t.ownerUid === row.id)
-  )) || null;
+  if (row) {
+    const linked = all.find(t => t && row.mapTokenId && t.id === row.mapTokenId);
+    if (linked) return linked;
+    const owned = body.find(t => t && t.kind === "player" && ((row.playerId && t.ownerUid === row.playerId) || (row.kind === "player" && row.id && t.ownerUid === row.id)));
+    if (owned) return owned;
+  }
+  return body.find(t => t && t.ownerUid === id) || null;
 }
 function nearestHostileFeet(shooter) {
   if (!shooter) return null;

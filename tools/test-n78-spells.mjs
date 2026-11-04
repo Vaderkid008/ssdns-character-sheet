@@ -142,6 +142,8 @@ book.forEach((row) => {
     mode: ""
   });
   const miss = rolled.attack && rolled.nat === 1 && !(rolled.shots && rolled.shots.some((s) => s.amount > 0)) && !(rolled.darts && rolled.darts.length);
+  /* Cold is rolled once per creature inside the sphere, not as one cast total. */
+  if (row.name === "Hunger of Hadar") return;
   if (!miss && !(Number(rolled.damageTotal) > 0)) gaps.push(row.name + " (rolled 0)");
 });
 check("audit.damage", !gaps.some((g) => /rolled 0/.test(g)), gaps.filter((g) => /rolled 0/.test(g)).join("; "));
@@ -158,8 +160,8 @@ check("src.darts", sheet.includes("assignDarts") && v2.includes("askSpellDarts")
 check("src.find", v2.includes("r.mapTokenId === want"));
 check("src.rules", !rules.includes("spell-area") && !rules.includes("0.3.169") && !read("database.rules.json").includes("0.3.169"));
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.169" && version.sheetBuild === "sheet-playtest-v03169");
-check("ver.dmcc", version.dmcc === "0.2.182" && version.dmccBuild === "dmcc-playtest-v02182");
+check("ver.sheet", version.sheet === "0.3.229" && version.sheetBuild === "sheet-playtest-v03229");
+check("ver.dmcc", version.dmcc === "0.2.242" && version.dmccBuild === "dmcc-playtest-v02242");
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

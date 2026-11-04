@@ -93,7 +93,7 @@ check("light.replace", lightHit.damageTotal === 4 && !/\+ weapon/.test(lightHit.
 check("light.splash", row("Lightning Arrow").splash && row("Lightning Arrow").splash.radius === 10 && row("Lightning Arrow").splash.half === true && row("Lightning Arrow").replacesWeapon === true);
 
 const hunger = Cast.rollCast({ spellName: "Hunger of Hadar", slotLevel: 3 });
-check("hunger.tick", hunger.kind === "auto" && hunger.tickEnd && hunger.tickEnd.save === "DEX" && hunger.tickEnd.dice === "2d6" && hunger.tickEnd.type === "acid" && hunger.damageTotal === 2, hunger.text);
+check("hunger.tick", hunger.kind === "auto" && hunger.applyNow === false && hunger.tickEnd && hunger.tickEnd.save === "DEX" && hunger.tickEnd.dice === "2d6" && hunger.tickEnd.type === "acid" && hunger.damageTotal === 0 && !/\d+d\d+/.test(hunger.text), hunger.text);
 
 const wall = row("Wall of Thorns");
 check("thorns.type", wall.type === "piercing" && wall.through === "slashing" && wall.half === true);
@@ -198,8 +198,8 @@ check("rules.untouched", rulesDiff === "", rulesDiff);
 const rules = read("assets/data/rules.js");
 check("rules.nover", !rules.includes("0.3.169") && !rules.includes("spell-riders"));
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.169" && version.sheetBuild === "sheet-playtest-v03169");
-check("ver.dmcc", version.dmcc === "0.2.182" && version.dmccBuild === "dmcc-playtest-v02182");
+check("ver.sheet", version.sheet === "0.3.229" && version.sheetBuild === "sheet-playtest-v03229");
+check("ver.dmcc", version.dmcc === "0.2.242" && version.dmccBuild === "dmcc-playtest-v02242");
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");
