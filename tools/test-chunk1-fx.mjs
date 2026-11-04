@@ -224,7 +224,7 @@ check("request.rays", req.rays && req.rays.length === 2 && req.rays[1].miss === 
 check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.223-p2a") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.236-p2a"));
 check("src.map", read("map/ssdns-map.js").includes("fxListScreens") && read("map/ssdns-map.js").includes("paintGuidePop") && read("map/ssdns-map.js").includes("erodeToken"));
 check("src.dm", read("dm/assets/js/v2.js").includes("chainIds") && read("dm/assets/js/v2.js").includes("crumbOnly") && read("dm/assets/js/v2.js").includes("pulse: true"));
-check("ver", JSON.parse(read("version.json")).sheet === "0.3.227" && JSON.parse(read("version.json")).dmcc === "0.2.240");
+check("ver", JSON.parse(read("version.json")).sheet === "0.3.228" && JSON.parse(read("version.json")).dmcc === "0.2.241");
 
 console.log(failures.length ? "\n" + failures.length + " FAILED" : "\nall chunk1 fx checks passed");
 process.exit(failures.length ? 1 : 0);
