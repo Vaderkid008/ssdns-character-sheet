@@ -719,7 +719,8 @@
     if (!on) {
       delete bag[key + ":left"];
       if (key === "spell:light") dropCarriedLightZone(c);
-      if (key === "spell:light" || (spec && spec.place !== "caster")) dismissSpell(key);
+      /* Caster lights (Fire Shield, Sunbeam) used to stay on the token. Dismiss drops the glow too. */
+      dismissSpell(key);
     }
     return bag;
   }

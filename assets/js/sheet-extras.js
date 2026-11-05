@@ -998,6 +998,11 @@
         sfx: info.sfx || "attack",
         shots: info.shots || null,
         dieMods: info.dieMods || null,
+        banishAt: info.banishAt || 0,
+        riderSave: info.riderSave || "",
+        riderOnFail: info.riderOnFail || "",
+        riderSpell: info.riderSpell || "",
+        dc: info.dc,
         arrow: info.arrow || "" /* attack-fx: the map draws the arrow type (Whistler trail) */
       });
     }
@@ -1527,10 +1532,12 @@
   function endSpell(name, opts) {
     opts = opts || {};
     breakLocalConc(name || "", opts);
-    if (opts.quiet) return;
-    var line = (name || "Spell") + " ends.";
-    addLog({ kind: "alert", text: line });
-    toast(line);
+    if (!opts.quiet) {
+      var line = (name || "Spell") + " ends.";
+      addLog({ kind: "alert", text: line });
+      toast(line);
+    }
+    paintFollowups();
     if (root.SSDNSApp && root.SSDNSApp.applyPatch) root.SSDNSApp.applyPatch(function () {});
   }
   function breakLocalConc(spell, opts) {
@@ -2364,7 +2371,8 @@
     var Pips = root.SSDNSActionPips;
     if (Pips && Pips.spend) Pips.spend(spec.action || "action", "Sustain " + item.name);
     if (spec.auto) {
-      askOneTarget(item.name).then(function (choice) {
+      var locked = item.targetId ? Promise.resolve({ id: item.targetId, name: item.targetName || item.targetId }) : askOneTarget(item.name);
+      locked.then(function (choice) {
         if (!choice || !choice.id) return;
         var Cast = root.SSDNSSpellCast;
         var c = ch();
@@ -3068,6 +3076,16 @@
           publishChips(landedNow.chips, false);
         }
       }
+      if (/witch bolt/i.test(spellName || "") && c && root.SSDNSSpellRiders) {
+        if (!spellMissed && tgt && tgt.id && root.SSDNSSpellRiders.noteSustain) {
+          c.spellMarks = root.SSDNSSpellRiders.noteSustain(c.spellMarks, {
+            name: spellName, slot: slot, targetId: tgt.id, targetName: tgt.name || ""
+          });
+        } else if (spellMissed && root.SSDNSSpellRiders.dropSpell) {
+          var missedBolt = root.SSDNSSpellRiders.dropSpell(c.spellMarks, spellName);
+          c.spellMarks = missedBolt.bag;
+        }
+      }
       if (rolled.attack) spendStrikeChips((c && c.activeConditions) || [], tgt);
     }
     addLog({
@@ -3566,7 +3584,9 @@
       "branding smite": "Branding Smite",
       "thunderous smite": "Thunderous Smite",
       "wrathful smite": "Wrathful Smite",
-      "blinding smite": "Blinding Smite"
+      "blinding smite": "Blinding Smite",
+      "staggering smite": "Staggering Smite",
+      "banishing smite": "Banishing Smite"
     };
     var key = name.toLowerCase();
     var spell = "";
@@ -4070,6 +4090,11 @@
         dmgFormula: pendingDmg ? pendingDmg.formula : "",
         dmgParts: pendParts,
         riders: pendRide && pendRide.riders,
+        banishAt: pendRide && pendRide.banishAt || 0,
+        riderSave: pendRide && pendRide.hitSave ? pendRide.hitSave.ability : "",
+        riderOnFail: pendRide && pendRide.hitSave ? pendRide.hitSave.onFail : "",
+        riderSpell: pendRide && pendRide.hitSave ? pendRide.hitSave.spell : "",
+        dc: root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute().spellDC : "",
         dmgType: (pendArrow && pendArrow.type) || (gunStat && gunStat.dmgType),
         arrow: pendArrow ? pendArrow.note : "",
         formula: (n2 == null ? "1d20" : "2d20") + ((bonus >= 0 ? "+" : "") + bonus),
@@ -4415,6 +4440,10 @@
     var extra = {};
     var key = String(name || "").toLowerCase();
     if (/meteor swarm/.test(key)) extra.beat = index || 0;
+    if (/circle of death/.test(key)) {
+      var deathR = placed && placed.area && Number(placed.area.radius);
+      if (deathR > 0) extra.radius = deathR;
+    }
     if (/sunbeam|prismatic spray|sunburst|circle of death|arms of hadar|flame strike|conjure barrage|conjure volley|cone of cold|destructive wave/.test(key) && placed && placed.tokens) {
       extra.hops = placed.tokens.map(function (t) {
         var size = Number(t && t.size) || 1;
@@ -4482,6 +4511,27 @@
   }
   /* One-shot map paint. Attack rolls already call sheetMapFx. Area and save casts land here.
      A placed token (look "token") is the visual for that spell, not a beam. */
+  /* Chain hops are fight-row ids. A player map often cannot resolve those, so stamp the square. */
+  function stampHopPoints(list) {
+    var host = root.SSDNSMapHost;
+    return (list || []).map(function (item) {
+      if (!item) return item;
+      var id = typeof item === "string" ? item : item.id;
+      if (item.x != null && item.y != null && isFinite(Number(item.x)) && isFinite(Number(item.y))) {
+        return typeof item === "object" ? item : { id: id, x: Number(item.x), y: Number(item.y) };
+      }
+      if (!id || !host || typeof host.tokenSnapshot !== "function") return item;
+      var snap = null;
+      try { snap = host.tokenSnapshot(id); } catch (e) { snap = null; }
+      if (!snap || snap.x == null) return item;
+      var size = Number(snap.size) || 1;
+      var row = typeof item === "object" ? Object.assign({}, item) : { id: id };
+      row.id = id;
+      row.x = Math.round((Number(snap.x) + size / 2) * 10) / 10;
+      row.y = Math.round((Number(snap.y) + size / 2) * 10) / 10;
+      return row;
+    });
+  }
   function postSpellLook(name, targetId, result, row, at, fxId, extra) {
     if (whisperOn()) return;
     var dmg = (row && row.type) || "";
@@ -4504,8 +4554,9 @@
       dmg: dmg,
       result: result || "hit"
     };
-    if (extra.rays && extra.rays.length) req.rays = extra.rays;
-    if (extra.hops && extra.hops.length) req.hops = extra.hops;
+    if (extra.rays && extra.rays.length) req.rays = stampHopPoints(extra.rays);
+    if (extra.hops && extra.hops.length) req.hops = stampHopPoints(extra.hops);
+    if (extra.radius > 0) req.radius = Number(extra.radius);
     if (extra.dust) req.dust = true;
     if (extra.crumbOnly) req.crumbOnly = true;
     if (extra.pulse) req.pulse = true;

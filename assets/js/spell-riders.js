@@ -644,6 +644,7 @@
         clears: row.clears || null,
         light: row.light || null,
         banishAt: row.banishAt || 0,
+        gunOk: !!row.gunOk,
         missHalf: !!row.missHalf,
         splash: row.splash || null,
         up: row.up || null,
@@ -1481,10 +1482,13 @@
     var next = copyBag(bag);
     if (!spec) return next;
     var key = norm(opts.name);
+    var prev = (next.marks || []).filter(function (m) { return m && m.kind === "sustain" && norm(m.spell) === key; })[0];
     next.marks = next.marks.filter(function (m) { return !(m.kind === "sustain" && norm(m.spell) === key); });
     next.marks.push({
-      kind: "sustain", spell: opts.name || spec.name, slot: Number(opts.slot) || 0,
-      targetId: opts.targetId || "", action: spec.action, conc: spec.conc !== false
+      kind: "sustain", spell: opts.name || spec.name, slot: Number(opts.slot) || (prev && prev.slot) || 0,
+      targetId: opts.targetId || (prev && prev.targetId) || "",
+      targetName: opts.targetName || (prev && prev.targetName) || "",
+      action: spec.action, conc: spec.conc !== false
     });
     if (spec.conc !== false) next.conc = opts.name || next.conc;
     return next;
@@ -1493,16 +1497,16 @@
     var next = emptyBag(bag);
     var out = [];
     var seen = {};
-    function add(name, slot) {
+    function add(name, slot, targetId, targetName) {
       var spec = sustainSpec(name);
       if (!spec) return;
       var key = norm(spec.name || name);
       if (seen[key]) return;
       seen[key] = 1;
-      out.push({ name: name, slot: slot || 0, spec: spec });
+      out.push({ name: name, slot: slot || 0, spec: spec, targetId: targetId || "", targetName: targetName || "" });
     }
     (next.marks || []).forEach(function (m) {
-      if (m && m.kind === "sustain") add(m.spell, m.slot);
+      if (m && m.kind === "sustain") add(m.spell, m.slot, m.targetId, m.targetName);
     });
     if (next.conc) add(next.conc, 0);
     (next.zones || []).forEach(function (z) {
