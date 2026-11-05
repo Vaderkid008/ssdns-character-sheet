@@ -1025,7 +1025,7 @@ function enemyCardHtml(row, i) {
     }).join("");
     const dc = casting.dc == null ? "—" : casting.dc;
     const sustain = window.SSDNSSpellRiders && window.SSDNSSpellRiders.sustainReady ? window.SSDNSSpellRiders.sustainReady(row.spellMarks) : [];
-    const sustainBtns = sustain.map((item) => `<button type="button" class="btn sm" data-sustain="${esc(item.name)}" data-sustain-slot="${esc(item.slot || 0)}">Sustain ${esc(item.name)}</button>`).join(" ");
+    const sustainBtns = sustain.map((item) => `<button type="button" class="btn sm" data-sustain="${esc(item.name)}" data-sustain-slot="${esc(item.slot || 0)}" data-sustain-target="${esc(item.targetId || "")}" data-sustain-name="${esc(item.targetName || "")}">Sustain ${esc(item.name)}</button>`).join(" ");
     const shieldUp = rowHasFireShield(row);
     const shieldBtn = shieldUp ? `<button type="button" class="btn sm" data-dismiss-shield="1">End Fire Shield</button>` : "";
     const movable = ((row.spellMarks && row.spellMarks.marks) || []).filter((m) => m && m.movable && (m.kind === "hex" || m.kind === "mark"));
@@ -2206,6 +2206,8 @@ window.addEventListener("ssdns-zone-tick", (ev) => {
   const tickIds = {};
   ticks.forEach((tick) => { if (tick && tick.targetId) tickIds[String(tick.targetId)] = 1; });
   if (tokenId) tickIds[String(tokenId)] = 1;
+  if (ev.detail.combatantId) tickIds[String(ev.detail.combatantId)] = 1;
+  if (ev.detail.ownerUid) tickIds[String(ev.detail.ownerUid)] = 1;
   const who = (fight.order || []).find((r) => {
     if (!r) return false;
     const live = typeof liveMapTokenId === "function" ? liveMapTokenId(r) : "";
@@ -5477,8 +5479,13 @@ function onEnemySheetClick(e) {
       const spec = window.SSDNSSpellRiders && window.SSDNSSpellRiders.sustainSpec(spellName);
       if (!spec) return;
       if (spec.auto) {
-        const picks = await askSpellDarts(row, spellName, 1, "", null, "Target");
-        const one = picks && picks.filter((d) => d && d.id)[0];
+        const lockedId = t.getAttribute("data-sustain-target") || "";
+        const lockedName = t.getAttribute("data-sustain-name") || "";
+        let one = lockedId ? { id: lockedId, name: lockedName } : null;
+        if (!one) {
+          const picks = await askSpellDarts(row, spellName, 1, "", null, "Target");
+          one = picks && picks.filter((d) => d && d.id)[0];
+        }
         if (!one) return;
         const rolled = window.SSDNSSpellCast.rollCast({ spellName: spellName, slotLevel: slot, sustainAuto: true, dc: (row.card && row.card.spellcasting && row.card.spellcasting.dc) || "" });
         applyPlayerHit({
@@ -6104,6 +6111,24 @@ function targetDusted(id) {
   const t = resolveStrikeTarget(id);
   return !!(t && (t.disintegrated || /disintegrat/i.test(String(t.status || ""))));
 }
+function stampFxPoints(list) {
+  const host = window.SSDNSMapHost;
+  return (list || []).map((item) => {
+    if (!item) return item;
+    const id = typeof item === "string" ? item : item.id;
+    if (item && item.x != null && item.y != null && isFinite(Number(item.x)) && isFinite(Number(item.y))) return item;
+    if (!id || !host || typeof host.tokenSnapshot !== "function") return item;
+    let snap = null;
+    try { snap = host.tokenSnapshot(id); } catch (e) { snap = null; }
+    if (!snap || snap.x == null) return item;
+    const size = Number(snap.size) || 1;
+    const row = typeof item === "object" ? Object.assign({}, item) : { id: id };
+    row.id = id;
+    row.x = Math.round((Number(snap.x) + size / 2) * 10) / 10;
+    row.y = Math.round((Number(snap.y) + size / 2) * 10) / 10;
+    return row;
+  });
+}
 function spellMapFx(shooter, target, name, known, result, extra) {
   const FX = window.SSDNSMapFx;
   const dmg = (known && known.type) || "";
@@ -6122,7 +6147,8 @@ function spellMapFx(shooter, target, name, known, result, extra) {
     dmg: dmg,
     heard: []
   };
-  if (extra.hops && extra.hops.length) body.hops = extra.hops;
+  if (extra.hops && extra.hops.length) body.hops = stampFxPoints(extra.hops);
+  if (extra.radius > 0) body.radius = Number(extra.radius);
   if (extra.rays && extra.rays.length) body.rays = extra.rays;
   if (extra.dust) body.dust = true;
   if (extra.crumbOnly) body.crumbOnly = true;
@@ -6210,6 +6236,10 @@ function areaMapFx(shooter, name, known, placed) {
       heard: []
     };
     if (/meteor swarm/i.test(name || "")) body.beat = i;
+    if (/circle of death/i.test(name || "")) {
+      const deathR = Number(area.radius) || 60;
+      if (deathR > 0) body.radius = deathR;
+    }
     if (/sunbeam|prismatic spray|sunburst|circle of death|arms of hadar|flame strike|conjure barrage|conjure volley|cone of cold|destructive wave/i.test(name || "") && crowd.length) body.hops = crowd;
     if (/destructive wave/i.test(name || "")) {
       const skin = String((known && known.mode) || "").toLowerCase();
@@ -6571,6 +6601,17 @@ async function rollSpellAt(row, spellId, targetId) {
       });
       if (landedHit && landedHit.logs && landedHit.logs.length) detail += " · " + landedHit.logs.join(" · ");
     }
+    if (/witch bolt/i.test(name || "") && window.SSDNSSpellRiders) {
+      if (hit && window.SSDNSSpellRiders.noteSustain) {
+        row.spellMarks = window.SSDNSSpellRiders.noteSustain(row.spellMarks, {
+          name: name, slot: level, targetId: target.id, targetName: target.name || ""
+        });
+      } else if (!hit && window.SSDNSSpellRiders.dropSpell) {
+        const missedBolt = window.SSDNSSpellRiders.dropSpell(row.spellMarks, name);
+        row.spellMarks = missedBolt.bag;
+        if (bareSpellName(row.concentration) === "witch bolt") row.concentration = "";
+      }
+    }
   } else if (kind === "save" && (target || (multiPicks && multiPicks.length))) {
     const saveList = multiPicks && multiPicks.length ? multiPicks : [target];
     const chainCast = /chain lightning/i.test(name || "");
@@ -6696,9 +6737,20 @@ function tokenHpOf(row) {
 function mirrorTokenHp(row) {
   const host = window.SSDNSMapHost;
   if (!host || typeof host.patchToken !== "function" || !row) return;
-  const id = row.mapTokenId || row.id;
-  if (!id) return;
-  host.patchToken(id, { hp: row.hp, maxHp: row.maxHp });
+  const ids = [row.mapTokenId, row.id, row.playerId];
+  const seen = {};
+  ids.forEach((id) => {
+    if (!id || seen[id]) return;
+    seen[id] = 1;
+    host.patchToken(id, { hp: row.hp, maxHp: row.maxHp });
+    if (typeof host.tokenLink === "function") {
+      const link = host.tokenLink(id);
+      if (link && link.tokenId && !seen[link.tokenId]) {
+        seen[link.tokenId] = 1;
+        host.patchToken(link.tokenId, { hp: row.hp, maxHp: row.maxHp });
+      }
+    }
+  });
 }
 function applyEnemyHp(row, delta) {
   if (noHpPoolRow(row)) {
@@ -7637,6 +7689,24 @@ async function cardStrike(i, n, opts) {
   }
   let dmg = null;
   if (hit) dmg = DM.parseDice(dice);
+  let smiteBanish = 0;
+  let smiteSave = null;
+  if (window.SSDNSSpellRiders && window.SSDNSSpellRiders.attackRiders && row.spellMarks) {
+    const gunStrike = !!(atk.capacity != null || /gun|firearm|pistol|rifle/i.test(String(atk.group || atk.kind || "")));
+    const ride = window.SSDNSSpellRiders.attackRiders(row.spellMarks, {
+      hit: hit, crit: nat === 20 && hit, miss: miss,
+      weaponAttack: true, spellAttack: false, melee: !gunStrike, gun: gunStrike,
+      targetId: target.id, attack: true
+    });
+    row.spellMarks = ride.bag;
+    if (ride && ride.total) {
+      if (!dmg) dmg = { total: 0, detail: "", rolls: [] };
+      dmg.total = (Number(dmg.total) || 0) + ride.total;
+      if (ride.logs && ride.logs.length) dmg.detail = ((dmg.detail || "") + " " + ride.logs.join(" · ")).trim();
+    }
+    smiteBanish = (ride && ride.banishAt) || 0;
+    smiteSave = ride && ride.hitSave;
+  }
   const bonusTxt = signed(bonus);
   const strikeCard = window.SSDNSApplied && window.SSDNSApplied.attackBreakdown
     ? window.SSDNSApplied.attackBreakdown({
@@ -7685,8 +7755,15 @@ async function cardStrike(i, n, opts) {
   if (hit && dmg && fight.damageMode !== "approve") {
     applyPlayerHit({
       rollId: id, targetId: target.id, targetName: target.name, amount: dmg.total,
-      from: row.id, characterName: row.name, weapon: atk.name, label: atk.name, type: "damage"
+      from: row.id, characterName: row.name, weapon: atk.name, label: atk.name, type: "damage",
+      banishAt: smiteBanish || 0, melee: !(atk.capacity != null)
     });
+  }
+  if (hit && smiteSave && smiteSave.ability) {
+    askSmiteSave({
+      riderSave: smiteSave.ability, riderOnFail: smiteSave.onFail, riderSpell: smiteSave.spell,
+      targetId: target.id, from: row.id, dc: riderDc(row)
+    }, row.name || "Someone", target.name || "", row);
   }
   if (hit && atk.extraDamage && atk.extraDamage.damage) {
     const extra = DM.parseDice(atk.extraDamage.damage);
@@ -7786,6 +7863,13 @@ function rowHasFireShield(row) {
   if (marks.some((m) => m && (m.kind === "shield" || /fire shield/i.test(String(m.spell || m.chip || ""))))) return true;
   return conditionsForRow(row).some((c) => /fire shield/i.test(String((c && (c.name || c.spell)) || c || "")));
 }
+function stripSpellLight(row, key) {
+  try {
+    window.dispatchEvent(new CustomEvent("ssdns-light-dismiss", {
+      detail: { key: key || "", casterId: (row && (row.playerId || row.id)) || "" }
+    }));
+  } catch (e) {}
+}
 /* Fire Shield is a 10-minute rider, not concentration. End it without breaking another spell. */
 function dismissFireShield(row) {
   if (!row) return;
@@ -7794,14 +7878,16 @@ function dismissFireShield(row) {
     const ended = R.dropSpell(row.spellMarks, "Fire Shield");
     row.spellMarks = ended.bag;
   }
-  dropOwnedConditions("Fire Shield");
+  dropOwnedConditions("Fire Shield", { quiet: true });
+  stripSpellLight(row, "fire-shield");
   const pid = row.kind === "player" ? (row.playerId || row.id) : "";
   if (pid) DM.pushCommand({ type: "spell_end", to: pid, quiet: true, payload: { spell: "Fire Shield" }, from: DM.state.uid });
   DM.toast((row.name || "They") + " ends Fire Shield.");
   saveRemoteTable();
   renderFight();
 }
-function dropOwnedConditions(spellName) {
+function dropOwnedConditions(spellName, opts) {
+  opts = opts || {};
   if (!spellName || !window.SSDNSConditions || !window.SSDNSConditions.removeBySpell) return;
   const Cond = window.SSDNSConditions;
   (fight.order || []).forEach((target) => {
@@ -7814,7 +7900,7 @@ function dropOwnedConditions(spellName) {
     writeSubjectConditions(subjectId, target.kind === "player" ? "player" : "enemy", [], target.name || "", 1, {}, removed).catch(() => {});
   });
   if (window.SSDNSAudio) window.SSDNSAudio.play("ui-tick");
-  DM.toast("Concentration ends " + spellName + ".");
+  if (!opts.quiet) DM.toast("Concentration ends " + spellName + ".");
 }
 function noteConcentration(row, name, level) {
   const prev = row && row.concentration ? String(row.concentration) : "";
@@ -8100,11 +8186,13 @@ function openHadarCold(tokens, opts) {
   });
   return lines;
 }
+function bareSpellName(name) {
+  return String(name || "").toLowerCase().replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+shell$/i, "").replace(/\s+/g, " ").trim();
+}
 function askSaveSpell(row, name, known) {
   const players = combatTargets(row);
   const casting = (row.card && row.card.spellcasting) || {};
-  const named = String(name || "").toLowerCase();
-  const pickFresh = named === "phantasmal killer";
+  const pickFresh = bareSpellName(name) === "phantasmal killer";
   const ability = (known && known.save) || "WIS";
   const dc = casting.dc == null ? "" : casting.dc;
   const dice = (known && known.dice) || "";
@@ -8363,7 +8451,8 @@ async function cardCast(i, n, opts) {
   }
   if (kind === "save" || kind === "auto") {
     let asked = null;
-    if (direct) {
+    const freshKiller = bareSpellName(name) === "phantasmal killer";
+    if (direct && !freshKiller) {
       asked = {
         targetId: direct,
         ability: (spell && spell.save) || (known && known.save) || "WIS",
@@ -8853,6 +8942,16 @@ function findCombatant(meta) {
     row = fight.order.find((r) => r && (r.id === id || r.playerId === id || r.mapTokenId === want || combatantKey(r) === want));
   }
   if (!row && name) row = fight.order.find((r) => String(r.name || "").trim().toLowerCase() === name);
+  if (!row && id && window.SSDNSMapHost && typeof window.SSDNSMapHost.tokenLink === "function") {
+    const link = window.SSDNSMapHost.tokenLink(id);
+    if (link) {
+      row = fight.order.find((r) => r && (
+        (link.combatantId && (r.id === link.combatantId || r.playerId === link.combatantId)) ||
+        (link.tokenId && r.mapTokenId === link.tokenId) ||
+        (link.ownerUid && (r.playerId === link.ownerUid || r.id === link.ownerUid))
+      )) || null;
+    }
+  }
   return row || null;
 }
 function claimApply(rollId) {
@@ -8974,6 +9073,25 @@ function hitHealsCaster(meta) {
     if (row && row.healHalf) return true;
   }
   return false;
+}
+function askSmiteSave(req, who, shownName, row) {
+  if (!req || !req.riderSave || !req.targetId) return;
+  const riderDcN = req.dc != null && req.dc !== "" && isFinite(Number(req.dc)) ? Number(req.dc) : riderDc(findCombatant({ id: req.from, playerId: req.from }));
+  if (riderDcN == null) {
+    DM.toast((req.riderSpell || "Smite") + ": no spell DC, so the " + req.riderSave + " save is not rolled.");
+    return;
+  }
+  requestPlayerSave({
+    targetId: req.targetId, targetName: shownName || "", ability: req.riderSave, dc: riderDcN,
+    label: req.riderSpell || "Smite", fromName: who || ""
+  }).then((save) => {
+    if (save && save.line) DM.toast(save.line);
+    if (save && save.failed && !save.blocked && req.riderOnFail) {
+      const caster = findCombatant({ id: req.from, playerId: req.from }) || { id: req.from || "", name: who || "" };
+      rememberCondition(caster, row || { id: req.targetId, name: shownName || "" }, req.riderOnFail, null, { spell: req.riderSpell || "", conc: true }).catch(() => {});
+      DM.toast((shownName || "Creature") + " is " + req.riderOnFail + " (" + (req.riderSpell || "Smite") + ")");
+    }
+  }).catch(() => {});
 }
 function applyPlayerHit(meta) {
   if (!meta) return;
@@ -9601,6 +9719,7 @@ function resolveIncomingAttack(req, reqId) {
       splash: req.splash || null,
       dc: req.dc
     });
+    if (req.riderSave) askSmiteSave(req, req.characterName || "Someone", (row && row.name) || req.targetName || "", row);
   } else if (rollId) {
     fight.appliedHits[rollId] = 1;
     if (window.SSDNSApplied && window.SSDNSApplied.claim) window.SSDNSApplied.claim(DM.state.roomCode, rollId);
@@ -9745,23 +9864,7 @@ function applyRequest(req, reqId) {
     DM.toast("Pick a target");
     return;
   }
-  if (!heal && req.riderSave && req.targetId) {
-    const riderDcN = req.dc != null && req.dc !== "" && isFinite(Number(req.dc)) ? Number(req.dc) : riderDc(findCombatant({ id: req.from, playerId: req.from }));
-    if (riderDcN == null) DM.toast((req.riderSpell || "Smite") + ": no spell DC, so the " + req.riderSave + " save is not rolled.");
-    else {
-      requestPlayerSave({
-        targetId: req.targetId, targetName: name, ability: req.riderSave, dc: riderDcN,
-        label: req.riderSpell || "Smite", fromName: who
-      }).then((save) => {
-        if (save && save.line) DM.toast(save.line);
-        if (save && save.failed && !save.blocked && req.riderOnFail) {
-          const caster = findCombatant({ id: req.from, playerId: req.from }) || { id: req.from || "", name: who };
-          rememberCondition(caster, row || { id: req.targetId, name: name }, req.riderOnFail, null, { spell: req.riderSpell || "", conc: true }).catch(() => {});
-          DM.toast((name || "Creature") + " is " + req.riderOnFail + " (" + (req.riderSpell || "Smite") + ")");
-        }
-      }).catch(() => {});
-    }
-  }
+  if (!heal && req.riderSave && req.targetId) askSmiteSave(req, who, name, row);
   const plainMove = heal ? null : slideMove(req, null);
   if (heldOutOfTurn(req)) {
     holdHit({ rollId: rollId, targetId: req.targetId, targetName: req.targetName || name, amount: amt, from: req.from, characterName: who, label: req.label,

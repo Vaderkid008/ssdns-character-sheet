@@ -792,6 +792,10 @@
     if (entry.slot != null && entry.slot !== "") row.slot = Number(entry.slot) || 0;
     if (entry.disease) row.disease = entry.disease;
     if (entry.dc != null && entry.dc !== "" && isFinite(Number(entry.dc))) row.dc = Number(entry.dc);
+    if (entry.banishAt) row.banishAt = Number(entry.banishAt) || 0;
+    if (entry.riderSave) row.riderSave = String(entry.riderSave);
+    if (entry.riderOnFail) row.riderOnFail = String(entry.riderOnFail);
+    if (entry.riderSpell) row.riderSpell = String(entry.riderSpell);
     if (entry.delayed) row.delayed = entry.delayed;
     if (entry.delayedDice) row.delayedDice = entry.delayedDice;
     if (Number(entry.critMin) >= 2 && Number(entry.critMin) < 20) row.critMin = Number(entry.critMin); /* Champion / Dead Eye crit range */

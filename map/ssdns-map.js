@@ -116,9 +116,9 @@ window.SSDNSMapBar = (function () {
     var cur = null;
     var max = null;
     if (role === "dm") {
-      var haveCard = info.dmMax != null && info.dmMax !== "" && info.dmCur != null;
+      var haveCard = info.dmMax != null && info.dmMax !== "" && info.dmCur != null && info.dmCur !== "";
       if (haveCard) {
-        cur = info.dmCur === "" ? 0 : num(info.dmCur);
+        cur = num(info.dmCur);
         max = num(info.dmMax);
       } else {
         cur = num(info.tokenHp);
@@ -844,6 +844,7 @@ if (!el._nameMode) {
 paintRoleBadge();
 function pushFeed(row) {
   if (row && row.event === 'zone') { applyZoneFeed(row); return; }
+  if (row && row.event === 'zone-tick') { applyZoneTickFeed(row); return; }
   if (row && row.event === 'spell-light') { applyLightFeed(row); return; }
   if (row && row.event === 'asset') {
     try { applyAssetRequest(row); } catch (eAsset) {}
@@ -1764,7 +1765,8 @@ function fxSpecFromReq(row) {
     mode: req.mode === "chill" || req.mode === "warm" ? req.mode : "",
     beat: req.beat, killed: !!req.killed, rise: !!req.rise,
     garnish: req.garnish === "place" || req.garnish === "swipe" || req.garnish === "clear" || req.garnish === "detonate" ? req.garnish : "",
-    cleared: !!req.cleared
+    cleared: !!req.cleared,
+    radius: Number(req.radius) > 0 ? Number(req.radius) : 0
   };
 }
 /** DM: draw locally with full knowledge, then publish the cleaned row. Returns the public fx (or null). */
@@ -2936,6 +2938,13 @@ function paintSpellZones() {
       paintZonePulse(zone, px);
       return;
     }
+    if (zone.key === "ice storm" && FXA && FXA.hailIdle) {
+      const cell = px * (state.view.zoom || 1);
+      const C = worldToScreen(Number(zone.origin.x) * px, Number(zone.origin.y) * px);
+      try { FXA.hailIdle(ctx, C, cell, zone.id || "ice"); } catch (eIce) {}
+      paintZonePulse(zone, px);
+      return;
+    }
     if (chunk4ZoneKey(zone.key)) {
       paintChunk4Zone(zone, px, "under");
       paintZonePulse(zone, px);
@@ -3150,7 +3159,16 @@ function applyZoneFeed(row) {
   if (row.from && row.from === uid) return;
   const seq = Number(row.zoneSeq) || 0;
   if (state.spellZonesLive && seq && state.zoneSeq && seq < state.zoneSeq) return;
-  adoptSpellZones(row.zones, seq || Date.now());
+  const incoming = row.zones.filter(z => z && z.id);
+  const incomingIds = {};
+  incoming.forEach(z => { incomingIds[String(z.id)] = 1; });
+  const sender = String(row.from || "");
+  const kept = (state.spellZones || []).filter(z => {
+    if (!z || !z.id || incomingIds[String(z.id)]) return false;
+    if (sender && (String(z.casterId || "") === sender || String(z.casterUid || "") === sender)) return false;
+    return true;
+  });
+  adoptSpellZones(kept.concat(incoming), seq || Date.now());
   persistSpellZones();
 }
 function clampZoneRounds(existing, incoming) {
@@ -3266,9 +3284,26 @@ function dispatchZoneTicks(ticks, mover, from, to) {
   });
   try {
     window.dispatchEvent(new CustomEvent("ssdns-zone-tick", {
-      detail: { ticks: fresh, tokenId: mover && mover.id, ownerUid: mover && mover.ownerUid, from: from, to: to }
+      detail: { ticks: fresh, tokenId: mover && mover.id, ownerUid: mover && mover.ownerUid, combatantId: mover && mover.combatantId, from: from, to: to }
     }));
   } catch (e) {}
+  if (role !== "dm" && adapter && adapter.write && uid) {
+    const id = "zt_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    const slim = fresh.map(tick => ({
+      spell: tick.spell || "", when: tick.when || "", save: tick.save || "", dice: tick.dice || "",
+      type: tick.type || "", half: !!tick.half, dc: tick.dc, zoneId: tick.zoneId || "",
+      casterId: tick.casterId || "", targetId: tick.targetId || "", targetName: tick.targetName || "",
+      amount: tick.amount || 0, formula: tick.formula || "", faces: tick.faces || [], auto: !!tick.auto,
+      onFail: tick.onFail || "", budget: tick.budget || 0
+    }));
+    try {
+      const p = adapter.write("tableFeed/" + id, {
+        id: id, ts: new Date().toISOString(), from: uid, text: "zone-tick", kind: "sfx", event: "zone-tick",
+        ticks: slim, tokenId: mover.id, ownerUid: mover.ownerUid || "", combatantId: mover.combatantId || ""
+      }, { by: uid });
+      if (p && p.catch) p.catch(() => {});
+    } catch (e2) {}
+  }
 }
 function sweepFollow(mover, from, to) {
   const Z = window.SSDNSSpellZones;
@@ -5631,6 +5666,14 @@ function anchorPayload(token) {
   };
 }
 function confirmBlast() {
+  const aiming = state.blast;
+  if (aiming && aiming.needsAim && aiming.origin && aiming.hover) {
+    const ox = Number(aiming.origin.x) * 5;
+    const oy = Number(aiming.origin.y) * 5;
+    const hx = Number(aiming.hover.x) * 5;
+    const hy = Number(aiming.hover.y) * 5;
+    if (Math.hypot(hx - ox, hy - oy) > 0.5) aiming.facing = Math.atan2(hy - oy, hx - ox);
+  }
   const b = state.blast;
   if (!b) return;
   if (!b.origin) { toast("Pick a point on the map"); return; }
@@ -9698,6 +9741,21 @@ function paintDarkDimVeil(sources, px) {
     paintOneVeil(layer.pen, ls, px);
     layer.pen.restore();
   });
+  /* A smaller light's dim ring used to sit in a larger light's bright centre
+     (Fire Shield inside Sunbeam, Wall of Fire's row). Punch every bright disc clear. */
+  list.forEach(ls => {
+    const brightPx = ((Number(ls.bright) || 0) / 5) * px;
+    if (!(brightPx > 1)) return;
+    layer.pen.save();
+    layer.pen.globalCompositeOperation = 'destination-out';
+    if (!clipLightDisc(ls, brightPx, layer.pen)) { layer.pen.restore(); return; }
+    layer.pen.fillStyle = '#000';
+    const c = worldToScreen(ls.x, ls.y);
+    const z = state.view.zoom || 1;
+    const r = Math.max(2, brightPx * z);
+    layer.pen.fillRect(c.x - r - 2, c.y - r - 2, r * 2 + 4, r * 2 + 4);
+    layer.pen.restore();
+  });
   ctx.save();
   ctx.drawImage(layer.canvas, 0, 0, box.w, box.h);
   ctx.restore();
@@ -10393,7 +10451,7 @@ function removeMapTokens(ids, opts) {
 }
   function patchToken(id, fields) {
     if (role !== 'dm' || !id || !fields) return null;
-    const t = state.tokens.find(tok => tok && tok.id === id);
+    const t = tokenByRef(id);
     if (!t) return null;
     if (fields.status != null) t.status = fields.status;
     if (fields.hp != null && fields.hp !== "") t.hp = Number(fields.hp);
@@ -14963,10 +15021,51 @@ function setTokenHidden(id, hidden) {
   draw();
   return { id: t.id, hidden: t.hidden };
 }
+function applyZoneTickFeed(row) {
+  if (!row || row.event !== "zone-tick" || role !== "dm") return;
+  if (row.from && row.from === uid) return;
+  const ticks = Array.isArray(row.ticks) ? row.ticks : [];
+  if (!ticks.length) return;
+  try {
+    window.dispatchEvent(new CustomEvent("ssdns-zone-tick", {
+      detail: {
+        ticks: ticks,
+        tokenId: row.tokenId || row.combatantId || "",
+        ownerUid: row.ownerUid || "",
+        combatantId: row.combatantId || ""
+      }
+    }));
+  } catch (e) {}
+}
 window.addEventListener("ssdns-light-dismiss", (e) => {
   const key = String((e && e.detail && e.detail.key) || "").replace(/^spell:/, "");
   if (!key) return;
   dropEmittersWhere(em => em.key === key && (!em.casterUid || em.casterUid === uid || em.casterId === uid || (tokenByRef(em.casterId) && tokenByRef(em.casterId).ownerUid === uid)));
+  const catalog = key.indexOf("spell:") === 0 ? key : ("spell:" + key);
+  const bare = key.replace(/^spell:/, "");
+  const who = String((e.detail && e.detail.casterId) || "");
+  (state.tokens || []).forEach(t => {
+    if (!t || !Array.isArray(t.lights)) return;
+    if (who) {
+      if (t.ownerUid !== who && t.combatantId !== who && t.id !== who) return;
+    } else if (t.ownerUid !== uid) return;
+    const next = t.lights.filter(l => {
+      if (!l) return false;
+      const id = String(l.id || l.catalogId || "");
+      const name = String(l.name || "").toLowerCase();
+      if (id === catalog || id === bare || id === key) return false;
+      if (bare === "fire-shield" && /fire shield/.test(name)) return false;
+      if (bare === "sunbeam" && /sunbeam/.test(name)) return false;
+      return true;
+    });
+    if (next.length === t.lights.length) return;
+    t.lights = next;
+    t._lightSig = "";
+    const copy = shared.tokens && shared.tokens[t.id];
+    if (copy) copy.lights = next.map(l => Object.assign({}, l));
+    if (role === "dm") saveToken(t.id);
+  });
+  requestDraw();
 });
 window.addEventListener("ssdns-conc-end", (e) => {
   const detail = (e && e.detail) || {};
@@ -15052,6 +15151,11 @@ return {
   clearSpellZones: function (opts) { return clearSpellGrid(opts || {}); },
   turnKey: function () { return zoneTurnKey(); },
   tokenSnapshot: function (id) { return tokenSnapshot(id); },
+  tokenLink: function (id) {
+    const t = tokenByRef(id);
+    if (!t) return null;
+    return { tokenId: t.id, combatantId: t.combatantId || "", ownerUid: t.ownerUid || "", name: t.name || t.label || "" };
+  },
   /* fog-aware targeting */
   canPlayerSee: function (viewerUid, targetId) { return canPlayerSee(viewerUid, targetId); },
   /* L0225/L0226: live square (not stored) and the light stack at a grid point. */

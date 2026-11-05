@@ -208,6 +208,8 @@
     if (spec.rise) out.rise = true;
     if (spec.garnish === "place" || spec.garnish === "swipe" || spec.garnish === "clear" || spec.garnish === "detonate") out.garnish = spec.garnish;
     if (spec.cleared) out.cleared = true;
+    var rad = Number(spec.radius);
+    if (spec.radius != null && isFinite(rad) && rad > 0 && rad <= 500) out.radius = Math.round(rad);
     var nat = Number(spec.nat);
     if (spec.nat != null && isFinite(nat) && nat >= 1 && nat <= 20) out.nat = Math.round(nat);
     if (spec.crit) out.crit = true;
@@ -251,6 +253,8 @@
     if (info.rise) r.rise = true;
     if (info.garnish === "place" || info.garnish === "swipe" || info.garnish === "clear" || info.garnish === "detonate") r.garnish = info.garnish;
     if (info.cleared) r.cleared = true;
+    var reqRad = Number(info.radius);
+    if (info.radius != null && isFinite(reqRad) && reqRad > 0 && reqRad <= 500) r.radius = Math.round(reqRad);
     if (info.arrow) r.arrow = String(info.arrow).replace(/[^a-z-]/gi, "").slice(0, 20);
     var n = Number(info.nat);
     if (info.nat != null && isFinite(n) && n >= 1 && n <= 20) r.nat = Math.round(n);
@@ -1033,7 +1037,36 @@ function hailstormPaint(ctx, A, B, lt, seed, g) {
       ctx.restore();
     }
   }
-}
+  }
+  /* Lasting slick under the hailstorm one-shot. Same cold palette, not Ray of Frost's needle. */
+  function hailstormIdle(ctx, center, cell, seedKey) {
+    if (!ctx || !center) return;
+    var cellN = cell || 70;
+    var R = cellN * 4;
+    var spin = ((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now()) / 900;
+    var rand = rng((hash(String(seedKey || "ice")) % 997) + 3);
+    var i;
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = rgba("200,225,250", 0.18);
+    ctx.beginPath();
+    ctx.arc(center.x, center.y, R * 0.96, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = rgba("250,252,255", 0.5);
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    for (i = 0; i < 16; i++) {
+      var ang = rand() * Math.PI * 2 + spin * (i % 2 ? 0.04 : -0.03);
+      var rad = Math.sqrt(rand()) * R * 0.82;
+      ctx.save();
+      ctx.translate(center.x + Math.cos(ang) * rad, center.y + Math.sin(ang) * rad);
+      ctx.rotate(ang + spin);
+      ctx.fillStyle = i % 3 ? rgba("200,225,250", 0.8) : rgba("95,80,60", 0.85);
+      ctx.fillRect(-1.6, -7, 3.2, 14);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
   function jagPaint(ctx, A, B, lt, seed) {
     var T = LOOK_TIME.lightning;
     if (lt < 0 || lt > T.grow + T.hold + T.fade) return;
@@ -4765,7 +4798,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
         var an = rc() * TAU + lt / 2300 * (rc() < 0.85 ? 1 : -1), d = R * (0.45 + 0.48 * rc()) * (0.25 + 0.75 * f);
         glow(ctx, C.x + Math.cos(an) * d, C.y + Math.sin(an) * d, G.cell * (0.55 + 0.35 * rc()), [[0, "rgba(30,20,10," + (0.45 * a) + ")"], [1, "rgba(30,20,10,0)"]]);
       }
-      var bodies = 220;
+      var bodies = G.mode === "idle" ? 42 : 90;
       for (var i = 0; i < bodies; i++) {
         var fr = r(), rad = R * (0.3 + 0.68 * Math.pow(fr, 0.55)) * (0.25 + 0.75 * f), w = (0.7 + 0.9 * r()) * (r() < 0.82 ? 1 : -1), ph = r() * TAU, jit = r() * TAU;
         var ang = ph + lt / 1000 * w, rr = rad * (1 + 0.07 * Math.sin(lt / 260 + jit));
@@ -6353,6 +6386,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
     var zrMap = { hunger: 4, swarm: 4, furnace: 4, bead: 4, icebomb: 12, sunburst: 12, deathring: 12, arms: 2, daggers: 1, flame: 2, storm: 2 };
     var zr = zrMap[key] || 4;
     if (Number(g.zr) > 0) zr = Number(g.zr);
+    else if (Number(spec.radius) > 0) zr = Number(spec.radius) / 5;
     if (key === "bead" && mode === "boom") zr = 4;
     var targets = [];
     function push(p) {
@@ -7002,7 +7036,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
     classify: classify, resultOf: resultOf, plan: plan, sanitize: sanitize, request: request,
     lookOf: lookOf, lookSelf: lookSelf, lookTime: lookTime, shakeOf: shakeOf,
     stickyLook: stickyLook, wrapLook: wrapLook, chunkColor: chunkColor, tileOf: tileOf, namedLook: namedLook,
-    paint: paint, paintRider: paintRider, paintGuidePop: paintGuidePop, zoneLayer: zoneLayer,
+    paint: paint, paintRider: paintRider, paintGuidePop: paintGuidePop, zoneLayer: zoneLayer, hailIdle: hailstormIdle,
     erodeToken: erodeToken, erodeFront: function (lt) { return Chunk1Fx.erodeFront(lt); },
     nudge: tokenNudge, retort: function (ctx, look, lt, g) { Chunk2Fx.retort(ctx, look, lt, g); },
     hash: hash, dirOf: dirOf

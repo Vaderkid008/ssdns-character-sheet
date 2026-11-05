@@ -1236,6 +1236,10 @@
       try { return map.targetSight(targetId); }
       catch (e) { return null; }
     },
+    tokenLink: function (id) {
+      if (!map || typeof map.tokenLink !== "function") return null;
+      try { return map.tokenLink(id); } catch (e) { return null; }
+    },
     lightsProfile: function () {
       var L = root.SSDNSLighting;
       var doc = null;

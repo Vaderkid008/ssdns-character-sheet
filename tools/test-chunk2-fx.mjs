@@ -134,9 +134,9 @@ check("sanitize.mode", kept && kept.mode === "chill" && kept.spell === "Fire Shi
 const req = FX.request({ type: "spell", spell: "Ray of Enfeeblement", saved: true, mode: "warm" });
 check("request.saved", req.saved === true && req.mode === "warm" && req.spell === "Ray of Enfeeblement", JSON.stringify(req));
 
-check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.223-p2a") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.236-p2a"));
+check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.230-p1c") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.243-p1c"));
 check("src.map", read("map/ssdns-map.js").includes("fxBodyNudge") && read("map/ssdns-map.js").includes("tokenIsEnfeebled") && read("map/ssdns-map.js").includes("yankOrigin"));
-check("ver", JSON.parse(read("version.json")).sheet === "0.3.229" && JSON.parse(read("version.json")).dmcc === "0.2.242");
+check("ver", JSON.parse(read("version.json")).sheet === "0.3.230" && JSON.parse(read("version.json")).dmcc === "0.2.243");
 
 console.log(failures.length ? "\n" + failures.length + " FAILED" : "\nall chunk2 fx checks passed");
 process.exit(failures.length ? 1 : 0);
