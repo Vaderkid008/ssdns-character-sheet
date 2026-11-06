@@ -844,6 +844,24 @@
     if (field) sentences.push(field);
     return sentences.join(" ");
   }
+  /* A spell attack posted as damage still has to open the same reaction window as a weapon attack.
+     Saves, heals, and zone ticks do not carry hitTotal. */
+  function countsAsAttack(req) {
+    if (!req || req.type === "heal" || req.heal || req.kind === "heal") return false;
+    if (req.type === "zone") return false;
+    if (req.type === "attack") return true;
+    return req.hitTotal != null && req.hitTotal !== "" && isFinite(Number(req.hitTotal));
+  }
+  function stampAttack(row, entry) {
+    if (!row || !entry) return row;
+    if (entry.nat != null && entry.nat !== "" && isFinite(Number(entry.nat))) row.nat = Number(entry.nat);
+    if (entry.hitTotal != null && entry.hitTotal !== "" && isFinite(Number(entry.hitTotal))) row.hitTotal = Number(entry.hitTotal);
+    if (entry.n1 != null && entry.n1 !== "" && isFinite(Number(entry.n1))) row.n1 = Number(entry.n1);
+    if (entry.n2 != null && entry.n2 !== "" && isFinite(Number(entry.n2))) row.n2 = Number(entry.n2);
+    if (entry.spellName) row.spellName = String(entry.spellName);
+    if (entry.melee) row.melee = true;
+    return row;
+  }
   function rangeOf(name) {
     if (root.SSDNSPactShot && root.SSDNSPactShot.isPactShot && root.SSDNSPactShot.isPactShot(name) && root.SSDNSPactShot.variant) {
       var shotRange = root.SSDNSPactShot.variant();
@@ -855,5 +873,5 @@
     var meta = SPELL_META[key] || SPELL_META[norm(name)] || {};
     return meta.range || "";
   }
-  root.SSDNSSpellCast = { lookup: lookup, rollCast: rollCast, cantripTier: cantripTier, needsType: needsType, pickType: pickType, blurb: blurb, describe: describe, rangeOf: rangeOf };
+  root.SSDNSSpellCast = { lookup: lookup, rollCast: rollCast, cantripTier: cantripTier, needsType: needsType, pickType: pickType, blurb: blurb, describe: describe, rangeOf: rangeOf, countsAsAttack: countsAsAttack, stampAttack: stampAttack };
 })(typeof window !== "undefined" ? window : globalThis);

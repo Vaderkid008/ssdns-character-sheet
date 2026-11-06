@@ -1379,6 +1379,7 @@
     detonateBeads(put.replaced);
     c.spellMarks = put.bag;
     syncSpellZones();
+    if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postZone) root.SSDNSDmJoin.postZone(zone);
     return put.log || "";
   }
   function blastTargetId(tok) {
@@ -2416,29 +2417,15 @@
     var formula = (rolled && rolled.formula) || "";
     return formula + (marks ? " " + marks : "") + " = " + ((rolled && rolled.total) || 0) + (type ? " " + type : "");
   }
-  /* Creatures already in the sphere take the cold when it opens. The cast log used to
-     print an unapplied 2d6, which the feed drew as a blank die. */
-  function openHadarCold(placed, rollId) {
-    var R = root.SSDNSSpellRiders;
+  /* The sphere does not deal damage when it opens. Cold is the start of a turn
+     inside it, and the acid is the end-of-turn Dexterity save. Naming who is
+     already inside only tells the table the zone caught them. */
+  function openHadarCold(placed) {
     var lines = [];
-    (placed && placed.tokens || []).forEach(function (t, idx) {
+    (placed && placed.tokens || []).forEach(function (t) {
       var id = blastTargetId(t);
       if (!id) return;
-      var rolled = R && R.rollExpr ? R.rollExpr("2d6", false) : { formula: "2d6", faces: [], total: 0 };
-      var bit = facedDice(rolled, "cold");
-      lines.push((t.name || "creature") + " " + bit);
-      if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage) {
-        root.SSDNSDmJoin.postDamage({
-          amount: rolled.total,
-          label: "Hunger of Hadar",
-          type: "spell",
-          dice: bit,
-          targetId: id,
-          targetName: t.name || "",
-          rollId: (rollId || "hadar") + "_c" + idx,
-          spell: "Hunger of Hadar"
-        });
-      }
+      lines.push(t.name || "creature");
     });
     return lines;
   }
@@ -2861,6 +2848,7 @@
         label: rolled.label,
         n1: rolled.n1,
         n2: rolled.n2,
+        melee: !!spellTouch,
         tail: ledgerTail,
         weapon: throughGun && i >= 0 ? gunName(i) : "",
         spellName: spellName || "",
@@ -2996,10 +2984,11 @@
       noteSpellLight(spellName);
       postAppear(spellName, placedBlast, v.spellDC, rollId);
       postPlacedLooks(spellName, row, placedBlast, rollId);
-      if (phbKey(spellName) === "hunger of hadar") {
-        var coldLines = openHadarCold(placedBlast, rollId);
+        if (phbKey(spellName) === "hunger of hadar") {
+        var coldLines = openHadarCold(placedBlast);
         rolled.text = ((c && c.name) || "You") + " casts Hunger of Hadar";
-        rolled.text += coldLines.length ? (" · " + coldLines.join(" · ")) : " · nobody in the sphere";
+        rolled.text += coldLines.length ? (" · inside: " + coldLines.join(", ")) : " · nobody in the sphere";
+        rolled.text += " · 2d6 cold at the start of each turn inside, Dexterity save or 2d6 acid at the end";
         rolled.detail = rolled.text;
       }
       rolled.detail = rolled.text;
@@ -3326,6 +3315,11 @@
           pull: (row && row.pull) || 0,
           healHalf: !!(row && row.healHalf),
           spell: spellName,
+          spellName: spellName || "",
+          nat: rolled.nat,
+          hitTotal: rolled.result,
+          n1: rolled.n1,
+          n2: rolled.n2,
           dc: (v.spellDC != null && v.spellDC !== "" && isFinite(Number(v.spellDC))) ? Number(v.spellDC) : ""
         };
         if (row && row.hitSave) {

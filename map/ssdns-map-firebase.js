@@ -40,6 +40,24 @@
     if (!db || !fb || !roomCode) throw new Error("SSDNSMapFirebase: db, fb, and roomCode are required");
     var seqs = {};
     var controlCache = {};
+    /* A removed token must not be written back by a transaction that started
+       before the delete. Disintegrate's status write is one of those. */
+    var buried = {};
+    function bury(path) {
+      if (path) buried[path] = Date.now();
+    }
+    function isBuried(path) {
+      var p = String(path || "");
+      if (!p || !buried[p]) {
+        var keys = Object.keys(buried);
+        var i;
+        for (i = 0; i < keys.length; i++) {
+          if (p.indexOf(keys[i] + "/") === 0) return true;
+        }
+        return !!buried[p];
+      }
+      return true;
+    }
 
     function full(path) {
       return "rooms/" + roomCode + "/" + String(path || "").replace(/^\/+/, "");
@@ -147,12 +165,14 @@
       },
       write: function (path, value, meta) {
         if (blocked(path)) return Promise.resolve();
+        if (isBuried(path) && !(meta && meta.revive)) return Promise.resolve({ dropped: true, buried: true });
         var seq = num(meta && meta.seq) || num(value && value.seq);
         if (seq && seqs[path] && seq < seqs[path]) return Promise.resolve({ dropped: true });
         var r = ref(path);
         var op;
         if (fb.runTransaction) {
           op = fb.runTransaction(r, function (cur) {
+            if (isBuried(path) && !(meta && meta.revive)) return;
             var curSeq = cur && typeof cur === "object" ? num(cur.seq) : 0;
             if (seq && curSeq && seq < curSeq) return;
             return value;
@@ -169,6 +189,7 @@
       },
       remove: function (path) {
         if (blocked(path) || !fb.remove) return Promise.resolve();
+        bury(path);
         delete seqs[path];
         return fb.remove(ref(path));
       }
@@ -181,6 +202,17 @@
     var store = opts.store || { pub: {}, dm: {} };
     var subs = [];
     var bus = opts.bus || null;
+    var buried = {};
+    function isBuried(path) {
+      var p = String(path || "");
+      if (buried[p]) return true;
+      var keys = Object.keys(buried);
+      var i;
+      for (i = 0; i < keys.length; i++) {
+        if (p.indexOf(keys[i] + "/") === 0) return true;
+      }
+      return false;
+    }
     function bucket(path) { return String(path).indexOf("map/dm") === 0 ? store.dm : store.pub; }
     function matches(sub, write) { return write === sub || write.indexOf(sub + "/") === 0; }
     function deliver(path, value, meta) {
@@ -211,6 +243,7 @@
       },
       write: function (path, value, meta) {
         if (role !== "dm" && String(path).indexOf("map/dm") === 0) return Promise.resolve();
+        if (isBuried(path) && !(meta && meta.revive)) return Promise.resolve({ dropped: true, buried: true });
         var bag = bucket(path);
         var seq = meta && meta.seq;
         var prev = bag[path];
@@ -222,6 +255,7 @@
       },
       remove: function (path) {
         if (role !== "dm" && String(path).indexOf("map/dm") === 0) return Promise.resolve();
+        buried[path] = Date.now();
         delete bucket(path)[path];
         if (opts.onWrite) opts.onWrite(path, null, { removed: true });
         fan(path, null, { removed: true });

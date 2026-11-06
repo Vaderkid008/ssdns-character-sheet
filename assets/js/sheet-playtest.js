@@ -1823,6 +1823,7 @@
       var blockedIds = {};
       rows.forEach(function (row) {
         if (row.mapHidden || String(row.id) === "__free") return;
+        if (root.SSDNSApplied && root.SSDNSApplied.dustedTarget && root.SSDNSApplied.dustedTarget(row)) { blockedIds[row.id] = 1; return; }
         if (downedHidden(row)) { blockedIds[row.id] = 1; return; }
         var seen = sightOf(row.id);
         if (seen && seen.visible === false) { blockedIds[row.id] = 1; return; }
