@@ -1914,17 +1914,26 @@ function facedDice(rolled, type) {
 }
 function zoneApplyAmount(tick, who, caster, amount) {
   const faceList = tick.faces || [];
-  const faces = faceList.map((n) => "«" + n + "»").join(" ");
   const formula = tick.formula || tick.dice || "";
   const full = faceList.length ? faceList.reduce((sum, n) => sum + (Number(n) || 0), 0) : amount;
-  const shown = formula + (faces ? " " + faces : "") + " = " + full + (tick.type ? " " + tick.type : "");
-  const dealt = amount > 0 && amount < full ? " · " + amount + " dealt" : (amount > 0 ? "" : " · none");
-  const line = (tick.spell || "Zone") + " " + shown + dealt + (fight.damageMode === "approve" && amount > 0 ? " (held)" : "");
-  if (formula || amount > 0) DM.toast(line);
-  if (faces && DM.pushRoll) {
+  const CastLine = window.SSDNSSpellCast;
+  const line = CastLine && CastLine.hadarTickLine
+    ? CastLine.hadarTickLine((who && who.name) || "Someone", formula, faceList, full, tick.type || "")
+    : ((who && who.name) || "Someone") + " " + formula + " = " + full + (tick.type ? " " + tick.type : "");
+  const held = fight.damageMode === "approve" && amount > 0 ? " (held)" : "";
+  if (formula || amount > 0) DM.toast(line + held);
+  if (faceList.length && DM.pushRoll) {
+    const sides = (String(formula).match(/d(\d+)/) || [])[1];
     DM.pushRoll({
-      who: (who && who.name) || "Someone", label: tick.spell || "Zone", formula: formula,
-      result: full, detail: line, rolls: faceList, private: false
+      plain: true,
+      who: (who && who.name) || "Someone",
+      label: tick.spell || "Zone",
+      formula: formula,
+      result: full,
+      detail: line + held,
+      rolls: faceList,
+      dice: faceList.map((n) => ({ sides: Number(sides) || 6, face: n })),
+      private: false
     });
   }
   if (!(amount > 0) || fight.damageMode === "approve") return;
@@ -2077,10 +2086,18 @@ function deliverZoneTick(tick, who, caster) {
     }).then((save) => {
       if (!save) return;
       if (save.line) DM.toast(save.line);
+      /* Hunger of Hadar's acid is none on a success. Do not post an unrolled 2d6 for that. */
+      if (save.blocked || (!save.failed && tick.half === false)) {
+        if (save.failed && !save.blocked && tick.onFail) {
+          const tgt = (fight.order || []).find((r) => r && (r.playerId === (who.playerId || who.id) || r.id === (who.playerId || who.id))) || who;
+          rememberCondition(caster || { id: tick.casterId || "", name: tick.spell || "" }, tgt, tick.onFail, null, { spell: tick.spell || "", conc: false }).catch(() => {});
+          DM.toast((tgt.name || "Creature") + " is " + tick.onFail + " (" + (tick.spell || "zone") + ")");
+        }
+        return;
+      }
       const rolled = zoneRoll(tick.dice);
       let amount = rolled.total;
-      if (save.blocked) amount = 0;
-      else if (!save.failed) amount = tick.half ? Math.floor(amount / 2) : 0;
+      if (!save.failed) amount = tick.half ? Math.floor(amount / 2) : 0;
       else if (!tick.dice) amount = 0;
       finish(amount, rolled.formula, rolled.faces);
       if (save.failed && !save.blocked && tick.onFail) {
@@ -8008,8 +8025,10 @@ async function castAreaSpell(opts) {
   let detail = (opts.who || "Someone") + " casts " + opts.name;
   if (/hunger of hadar/i.test(opts.name || "")) {
     const cold = openHadarCold(tokens);
-    detail += cold.length ? (" · inside: " + cold.join(", ")) : " · nobody in the sphere";
-    detail += " · 2d6 cold at the start of each turn inside, Dexterity save or 2d6 acid at the end";
+    const CastLine = window.SSDNSSpellCast;
+    detail = CastLine && CastLine.hadarAnnounce
+      ? CastLine.hadarAnnounce(opts.who || "Someone", cold)
+      : ((opts.who || "Someone") + " casts " + opts.name + (cold.length ? " · inside: " + cold.join(", ") : " · nobody in the sphere"));
   } else if (rolled && rolled.text) detail += " · " + rolled.text;
   if (!/hunger of hadar/i.test(opts.name || "")) detail += names.length ? (" · " + names.join(", ")) : " · nobody in the area";
   const zoneLine = adoptCastZone(opts.row, opts.name, placed, opts.slotLevel, opts.dc, zoneExtra);
@@ -8281,7 +8300,12 @@ async function cardCast(i, n, opts) {
     if (!outcome || outcome.cancelled) return false;
     let areaDetail = outcome.detail || (row.name + " casts " + name);
     if (spellConcentrates(spell, known)) areaDetail += noteConcentration(row, name, level);
-    await publishCardRoll(row, areaDetail, outcome.rolled ? outcome.rolled.result : 0, { formula: (outcome.rolled && outcome.rolled.formula) || "—", spell: true });
+    const hadarCast = /hunger of hadar/i.test(name);
+    await publishCardRoll(row, areaDetail, hadarCast ? null : (outcome.rolled ? outcome.rolled.result : 0), {
+      formula: hadarCast ? "" : ((outcome.rolled && outcome.rolled.formula) || "—"),
+      plain: hadarCast,
+      spell: true
+    });
     playCue();
     await saveRemoteTable();
     renderFight();

@@ -1,5 +1,5 @@
 /**
- * Phase 1 play fixes (sheet 0.3.231 / DMCC 0.2.244).
+ * Phase 1 play fixes (sheet 0.3.232 / DMCC 0.2.245).
  * Contagion commits Poisoned plus a DC'd end save, three failures keep the disease
  * (Blinding Sickness also applies Blinded), Disintegrate's remove goes through the
  * map host, adjacent Medium squares are 5 ft touch, and Hunger of Hadar does not
@@ -20,8 +20,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.231" && version.sheetBuild === "sheet-playtest-v03231");
-check("ver.dmcc", version.dmcc === "0.2.244" && version.dmccBuild === "dmcc-playtest-v02244");
+check("ver.sheet", version.sheet === "0.3.232" && version.sheetBuild === "sheet-playtest-v03232");
+check("ver.dmcc", version.dmcc === "0.2.245" && version.dmccBuild === "dmcc-playtest-v02245");
 
 const context = { console, Math, Date, JSON, parseInt, isFinite, Number, String, Object, Array };
 context.window = context;
@@ -60,7 +60,7 @@ check("touch.far", Area.touchBlock(10, "touch") === "Out of reach.");
 check("touch.center", Area.touchBlock(0, "touch") === "");
 
 const hadar = Cast.rollCast({ spellName: "Hunger of Hadar", slotLevel: 3, dc: 15 });
-check("hadar.text", hadar.applyNow === false && !/\d+d\d+/.test(hadar.text) && /cold on each creature/.test(hadar.text) && /none of the acid/.test(hadar.text), hadar.text);
+check("hadar.text", hadar.applyNow === false && hadar.plain === true && hadar.formula === "" && hadar.result == null && !/\d*d\d+/.test(hadar.text) && /cold when a turn starts inside/.test(hadar.text) && /Dexterity save or acid/.test(hadar.text), hadar.text);
 const spec = Z.specOf("Hunger of Hadar");
 check("hadar.ticks", !!(spec && spec.ticks.some((t) => t.when === "start" && t.dice === "2d6" && t.type === "cold" && !t.save) && spec.ticks.some((t) => t.when === "end" && t.save === "DEX" && t.half === false)));
 
