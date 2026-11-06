@@ -227,8 +227,17 @@ window.SSDNSMap = { create(opts) {
       } : null
     };
   }
+  const buriedTokens = {};
+  function buryToken(id) {
+    if (!id) return;
+    buriedTokens[String(id)] = Date.now();
+  }
+  function tokenBuried(id) {
+    return !!(id && buriedTokens[String(id)]);
+  }
   function saveToken(id) {
     if (role !== 'dm') return;
+    if (tokenBuried(id)) return;
     const t = shared.tokens && shared.tokens[id];
     if (!t) return;
     const pub = publicToken(t);
@@ -7296,7 +7305,16 @@ function tokenDowned(t) {
   const hp = row.hp;
   return hp != null && hp !== '' && isFinite(Number(hp)) && Number(hp) <= 0 && !row.noHpPool;
 }
+function tokenDusted(t) {
+  if (!t) return false;
+  if (tokenBuried(t.id) || tokenBuried(t.combatantId)) return true;
+  if (/disintegrat/i.test(String(t.status || ""))) return true;
+  const row = rowForToken(t);
+  return !!(row && (row.disintegrated || /disintegrat/i.test(String(row.status || ""))));
+}
 function hideDownedToken(t) {
+  /* Dust stays off the target list even when Show downed is on. */
+  if (tokenDusted(t)) return true;
   return tokenDowned(t) && !showDownedNow();
 }
 function adoptShowDowned(on) {
@@ -10429,6 +10447,8 @@ function removeMapTokens(ids, opts) {
   });
   state.tokens = state.tokens.filter(t => !list.includes(t.id));
   goneInfo.forEach(info => {
+    buryToken(info.id);
+    if (info.combatantId) buryToken(info.combatantId);
     if (info.ownerUid && !opts.keepOwner) {
       dismissedMap()[info.ownerUid] = true;
       write('map/dm/dismissed/' + info.ownerUid, true);
@@ -14613,6 +14633,15 @@ async function loadSceneImage(sceneId, opts) {
     const id = parts[3];
     if (!id) return;
     const sub = parts[4];
+    /* A dusted token must not come back from a status write that landed after the delete.
+       The status write itself is allowed while the crumb is still on the token. */
+    if (tokenBuried(id) && !(meta && meta.removed) && value != null) {
+      dropToken(id);
+      if (role === 'dm' && adapter && adapter.remove && !sub) adapter.remove('map/public/tokens/' + id);
+      if (role === 'player') state.tokens = Object.values(shared.tokens).filter(t => !t.hidden && !tokenBuried(t.id));
+      requestDraw();
+      return;
+    }
     if (value == null || (meta && meta.removed)) {
       if (!newer(path, meta && meta.seq)) return;
       if (role === 'dm' && shared.tokens[id] && shared.tokens[id].hidden) {
@@ -14626,7 +14655,7 @@ async function loadSceneImage(sceneId, opts) {
         return;
       }
       dropToken(id);
-      if (role === 'player') state.tokens = Object.values(shared.tokens).filter(t => !t.hidden);
+      if (role === 'player') state.tokens = Object.values(shared.tokens).filter(t => t && !t.hidden && !tokenBuried(t.id));
       requestDraw();
       return;
     }
@@ -14709,12 +14738,19 @@ async function loadSceneImage(sceneId, opts) {
       if (!next.sheetId && prevTok.sheetId) next.sheetId = prevTok.sheetId;
       if (!next.kind && prevTok.kind) next.kind = prevTok.kind;
       if (role === 'dm' && next.asset && prevTok.asset && prevTok.asset.props && !next.asset.props) next.asset = prevTok.asset;
+      if (tokenBuried(tid)) {
+        dropToken(tid);
+        if (role === 'dm' && adapter && adapter.remove) adapter.remove('map/public/tokens/' + tid);
+        if (role === 'player') state.tokens = Object.values(shared.tokens).filter(t => t && !t.hidden && !tokenBuried(t.id));
+        requestDraw();
+        return;
+      }
       shared.tokens[tid] = Object.assign({}, prevTok, next);
       if (role === 'dm' && !state.tokens.some(tok => tok && tok.id === tid)) {
         state.tokens.push(JSON.parse(JSON.stringify(shared.tokens[tid])));
       }
     }
-    if (role === 'player') state.tokens = Object.values(shared.tokens).filter(t => !t.hidden);
+    if (role === 'player') state.tokens = Object.values(shared.tokens).filter(t => t && !t.hidden && !tokenBuried(t.id));
     applySharedToTokens();
     restoreDragPos(keep);
     if (remotePos) refreshRangeSurfaces();
@@ -14774,6 +14810,13 @@ async function loadSceneImage(sceneId, opts) {
         const path = meta && meta.path || '';
         const id = path.split('/').pop();
         if (id && value) {
+          if (tokenBuried(id)) {
+            delete shared.tokens[id];
+            state.tokens = state.tokens.filter(t => t && t.id !== id);
+            if (adapter && adapter.remove) adapter.remove('map/dm/tokens/' + id);
+            requestDraw();
+            return;
+          }
           shared.tokens[id] = Object.assign(shared.tokens[id] || {}, value);
           applySharedToTokens();
           requestDraw();

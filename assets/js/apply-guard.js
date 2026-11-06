@@ -819,8 +819,17 @@
     if (known && Number(hp) <= 0) return true;
     return marked;
   }
+  function dustedTarget(row) {
+    if (!row) return false;
+    if (row.disintegrated) return true;
+    if (/disintegrat/i.test(String(row.status || ""))) return true;
+    var names = conditionNames(row.conditions).concat(conditionNames(row.activeConditions));
+    return names.some(function (name) { return /disintegrat/i.test(String(name || "")); });
+  }
   function isUnusableTarget(row) {
     if (!row) return true;
+    /* Show downed can put a 0 HP creature back on the list. Dust cannot. */
+    if (dustedTarget(row)) return true;
     if (row.fled || row.left || row.departed) return true;
     var status = String(row.status || "");
     if (/^(fled|left|gone)$/i.test(status)) return true;
@@ -1454,6 +1463,7 @@
     presenceLeave: presenceLeave,
     enqueueToast: enqueueToast,
     isUnusableTarget: isUnusableTarget,
+    dustedTarget: dustedTarget,
     isDownedTarget: isDownedTarget,
     showDowned: showDowned,
     setShowDowned: setShowDowned,

@@ -209,7 +209,8 @@ function captureSecrets() {
     const secret = window.SSDNSApplied && window.SSDNSApplied.secretEnemy
       ? window.SSDNSApplied.secretEnemy(Object.assign({}, row, { dcs: window.SSDNSApplied.dcLines ? window.SSDNSApplied.dcLines(row.card) : null }))
       : { name: row.name, ac: row.ac, hp: row.hp, maxHp: row.maxHp, reveal: revealOf(row) };
-    if (row.mapTokenId) secret.mapTokenId = String(row.mapTokenId);
+    if (row.disintegrated) secret.disintegrated = true;
+    else if (row.mapTokenId) secret.mapTokenId = String(row.mapTokenId);
     /* B3: a DM speed edit lives on the fight row. The public turn order does not carry it, so the DM secret keeps it. */
     if (row.speed != null && row.speed !== "") secret.speed = row.speed;
     secret.mapHidden = !!row.mapHidden;
@@ -226,7 +227,10 @@ function restoreSecrets() {
     const secret = row && fight.secrets && fight.secrets[row.id];
     if (!secret || row.kind === "player") return;
     if (secret.name) row.name = secret.name;
-    if (secret.mapTokenId) row.mapTokenId = secret.mapTokenId;
+    if (secret.disintegrated || row.disintegrated) {
+      row.disintegrated = true;
+      delete row.mapTokenId;
+    } else if (secret.mapTokenId) row.mapTokenId = secret.mapTokenId;
     if (secret.speed != null && secret.speed !== "") row.speed = secret.speed;
     ["ac", "hp", "maxHp", "dex", "atkBonus"].forEach((key) => {
       if (secret[key] != null && secret[key] !== "") row[key] = secret[key];
@@ -7403,7 +7407,7 @@ function withDmActing(row, detail) {
    so the patch has to land on the token that is actually on the map. */
 function liveMapTokenId(row) {
   const host = window.SSDNSMapHost;
-  if (!row) return "";
+  if (!row || rowDusted(row)) return "";
   const stored = row.mapTokenId || "";
   if (!host) return stored;
   const canCheck = typeof host.hasToken === "function";
@@ -8003,8 +8007,9 @@ async function castAreaSpell(opts) {
   const names = tokens.map((t) => t.name).filter(Boolean);
   let detail = (opts.who || "Someone") + " casts " + opts.name;
   if (/hunger of hadar/i.test(opts.name || "")) {
-    const cold = openHadarCold(tokens, opts);
-    detail += cold.length ? (" · " + cold.join(" · ")) : " · nobody in the sphere";
+    const cold = openHadarCold(tokens);
+    detail += cold.length ? (" · inside: " + cold.join(", ")) : " · nobody in the sphere";
+    detail += " · 2d6 cold at the start of each turn inside, Dexterity save or 2d6 acid at the end";
   } else if (rolled && rolled.text) detail += " · " + rolled.text;
   if (!/hunger of hadar/i.test(opts.name || "")) detail += names.length ? (" · " + names.join(", ")) : " · nobody in the area";
   const zoneLine = adoptCastZone(opts.row, opts.name, placed, opts.slotLevel, opts.dc, zoneExtra);
@@ -8160,29 +8165,13 @@ function askSpellPick(title, options) {
     openDialog(dlg);
   });
 }
-function openHadarCold(tokens, opts) {
-  opts = opts || {};
+function openHadarCold(tokens) {
   const lines = [];
   (tokens || []).forEach((t) => {
     if (!t) return;
     const tid = t.combatantId || t.ownerUid || t.id;
     if (!tid) return;
-    const rolled = zoneRoll("2d6");
-    const shown = facedDice(rolled, "cold");
-    lines.push((t.name || "creature") + " " + shown);
-    if ((rolled.total || 0) > 0 && fight.damageMode !== "approve") {
-      applyPlayerHit({
-        rollId: DM.uid("hadar"), targetId: tid, targetName: t.name || "", amount: rolled.total,
-        from: opts.fromId || "", characterName: opts.who || "", label: "Hunger of Hadar",
-        weapon: "Hunger of Hadar", type: "damage", dice: shown
-      });
-    }
-    if (DM.pushRoll) {
-      DM.pushRoll({
-        who: opts.who || "Someone", label: "Hunger of Hadar", formula: rolled.formula || "2d6",
-        result: rolled.total, detail: (t.name || "creature") + " " + shown, rolls: rolled.faces || [], private: false
-      });
-    }
+    lines.push(t.name || "creature");
   });
   return lines;
 }
@@ -9096,6 +9085,10 @@ function askSmiteSave(req, who, shownName, row) {
 function applyPlayerHit(meta) {
   if (!meta) return;
   const heal = meta.kind === "heal" || meta.type === "heal" || meta.heal;
+  if (!heal && (targetDusted(meta.targetId) || rowDusted(findCombatant(meta)))) {
+    DM.toast((meta.targetName || "They") + " is dust and can't be targeted.");
+    return;
+  }
   if (!meta._reactGo && !heal) {
     const row = findCombatant(meta);
     const offers = row ? damageReactOffers(meta, row) : [];
@@ -9525,6 +9518,30 @@ function breakEnemyConc(row, reason, spell) {
   row.concentration = "";
   if (reason !== "failed save") DM.toast("CONC " + (row.name || "Enemy") + " — BROKEN (" + reason + ") → " + name + " ends");
 }
+function adoptPlayerZone(req, id) {
+  const zone = req && req.zone;
+  if (!zone || !zone.origin) {
+    markRequestResolved(id);
+    return;
+  }
+  const casterId = (zone.casterId || req.from || "");
+  const caster = findCombatant({ id: req.from, playerId: req.from, targetId: casterId }) || null;
+  if (caster && window.SSDNSSpellZones && window.SSDNSSpellZones.place) {
+    const put = window.SSDNSSpellZones.place(caster.spellMarks, zone);
+    caster.spellMarks = put.bag;
+    if (zone.conc) caster.concentration = zone.spell || caster.concentration || "";
+  }
+  const host = window.SSDNSMapHost;
+  if (host && typeof host.setSpellZones === "function") {
+    let mine = [];
+    try {
+      mine = (host.spellZones ? host.spellZones() : []).filter((z) => z && String(z.casterId || "") === String(casterId) && String(z.id) !== String(zone.id));
+    } catch (e) { mine = []; }
+    try { host.setSpellZones(mine.concat([zone]), { casterId: casterId }); } catch (e2) {}
+  }
+  markRequestResolved(id);
+  saveRemoteTable();
+}
 function resolveIncomingAttack(req, reqId) {
   const rollId = req.rollId || reqId || "";
   const settled = rollId && window.SSDNSApplied && (window.SSDNSApplied.settled
@@ -9535,6 +9552,13 @@ function resolveIncomingAttack(req, reqId) {
     return;
   }
   const row = findCombatant(req);
+  if (targetDusted(req.targetId) || rowDusted(row)) {
+    const whoDust = req.characterName || "Someone";
+    const nameDust = (row && row.name) || req.targetName || "That creature";
+    markRequestResolved(reqId);
+    DM.toast(whoDust + " → " + nameDust + " is dust and can't be targeted.");
+    return;
+  }
   const fromId = req.from || "";
   const fromSnap = fromId && DM.state.players[fromId] && DM.state.players[fromId].snapshot;
   const rawCover = (row && row.coverLock) ? (row.cover || "") : (req.coverSet ? (req.cover || "") : coverValue(row || { id: req.targetId }));
@@ -9735,7 +9759,9 @@ function applyRequest(req, reqId) {
   if (!req || req.resolved || req.type === "bank") return;
   /* turn order PR 2 (item 6): Mercy Hands rows belong to dmcc.js (it heals, or holds an out-of-turn cast); this path read them as damage */
   if (req.type === "mercy") return;
-  const attack = req.type === "attack" || (req.hitTotal != null && req.hitTotal !== "" && req.type !== "heal");
+  const attack = window.SSDNSSpellCast && window.SSDNSSpellCast.countsAsAttack
+    ? window.SSDNSSpellCast.countsAsAttack(req)
+    : (req.type === "attack" || (req.hitTotal != null && req.hitTotal !== "" && req.type !== "heal"));
   if (attack) {
     resolveIncomingAttack(req, reqId);
     return;
@@ -9980,10 +10006,13 @@ function watchRequests() {
       if (fight.seenReq[id]) return;
       fight.seenReq[id] = 1;
       const req = val[id];
-      const attack = req && (req.type === "attack" || (req.hitTotal != null && req.hitTotal !== "" && req.type !== "heal"));
+      const attack = req && window.SSDNSSpellCast && window.SSDNSSpellCast.countsAsAttack
+        ? window.SSDNSSpellCast.countsAsAttack(req)
+        : (req && (req.type === "attack" || (req.hitTotal != null && req.hitTotal !== "" && req.type !== "heal")));
       const fresh = req && req.ts && (Date.now() - Date.parse(req.ts) < 120000);
       if (req && req.resolved) return;
       if (req && req.type === "bank") return;
+      if (req && req.type === "zone") { if (fresh) adoptPlayerZone(req, id); return; }
       if (req && req.type === "endTurn") { if (fresh) endTurnRequest(req, id); return; }
       if (req && req.type === "addToken") {
         if (fresh && !addTokenRequest(req, id)) delete fight.seenReq[id];
@@ -10515,8 +10544,16 @@ function tokenStillThere(tokenId) {
   if (!tokenId || !host || typeof host.hasToken !== "function") return !!tokenId;
   return !!host.hasToken(tokenId);
 }
+function rowDusted(row) {
+  return !!(row && (row.disintegrated || /disintegrat/i.test(String(row.status || ""))));
+}
 function bindNewToken(row, at) {
   if (!row || row.kind === "player" || linkBusy) return;
+  /* Disintegrate keeps the fight row and deletes the token. A later sync must not place a new one. */
+  if (rowDusted(row)) {
+    if (row.mapTokenId) delete row.mapTokenId;
+    return;
+  }
   if (row.mapTokenId && tokenStillThere(row.mapTokenId)) return;
   const host = window.SSDNSMapHost;
   if (!host || typeof host.placeToken !== "function") return;
@@ -12809,6 +12846,13 @@ function syncMapTokens() {
   let dirty = false;
   (fight.order || []).slice().forEach((row) => {
     if (!row) return;
+    if (rowDusted(row)) {
+      if (row.mapTokenId) {
+        delete row.mapTokenId;
+        dirty = true;
+      }
+      return;
+    }
     if (row.kind === "player") {
       if (!row.mapTokenId) {
         rememberPlayerToken(row);

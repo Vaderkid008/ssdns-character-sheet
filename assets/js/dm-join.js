@@ -741,6 +741,13 @@
     if (row.dc == null && entry.dc != null && entry.dc !== "" && isFinite(Number(entry.dc))) row.dc = Number(entry.dc);
     if (entry.banishAt) row.banishAt = Number(entry.banishAt) || 0;
     if (entry.healHalf) row.healHalf = true;
+    if (root.SSDNSSpellCast && root.SSDNSSpellCast.stampAttack) root.SSDNSSpellCast.stampAttack(row, entry);
+    else {
+      if (entry.nat != null && entry.nat !== "" && isFinite(Number(entry.nat))) row.nat = Number(entry.nat);
+      if (entry.hitTotal != null && entry.hitTotal !== "" && isFinite(Number(entry.hitTotal))) row.hitTotal = Number(entry.hitTotal);
+      if (entry.spellName) row.spellName = String(entry.spellName);
+      if (entry.melee) row.melee = true;
+    }
     if (entry.riderSave) row.riderSave = String(entry.riderSave);
     if (entry.riderOnFail) row.riderOnFail = String(entry.riderOnFail);
     if (entry.riderSpell) row.riderSpell = String(entry.riderSpell);
@@ -819,6 +826,31 @@
     if (!tag && root.SSDNSActionPips && root.SSDNSActionPips.oaTag) tag = root.SSDNSActionPips.oaTag();
     if (tag && row) row.oa = String(tag);
     return row;
+  }
+  /* Player-placed zones ride the same request pipe as damage so the DM's turn
+     ticks see them even when a tableFeed echo is dropped. */
+  function postZone(zone) {
+    if (!zone || !state.joined || state.left) return Promise.resolve({ ok: false });
+    var slim = zone;
+    try { slim = JSON.parse(JSON.stringify(zone)); } catch (e) { slim = zone; }
+    var id = "req_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var row = {
+      ts: new Date().toISOString(),
+      from: state.uid,
+      targetId: state.uid,
+      amount: 0,
+      type: "zone",
+      label: (slim && slim.spell) || "Zone",
+      characterName: (doc() && doc().character && doc().character.name) || "",
+      zone: slim
+    };
+    if (offlineNow()) return Promise.resolve({ ok: false, queued: true });
+    return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row).then(function () {
+      return { ok: true };
+    }).catch(function (e) {
+      console.warn("[DM Join] zone", e);
+      return { ok: false };
+    });
   }
   function postAttack(entry) {
     entry = entry || {};
@@ -3661,6 +3693,7 @@
       postFx: postFx,
       postChat: postChat,
       postDamage: postDamage,
+      postZone: postZone,
       postMercy: postMercy,
       postAttack: postAttack,
       live: function () {
