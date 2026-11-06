@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.244"; // dmcc-playtest-v02244
+const VERSION = "0.2.245"; // dmcc-playtest-v02245
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -805,12 +805,15 @@ async function pushRoll(entry) {
   try {
     await state._fb.set(roomRef("rolls/" + entry.id), entry);
     if (!entry.private) {
-      const one = !(entry.freeShot || entry.heal || entry.attack) && !/→/.test(String(entry.detail || "")) ? singleDie(entry) : null;
-      const text = entry.freeShot && entry.detail ? entry.detail : one ? one.text : (entry.label || "Roll") + " " + (entry.formula || "") + " = " + (entry.result ?? "") + (entry.detail ? " (" + entry.detail + ")" : "");
+      const lined = window.SSDNSSpellCast && window.SSDNSSpellCast.feedLine ? window.SSDNSSpellCast.feedLine(entry) : "";
+      const one = !(entry.freeShot || entry.heal || entry.attack || entry.plain) && !/→/.test(String(entry.detail || "")) ? singleDie(entry) : null;
+      const text = entry.plain && entry.detail ? entry.detail : (lined && entry.plain ? lined : (entry.freeShot && entry.detail ? entry.detail : one ? one.text : (entry.label || "Roll") + " " + (entry.formula || "") + " = " + (entry.result ?? "") + (entry.detail ? " (" + entry.detail + ")" : "")));
       const feed = {
         id: entry.id, ts: entry.ts, from: state.uid || "dm", fromName: "DM",
         text: text, kind: "roll", who: entry.who || "DM",
-        formula: entry.formula || "", dice: Array.isArray(entry.dice) ? entry.dice : null
+        formula: entry.plain ? "" : (entry.formula || ""),
+        rolls: Array.isArray(entry.rolls) ? entry.rolls : null,
+        dice: Array.isArray(entry.dice) ? entry.dice : null
       };
       if (entry.die && entry.die.kind === "plain" && entry.die.fancy) {
         feed.die = {

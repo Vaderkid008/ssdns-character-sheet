@@ -579,7 +579,9 @@
     if (!failed.length && q.length) toast("Queued messages sent");
   }
   function rollText(entry) {
+    if (root.SSDNSSpellCast && root.SSDNSSpellCast.feedLine) return root.SSDNSSpellCast.feedLine(entry);
     var detail = String((entry && entry.detail) || "");
+    if (entry && entry.plain && detail) return detail;
     if (entry && (entry.heal || /\bheals\b/i.test(detail))) return detail;
     if (entry && entry.freeShot && detail) return detail; /* 0.3.67: one line for a Free shot */
     if (/→\s*(HIT|MISS)/.test(detail)) return detail;

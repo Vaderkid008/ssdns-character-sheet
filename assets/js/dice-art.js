@@ -316,6 +316,8 @@
   }
   function lead(entry, html) {
     html = cardBadges(String(html || ""));
+    /* "2d6 «4» «5»" is a finished roll. Paint those numbers instead of an empty die. */
+    if (html.indexOf("«") >= 0 && html.indexOf("die-face") < 0) html = faceRun(html);
     if (html.indexOf("die-face") >= 0 || html.indexOf("die-inline") >= 0) return html;
     var mixed = diceFromEntry(entry, html);
     if (mixed && mixed.length) {

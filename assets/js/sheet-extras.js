@@ -2986,10 +2986,12 @@
       postPlacedLooks(spellName, row, placedBlast, rollId);
         if (phbKey(spellName) === "hunger of hadar") {
         var coldLines = openHadarCold(placedBlast);
-        rolled.text = ((c && c.name) || "You") + " casts Hunger of Hadar";
-        rolled.text += coldLines.length ? (" · inside: " + coldLines.join(", ")) : " · nobody in the sphere";
-        rolled.text += " · 2d6 cold at the start of each turn inside, Dexterity save or 2d6 acid at the end";
-        rolled.detail = rolled.text;
+        var announced = Cast.hadarAnnounce ? Cast.hadarAnnounce((c && c.name) || "You", coldLines) : (((c && c.name) || "You") + " casts Hunger of Hadar");
+        rolled.text = announced;
+        rolled.detail = announced;
+        rolled.plain = true;
+        rolled.formula = "";
+        rolled.result = null;
       }
       rolled.detail = rolled.text;
     } else if (row && (row.kind === "none" || row.kind === "rider" || row.kind === "utility")) {
@@ -3116,8 +3118,9 @@
       root.SSDNSDmJoin.postRoll({
         id: rollId,
         label: rolled.label,
-        formula: rolled.formula,
-        result: rolled.result,
+        formula: rolled.plain ? "" : rolled.formula,
+        result: rolled.plain ? null : rolled.result,
+        plain: !!rolled.plain,
         detail: rolled.detail,
         ac: rolled.heal ? null : acForRoll,
         nat1: false,

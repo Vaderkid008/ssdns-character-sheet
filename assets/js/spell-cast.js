@@ -558,10 +558,14 @@
       /* Hunger of Hadar's 2d6 is rolled per creature when the sphere opens and again
          on the acid save. A cast line that only says "2d6" paints a blank die and never lands. */
       if (norm(name) === "hunger of hadar") {
-        var hadarText = name + gun + " · cold on each creature in the sphere · end of turn DEX save, none of the acid on a success";
-        var hadarPack = pack(hadarText, false, null, false, "—", 0, hadarText, "");
+        /* No NdM and no "= 0". The feed paints an empty die for every unrolled "2d6". */
+        var hadarText = hadarAnnounce(name, []);
+        var hadarPack = pack(hadarText, false, null, false, "", null, hadarText, "");
         hadarPack.text = hadarText;
         hadarPack.detail = hadarText;
+        hadarPack.formula = "";
+        hadarPack.result = null;
+        hadarPack.plain = true;
         hadarPack.damageTotal = 0;
         hadarPack.damageDetail = "";
         hadarPack.kind = "auto";
@@ -844,6 +848,37 @@
     if (field) sentences.push(field);
     return sentences.join(" ");
   }
+  /* Cast chat for Hunger of Hadar. No "2d6" and no dash total: the feed
+     turns an unrolled NdM into an empty die, and "— = 0" looks like a missed roll. */
+  function hadarAnnounce(who, names) {
+    var list = (names || []).filter(Boolean);
+    var inside = list.length ? list.join(", ") : "nobody";
+    var caster = who || "Someone";
+    return caster + " casts Hunger of Hadar · inside: " + inside + " · cold when a turn starts inside, Dexterity save or acid when a turn ends inside";
+  }
+  /* One damage line the feed can paint as numbered dice: "Hargrove 2d6 «4» «5» = 9 cold". */
+  function hadarTickLine(who, formula, faces, total, type) {
+    var marks = (faces || []).map(function (n) { return "«" + n + "»"; }).join(" ");
+    return (who || "Someone") + " " + (formula || "2d6") + (marks ? " " + marks : "") + " = " + (Number(total) || 0) + (type ? " " + type : "");
+  }
+  /* The public combat line. A plain cast is the sentence only, not "Label — = 0 (sentence)". */
+  function feedLine(entry) {
+    entry = entry || {};
+    var detail = String(entry.detail || "");
+    if (entry.plain && detail) return detail;
+    if (entry.heal || /\bheals\b/i.test(detail)) return detail;
+    if (entry.freeShot && detail) return detail;
+    if (/→\s*(HIT|MISS)/.test(detail)) return detail;
+    if (/\bd20\b/.test(detail) && detail.indexOf("=") >= 0) return detail;
+    var one = String(entry.formula || "").trim().match(/^1?d(4|6|8|10|12|20|50|100)$/i);
+    var res = entry.result == null ? "" : String(entry.result);
+    if (one && !entry.attack && (!detail || detail === res)) {
+      var lab = String(entry.label || "").trim();
+      var echo = !lab || /^roll$/i.test(lab) || lab.toLowerCase() === "d" + one[1] || lab.toLowerCase() === "1d" + one[1];
+      return (echo ? "" : lab + " ") + "1d" + one[1] + " = " + res;
+    }
+    return (entry.label || "Roll") + " " + (entry.formula || "") + " = " + res + (detail ? " (" + detail + ")" : "");
+  }
   /* A spell attack posted as damage still has to open the same reaction window as a weapon attack.
      Saves, heals, and zone ticks do not carry hitTotal. */
   function countsAsAttack(req) {
@@ -873,5 +908,5 @@
     var meta = SPELL_META[key] || SPELL_META[norm(name)] || {};
     return meta.range || "";
   }
-  root.SSDNSSpellCast = { lookup: lookup, rollCast: rollCast, cantripTier: cantripTier, needsType: needsType, pickType: pickType, blurb: blurb, describe: describe, rangeOf: rangeOf, countsAsAttack: countsAsAttack, stampAttack: stampAttack };
+  root.SSDNSSpellCast = { lookup: lookup, rollCast: rollCast, cantripTier: cantripTier, needsType: needsType, pickType: pickType, blurb: blurb, describe: describe, rangeOf: rangeOf, countsAsAttack: countsAsAttack, stampAttack: stampAttack, hadarAnnounce: hadarAnnounce, hadarTickLine: hadarTickLine, feedLine: feedLine };
 })(typeof window !== "undefined" ? window : globalThis);
