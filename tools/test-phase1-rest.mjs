@@ -23,8 +23,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.232" && version.sheetBuild === "sheet-playtest-v03232");
-check("ver.dmcc", version.dmcc === "0.2.245" && version.dmccBuild === "dmcc-playtest-v02245");
+check("ver.sheet", version.sheet === "0.3.233" && version.sheetBuild === "sheet-playtest-v03233");
+check("ver.dmcc", version.dmcc === "0.2.246" && version.dmccBuild === "dmcc-playtest-v02246");
 const rulesDiff = execSync("git diff --name-only HEAD -- assets/data/rules.js database.rules.json", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
@@ -108,7 +108,7 @@ check("hunger.cold", cold.length === 1 && cold[0].type === "cold" && cold[0].aut
 check("hunger.acid", acid.length === 1 && acid[0].type === "acid" && acid[0].save === "DEX" && acid[0].half === false && acid[0].dc === 15 && acid[0].amount == null);
 check("hunger.both", cold.length === 1 && acid.length === 1);
 const v2 = read("dm/assets/js/v2.js");
-check("hunger.toast", v2.includes("function zoneApplyAmount") && v2.includes("function facedDice") && /const line = \(tick\.spell/.test(v2) && v2.includes("«"));
+check("hunger.toast", v2.includes("function zoneApplyAmount") && v2.includes("function facedDice") && v2.includes("hadarTickLine") && /dice:\s*line/.test(v2) && !/dice:\s*shown\b/.test(v2) && v2.includes("«"));
 check("hunger.link", v2.includes("liveMapTokenId(r)") && v2.includes("tickIds[String(tick.targetId)]"));
 
 const bugs = Z.buildZone("Insect Plague", { origin: { x: 10, y: 10 } }, { slot: 5, casterId: "ada", dc: 16 });

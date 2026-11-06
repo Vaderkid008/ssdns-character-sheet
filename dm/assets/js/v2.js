@@ -1937,10 +1937,11 @@ function zoneApplyAmount(tick, who, caster, amount) {
     });
   }
   if (!(amount > 0) || fight.damageMode === "approve") return;
+  /* Pass the faced line. An undefined `shown` used to throw here, after the roll was already posted, so Auto-apply never wrote HP. */
   applyPlayerHit({
     rollId: DM.uid("zone"), targetId: who.playerId || who.id, targetName: who.name,
     amount: amount, from: (caster && (caster.playerId || caster.id)) || "", characterName: (caster && caster.name) || "",
-    label: tick.spell || "Zone", weapon: tick.spell || "", type: "damage", dice: shown
+    label: tick.spell || "Zone", weapon: tick.spell || "", type: "damage", dice: line
   });
 }
 function casterForZone(zone) {
