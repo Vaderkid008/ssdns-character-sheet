@@ -4529,12 +4529,23 @@
       return row;
     });
   }
+  /* Fight-row ids often are not the map token id. A stamped square still puts the column on the creature. */
+  function targetSquare(id) {
+    var host = root.SSDNSMapHost;
+    if (!host || !id || typeof host.tokenSnapshot !== "function") return null;
+    var snap = null;
+    try { snap = host.tokenSnapshot(id); } catch (e) { snap = null; }
+    if (!snap || snap.x == null || snap.y == null) return null;
+    var size = Number(snap.size) || 1;
+    return { x: Number(snap.x) + size / 2, y: Number(snap.y) + size / 2 };
+  }
   function postSpellLook(name, targetId, result, row, at, fxId, extra) {
     if (whisperOn()) return;
     var dmg = (row && row.type) || "";
     var FX = root.SSDNSMapFx;
     var look = FX && FX.lookOf ? FX.lookOf({ type: "spell", spell: name, dmg: dmg }) : "";
     var sphere = /flaming sphere/i.test(String(name || ""));
+    if (!(at && isFinite(Number(at.x)) && isFinite(Number(at.y))) && targetId) at = targetSquare(targetId) || at;
     var pointed = !!(at && isFinite(Number(at.x)) && isFinite(Number(at.y)));
     if ((!look || look === "token") && !(sphere && pointed)) return;
     var self = !pointed && (!targetId || look === "shield" || look === "magearmor" || look === "pwt" || look === "invis" || !!(FX && FX.lookSelf && FX.lookSelf({ type: "spell", spell: name, dmg: dmg })));
