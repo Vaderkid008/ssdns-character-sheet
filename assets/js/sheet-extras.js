@@ -1382,6 +1382,19 @@
     if (joined() && root.SSDNSDmJoin && root.SSDNSDmJoin.postZone) root.SSDNSDmJoin.postZone(zone);
     return put.log || "";
   }
+  /* A placed create-token has to land even when the attack returns early
+     (hidden AC on a live table used to skip the zone, so Spiritual Weapon never dropped). */
+  function sealPlacedZone(spellName, slot, placed, dc) {
+    if (!placed) return "";
+    var line = rememberZone(spellName, slot, placed, dc);
+    var c = ch();
+    var SR = root.SSDNSSpellRiders;
+    if (c && SR && SR.noteSustain && SR.sustainSpec && SR.sustainSpec(spellName)) {
+      var spec = SR.sustainSpec(spellName);
+      if (spec && spec.conc === false) c.spellMarks = SR.noteSustain(c.spellMarks, { name: spellName, slot: slot });
+    }
+    return line || "";
+  }
   function blastTargetId(tok) {
     var Area = root.SSDNSSpellArea;
     if (Area && Area.strikeTargetId) return Area.strikeTargetId(tok, []) || "";
@@ -2328,11 +2341,17 @@
     if (!c || !SR) return;
     var ready = SR.sustainReady ? SR.sustainReady(c.spellMarks) : [];
     ready.forEach(function (item) {
+      var spec = item.spec || {};
       var btn = document.createElement("button");
       btn.type = "button";
       btn.className = "btn sm";
-      btn.textContent = "Sustain " + item.name + (item.spec && item.spec.action === "bonus" ? " (BA)" : "");
-      btn.addEventListener("click", function () { runSustain(item); });
+      var label = spec.button || ("Sustain " + item.name);
+      if (spec.action === "bonus") label += " (BA)";
+      btn.textContent = label;
+      btn.addEventListener("click", function () {
+        if (spec.button && (spec.attack || spec.ram)) runPieceAction(item);
+        else runSustain(item);
+      });
       bar.appendChild(btn);
     });
     (SR.emptyBag(c.spellMarks).marks || []).forEach(function (m) {
@@ -2364,6 +2383,64 @@
       c.spellMarks = moved.bag;
       addLog({ kind: "alert", text: (kind === "hex" ? "Hex" : "Hunter's Mark") + " moves to " + (tgt.name || "the new target") + " (bonus action)." });
       paintFollowups();
+    });
+  }
+  function runPieceAction(item) {
+    if (!item || !item.name) return;
+    var spec = item.spec || {};
+    var Pips = root.SSDNSActionPips;
+    if (Pips && Pips.spend) Pips.spend(spec.action || "bonus", spec.button || item.name);
+    var host = root.SSDNSMapHost;
+    if (!host || typeof host.aimSpellPiece !== "function") {
+      toast("Open the map to use " + (spec.button || item.name) + ".");
+      return;
+    }
+    var uidNow = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+    host.aimSpellPiece({ spell: item.name, casterId: uidNow || "", feet: spec.move || 0 }).then(function (moved) {
+      if (!moved) return;
+      if (spec.attack) strikeFromPiece(item, moved);
+      else toast((spec.button || item.name) + (moved.rammed ? " rams " + (moved.rammed.name || "them") + "." : "."));
+    });
+  }
+  function strikeFromPiece(item, moved) {
+    askOneTarget("Force Strike").then(function (choice) {
+      if (!choice || !choice.id) return;
+      var host = root.SSDNSMapHost;
+      var feet = host && host.feetBetween ? host.feetBetween(moved.tokenId, choice.id) : null;
+      if (feet != null && isFinite(Number(feet)) && Number(feet) > 5) {
+        toast("Force Strike needs a creature within 5 feet of the weapon.");
+        return;
+      }
+      var Cast = root.SSDNSSpellCast;
+      var c = ch();
+      var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
+      var atk = parseInt(String(v.spellAtk == null ? "" : v.spellAtk).replace(/[^\d-]/g, ""), 10);
+      if (!isFinite(atk)) atk = 0;
+      var rolled = Cast && Cast.rollCast ? Cast.rollCast({
+        spellName: item.name,
+        slotLevel: item.slot || 2,
+        characterLevel: c && c.level,
+        attackBonus: atk,
+        spellMod: v.spellMod,
+        dc: v.spellDC
+      }) : null;
+      if (!rolled) return;
+      addLog({ kind: "roll", text: rolled.text });
+      toast(rolled.text);
+      var tgt = targetById(choice.id) || { id: choice.id, name: choice.name || choice.id };
+      if (root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage) {
+        root.SSDNSDmJoin.postDamage({
+          amount: rolled.damageTotal || 0,
+          label: "Force Strike",
+          type: "spell",
+          targetId: tgt.id,
+          targetName: tgt.name,
+          rollId: "sw_" + Date.now().toString(36),
+          spell: item.name,
+          weapon: item.name,
+          dice: rolled.damageDetail || rolled.text
+        });
+      }
     });
   }
   function runSustain(item) {
@@ -2866,6 +2943,7 @@
       });
       /* Hidden AC returns before the resolved cast. Spend here or the pip never reaches turnMarkers. */
       if (root.SSDNSActionPips && root.SSDNSActionPips.spell) root.SSDNSActionPips.spell(spellName);
+      if (placedBlast) sealPlacedZone(spellName, slot, placedBlast, v.spellDC);
       consumeRollMode();
       pendingDarts = null;
       pendingBeams = null;
@@ -2979,7 +3057,7 @@
       var crowd0 = placedBlast.tokens || [];
       var where0 = crowd0.length ? crowd0.map(function (t) { return t.name || "token"; }).join(", ") : "nobody in the area";
       rolled.text += " · " + ((placedBlast.area && placedBlast.area.label) || "area") + ": " + where0;
-      var zoneLine = rememberZone(spellName, slot, placedBlast, v.spellDC);
+      var zoneLine = sealPlacedZone(spellName, slot, placedBlast, v.spellDC);
       if (zoneLine) rolled.text += " · " + zoneLine;
       noteSpellLight(spellName);
       postAppear(spellName, placedBlast, v.spellDC, rollId);

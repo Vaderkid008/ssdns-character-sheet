@@ -5007,7 +5007,8 @@ async function sendPack(index) {
 const BEAST_GROUPS = [
   ["creature", "Creatures"],
   ["generic-folk", "Folk"],
-  ["named", "Named"]
+  ["named", "Named"],
+  ["spell-tokens", "Spell tokens"]
 ];
 function beastQuery() {
   const el = $("#beastQ");
@@ -5196,6 +5197,17 @@ function beastCard(b) {
     ? window.SSDNSApplied.traitText
     : (traits) => (Array.isArray(traits) ? traits.map((t) => (t && t.name) || "").join(", ") : String(traits || ""));
   const tactics = window.SSDNSApplied && window.SSDNSApplied.tacticsNote ? window.SSDNSApplied.tacticsNote(b) : "";
+  if (b && b.pieceType === "effect") {
+    const use = (b.playerActions || []).filter((a) => a && a.slotCost === 0).map((a) => a.name).filter(Boolean).join(" · ");
+    const budget = b.damageBudget ? "Budget " + b.damageBudget : "";
+    return `<article class="bestiary-card" data-beast-card="${esc(b.id)}">
+      <h3><button type="button" class="name-btn" data-open-beast="${esc(b.id)}">${esc(b.name)}</button></h3>
+      <p>${esc(b.size || "Medium")}${budget ? " · " + esc(budget) : ""}${b.duration ? " · " + esc(b.duration) : ""}</p>
+      <p>${esc(b.attacks || "")}</p>
+      ${use ? `<p>Use: ${esc(use)}</p>` : ""}
+      <p class="lede">Drops when the spell is cast and links to the caster. Not a creature — no HP, no AC, not in initiative.</p>
+    </article>`;
+  }
   return `<article class="bestiary-card" data-beast-card="${esc(b.id)}">
       <h3><button type="button" class="name-btn" data-open-beast="${esc(b.id)}">${esc(b.name)}</button>${b.parked ? ' <span class="badge">Parked</span>' : ""}${b.draft ? ' <span class="badge" title="' + esc(b.draftNote || "Draft numbers") + '">Draft</span>' : ""}</h3>
       ${b.draft && b.draftNote ? `<p class="fine">${esc(b.draftNote)}</p>` : ""}
@@ -10431,7 +10443,8 @@ function wireClicks() {
     }
     if (t.hasAttribute("data-add-beast")) {
       const b = fight.bestiary.filter((x) => x.id === t.getAttribute("data-add-beast"))[0];
-      if (b) addBeastToFight(b);
+      if (b && b.pieceType === "effect") DM.toast((b.name || "That token") + " appears when the spell is cast.");
+      else if (b) addBeastToFight(b);
     }
     if (t.hasAttribute("data-cat-add")) {
       const raw = t.getAttribute("data-cat-price");
@@ -11142,7 +11155,7 @@ function attackFromLine(text, bonus, damage) {
 async function bootV2() {
   if (DM.state.roomCode) enterRoom();
   try {
-    const res = await fetch("assets/data/bestiary.json?v=0.2.181-thunderbirds");
+    const res = await fetch("assets/data/bestiary.json?v=0.2.249-spell-tokens");
     if (res.ok) fight.bestiary = await res.json();
     const saved = JSON.parse(localStorage.getItem(BESTIARY_KEY) || "null");
     fight.bestiary = mergeBestiary(fight.bestiary, Array.isArray(saved) ? saved : []);
@@ -11666,7 +11679,7 @@ function linkChoiceList() {
   }));
   const buckets = {};
   (fight.bestiary || []).forEach((b) => {
-    if (!b || b.template || isParkedBeast(b)) return;
+    if (!b || b.template || isParkedBeast(b) || b.pieceType === "effect") return;
     const key = BEAST_GROUPS.some((pair) => pair[0] === b.group) ? b.group : "other";
     const art = beastTokenFile(b);
     (buckets[key] || (buckets[key] = [])).push({ id: b.id, name: b.name || b.id, token: art ? BEAST_TOKEN_DIR + art : "", size: b.size || "", cr: b.cr == null ? "" : b.cr });

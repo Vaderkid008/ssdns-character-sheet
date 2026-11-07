@@ -20,6 +20,7 @@ const sandbox = {
 };
 sandbox.globalThis = sandbox;
 sandbox.window = sandbox;
+sandbox.addEventListener = function () {};
 sandbox.localStorage = { getItem() { return null; }, setItem() {} };
 sandbox.document = {
   getElementById() { return null; },
@@ -62,10 +63,11 @@ function rowFor(b) {
 const J = (x) => JSON.stringify(x).slice(0, 300);
 const live = beasts.filter((b) => b && !b.template);
 const ids = beasts.map((b) => b.id);
-check(beasts.length === 60 && live.length === 59, "60 entries (59 live + template; L0195 adds 5 thunderbirds) " + beasts.length);
+check(beasts.length === 63 && live.length === 62, "63 entries (59 creatures + 3 spell tokens + template) " + beasts.length);
 check(new Set(ids).size === ids.length, "ids are unique");
 const REQ = ["id", "name", "size", "type", "ac", "hp", "speed", "cr", "xp", "abilities", "attackList", "traits", "actions", "group"];
 live.forEach((b) => {
+  if (b.pieceType === "effect") return;
   const miss = REQ.filter((k) => !(k in b));
   check(!miss.length, b.id + " has the required fields " + miss.join(","));
   check(Number.isInteger(b.ac) && Number.isInteger(b.hp) && Number.isInteger(b.xp), b.id + " numeric ac/hp/xp");
@@ -97,6 +99,7 @@ check((by("outlaw").attackList || [])[0].name === "Ball n Cap Revolver", "Act I 
 check(JSON.stringify(beasts).indexOf("Thieves’ cant") < 0, "no Thieves' cant (lingo swap kept)");
 check(/tribal tongue/.test(by("sandie").languages || ""), "Sandie keeps its shipped languages line");
 check(live.filter((b) => b.parked).map((b) => b.id).join(",") === "captain-rhee-calder", "only Calder is parked");
-check(read("dm/assets/js/v2.js").indexOf('bestiary.json?v=0.2.181-thunderbirds') >= 0, "bestiary cache key bumped so tables load the new data");
+check(["spiritual-weapon", "flaming-sphere", "guardian-of-faith"].every((id) => by(id).pieceType === "effect" && by(id).ac == null && by(id).hp == null), "spell tokens are effect cards with no AC or HP");
+check(read("dm/assets/js/v2.js").indexOf('bestiary.json?v=0.2.249-spell-tokens') >= 0, "bestiary cache key bumped so tables load the new data");
 console.log(failures.length ? failures.length + " FAILED:\n" + failures.join("\n") : "All PR85 bestiary checks passed (" + live.length + " entries).");
 if (failures.length) process.exitCode = 1;

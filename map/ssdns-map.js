@@ -216,6 +216,8 @@ window.SSDNSMap = { create(opts) {
       kind: t.kind || '', lootBoxId: t.lootBoxId || '',
       spellPiece: t.spellPiece || '', zoneId: t.zoneId || '',
       noHpPool: !!t.noHpPool, notTargetable: !!t.notTargetable, noInit: !!t.noInit,
+      damageBudget: t.spellPiece === 'guardian of faith' ? (Number(t.damageBudget) || 60) : null,
+      budgetLeft: t.spellPiece === 'guardian of faith' ? (t.budgetLeft != null ? Number(t.budgetLeft) : (Number(t.damageBudget) || 60)) : null,
       assetDefId: t.assetDefId || '', asset: pubAsset,
       moveFeet: t.moveFeet != null && t.moveFeet !== '' ? Number(t.moveFeet) : null,
       /* Fight-row gear is not a token field. */
@@ -399,7 +401,8 @@ function applySharedToTokens() {
       t.image = s.image || t.image || '';
       t.veil = !!s.veil;
       t.sheetId = s.sheetId || t.sheetId || '';
-      if (s.ownerUid) t.ownerUid = s.ownerUid;
+      if (s.spellPiece) t.ownerUid = s.ownerUid || '';
+      else if (s.ownerUid) t.ownerUid = s.ownerUid;
       if (s.combatantId) t.combatantId = s.combatantId;
       if (s.kind) t.kind = s.kind;
       if (s.spellPiece) t.spellPiece = s.spellPiece;
@@ -416,6 +419,8 @@ function applySharedToTokens() {
         else if (s.notTargetable) t.notTargetable = true;
       }
       if (s.moveFeet != null && s.moveFeet !== '') t.moveFeet = Number(s.moveFeet) || 0;
+      if (s.damageBudget != null && s.damageBudget !== '') t.damageBudget = Number(s.damageBudget) || 0;
+      if (s.budgetLeft != null && s.budgetLeft !== '') t.budgetLeft = Number(s.budgetLeft);
       if (s.spellPiece && s.size) t.size = tokSquares(s.size);
       if (s.name) t.name = s.name;
       if (s.lootBoxId) t.lootBoxId = s.lootBoxId;
@@ -2220,6 +2225,9 @@ function tokenSeenBy(t, sight) {
   if (!t || !t.pos || !sight) return false;
   if (t.hidden) return false;
   if ((t.sceneId || 'scn_dustyspur01') !== sight.sceneId) return false;
+  /* The caster's own spell token (Spiritual Weapon, the sphere, the guardian) stays visible
+     to them in the dark. Fog hiding it made a successful cast look like no token dropped. */
+  if (sight.uid && ((t.controlledBy || []).indexOf(sight.uid) >= 0)) return true;
   const gx = t.pos.x + (t.size || 1) / 2;
   const gy = t.pos.y + (t.size || 1) / 2;
   let visible = pointInSight(gx, gy, sight);
@@ -2467,9 +2475,21 @@ function syncPieceOrigin(t) {
   publishZoneFeed(zones);
   persistSpellZones();
 }
+function stampPieceBudget(token, budget, spent) {
+  if (!token || !(budget > 0)) return false;
+  const left = Math.max(0, budget - (Number(spent) || 0));
+  const changed = token.damageBudget !== budget || token.budgetLeft !== left;
+  token.damageBudget = budget;
+  token.budgetLeft = left;
+  if (shared.tokens[token.id]) {
+    shared.tokens[token.id].damageBudget = budget;
+    shared.tokens[token.id].budgetLeft = left;
+  }
+  return changed;
+}
 function syncSpellPieces() {
   const Tok = window.SSDNSSpellTokens;
-  if (!Tok || role !== "dm") return;
+  if (!Tok) return;
   const zones = spellZoneList();
   const want = {};
   zones.forEach(z => {
@@ -2478,17 +2498,23 @@ function syncSpellPieces() {
     if (!row || row.kind !== "token") return;
     want[String(z.id)] = { zone: z, row: row };
   });
-  const dropping = (state.tokens || []).filter(t => t && t.spellPiece && t.zoneId && !want[String(t.zoneId)]);
-  dropping.forEach(t => { if (t.spellPiece === "guardian of faith") guardianGarnish(t, t, "clear"); });
-  const drop = dropping.map(t => t.id);
-  if (drop.length) removeMapTokens(drop, { silent: true, keepOwner: true });
+  /* Only the DM deletes a published piece. A player map that has not heard every zone yet must not remove one. */
+  if (role === "dm") {
+    const dropping = (state.tokens || []).filter(t => t && t.spellPiece && t.zoneId && !want[String(t.zoneId)]);
+    dropping.forEach(t => { if (t.spellPiece === "guardian of faith") guardianGarnish(t, t, "clear"); });
+    const drop = dropping.map(t => t.id);
+    if (drop.length) removeMapTokens(drop, { silent: true, keepOwner: true });
+  }
   Object.keys(want).forEach(id => {
     const z = want[id].zone;
     const row = want[id].row;
     let existing = (state.tokens || []).find(t => t && String(t.zoneId) === id);
     const at = { x: Math.floor(Number(z.origin && z.origin.x) || 0), y: Math.floor(Number(z.origin && z.origin.y) || 0) };
+    const budget = Number(z.budget) || 0;
+    const spent = Number(z.spent) || 0;
     if (!existing) {
       existing = makeToken({
+        id: "spell_" + id,
         kind: "spell",
         name: row.name,
         label: row.label,
@@ -2513,9 +2539,14 @@ function syncSpellPieces() {
           existing.ownerUid = "";
           if (who && existing.controlledBy.indexOf(who) < 0) existing.controlledBy.push(who);
         }
+        if (existing.pos && (existing.pos.x !== at.x || existing.pos.y !== at.y)) existing.pos = { x: at.x, y: at.y };
+        stampPieceBudget(existing, budget, spent);
         if (shared.tokens[existing.id]) {
           shared.tokens[existing.id].ownerUid = "";
           shared.tokens[existing.id].controlledBy = existing.controlledBy.slice();
+          shared.tokens[existing.id].pos = { x: existing.pos.x, y: existing.pos.y };
+          shared.tokens[existing.id].spellPiece = existing.spellPiece;
+          shared.tokens[existing.id].zoneId = existing.zoneId;
         }
         saveToken(existing.id);
       }
@@ -2535,6 +2566,7 @@ function syncSpellPieces() {
       if (who && existing.controlledBy.indexOf(who) < 0) existing.controlledBy.push(who);
       controlChanged = true;
     }
+    if (stampPieceBudget(existing, budget, spent)) controlChanged = true;
     if (controlChanged) {
       if (shared.tokens[existing.id]) {
         shared.tokens[existing.id].ownerUid = existing.ownerUid || "";
@@ -3352,6 +3384,116 @@ function sweepFollow(mover, from, to) {
       Z.phaseDue({ zones: [newZ] }, tok, "enter").forEach(tick => ticks.push(tick));
     });
     if (ticks.length) dispatchZoneTicks(ticks, t, from, to);
+  });
+}
+function creatureOn(x, y, ignoreId) {
+  const hit = (state.tokens || []).find(t => {
+    if (!t || !t.pos || t.id === ignoreId) return false;
+    if (t.spellPiece || t.notTargetable || t.kind === "asset" || t.kind === "chest" || t.kind === "marker") return false;
+    if (hideDownedToken(t)) return false;
+    const size = t.size || 1;
+    return x >= t.pos.x && x < t.pos.x + size && y >= t.pos.y && y < t.pos.y + size;
+  });
+  return hit || null;
+}
+function lastOpenStep(from, to, ignoreId, size) {
+  const Tok = window.SSDNSSpellTokens;
+  const steps = 8;
+  let last = { x: from.x, y: from.y };
+  let i;
+  for (i = 1; i <= steps; i++) {
+    const x = Math.round(from.x + (to.x - from.x) * (i / steps));
+    const y = Math.round(from.y + (to.y - from.y) * (i / steps));
+    const capped = Tok && Tok.clampStep ? Tok.clampStep(from, { x: x, y: y }, 30) : { x: x, y: y };
+    if (creatureOn(capped.x, capped.y, ignoreId) || areaTaken(capped.x, capped.y, size || 1, { [ignoreId]: 1 })) break;
+    last = { x: capped.x, y: capped.y };
+  }
+  return last;
+}
+function noteSphereRam(sphere, creature) {
+  if (!sphere || !creature) return;
+  const z = liveSpellZones().find(one => one && String(one.id) === String(sphere.zoneId));
+  const tick = (z && (z.ticks || []).find(t => t && t.save)) || { dice: "2d6", type: "fire", save: "DEX", half: true };
+  const who = {
+    id: creature.combatantId || creature.ownerUid || creature.id,
+    name: creature.name || creature.label || "creature"
+  };
+  dispatchZoneTicks([Object.assign({}, tick, {
+    spell: (z && z.spell) || "Flaming Sphere",
+    zoneId: (z && z.id) || sphere.zoneId || "",
+    casterId: (z && z.casterId) || "",
+    dc: z ? z.dc : null,
+    when: "ram",
+    half: tick.half !== false,
+    targetId: who.id,
+    targetName: who.name
+  })], creature, sphere.pos, sphere.pos);
+  toast((who.name || "Creature") + " — the sphere rams them.");
+}
+function moveSpellPiece(tokenId, x, y) {
+  const t = (state.tokens || []).find(tok => tok && tok.id === tokenId);
+  if (!t || !t.pos) return null;
+  const Tok = window.SSDNSSpellTokens;
+  const feet = t.moveFeet != null ? t.moveFeet : 0;
+  const dest = Tok && Tok.clampStep ? Tok.clampStep(t.pos, { x: x, y: y }, feet) : { x: Math.round(x), y: Math.round(y) };
+  const from = { x: t.pos.x, y: t.pos.y };
+  let land = dest;
+  let rammed = null;
+  if (t.spellPiece === "flaming sphere") {
+    const occ = creatureOn(dest.x, dest.y, t.id);
+    if (occ) {
+      rammed = occ;
+      land = lastOpenStep(from, dest, t.id, t.size || 1);
+    }
+  } else if (feet <= 0) {
+    land = from;
+  } else if (areaTaken(dest.x, dest.y, t.size || 1, { [t.id]: 1 })) {
+    return null;
+  }
+  t.pos.x = land.x;
+  t.pos.y = land.y;
+  if (shared.tokens[t.id]) shared.tokens[t.id].pos = { x: land.x, y: land.y, by: uid, ts: Date.now() };
+  if (role === "dm") {
+    syncPieceOrigin(t);
+    saveToken(t.id);
+  } else publishPlayerMove(t);
+  noteZoneCross(t, from, { x: land.x, y: land.y });
+  if (rammed) noteSphereRam(t, rammed);
+  draw();
+  return {
+    tokenId: t.id,
+    from: from,
+    to: { x: land.x, y: land.y },
+    rammed: rammed ? { id: rammed.combatantId || rammed.ownerUid || rammed.id, name: rammed.name || rammed.label || "" } : null
+  };
+}
+function commitPieceAim(cell) {
+  const aim = state.pieceAim;
+  state.pieceAim = null;
+  if (!aim || !aim.resolve) return;
+  const moved = cell ? moveSpellPiece(aim.tokenId, cell.x, cell.y) : null;
+  aim.resolve(moved);
+}
+function aimSpellPiece(spec) {
+  spec = spec || {};
+  const Tok = window.SSDNSSpellTokens;
+  const key = Tok && Tok.norm ? Tok.norm(spec.spell) : String(spec.spell || "").toLowerCase();
+  const caster = String(spec.casterId || "");
+  const piece = (state.tokens || []).find(t => {
+    if (!t || t.spellPiece !== key) return false;
+    if (!caster) return true;
+    return (t.controlledBy || []).indexOf(caster) >= 0;
+  }) || (state.tokens || []).find(t => t && t.spellPiece === key);
+  if (!piece) return Promise.resolve(null);
+  if (state.pieceAim && state.pieceAim.resolve) state.pieceAim.resolve(null);
+  return new Promise(resolve => {
+    state.pieceAim = {
+      tokenId: piece.id,
+      feet: spec.feet != null ? spec.feet : piece.moveFeet,
+      resolve: resolve
+    };
+    toast("Click a square for " + (piece.name || "the token") + ". Right-click cancels.");
+    draw();
   });
 }
 function noteZoneCross(mover, from, to) {
@@ -4632,6 +4774,12 @@ function draw() {
     ctx.textBaseline = 'top';
     const nameY = s.y + r + 4;
     ctx.fillText(t.label || t.name.slice(0, 8), s.x, nameY);
+    /* Guardian budget is a number on the card, not an HP bar. */
+    if (t.spellPiece === 'guardian of faith' && t.budgetLeft != null && t.budgetLeft !== '') {
+      ctx.fillStyle = '#e6c36a';
+      ctx.font = `${Math.max(11, nameFont)}px system-ui`;
+      ctx.fillText(String(t.budgetLeft), s.x, nameY + nameFont + 2);
+    }
     paintAssetChip(ctx, t, s, r);
     const condRaws = tokenConditionRaws(t);
     /* B2: DM-only link badge. Players never reach a hidden token, and this mark is role-gated too.
@@ -8117,6 +8265,19 @@ function onPointerDown(e) {
       blastPointer(e, 'down');
       return;
     }
+    if (state.pieceAim && e.button === 2) {
+      e.preventDefault();
+      const aim = state.pieceAim;
+      state.pieceAim = null;
+      if (aim.resolve) aim.resolve(null);
+      toast('Move cancelled');
+      return;
+    }
+    if (state.pieceAim && e.button === 0) {
+      e.preventDefault();
+      commitPieceAim(cellUnderEvent(e));
+      return;
+    }
     if (state.lightCast && e.button === 0) {
       e.preventDefault();
       lightCastPointer(e);
@@ -8570,9 +8731,16 @@ function onPointerMove(e) {
         const centerBlocked = crossesWall(t.pos.x + half, t.pos.y + half, newX + half, newY + half);
         /* N64: a 2×2 centre sits on a grid point and clips wall corners it does not cross. */
         const wallBlocked = !dmEditing() && (tsz > 1 ? largeSlideBlocked({ x: t.pos.x, y: t.pos.y }, { x: newX, y: newY }, tsz) : centerBlocked);
-        if (!allowStack && areaTaken(newX, newY, tsz, state.drag.starts)) {
+        const sphere = t.spellPiece === "flaming sphere";
+        const ramHit = sphere ? creatureOn(newX, newY, t.id) : null;
+        /* The sphere floats over a 5-ft barrier and across a 10-ft pit, then stops when it rams a creature. */
+        if (ramHit) {
+          state.drag.rammed = { id: t.id, creature: ramHit };
+        } else if (!allowStack && areaTaken(newX, newY, tsz, state.drag.starts)) {
           state.drag.blocked = true;
-        } else if (!wallBlocked) {
+          if (sphere) state.drag.rammed = null;
+        } else if (!wallBlocked || sphere) {
+          if (sphere) state.drag.rammed = null;
           if (state.offline) {
             state.drag.ghost = { x: newX, y: newY };
             const existing = state.pendingMoves.find(m => m.id === t.id);
@@ -8631,6 +8799,10 @@ function onPointerUp(e) {
   const wasTokenDrag = !!(state.drag && state.drag.token && !state.drag.moveAimDone);
   if (wasTokenDrag) clearStreamTimer();
   if (state.drag && state.drag.walled) toastDmEditHint();
+  if (state.drag && state.drag.rammed && state.drag.rammed.creature && !state.drag.blocked) {
+    const piece = state.tokens.find(tok => tok && tok.id === state.drag.rammed.id);
+    if (piece) noteSphereRam(piece, state.drag.rammed.creature);
+  }
   if (state.drag && state.drag.token && state.drag.blocked && !(role === 'dm' && e.shiftKey) && !dmEditing()) {
     const starts = state.drag.starts || {};
     Object.keys(starts).forEach(id => {
@@ -15196,6 +15368,8 @@ return {
   releaseToken,
   armAttack,
   placeBlast,
+  aimSpellPiece,
+  moveSpellPiece,
   cancelBlast,
   tokensInBlast,
   shoveToken,
@@ -15273,7 +15447,10 @@ return {
       const a = worldToScreen(t.pos.x * px, t.pos.y * px);
       const b = worldToScreen((t.pos.x + sz) * px, (t.pos.y + sz) * px);
       return { id: t.id, label: t.label || t.name || '', kind: t.kind || '', size: sz, x: t.pos.x, y: t.pos.y,
-        hidden: !!t.hidden, sceneId: t.sceneId || '', screen: { x1: a.x, y1: a.y, x2: b.x, y2: b.y } };
+        hidden: !!t.hidden, sceneId: t.sceneId || '', ownerUid: t.ownerUid || '',
+        controlledBy: (t.controlledBy || []).slice(), spellPiece: t.spellPiece || '', zoneId: t.zoneId || '',
+        budgetLeft: t.budgetLeft != null ? t.budgetLeft : null, image: t.image || '',
+        screen: { x1: a.x, y1: a.y, x2: b.x, y2: b.y } };
     });
   },
   drawerTokenId: function () { return state.drawerOpen ? (state.drawerTokenId || '') : ''; },
