@@ -760,6 +760,47 @@
       return { ok: false };
     });
   }
+  /* Creature Shove. The DM runs the contest and slides the token. amount stays 0. */
+  function postShove(entry) {
+    entry = entry || {};
+    var target = entry.targetId || ($("#atkTarget") && $("#atkTarget").value);
+    if (!target || target === "__free" || offlineNow()) return Promise.resolve({ ok: false });
+    var c = doc() && doc().character;
+    var id = "shove_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var row = {
+      ts: new Date().toISOString(),
+      from: state.uid,
+      targetId: target,
+      amount: 0,
+      type: "shove",
+      label: "Shove",
+      characterName: (c && c.name) || "",
+      targetName: entry.targetName || ""
+    };
+    return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row).then(function () {
+      return { ok: true, id: id };
+    }).catch(function (e) {
+      console.warn("[DM Join] shove", e);
+      return { ok: false };
+    });
+  }
+  function postShoveAnswer(entry) {
+    entry = entry || {};
+    if (offlineNow()) return Promise.resolve({ ok: false });
+    var id = "shoveans_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var row = {
+      ts: new Date().toISOString(),
+      from: state.uid,
+      targetId: state.uid,
+      amount: 0,
+      type: "shove_answer",
+      label: entry.skill === "Acrobatics" ? "Acrobatics" : "Athletics",
+      rollId: entry.rollId || ""
+    };
+    return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row).then(function () {
+      return { ok: true };
+    }).catch(function () { return { ok: false }; });
+  }
   function writeAttack(entry) {
     entry = entry || {};
     var target = entry.targetId || ($("#atkTarget") && $("#atkTarget").value);
@@ -1606,6 +1647,12 @@
         break;
       case "save":
         askPlayerSave(payload);
+        break;
+      case "shove_pick":
+        if (root.SSDNSPlaytest && root.SSDNSPlaytest.askShoveDefense) root.SSDNSPlaytest.askShoveDefense(payload);
+        break;
+      case "shove_pip":
+        if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack("Shove");
         break;
       case "moved":
         followMove(payload.code || payload.room || "");
@@ -3695,6 +3742,8 @@
       postFx: postFx,
       postChat: postChat,
       postDamage: postDamage,
+      postShove: postShove,
+      postShoveAnswer: postShoveAnswer,
       postZone: postZone,
       postMercy: postMercy,
       postAttack: postAttack,

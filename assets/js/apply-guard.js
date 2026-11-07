@@ -318,6 +318,11 @@
     var flags = revealFlags(row);
     var enemy = row.kind !== "player";
     var name = !enemy || flags.name ? (String(row.name || "").trim() || (enemy ? "Enemy" : "Player")) : HIDDEN_ENEMY_NAME;
+    var rawSize = row.size || (row.card && row.card.size) || "";
+    var sizeWord = String(rawSize).trim().split(/[\s.]/)[0];
+    var creatureSize = /^(tiny|small|medium|large|huge|gargantuan)$/i.test(sizeWord)
+      ? (sizeWord.charAt(0).toUpperCase() + sizeWord.slice(1).toLowerCase())
+      : "Medium";
     var out = {
       name: name,
       slot: slot == null ? "" : slot,
@@ -326,7 +331,8 @@
       playerId: row.playerId || "",
       conditions: conditionNames(conditions || row.conditions),
       cover: coverKey(row.cover),
-      coverLock: !!row.coverLock
+      coverLock: !!row.coverLock,
+      creatureSize: creatureSize
     };
     var faction = factionName(row);
     if (faction && (!enemy || flags.name)) out.faction = faction;
