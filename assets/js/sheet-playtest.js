@@ -926,6 +926,15 @@
       init.parentNode.appendChild(adv);
       init.parentNode.appendChild(wh);
       init.parentNode.appendChild(power);
+      if (!$("#btnShove")) {
+        var shoveBtn = document.createElement("button");
+        shoveBtn.type = "button";
+        shoveBtn.className = "btn sm";
+        shoveBtn.id = "btnShove";
+        shoveBtn.textContent = "Shove";
+        shoveBtn.title = "Replaces one attack. Strength (Athletics) vs the target's Athletics or Acrobatics. A win pushes them 5 feet.";
+        init.parentNode.appendChild(shoveBtn);
+      }
       var slot = $("#gearTargetSlot");
       if (slot) { slot.appendChild(tgt); slot.appendChild(coverLab); }
       else { init.parentNode.appendChild(tgt); init.parentNode.appendChild(coverLab); }
@@ -1772,6 +1781,8 @@
         else hideYourTurn();
       }
     },
+    shove: function () { shoveNow(); },
+    askShoveDefense: function (payload) { askShoveDefense(payload); },
     targetInfo: function () {
       var sel = $("#atkTarget");
       if (!sel || !sel.selectedOptions || !sel.selectedOptions[0] || !sel.value || sel.value === "__free") return null;
@@ -1854,7 +1865,7 @@
         var label = name + (bits.length ? " (" + bits.join(" · ") + ")" : "");
         var far = seen && seen.outOfRange;
         if (far) blockedIds[row.id] = 1;
-        html += "<option value='" + String(row.id).replace(/'/g, "") + "'" + (far ? " disabled data-out-of-range='1'" : "") + " data-player='" + String(row.playerId || "").replace(/'/g, "") + "' data-label='" + label.replace(/[&<>"']/g, "") + "' data-ac='" + ac.replace(/'/g, "") + "' data-hp='" + hpAttr.replace(/'/g, "") + "' data-status='" + String(row.status || "").replace(/'/g, "") + "' data-side='" + String(row.side || "").replace(/'/g, "") + "' data-fled='" + (row.fled || row.status === "Fled" ? "1" : "0") + "' data-conds='" + conds.replace(/'/g, "") + "' data-kind='" + String(row.kind || "").replace(/'/g, "") + "' data-name='" + name.replace(/[&<>"']/g, "") + "' data-reveal='" + blockNote.replace(/'/g, "") + "' data-cover='" + coverKey.replace(/'/g, "") + "' data-cover-lock='" + (row.coverLock ? "1" : "0") + "'>" +
+        html += "<option value='" + String(row.id).replace(/'/g, "") + "'" + (far ? " disabled data-out-of-range='1'" : "") + " data-player='" + String(row.playerId || "").replace(/'/g, "") + "' data-label='" + label.replace(/[&<>"']/g, "") + "' data-ac='" + ac.replace(/'/g, "") + "' data-hp='" + hpAttr.replace(/'/g, "") + "' data-status='" + String(row.status || "").replace(/'/g, "") + "' data-side='" + String(row.side || "").replace(/'/g, "") + "' data-fled='" + (row.fled || row.status === "Fled" ? "1" : "0") + "' data-conds='" + conds.replace(/'/g, "") + "' data-kind='" + String(row.kind || "").replace(/'/g, "") + "' data-name='" + name.replace(/[&<>"']/g, "") + "' data-reveal='" + blockNote.replace(/'/g, "") + "' data-cover='" + coverKey.replace(/'/g, "") + "' data-cover-lock='" + (row.coverLock ? "1" : "0") + "' data-creature-size='" + String(row.creatureSize || "Medium").replace(/'/g, "") + "'>" +
           (label + (far ? " — out of range, " + (seen.feet != null ? seen.feet : "?") + " ft" : "")).replace(/[&<>]/g, "") + "</option>";
       });
       sel.innerHTML = html;
@@ -1867,6 +1878,7 @@
       } else if (kept) sel.value = keep;
       else if (keep === "__free") sel.value = "__free";
       else sel.value = "";
+      paintShoveButton();
       /* Downed but still in the fight stays remembered. Gone from the list does not. */
       var last = sel.getAttribute("data-last-enemy") || "";
       if (last && !rows.some(function (row) { return String(row.id) === String(last); })) sel.removeAttribute("data-last-enemy");
@@ -1936,6 +1948,103 @@
     cover.title = coverTitle(key, false);
   }
 
+  function shoveView() {
+    var c = ch() || {};
+    var v = root.SSDNSApp && root.SSDNSApp.compute ? root.SSDNSApp.compute() : {};
+    var melee = (c.melee || []).filter(function (m) { return m && m.weapon && m.equipped !== false; });
+    return {
+      size: root.SSDNSShove ? root.SSDNSShove.lineageSize(c) : "Medium",
+      reach: root.SSDNSShove ? root.SSDNSShove.reachFeet({ melee: melee }) : 5,
+      skills: (v && v.skills) || {},
+      mods: (v && v.mods) || {},
+      abilities: c.abilities || {}
+    };
+  }
+  function paintShoveButton() {
+    var btn = $("#btnShove");
+    var Shove = root.SSDNSShove;
+    if (!btn || !Shove) return;
+    var info = root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo ? root.SSDNSPlaytest.targetInfo() : null;
+    if (!info || !info.id) {
+      btn.disabled = true;
+      btn.title = "Pick a creature to shove.";
+      return;
+    }
+    var view = shoveView();
+    var opt = $("#atkTarget") && $("#atkTarget").selectedOptions && $("#atkTarget").selectedOptions[0];
+    var host = root.SSDNSMapHost;
+    var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
+    var feet = null;
+    try { feet = host && host.feetBetween && uid ? host.feetBetween(uid, info.id) : null; } catch (e) { feet = null; }
+    var g = Shove.gate({
+      actorSize: view.size,
+      targetSize: (opt && opt.getAttribute("data-creature-size")) || "Medium",
+      feet: feet,
+      reach: view.reach
+    });
+    btn.disabled = !g.ok;
+    btn.title = g.reason;
+  }
+  function askLocalSkill() {
+    return new Promise(function (resolve) {
+      var dlg = document.createElement("dialog");
+      dlg.className = "dlg";
+      dlg.innerHTML = "<form method='dialog'><h2>Shove</h2><p class='fine'>The target defends with Strength (Athletics) or Dexterity (Acrobatics).</p><div class='dlg-foot'><button type='button' class='btn' data-skill='Athletics'>Athletics</button><button type='button' class='btn' data-skill='Acrobatics'>Acrobatics</button><button type='button' class='btn' data-skill=''>Cancel</button></div></form>";
+      function finish(skill) {
+        if (dlg.close) dlg.close();
+        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+        resolve(skill || "");
+      }
+      dlg.querySelectorAll("[data-skill]").forEach(function (b) {
+        b.addEventListener("click", function () { finish(b.getAttribute("data-skill") || ""); });
+      });
+      dlg.addEventListener("cancel", function (e) { e.preventDefault(); finish(""); });
+      document.body.appendChild(dlg);
+      try { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", ""); }
+      catch (err) { dlg.setAttribute("open", ""); }
+    });
+  }
+  function shoveNow() {
+    var Shove = root.SSDNSShove;
+    var info = root.SSDNSPlaytest && root.SSDNSPlaytest.targetInfo ? root.SSDNSPlaytest.targetInfo() : null;
+    if (!Shove) { toast("Shove isn't loaded"); return; }
+    if (!info || !info.id) { toast("Pick a creature to shove."); return; }
+    paintShoveButton();
+    var btn = $("#btnShove");
+    if (btn && btn.disabled) { toast(btn.title || "Can't shove that creature."); return; }
+    if (root.SSDNSActionPips && root.SSDNSActionPips.attack) root.SSDNSActionPips.attack("Shove");
+    var joined = root.SSDNSDmJoin && root.SSDNSDmJoin.isJoined && root.SSDNSDmJoin.isJoined();
+    if (joined && root.SSDNSDmJoin.postShove) {
+      root.SSDNSDmJoin.postShove({ targetId: info.id, targetName: info.name || "" });
+      toast("Shove sent. The target picks Athletics or Acrobatics.");
+      if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "note", text: "Shove · replaces one attack" });
+      return;
+    }
+    askLocalSkill().then(function (skill) {
+      if (!skill) return;
+      var view = shoveView();
+      var rolled = Shove.contest({
+        actor: view,
+        target: { size: "Medium" },
+        actorSize: view.size,
+        targetSize: "Medium",
+        defenseSkill: skill,
+        reach: view.reach,
+        feet: null
+      });
+      toast(rolled.line || "Shove");
+      if (root.SSDNSSheet) root.SSDNSSheet.addLog({ kind: "roll", text: rolled.line || "Shove" });
+    });
+  }
+  function askShoveDefense(payload) {
+    payload = payload || {};
+    askLocalSkill().then(function (skill) {
+      if (!skill) skill = "Athletics";
+      if (root.SSDNSDmJoin && root.SSDNSDmJoin.postShoveAnswer) {
+        root.SSDNSDmJoin.postShoveAnswer({ rollId: payload.id || "", skill: skill });
+      }
+    });
+  }
   function boot() {
     if (!root.SSDNSApp) { setTimeout(boot, 50); return; }
     buildUi();
@@ -2032,6 +2141,7 @@
       if (!t) return;
       if (t.id === "btnApplyKit") applyKit(true);
       if (t.id === "btnEndTurn") endTurn();
+      if (t.id === "btnShove") shoveNow();
       var pactBtn = t.closest ? t.closest("#btnPactShot") : (t.id === "btnPactShot" ? t : null);
       if (pactBtn && pactBtn.disabled) return;
       if (pactBtn) {

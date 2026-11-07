@@ -660,6 +660,8 @@
       hp: { cur: c.hpCurrent, max: (root.SSDNSSheet && root.SSDNSSheet.effHpMax && c.hpMax !== "" && c.hpMax != null) ? root.SSDNSSheet.effHpMax(Number(c.hpMax)) : c.hpMax, temp: c.hpTemp || 0 },
       speed: root.SSDNSCondFx && root.SSDNSCondFx.speed && c.speed !== "" && c.speed != null ? root.SSDNSCondFx.speed(c) : (c.speed || 30),
       attacks: attacks,
+      creatureSize: root.SSDNSShove && root.SSDNSShove.lineageSize ? root.SSDNSShove.lineageSize(c) : "Medium",
+      reachFeet: root.SSDNSShove && root.SSDNSShove.reachFeet ? root.SSDNSShove.reachFeet({ melee: (c.melee || []).filter(function (m) { return m && m.weapon && m.equipped !== false; }) }) : 5,
       spells: spells,
       items: c.items || []
     };
@@ -858,6 +860,7 @@
       "drawer:speed": "speed",
       "drawer:disarm": "disarm",
       "drawer:rob": "rob",
+      "drawer:shove": "shove",
       "drawer:useitem": "useitem",
       "drawer:gearAdd": "gearAdd",
       "drawer:gearRemove": "gearRemove",
