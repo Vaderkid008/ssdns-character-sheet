@@ -1352,16 +1352,18 @@ function fxGeometry(spec) {
   const S = fxRef(spec.shooter), T = fxRef(spec.target);
   const rawT = fxTokenRaw(spec.target);
   const melee = type === 'blade' || type === 'blunt';
+  const ownCast = !!(spec.shooter && String(spec.shooter) === String(uid));
   const geo = { type, S: null, T: null, rS: 0.42, rT: 0.42, src: null, srcHidden: false, dir: null };
   /* A hidden token stays hidden. A missing token (no target, or a fight row with no map piece) still lets a spell leave the caster. */
   if (spec.target && rawT && !T) return null;
   if (T) {
-    if (!tokenSeen(T)) return null; /* never draw at something this player can't see */
+    /* The caster's own spell still lands on the token they chose. Other players stay fog-clipped. */
+    if (!tokenSeen(T) && !(ownCast && type === 'spell')) return null;
     geo.T = fxCenter(T); geo.rT = fxRadius(T); geo.tokT = T;
   } else {
     const at = fxPoint(spec);
     if (at) {
-      if (role === 'player' && !playerSees(at.x, at.y)) return null;
+      if (role === 'player' && !ownCast && !playerSees(at.x, at.y)) return null;
       geo.T = at; geo.rT = 0.55; geo.point = true;
     }
   }
@@ -1715,7 +1717,8 @@ function fxPublic(spec) {
     if (spec.id) placed.id = spec.id;
     return FXA.sanitize(placed);
   }
-  if (spec.target && !T) return null;
+  /* A fight-row id with no token still has the stamped square. Players draw the column there. */
+  if (spec.target && !T && !fxPoint(spec)) return null;
   if (T && T.hidden) return null;
   const pub = {
     type, result: spec.result, arrow: spec.arrow, sfx: spec.sfx, weapon: spec.weapon, weaponId: spec.weaponId,

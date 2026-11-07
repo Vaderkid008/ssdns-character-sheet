@@ -302,7 +302,9 @@
     var hostile = opts.hostileFeet;
     var hostileN = hostile != null && hostile !== "" && isFinite(Number(hostile)) ? Number(hostile) : null;
     var closeBand = !spell && b.close > 0 && hostileN != null && hostileN <= b.close;
-    var spellWarn = spell && hostileN != null && hostileN <= 5 && !b.self && !b.pointBlank;
+    /* Touch is a melee spell attack. The creature you are touching is within 5 ft;
+       that is reach, not the ranged-spell disadvantage for a hostile in your face. */
+    var spellWarn = spell && !b.touch && hostileN != null && hostileN <= 5 && !b.self && !b.pointBlank;
     var disadvantage = !blocked && (longBand || closeBand || spellWarn || override === "force");
     if (override === "ignore" || override === "adv") disadvantage = false;
     var advantage = !blocked && override === "adv";
