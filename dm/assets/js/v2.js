@@ -499,6 +499,10 @@ function buildPublish() {
     const secret = {};
     (fight.order || []).forEach((row, index) => {
       if (!row.id) return;
+      if (row.kind === "player" && window.SSDNSShove && window.SSDNSShove.lineageSize) {
+        const snap = playerSnapshot(row.playerId || row.id);
+        if (snap) row.size = window.SSDNSShove.lineageSize(snap);
+      }
       const shown = window.SSDNSApplied && window.SSDNSApplied.publicEnemy
         ? window.SSDNSApplied.publicEnemy(row, index, conditionsForRow(row))
         : { name: row.name || "", status: enemyStatus(row), kind: row.kind || "", playerId: row.playerId || "", slot: index, conditions: [] };
@@ -1154,6 +1158,7 @@ function turnRowHtml(row, i) {
         <button type="button" class="btn sm" data-init-cond="${i}">Conditions</button>
         <button type="button" class="btn sm" data-init-hit="${i}" title="Rolls against this row's AC using the Damage box dice">DM roll vs this AC</button>
         <button type="button" class="btn sm" data-grab="rob" data-grab-i="${i}" title="Robbing is frowned on in town and by lawmen and can lead to a confrontation. The DM decides whether it counts as a robbery or a disarm. No automatic reputation tracking.">Rob/Disarm</button>
+        <button type="button" class="btn sm" data-shove="${i}" title="Replaces one attack. The target must be within melee reach and no more than one size larger. A win pushes them 5 feet.">Shove</button>
         <button type="button" class="btn sm" data-init-dmg="${i}">Damage</button>
         <button type="button" class="btn sm" data-init-heal="${i}">Heal</button>
         <button type="button" class="btn sm" data-init-down="${i}">Down</button>
@@ -9782,6 +9787,15 @@ function markRequestResolved(reqId) {
 }
 function applyRequest(req, reqId) {
   if (!req || req.resolved || req.type === "bank") return;
+  if (req.type === "shove" || req.type === "shove_answer") {
+    const key = "shove:" + (reqId || req.rollId || req.ts || "");
+    fight.appliedHits = fight.appliedHits || {};
+    if (fight.appliedHits[key]) return;
+    fight.appliedHits[key] = 1;
+    if (req.type === "shove_answer") takeShoveAnswer(req);
+    else resolveIncomingShove(req);
+    return;
+  }
   /* turn order PR 2 (item 6): Mercy Hands rows belong to dmcc.js (it heals, or holds an out-of-turn cast); this path read them as damage */
   if (req.type === "mercy") return;
   const attack = window.SSDNSSpellCast && window.SSDNSSpellCast.countsAsAttack
@@ -10102,7 +10116,7 @@ function wireClicks() {
       handleDmReaction(rowId, act, spellName, spellLevel);
       return;
     }
-    const t = e.target.closest && e.target.closest("[data-strip-expand],[data-dm-scroll],[data-strip-next],[data-dm-pip],[data-dm-move],[data-dm-act],[data-pip-reset],[data-turn-unlock],[data-oa-ok],[data-oa-no],[data-held-ok],[data-held-no],[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-cyl-spin],[data-row-atk],[data-strip-fire],[data-strip-spin],[data-strip-cycle],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-enemy-gun],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab],[data-cond-drop],[data-fight-portrait]");
+    const t = e.target.closest && e.target.closest("[data-strip-expand],[data-dm-scroll],[data-strip-next],[data-dm-pip],[data-dm-move],[data-dm-act],[data-pip-reset],[data-turn-unlock],[data-oa-ok],[data-oa-no],[data-held-ok],[data-held-no],[data-side-toggle],[data-init-up],[data-init-down-move],[data-init-del],[data-init-hit],[data-init-strike],[data-cyl-fire],[data-cyl-spin],[data-row-atk],[data-strip-fire],[data-strip-spin],[data-strip-cycle],[data-init-cond],[data-your-turn],[data-init-dmg],[data-init-heal],[data-init-down],[data-init-fled],[data-add-beast],[data-stock-del],[data-pack-send],[data-pack-del],[data-quick-roll],[data-cat-add],[data-apply-hit],[data-undo-hit],[data-resend-turn],[data-resend-feed],[data-card-atk],[data-card-check],[data-card-dice],[data-card-cast],[data-clear-jam],[data-enemy-gun],[data-mf-op],[data-apply-rider],[data-feat-use],[data-feat-recharge],[data-slot-spend],[data-hide-all],[data-grab],[data-shove],[data-cond-drop],[data-fight-portrait]");
     if (!t) {
       if (dmReactMenu && !(e.target && e.target.closest && e.target.closest("[data-dm-react-menu]"))) closeDmReactionMenu();
       return;
@@ -10216,6 +10230,10 @@ function wireClicks() {
     if (t.hasAttribute("data-grab")) {
       const i = parseInt(t.getAttribute("data-grab-i"), 10);
       runGrab(fight.order[i], "rob", {});
+      return;
+    }
+    if (t.hasAttribute("data-shove")) {
+      runShove(fight.order[parseInt(t.getAttribute("data-shove"), 10)], {});
       return;
     }
     if (t.hasAttribute("data-init-strike")) { enemyStrike(parseInt(t.getAttribute("data-init-strike"), 10)); return; }
@@ -11599,6 +11617,10 @@ function mapDrawerCard(row) {
     coverLock: !!row.coverLock,
     hp: { cur: row.hp, max: row.maxHp, temp: row.tempHp || row.hpTemp || 0 },
     speed: speed == null || speed === "" ? 30 : speed,
+    creatureSize: row.kind === "player" && window.SSDNSShove && window.SSDNSShove.lineageSize
+      ? window.SSDNSShove.lineageSize(playerSnapshot(row.playerId || row.id) || {})
+      : rowSize(row),
+    reachFeet: window.SSDNSShove && window.SSDNSShove.reachFeet ? window.SSDNSShove.reachFeet({ attacks: attacks, melee: row.kind === "player" ? ((playerSnapshot(row.playerId || row.id) || {}).melee || []) : [] }) : 5,
     conditions: conds,
     portrait: row.portrait || null,
     noHpPool: noHpPoolRow(row), /* 0.2.101: no HP pool (Spectral Horse): the map draws no down X / HP bar */
@@ -13076,6 +13098,191 @@ async function sendGrabCommand(cmd) {
   }
   if (DM.pushCommand) await DM.pushCommand(Object.assign({ from: DM.state && DM.state.uid, quiet: true }, cmd));
 }
+const pendingShovePicks = {};
+function shoveCreature(row) {
+  const view = grabView(row);
+  const Shove = window.SSDNSShove;
+  const size = row && row.kind === "player" && Shove && Shove.lineageSize
+    ? Shove.lineageSize(playerSnapshot(row.playerId || row.id) || {})
+    : rowSize(row);
+  const reach = Shove && Shove.reachFeet ? Shove.reachFeet(view) : 5;
+  return {
+    size: size || "Medium",
+    reach: reach,
+    skills: view.skills || {},
+    mods: view.mods || {},
+    abilities: view.abilities || view.scores || {}
+  };
+}
+function shoveGateFor(actor, target, feet) {
+  const Shove = window.SSDNSShove;
+  if (!Shove) return { ok: false, reason: "Shove isn't loaded" };
+  const a = shoveCreature(actor);
+  const t = shoveCreature(target);
+  return Shove.gate({ actorSize: a.size, targetSize: t.size, feet: feet, reach: a.reach });
+}
+function takeShoveAnswer(req) {
+  const id = req && req.rollId;
+  const wait = id && pendingShovePicks[id];
+  if (!wait) return;
+  delete pendingShovePicks[id];
+  clearTimeout(wait.timer);
+  const skill = req.label === "Acrobatics" ? "Acrobatics" : "Athletics";
+  wait.resolve(skill);
+}
+function askDefenseSkill(target, fromName) {
+  const npc = !target || subjectKindOf(target) !== "player";
+  if (npc || DM.state.demo || !DM.state.db) {
+    return new Promise((resolve) => {
+      const dlg = document.createElement("dialog");
+      dlg.className = "dlg";
+      const who = (target && target.name) || "The target";
+      dlg.innerHTML = `<form method="dialog"><h2>Shove</h2><p class="fine">${esc(who)} defends with Strength (Athletics) or Dexterity (Acrobatics).</p><div class="dlg-foot"><button class="btn" type="button" data-skill="Athletics">Athletics</button><button class="btn" type="button" data-skill="Acrobatics">Acrobatics</button><button class="btn" type="button" data-skill="">Cancel</button></div></form>`;
+      const finish = (skill) => {
+        if (dlg.close) dlg.close();
+        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+        resolve(skill || "");
+      };
+      dlg.querySelectorAll("[data-skill]").forEach((b) => b.addEventListener("click", () => finish(b.getAttribute("data-skill") || "")));
+      dlg.addEventListener("cancel", (e) => { e.preventDefault(); finish(""); });
+      document.body.appendChild(dlg);
+      openDialog(dlg);
+    });
+  }
+  const id = DM.uid("shovepick");
+  const pid = target.playerId || target.id;
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      if (!pendingShovePicks[id]) return;
+      delete pendingShovePicks[id];
+      DM.toast((target.name || "They") + " didn't pick. Choose for them.");
+      askDefenseSkill(Object.assign({}, target, { kind: "enemy" }), fromName).then(resolve);
+    }, 30000);
+    pendingShovePicks[id] = { resolve: resolve, timer: timer };
+    DM.pushCommand({
+      type: "shove_pick",
+      to: pid,
+      quiet: true,
+      payload: { id: id, fromName: fromName || "" },
+      from: DM.state.uid
+    });
+  });
+}
+function slideShove(actor, target) {
+  const hostMap = window.SSDNSMapHost;
+  if (!hostMap || typeof hostMap.shoveToken !== "function") return null;
+  const tokenOf = (row) => (row && (row.mapTokenId || row.playerId || row.id)) || "";
+  return hostMap.shoveToken(tokenOf(target), {
+    feet: 5,
+    dir: "push",
+    fromId: tokenOf(actor),
+    forced: true
+  });
+}
+async function finishShove(actor, target, opts) {
+  opts = opts || {};
+  const Shove = window.SSDNSShove;
+  if (!Shove || !actor || !target) return false;
+  if (target.id === actor.id || (actor.playerId && target.id === actor.playerId)) { DM.toast("Pick a different creature"); return false; }
+  const feet = grabFeet(actor, target, opts.feet);
+  const gate = shoveGateFor(actor, target, feet);
+  if (!gate.ok && !opts.override) { DM.toast(gate.reason); return false; }
+  const skill = opts.defenseSkill || await askDefenseSkill(target, actor.name || "");
+  if (!skill) { DM.toast("Shove cancelled"); return false; }
+  if (!opts.spent) await spendShove(actor);
+  const actorView = shoveCreature(actor);
+  const targetView = shoveCreature(target);
+  const rolled = Shove.contest({
+    actor: actorView,
+    target: targetView,
+    actorSize: actorView.size,
+    targetSize: targetView.size,
+    defenseSkill: skill,
+    feet: feet,
+    reach: actorView.reach,
+    override: !!opts.override
+  });
+  const who = actor.name || "Someone";
+  const whom = target.name || "someone";
+  if (!rolled.ok) {
+    logTableAlert(who + " fails to shove " + whom + ": " + (rolled.line || "") + " · replaces one attack.");
+    return false;
+  }
+  const slid = slideShove(actor, target);
+  const moved = slid && slid.moved ? (Math.round((slid.squares || 1) * 5) + " ft") : "5 ft";
+  const stopped = slid && slid.moved === false ? " The way is blocked." : "";
+  logTableAlert(who + " shoves " + whom + " " + moved + ": " + (rolled.line || "") + " · replaces one attack." + stopped);
+  return true;
+}
+async function spendShove(actor) {
+  if (!actor) return;
+  if (actor.kind === "player") {
+    const pid = actor.playerId || actor.id;
+    notePlayerPip(actor, "attack", "Shove");
+    if (DM.pushCommand) await DM.pushCommand({ type: "shove_pip", to: pid, payload: {}, from: DM.state.uid, quiet: true });
+    echoPipWarn(actor);
+    return;
+  }
+  await spendEnemyPip(actor, "attack", "Shove");
+}
+async function runShove(actor, preset) {
+  const Shove = window.SSDNSShove;
+  if (!Shove) { DM.toast("Shove isn't loaded"); return false; }
+  if (!actor) { DM.toast("No creature"); return false; }
+  preset = preset || {};
+  const targets = combatTargets(actor);
+  const picked = await new Promise((resolve) => {
+    const dlg = document.createElement("dialog");
+    dlg.className = "dlg";
+    dlg.innerHTML = `<form method="dialog"><h2>Shove</h2><p class="fine">${esc(actor.name || "Someone")} · replaces one attack. A win pushes the target 5 feet. No opportunity attack.</p><label>Target <select id="shoveTarget">${targetMenu(targets, preset.targetId || "")}</select></label><p class="fine" id="shoveGate"></p><label class="toggle"><input type="checkbox" id="shoveOverride"> DM override (skip the roll)</label><div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit" id="shoveGo">Shove</button></div></form>`;
+    const sel = dlg.querySelector("#shoveTarget");
+    const note = dlg.querySelector("#shoveGate");
+    const go = dlg.querySelector("#shoveGo");
+    const paint = () => {
+      const target = resolveStrikeTarget(sel.value);
+      const feet = grabFeet(actor, target, preset.feet);
+      const g = target ? shoveGateFor(actor, target, feet) : { ok: false, reason: "Pick a target" };
+      const overrideOn = !!dlg.querySelector("#shoveOverride").checked;
+      if (note) note.textContent = g.reason || "";
+      if (go) go.disabled = !(g.ok || overrideOn);
+    };
+    sel.addEventListener("change", paint);
+    dlg.querySelector("#shoveOverride").addEventListener("change", paint);
+    paint();
+    const finish = (ok) => {
+      const target = resolveStrikeTarget(sel.value);
+      const payload = ok && target ? { target: target, override: !!dlg.querySelector("#shoveOverride").checked, feet: grabFeet(actor, target, preset.feet) } : null;
+      if (dlg.close) dlg.close();
+      if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+      resolve(payload);
+    };
+    dlg.querySelector("[value=no]").addEventListener("click", () => finish(false));
+    dlg.querySelector("form").addEventListener("submit", (e) => { e.preventDefault(); finish(true); });
+    dlg.addEventListener("cancel", (e) => { e.preventDefault(); finish(false); });
+    document.body.appendChild(dlg);
+    openDialog(dlg);
+  });
+  if (!picked || !picked.target) { DM.toast("No target"); return false; }
+  const ok = await finishShove(actor, picked.target, picked);
+  saveRemoteTable();
+  renderFight();
+  return ok;
+}
+function resolveIncomingShove(req) {
+  const actor = (fight.order || []).find((r) => r && (r.playerId === req.from || r.id === req.from)) || { id: req.from, playerId: req.from, kind: "player", name: req.characterName || "Someone" };
+  const target = resolveStrikeTarget(req.targetId) || { id: req.targetId, name: req.targetName || "Target" };
+  finishShove(actor, target, { spent: true }).then(() => { saveRemoteTable(); renderFight(); });
+}
+function runShoveFromMap(detail) {
+  detail = detail || {};
+  const i = mapFightIndex(detail);
+  if (i < 0) { DM.toast("No fight card linked"); return Promise.resolve(false); }
+  const actor = fight.order[i];
+  const targetIndex = mapFightIndex({ combatantId: detail.targetCombatantId, tokenId: detail.targetTokenId });
+  const target = targetIndex >= 0 ? fight.order[targetIndex] : null;
+  const targetId = target ? combatantKey(target) : (detail.targetCombatantId || detail.targetTokenId || "");
+  return runShove(actor, { targetId: targetId, feet: detail.feet });
+}
 function askGrab(actor, mode, preset) {
   preset = preset || {};
   const Grab = window.SSDNSGrab;
@@ -13534,6 +13741,16 @@ window.SSDNSMapFight = {
   weapon(detail) { return mapPickWeapon(detail); },
   disarm(detail) { return runGrabFromMap(detail, "rob"); },
   rob(detail) { return runGrabFromMap(detail, "rob"); },
+  shove(detail) { return runShoveFromMap(detail); },
+  shoveGate(detail) {
+    detail = detail || {};
+    const i = mapFightIndex(detail);
+    const actor = i >= 0 ? fight.order[i] : null;
+    const targetIndex = mapFightIndex({ combatantId: detail.targetCombatantId, tokenId: detail.targetTokenId });
+    const target = targetIndex >= 0 ? fight.order[targetIndex] : null;
+    if (!actor || !target) return { ok: false, reason: "Pick a creature within reach." };
+    return shoveGateFor(actor, target, detail.feet);
+  },
   useitem(detail) {
     detail = detail || {};
     const i = mapFightIndex(detail);

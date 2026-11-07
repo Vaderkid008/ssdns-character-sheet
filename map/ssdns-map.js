@@ -13179,7 +13179,8 @@ async function loadSceneImage(sceneId, opts) {
       pane('gear', '<div class="n62-zone"><div class="n62-zlabel">Gear</div>' + items + (bag.gear || '') + '</div>') +
       pane('more', '<div class="n62-zone"><div class="n62-zlabel">More</div>' + (bag.actToggle || '') +
         '<div class="ssm-row"><button type="button" data-act="deathBtn">Death save</button><button type="button" data-act="undoBtnD">Undo</button></div>' +
-        '<div class="ssm-row"><button type="button" data-act="robBtn"' + (bag.grabAttr || '') + '>Rob/Disarm</button></div>' +
+        '<div class="ssm-row"><button type="button" data-act="robBtn"' + (bag.grabAttr || '') + '>Rob/Disarm</button>' +
+        '<button type="button" data-act="shoveBtn"' + (bag.shoveAttr || '') + '>Shove</button></div>' +
         '<button type="button" data-act="imageBtn">Replace image</button>' +
         '<div class="n62-zlabel">Spells</div>' + spellList + '</div>') +
       '</div>' +
@@ -13298,6 +13299,23 @@ async function loadSceneImage(sceneId, opts) {
       else hitHtml += btn;
       return btn;
     }).join('');
+    const playerShove = (() => {
+      const Shove = window.SSDNSShove;
+      const aim = state.playerTarget || '';
+      const selfTok = (state.tokens || []).find(t => t && t.ownerUid === uid);
+      const aimTok = aim ? (tokenByRef(aim) || (state.tokens || []).find(t => t && (t.id === aim || tokenCombatant(t.id) === aim))) : null;
+      const feet = selfTok && aimTok ? feetBetween(selfTok, aimTok) : null;
+      const opt = document.querySelector('#atkTarget') && document.querySelector('#atkTarget').selectedOptions && document.querySelector('#atkTarget').selectedOptions[0];
+      if (!Shove || !aim) return { ok: false, reason: 'Pick a creature to shove.' };
+      return Shove.gate({
+        actorSize: card.creatureSize || 'Medium',
+        targetSize: (opt && opt.getAttribute('data-creature-size')) || 'Medium',
+        feet: feet,
+        reach: card.reachFeet || 5
+      });
+    })();
+    const shoveHtml = '<button type="button" class="ssm-atk" data-act="playerShove"' + (playerShove.ok ? '' : ' disabled') + ' title="' + esc(playerShove.reason || 'Shove') + '">Shove</button>';
+    hitHtml += shoveHtml;
     const cylinders = (card.attacks || []).filter(a => (a.ammo && a.ammo.cap) || a.reloadId || a.trId).map(a => {
       const chosen = (state.rowTargets && (state.rowTargets[a.id] || state.rowTargets[a.reloadId])) || state.playerTarget || '';
       const html = playerTargetOptions().map(o => {
@@ -13330,13 +13348,19 @@ async function loadSceneImage(sceneId, opts) {
       : '';
     if (n62on) n62PaintPlayer(card, { armHtml: armHtml, hitHtml: hitHtml, cylinders: cylinders, itemRows: itemRows, targetHtml: targetHtml });
     else slot.innerHTML =
-      (attacks ? '<div class="ssm-section">Attacks</div>' + attacks : '') +
+      (attacks || shoveHtml ? '<div class="ssm-section">Attacks</div>' + attacks + shoveHtml : '') +
       (cylinders ? '<div class="ssm-section">Cylinder</div>' + cylinders : '') +
       spells +
       itemRows;
     bindSpellFold(root);
     root.querySelectorAll('[data-act="useItem"]').forEach(b => {
       b.addEventListener('click', () => playerUseItem(b.getAttribute('data-uid')));
+    });
+    root.querySelectorAll('[data-act="playerShove"]').forEach(b => {
+      b.addEventListener('click', () => {
+        if (b.disabled) return;
+        if (window.SSDNSPlaytest && window.SSDNSPlaytest.shove) window.SSDNSPlaytest.shove();
+      });
     });
     root.querySelectorAll('[data-act="playerAttack"], [data-act="playerSpell"], [data-act="playerReload"], [data-act="playerTr"], [data-act="playerClean"], [data-act="playerUnjam"], [data-act="playerReopen"], [data-act="playerUnload"]').forEach(b => {
       b.addEventListener('click', () => runPlayer(b.getAttribute('data-id') || b.getAttribute('data-wid')));
@@ -14095,6 +14119,29 @@ async function loadSceneImage(sceneId, opts) {
         ? ('Out of reach (' + grabFt + ' ft). Rob/Disarm needs to be within 5 ft.')
         : 'Robbing is frowned on in town and by lawmen and can lead to a confrontation. The DM decides whether it counts as a robbery or a disarm. No automatic reputation tracking.');
     const grabAttr = (grabDisabled ? ' disabled' : '') + ' title="' + esc(grabTitle) + '"';
+    const shoveGate = (() => {
+      const Shove = window.SSDNSShove;
+      if (role === 'dm' && window.SSDNSMapFight && typeof window.SSDNSMapFight.shoveGate === 'function') {
+        return window.SSDNSMapFight.shoveGate({
+          tokenId: tokenId,
+          combatantId: tokenCombatant(tokenId),
+          targetTokenId: aimTok ? aimTok.id : '',
+          targetCombatantId: aimId,
+          feet: grabFt
+        }) || { ok: false, reason: 'Pick a creature within reach.' };
+      }
+      const opt = document.querySelector('#atkTarget') && document.querySelector('#atkTarget').selectedOptions && document.querySelector('#atkTarget').selectedOptions[0];
+      const targetSize = (opt && opt.getAttribute('data-creature-size')) || 'Medium';
+      if (!Shove) return { ok: false, reason: 'Shove isn\'t loaded' };
+      if (!aimId && !(opt && opt.value && opt.value !== '__free')) return { ok: false, reason: 'Pick a creature to shove.' };
+      return Shove.gate({
+        actorSize: (card && card.creatureSize) || 'Medium',
+        targetSize: targetSize,
+        feet: grabFt,
+        reach: (card && card.reachFeet) || 5
+      });
+    })();
+    const shoveAttr = (shoveGate.ok ? '' : ' disabled') + ' title="' + esc(shoveGate.reason || 'Shove') + '"';
     const detail = (extra) => Object.assign({ tokenId: tokenId, combatantId: tokenCombatant(tokenId) }, extra || {});
     /* 0.3.72: off-hand flag for the next PC weapon shot the DM sends (one shot, then it clears) */
     const shotDetail = (extra) => detail(Object.assign(state.drawerOffhand ? { offhand: true } : (state.drawerFan ? { fan: true } : {}), extra || {}));
@@ -14158,7 +14205,8 @@ async function loadSceneImage(sceneId, opts) {
       pending: pendingBannerHtml(tokenId),
       light: lightDrawerHtml(state.tokens.find(t => t && t.id === tokenId)),
       gear: gearDrawerHtml(card),
-      grabAttr: grabAttr
+      grabAttr: grabAttr,
+      shoveAttr: shoveAttr
     }) : (
       drawerHeadHtml(card.name || tokenId, card.kind || '') +
       '<div class="ssm-drawer-body">' +
@@ -14202,6 +14250,7 @@ async function loadSceneImage(sceneId, opts) {
       (window.SSDNSItems && card.items && card.items.length ? '<div class="ssm-section">Items</div>' + window.SSDNSItems.drawerRows(card.items, { name: card.name || '', dm: role === 'dm' }) : '') +
       '<div class="ssm-row">' +
         '<button type="button" data-act="robBtn"' + grabAttr + '>Rob/Disarm</button>' +
+        '<button type="button" data-act="shoveBtn"' + shoveAttr + '>Shove</button>' +
       '</div>' +
       '<button type="button" data-act="imageBtn">Replace image</button>' +
       bombToolsHtml(state.tokens.find(t => t && t.id === tokenId)) +
@@ -14575,6 +14624,19 @@ async function loadSceneImage(sceneId, opts) {
     };
     const robBtn = d.querySelector('[data-act="robBtn"]');
     if (robBtn) robBtn.addEventListener('click', () => emitGrab('drawer:rob'));
+    const shoveBtn = d.querySelector('[data-act="shoveBtn"]');
+    if (shoveBtn) shoveBtn.addEventListener('click', () => {
+      if (shoveBtn.disabled) return;
+      if (role === 'player' && window.SSDNSPlaytest && window.SSDNSPlaytest.shove) {
+        window.SSDNSPlaytest.shove();
+        return;
+      }
+      emit('drawer:shove', detail({
+        targetTokenId: aimTok ? aimTok.id : '',
+        targetCombatantId: aimId,
+        feet: grabFt
+      }));
+    });
     d.querySelectorAll('[data-act="useItem"]').forEach(b => {
       b.addEventListener('click', () => {
         const uid = b.getAttribute('data-uid');
