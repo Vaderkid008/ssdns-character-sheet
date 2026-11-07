@@ -1257,6 +1257,16 @@
       try { return map.placeBlast(spec); }
       catch (e) { return Promise.resolve(null); }
     },
+    aimSpellPiece: function (spec) {
+      if (!map || typeof map.aimSpellPiece !== "function") return Promise.resolve(null);
+      try { return map.aimSpellPiece(spec || {}); }
+      catch (e) { return Promise.resolve(null); }
+    },
+    moveSpellPiece: function (tokenId, x, y) {
+      if (!map || typeof map.moveSpellPiece !== "function") return null;
+      try { return map.moveSpellPiece(tokenId, x, y); }
+      catch (e) { return null; }
+    },
     /* Sheet and DMCC both call these. The map owns the grids; without the forward a placed Light never paints. */
     spellZones: function () {
       if (!map || typeof map.spellZones !== "function") return [];

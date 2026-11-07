@@ -1313,8 +1313,8 @@
       "call lightning": { action: "action", bolt: true },
       "sunbeam": { action: "action", line: true },
       "moonbeam": { action: "action", move: true },
-      "spiritual weapon": { action: "bonus", attack: true, conc: false, move: 20 },
-      "flaming sphere": { action: "bonus", move: 30, ram: true }
+      "spiritual weapon": { action: "bonus", attack: true, conc: false, move: 20, button: "Move and Strike" },
+      "flaming sphere": { action: "bonus", move: 30, ram: true, button: "Shove" }
     };
     return table[key] ? Object.assign({ name: key }, table[key]) : null;
   }

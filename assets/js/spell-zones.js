@@ -707,6 +707,31 @@
     }
     return false;
   }
+  /* Chebyshev squares from the piece's footprint. 10 ft is two squares.
+     A Large guardian occupies its 2×2; "within 10 ft" is measured from that body, not from one corner. */
+  function nearFootprint(zone, token, reachFeet) {
+    if (!zone || !zone.origin || !token) return false;
+    var fp = Math.max(1, Number(zone.footprint) || 1);
+    var ox = Math.floor(Number(zone.origin.x));
+    var oy = Math.floor(Number(zone.origin.y));
+    var reach = (Number(reachFeet) || 0) / 5;
+    var tx = Number(token.x);
+    var ty = Number(token.y);
+    var ts = Math.max(1, Number(token.size) || 1);
+    if (!isFinite(tx) || !isFinite(ty) || !isFinite(ox) || !isFinite(oy)) return false;
+    var i, j, a, b, d;
+    for (i = 0; i < ts; i++) {
+      for (j = 0; j < ts; j++) {
+        for (a = 0; a < fp; a++) {
+          for (b = 0; b < fp; b++) {
+            d = Math.max(Math.abs((tx + i) - (ox + a)), Math.abs((ty + j) - (oy + b)));
+            if (d <= reach) return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
   function moveDue(zones, from, to, token, rng) {
     var due = [];
     var size = (token && token.size) || 1;
@@ -717,8 +742,18 @@
       (zone.ticks || []).forEach(function (tick) {
         if (tick.when === "approach") {
           if (!moved) return;
-          var now = tokenIn(zone, { x: to.x, y: to.y, size: size, id: token && token.id }, tickExtra(zone, tick));
-          if (!now) return;
+          var reach = Number(tick.reach) || 0;
+          var now, was;
+          if (zone.footprint && reach) {
+            now = nearFootprint(zone, { x: to.x, y: to.y, size: size }, reach);
+            was = nearFootprint(zone, { x: from.x, y: from.y, size: size }, reach);
+          } else {
+            now = tokenIn(zone, { x: to.x, y: to.y, size: size, id: token && token.id }, tickExtra(zone, tick));
+            was = false;
+          }
+          /* First time this move enters the aura. Already inside does not fire again.
+             once() still stops a second entry on the same turn. */
+          if (!now || was) return;
           due.push(fillTick(tick, zone, token, rng));
           return;
         }
@@ -1166,6 +1201,7 @@
     phaseDue: phaseDue,
     entered: entered,
     moveDue: moveDue,
+    nearFootprint: nearFootprint,
     crossesWall: crossesWall,
     appearOf: appearOf,
     scaledDice: scaledDice,
