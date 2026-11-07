@@ -5344,6 +5344,270 @@
   "source": "six-shooters/drafts/monster-manual/WAKAN-TAKAN.md"
  },
  {
+  "id": "spiritual-weapon",
+  "name": "Spiritual Weapon",
+  "description": "A teal ghost tomahawk of Eldorite force that strikes from its own square.",
+  "group": "spell-tokens",
+  "pieceType": "effect",
+  "creature": false,
+  "targetable": false,
+  "inInitiative": false,
+  "showHp": false,
+  "showAc": false,
+  "controlledBy": "caster",
+  "spellName": "Spiritual Weapon",
+  "spellLevel": 2,
+  "school": "evocation",
+  "castTime": "1 bonus action",
+  "castRange": "60 ft.",
+  "duration": "1 minute",
+  "concentration": false,
+  "endsIfRecast": true,
+  "size": "Medium",
+  "tokenSquares": 1,
+  "token": "spiritual-weapon-token-140.png",
+  "tokenArtHiRes": "spell-tokens/spiritual-weapon-token-512.png",
+  "ac": null,
+  "hp": null,
+  "speed": "20 ft. (bonus action, with strike)",
+  "cr": "—",
+  "xp": 0,
+  "attacks": "Force Strike (melee spell attack, caster's spell attack bonus) 1d8+mod force, 5 ft. +1d8 per two slot levels above 2nd.",
+  "attackList": [
+   {
+    "id": "force-strike",
+    "name": "Force Strike",
+    "kind": "melee",
+    "attackType": "melee spell",
+    "toHit": null,
+    "toHitFrom": "casterSpellAttack",
+    "damage": "1d8+mod",
+    "damageModFrom": "casterSpellcastingAbility",
+    "damageType": "force",
+    "range": "5 ft",
+    "upcast": "+1d8 per two slot levels above 2nd",
+    "upEvery": 2,
+    "upDice": "1d8"
+   }
+  ],
+  "playerActions": [
+   {
+    "id": "cast-place-strike",
+    "name": "Cast",
+    "timing": "bonus action",
+    "slotCost": "spell slot (2nd or higher)",
+    "text": "Place the token in an unoccupied space within 60 feet. You may immediately make a Force Strike against a creature within 5 feet of the token."
+   },
+   {
+    "id": "move-and-strike",
+    "name": "Move and Strike",
+    "timing": "bonus action",
+    "slotCost": 0,
+    "text": "Move the token up to 20 feet and make a Force Strike against a creature within 5 feet of it. This costs no extra slot."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Effect Piece",
+    "text": "Not a creature. No HP, no AC, no initiative, and it can't be targeted as a creature."
+   },
+   {
+    "name": "Caster Control",
+    "text": "The caster controls this token. Linking it must not steal ownerUid or swap away the caster's PC token."
+   },
+   {
+    "name": "Duration",
+    "text": "1 minute, no concentration. Casting Spiritual Weapon again ends the previous token."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Move and Strike (Bonus Action)",
+    "text": "Move the token up to 20 feet and make a melee spell attack from its square. Slot-free while the token is up."
+   }
+  ],
+  "source": "2014 PHB + spell-token cards v1",
+  "draft": false
+ },
+ {
+  "id": "flaming-sphere",
+  "name": "Flaming Sphere",
+  "description": "A churning 5-foot ball of fire the caster shoves around the field.",
+  "group": "spell-tokens",
+  "pieceType": "effect",
+  "creature": false,
+  "targetable": false,
+  "inInitiative": false,
+  "showHp": false,
+  "showAc": false,
+  "controlledBy": "caster",
+  "spellName": "Flaming Sphere",
+  "spellLevel": 2,
+  "school": "conjuration",
+  "castTime": "1 action",
+  "castRange": "60 ft.",
+  "duration": "Concentration, up to 1 minute",
+  "concentration": true,
+  "size": "Medium",
+  "tokenSquares": 1,
+  "token": "flaming-sphere-token-140.png",
+  "tokenArtHiRes": "spell-tokens/flaming-sphere-token-512.png",
+  "ac": null,
+  "hp": null,
+  "speed": "30 ft. (bonus action)",
+  "cr": "—",
+  "xp": 0,
+  "attacks": "Ram DC (caster's spell save) DEX 2d6 fire (half). A creature that ends its turn within 5 ft makes the same save. +1d6 per slot above 2nd.",
+  "attackList": [
+   {
+    "id": "ram",
+    "name": "Ram",
+    "kind": "save",
+    "save": "DEX",
+    "dc": null,
+    "dcFrom": "casterSpellSave",
+    "damage": "2d6",
+    "damageType": "fire",
+    "onSave": "half",
+    "half": true,
+    "upDice": "1d6"
+   },
+   {
+    "id": "burns-adjacent",
+    "name": "Burns Adjacent",
+    "kind": "save",
+    "save": "DEX",
+    "dc": null,
+    "dcFrom": "casterSpellSave",
+    "damage": "2d6",
+    "damageType": "fire",
+    "onSave": "half",
+    "half": true,
+    "trigger": "A creature ends its turn within 5 feet of the sphere.",
+    "upDice": "1d6"
+   }
+  ],
+  "playerActions": [
+   {
+    "id": "cast-place",
+    "name": "Cast",
+    "timing": "action",
+    "slotCost": "spell slot (2nd or higher)",
+    "text": "Place the token in an unoccupied space within 60 feet."
+   },
+   {
+    "id": "shove",
+    "name": "Shove",
+    "timing": "bonus action",
+    "slotCost": 0,
+    "text": "Move the sphere up to 30 feet, over 5-ft barriers and across 10-ft pits. Ramming a creature forces the Ram save and the sphere stops this turn."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Effect Piece",
+    "text": "Not a creature. No HP, no AC, no initiative, and it can't be targeted as a creature."
+   },
+   {
+    "name": "Burns Adjacent",
+    "text": "A creature that ends its turn within 5 feet makes a Dexterity save against the caster's spell save DC. 2d6 fire, half on a success. +1d6 per slot above 2nd."
+   },
+   {
+    "name": "Fire Light",
+    "text": "Bright light 20 feet and dim light 20 feet. It ignites unattended flammables."
+   },
+   {
+    "name": "Duration",
+    "text": "Concentration, up to 1 minute. The token disappears when concentration ends."
+   }
+  ],
+  "actions": [
+   {
+    "name": "Shove (Bonus Action)",
+    "text": "Move the sphere up to 30 feet. A ram is a Dexterity save for 2d6 fire, half on a success, and the sphere stops."
+   }
+  ],
+  "source": "2014 PHB + spell-token cards v1",
+  "draft": false
+ },
+ {
+  "id": "guardian-of-faith",
+  "name": "Guardian of Faith",
+  "description": "A Large spectral tin-star lawman that stands watch and spends a 60-damage radiant budget.",
+  "group": "spell-tokens",
+  "pieceType": "effect",
+  "creature": false,
+  "targetable": false,
+  "inInitiative": false,
+  "showHp": false,
+  "showAc": false,
+  "controlledBy": "caster",
+  "spellName": "Guardian of Faith",
+  "spellLevel": 4,
+  "school": "conjuration",
+  "castTime": "1 action",
+  "castRange": "30 ft.",
+  "duration": "8 hours",
+  "concentration": false,
+  "size": "Large",
+  "tokenSquares": 2,
+  "token": "guardian-of-faith-token-280.png",
+  "tokenArtHiRes": "spell-tokens/guardian-of-faith-token-1024.png",
+  "ac": null,
+  "hp": null,
+  "speed": "0 ft.",
+  "cr": "—",
+  "xp": 0,
+  "damageBudget": 60,
+  "attacks": "Warding Aura DC (caster's spell save) DEX 20 radiant (half) the first time on a turn a hostile creature moves within 10 ft. Vanishes after dealing 60 damage.",
+  "attackList": [
+   {
+    "id": "warding-aura",
+    "name": "Warding Aura",
+    "kind": "save",
+    "save": "DEX",
+    "dc": null,
+    "dcFrom": "casterSpellSave",
+    "damage": "20",
+    "damageType": "radiant",
+    "onSave": "half",
+    "half": true,
+    "range": "10 ft",
+    "trigger": "A creature hostile to the caster moves to a space within 10 feet of the guardian for the first time on a turn."
+   }
+  ],
+  "playerActions": [
+   {
+    "id": "cast-place",
+    "name": "Cast",
+    "timing": "action",
+    "slotCost": "spell slot (4th)",
+    "text": "Place the Large 2x2 token in an unoccupied space within 30 feet. It does not move after that."
+   }
+  ],
+  "traits": [
+   {
+    "name": "Effect Piece",
+    "text": "Not a creature. No HP bar. The card shows the remaining damage budget."
+   },
+   {
+    "name": "Warding Aura",
+    "text": "A hostile creature that moves within 10 feet for the first time on a turn makes a Dexterity save. 20 radiant on a failure, 10 on a success. That damage counts against the budget."
+   },
+   {
+    "name": "Damage Budget",
+    "text": "Starts at 60. The guardian vanishes at 0. No 2014 upcast."
+   },
+   {
+    "name": "Duration",
+    "text": "8 hours, no concentration."
+   }
+  ],
+  "actions": [],
+  "source": "2014 PHB + spell-token cards v1",
+  "draft": false
+ },
+ {
   "id": "thunderbird-hatchling",
   "name": "Thunderbird Hatchling",
   "token": "57-thunderbird-hatchling.webp",
