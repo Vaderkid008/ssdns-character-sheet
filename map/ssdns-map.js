@@ -2928,6 +2928,29 @@ function paintZoneBadges(zones) {
     node.style.top = top + "px";
   });
 }
+/* Lasting ink, drawn with the other zone plates (after the player's fog).
+   Hunger's cast FX fades; without this disc the sphere vanishes into the black fog. */
+function paintLastingZoneDisc(zone, px) {
+  if (!zone || !zone.origin) return;
+  const style = zoneStyle(zone.key);
+  const obscures = !!(zone.heavilyObscured || zone.magicalDark || zone.noLight || zone.blindedInside);
+  const Z = window.SSDNSSpellZones;
+  const viewer = zonePaintViewer();
+  let solid = role === "dm";
+  if (role === "player" && obscures && Z && Z.hides) {
+    solid = !viewer || Z.hides(zone.origin.x, zone.origin.y, [zone], viewer);
+  }
+  if (!traceZone(zone, px)) return;
+  ctx.save();
+  ctx.fillStyle = style[0];
+  ctx.globalAlpha = solid ? 1 : 0.4;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = style[1];
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+}
 function paintSpellZones() {
   if (!state.scene) { paintZoneBadges([]); return; }
   const zones = liveSpellZones();
@@ -2935,8 +2958,6 @@ function paintSpellZones() {
   syncZoneClear();
   if (!zones.length) return;
   const px = state.scene.grid.px || 70;
-  const Z = window.SSDNSSpellZones;
-  const viewer = zonePaintViewer();
   zones.forEach(zone => {
     if (zoneIsToken(zone)) {
       paintTokenAura(zone, px);
@@ -2954,27 +2975,18 @@ function paintSpellZones() {
       paintZonePulse(zone, px);
       return;
     }
+    if (zone.key === "hunger of hadar") {
+      paintLastingZoneDisc(zone, px);
+      paintChunk4Zone(zone, px, "under");
+      paintZonePulse(zone, px);
+      return;
+    }
     if (chunk4ZoneKey(zone.key)) {
       paintChunk4Zone(zone, px, "under");
       paintZonePulse(zone, px);
       return;
     }
-    const style = zoneStyle(zone.key);
-    const obscures = !!(zone.heavilyObscured || zone.magicalDark || zone.noLight || zone.blindedInside);
-    let solid = role === "dm";
-    if (role === "player" && obscures && Z && Z.hides) {
-      solid = !viewer || Z.hides(zone.origin.x, zone.origin.y, [zone], viewer);
-    }
-    if (!traceZone(zone, px)) return;
-    ctx.save();
-    ctx.fillStyle = style[0];
-    ctx.globalAlpha = solid ? 1 : 0.4;
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.strokeStyle = style[1];
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.restore();
+    paintLastingZoneDisc(zone, px);
     paintZonePulse(zone, px);
     /* Bright/dim rings live only while this zone is in the list. Dismissing Light drops the zone. */
     if (zone.light) {
