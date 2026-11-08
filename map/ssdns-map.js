@@ -214,6 +214,7 @@ window.SSDNSMap = { create(opts) {
       ownerCanMove: t.ownerCanMove !== false, locked: !!t.locked,
       label: t.label || t.name || '', size: t.size || 1, name: t.name || '',
       kind: t.kind || '', lootBoxId: t.lootBoxId || '',
+      weaponDrop: t.weaponDrop ? { name: t.weaponDrop.name || t.name || '', itemId: t.weaponDrop.itemId || '', dirty: !!t.weaponDrop.dirty, taken: !!t.weaponDrop.taken } : null,
       spellPiece: t.spellPiece || '', zoneId: t.zoneId || '',
       noHpPool: !!t.noHpPool, notTargetable: !!t.notTargetable, noInit: !!t.noInit,
       damageBudget: t.spellPiece === 'guardian of faith' ? (Number(t.damageBudget) || 60) : null,
@@ -424,6 +425,7 @@ function applySharedToTokens() {
       if (s.spellPiece && s.size) t.size = tokSquares(s.size);
       if (s.name) t.name = s.name;
       if (s.lootBoxId) t.lootBoxId = s.lootBoxId;
+      if (s.weaponDrop && typeof s.weaponDrop === 'object') t.weaponDrop = Object.assign({}, s.weaponDrop);
       if (s.lootLock && (!t.loot || !t.loot.id)) t.loot = Object.assign({ id: s.lootBoxId || t.lootBoxId || '' }, s.lootLock);
       else if (s.loot && s.loot.id && (!t.loot || !t.loot.id)) t.loot = s.loot;
       if (t.image && !t._img) loadTokenImage(t);
@@ -4757,6 +4759,22 @@ function draw() {
       ctx.restore();
     }
     paintStickyMarks(ctx, t, s, r);
+    if (t.weaponDrop || t.kind === 'drop') {
+      ctx.save();
+      ctx.translate(s.x, s.y - r - 10);
+      ctx.fillStyle = '#e2c56a';
+      ctx.strokeStyle = '#2a2114';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, -8);
+      ctx.lineTo(8, 0);
+      ctx.lineTo(0, 8);
+      ctx.lineTo(-8, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
     if (window.SSDNSTokenBorder) window.SSDNSTokenBorder.paint(ctx, t, s.x, s.y, r, ring);
     else {
       ctx.beginPath();
@@ -6073,6 +6091,34 @@ function lootStub(token) {
     log: token.loot && token.loot.log || []
   };
 }
+function collectableToken(t) {
+  if (!t || t === undefined) return false;
+  if (t.loot && t.loot.taken) return false;
+  if (t.weaponDrop && t.weaponDrop.taken) return false;
+  return t.kind === 'chest' || t.kind === 'drop' || !!t.lootBoxId || !!t.weaponDrop;
+}
+function dropBox(token) {
+  if (!token) return null;
+  if (token.loot && (token.loot.contents || token.loot.lock)) return token.loot;
+  const w = token.weaponDrop;
+  if (!w) return lootStub(token);
+  const box = {
+    id: token.lootBoxId || token.id,
+    name: w.name || token.name || 'Dropped weapon',
+    boxType: 'enemy-drop',
+    shared: true,
+    reveal: 'everyone',
+    rolled: true,
+    opened: true,
+    taken: !!w.taken,
+    contents: [{ id: w.itemId || w.name || 'weapon', qty: 1, name: w.name || 'Dropped weapon', dirty: !!w.dirty, hand: true, band: 'drop' }],
+    cash: { es: 0, black: 0, blackId: '', branch: 'none' },
+    lock: { dc: 0, unlocked: true, method: [], jammed: false },
+    log: ['Dropped on the map']
+  };
+  token.loot = box;
+  return box;
+}
 function showChestMenu(token) {
   let menu = el.querySelector('[data-act="chestMenu"]');
   if (!menu) {
@@ -6088,10 +6134,28 @@ function showChestMenu(token) {
       const boxId = menu.getAttribute('data-box') || '';
       const Give = window.SSDNSLootGive;
       if (act === 'take-all' && !(Give && Give.chestAct)) {
+        const live = state.tokens.find(t => t && (t.lootBoxId === boxId || t.id === boxId)) || token;
+        const box = dropBox(live);
+        const Loot = window.SSDNSLoot;
+        if (Loot && Loot.takeAll && box && !box.taken) {
+          box.opener = uid;
+          box.shared = true;
+          box.reveal = 'everyone';
+          box.boxType = box.boxType || 'enemy-drop';
+          let sheet = {};
+          try { sheet = (window.SSDNSApp && window.SSDNSApp.doc && window.SSDNSApp.doc().character) || {}; } catch (e) { sheet = {}; }
+          Loot.takeAll(box, uid, sheet);
+          if (live) {
+            live.loot = box;
+            if (live.weaponDrop) live.weaponDrop.taken = !!box.taken;
+          }
+          menu.innerHTML = chestMenuHtml(box);
+        }
         if (adapter && adapter.write) adapter.write('map/public/events/loot', {
           boxId: boxId, action: 'take-all', from: uid, seq: Date.now()
         }, { seq: Date.now(), by: uid });
-        toast('Take sent');
+        toast(box && box.taken ? 'Collected' : 'Take sent');
+        requestDraw();
         return;
       }
       if (Give && Give.chestAct) {
@@ -6121,7 +6185,7 @@ function showChestMenu(token) {
   menu.hidden = false;
   const Give = window.SSDNSLootGive;
   if (Give && Give.menuHtml && Give.box && Give.box(token.lootBoxId)) menu.innerHTML = Give.menuHtml(token.lootBoxId);
-  else menu.innerHTML = chestMenuHtml(lootStub(token));
+  else menu.innerHTML = chestMenuHtml(dropBox(token) || lootStub(token));
 }
 function chestMenuHtml(box) {
   const Loot = window.SSDNSLoot;
@@ -6166,6 +6230,55 @@ function pinLootChest(box, at) {
   box.tokenId = token.id;
   saveToken(token.id);
   selectToken(token);
+  return token;
+}
+function pinWeaponDrop(spec) {
+  if (!state.scene) return null;
+  spec = spec || {};
+  const name = String(spec.name || 'Dropped weapon');
+  const itemId = String(spec.itemId || spec.weaponId || name);
+  const dirty = !!spec.dirty;
+  const at = spec.at && isFinite(Number(spec.at.x)) && isFinite(Number(spec.at.y)) ? { x: Number(spec.at.x), y: Number(spec.at.y) } : null;
+  const boxId = spec.boxId || ('drop_' + Date.now().toString(36) + Math.floor(Math.random() * 1000));
+  const box = {
+    id: boxId,
+    name: name,
+    boxType: 'enemy-drop',
+    shared: true,
+    reveal: 'everyone',
+    rolled: true,
+    opened: true,
+    taken: false,
+    weaponDrop: true,
+    contents: [{ id: itemId, qty: 1, name: name, dirty: dirty, hand: true, band: 'drop' }],
+    cash: { es: 0, black: 0, blackId: '', branch: 'none' },
+    lock: { dc: 0, unlocked: true, method: [], jammed: false },
+    log: [spec.reason || 'Dropped on the map']
+  };
+  const token = makeToken({
+    kind: 'drop',
+    name: name,
+    label: 'Drop',
+    color: '#c9a227',
+    ownerCanMove: false,
+    pos: at || undefined
+  });
+  if (!token) return null;
+  token.kind = 'drop';
+  token.weaponDrop = { name: name, itemId: itemId, dirty: dirty, taken: false, fromId: spec.fromId || '' };
+  token.lootBoxId = boxId;
+  token.loot = box;
+  token.ownerCanMove = false;
+  if (shared.tokens[token.id]) {
+    shared.tokens[token.id].kind = 'drop';
+    shared.tokens[token.id].lootBoxId = boxId;
+    shared.tokens[token.id].weaponDrop = Object.assign({}, token.weaponDrop);
+    shared.tokens[token.id].name = name;
+    shared.tokens[token.id].label = 'Drop';
+    shared.tokens[token.id].color = '#c9a227';
+  }
+  saveToken(token.id);
+  requestDraw();
   return token;
 }
 function focusLootChest(boxId) {
@@ -6723,7 +6836,7 @@ function interactTarget(actor) {
     }
   }
   const near = (state.tokens || []).filter(t => t && t !== actor && feetBetween(actor, t) != null && feetBetween(actor, t) <= 5);
-  const chest = near.find(t => t.kind === 'chest' || t.lootBoxId);
+  const chest = near.find(t => collectableToken(t));
   if (chest) return { kind: 'chest', token: chest };
   const A = assetLib();
   const asset = near.find(t => {
@@ -6761,7 +6874,7 @@ function useTokenInteract() {
   const hit = interactTarget(token);
   if (!hit) return;
   if (hit.kind === 'door') showDoorMenu(hit.wall, token);
-  else if (hit.kind === 'chest') showChestMenu(hit.token);
+  else if (hit.kind === 'chest' || hit.kind === 'drop') showChestMenu(hit.token);
   else if (hit.kind === 'asset') showAssetMenu(hit.token);
 }
 function placeCommandMenu() {
@@ -15782,6 +15895,7 @@ return {
   maps: function () { return libraryApi(); },
   placeLinkedToken,
   pinLootChest,
+  pinWeaponDrop,
   tokenPos,
   focusLootChest,
   setTool,

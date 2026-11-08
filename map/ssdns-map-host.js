@@ -1178,6 +1178,11 @@
       try { return map.pinLootChest(box, at); }
       catch (e) { return null; }
     },
+    pinWeaponDrop: function (spec) {
+      if (!map || typeof map.pinWeaponDrop !== "function") return null;
+      try { return map.pinWeaponDrop(spec); }
+      catch (e) { return null; }
+    },
     tokenPos: function (id) {
       if (!map || typeof map.tokenPos !== "function") return null;
       try { return map.tokenPos(id); }
