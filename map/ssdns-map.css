@@ -894,6 +894,31 @@ body.map-fullscreen #mapMount > .ssm-drawer.placed {
 .ssm-kind { font-size: 10px; color: #c9a227; text-transform: uppercase; }
 .ssm-linkstatus { margin: 0; font-size: 12px; line-height: 1.35; color: #d7eccf; }
 .ssm-linkstatus.is-warn { color: #e2c56a; }
+.ssm-token-cmd {
+  position: absolute;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  background: #12100e;
+  border: 1px solid #3a332c;
+  border-radius: 8px;
+  pointer-events: auto;
+}
+.ssm-token-cmd button {
+  min-width: 88px;
+  min-height: 28px;
+  padding: 4px 10px;
+  background: #1c242c;
+  color: #f3ead8;
+  border: 1px solid #2d333c;
+  border-radius: 6px;
+  cursor: pointer;
+  font: 600 12px/1.2 system-ui, sans-serif;
+}
+.ssm-token-cmd button.is-on { background: #24362a; border-color: #3e7a4e; color: #e7f6ea; }
+.ssm-token-cmd button:disabled { opacity: 0.38; cursor: not-allowed; }
 .ssm-lighthand { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .ssm-lighthand label.ssm-act { font-size: 12px; }
 .ssm-section { font-size: 10px; color: #c9a227; text-transform: uppercase; margin-top: 4px; }
