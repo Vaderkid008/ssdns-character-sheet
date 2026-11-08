@@ -3862,11 +3862,10 @@ function paintCondWordPills(ctx, s, r, raws) {
   });
   ctx.restore();
 }
-/* 0.3.217 / 0.2.230: DM portrait HP bar. The old under-name bar sits in the next
-   square, so the token below paints over it. This one stays on the bottom of the
-   portrait, under the downed X. Players keep the under-name bar. Unknown max
-   draws nothing. 0 HP is an empty track with a red edge. Temp HP stays on the card. */
-function paintDmTokenHpBar(ctx, s, r, hp) {
+/* DM token HP bar. It sits under the nameplate, below the ring, the same slot
+   the player map uses. It is not clipped to the portrait. Unknown max draws
+   nothing. 0 HP is an empty track with a red edge. Temp HP stays on the card. */
+function paintDmTokenHpBar(ctx, s, r, hp, top) {
   if (!ctx || !s || !(r > 0) || !hp || !(Number(hp.max) > 0)) return;
   const max = Number(hp.max);
   const curRaw = Number(hp.cur);
@@ -3876,35 +3875,24 @@ function paintDmTokenHpBar(ctx, s, r, hp) {
   const bh = compact
     ? Math.max(3, Math.min(4, Math.round(r * 0.14)))
     : Math.max(5, Math.min(11, Math.round(r * 0.32)));
-  const pad = Math.max(1.25, r * 0.05);
-  let barY = s.y + r - pad - bh;
-  const underX = s.y + r * 0.64;
-  if (barY < underX) barY = underX;
-  const barBottom = Math.min(s.y + r - 1, barY + bh);
-  const drawH = Math.max(3, barBottom - barY);
-  const midY = barY + drawH / 2;
-  const dy = midY - s.y;
-  const half = Math.sqrt(Math.max(0, r * r - dy * dy)) - 1.25;
-  if (!(half > 3)) return;
-  const bw = half * 2;
-  const x = s.x - half;
+  const barY = top != null ? top : (s.y + r + 4 + Math.max(14, 13));
+  const bw = r * 1.8;
+  const x = s.x - bw / 2;
   const dead = cur <= 0;
+  const midY = barY + bh / 2;
   ctx.save();
-  ctx.beginPath();
-  ctx.arc(s.x, s.y, Math.max(1, r - 1.25), 0, Math.PI * 2);
-  ctx.clip();
   ctx.fillStyle = 'rgba(18,14,10,0.92)';
-  ctx.fillRect(x, barY, bw, drawH);
+  ctx.fillRect(x, barY, bw, bh);
   if (pct > 0) {
     ctx.fillStyle = pct > 0.5 ? '#4caf50' : pct > 0.25 ? '#ff9800' : '#f44336';
-    ctx.fillRect(x, barY, bw * pct, drawH);
+    ctx.fillRect(x, barY, bw * pct, bh);
   }
   ctx.lineWidth = 1;
   ctx.strokeStyle = dead ? '#e74c3c' : 'rgba(232,220,200,0.92)';
-  ctx.strokeRect(x + 0.5, barY + 0.5, Math.max(0, bw - 1), Math.max(0, drawH - 1));
-  if (!compact && r >= 24 && drawH >= 8) {
+  ctx.strokeRect(x + 0.5, barY + 0.5, Math.max(0, bw - 1), Math.max(0, bh - 1));
+  if (!compact && r >= 24 && bh >= 8) {
     const label = String(Math.round(cur)) + '/' + String(Math.round(max));
-    let fontPx = Math.min(11, Math.max(8, Math.floor(drawH - 1)));
+    let fontPx = Math.min(11, Math.max(8, Math.floor(bh - 1)));
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = 'bold ' + fontPx + 'px system-ui, sans-serif';
@@ -4741,10 +4729,6 @@ function draw() {
     }
 
     const barHp = underTokenHp(t);
-    /* Portrait bar is DM-only. Assets, chests, and spell pieces are not creatures. */
-    if (role === 'dm' && barHp && !t.spellPiece && t.kind !== 'asset' && t.kind !== 'chest') {
-      paintDmTokenHpBar(ctx, s, r, barHp);
-    }
     /* Down X for the DM still comes from the real pool. Players only get it from public status. */
     let hpCur = null;
     let hpMax = null;
@@ -4774,6 +4758,10 @@ function draw() {
     ctx.textBaseline = 'top';
     const nameY = s.y + r + 4;
     ctx.fillText(t.label || t.name.slice(0, 8), s.x, nameY);
+    /* DM bar is under the name, clear of the ring. Assets, chests, and spell pieces are not creatures. */
+    if (role === 'dm' && barHp && !t.spellPiece && t.kind !== 'asset' && t.kind !== 'chest') {
+      paintDmTokenHpBar(ctx, s, r, barHp, nameY + Math.max(14, nameFont + 2));
+    }
     /* Guardian budget is a number on the card, not an HP bar. */
     if (t.spellPiece === 'guardian of faith' && t.budgetLeft != null && t.budgetLeft !== '') {
       ctx.fillStyle = '#e6c36a';
@@ -4824,7 +4812,8 @@ function draw() {
     ctx.restore();
 
     /* Under-name bar stays the player view: own PC via canControl, or an enemy
-       only when that combatant's reveal.hp is public. The DM uses the portrait bar. */
+       only when that combatant's reveal.hp is public. It sits below the nameplate,
+       clear of the ring. The DM uses the same slot. */
     if (role !== 'dm' && barHp && barHp.max) {
       ctx.save();
       if (nudge && (nudge.dx || nudge.dy)) ctx.translate(nudge.dx || 0, nudge.dy || 0);

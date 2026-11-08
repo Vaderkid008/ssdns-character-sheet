@@ -1,7 +1,7 @@
 /**
  * DM portrait HP bar (sheet 0.3.219 / DMCC 0.2.232).
- * The bar sits on the bottom of the DM token, under the downed X.
- * Players keep the under-name bar and do not gain this portrait bar.
+ * The bar sits under the nameplate, below the ring. It is not clipped to the portrait.
+ * Players keep the under-name bar and do not gain this DM bar.
  * Unknown max draws nothing. 0 HP is an empty track. rules.js is not edited.
  *   node tools/test-dm-hp-bar.mjs
  */
@@ -20,22 +20,22 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.239" && version.sheetBuild === "sheet-playtest-v03239");
-check("ver.dmcc", version.dmcc === "0.2.252" && version.dmccBuild === "dmcc-playtest-v02252");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.239"') && read("assets/js/app.js").includes("sheet-playtest-v03239"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.252"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02252"));
+check("ver.sheet", version.sheet === "0.3.240" && version.sheetBuild === "sheet-playtest-v03240");
+check("ver.dmcc", version.dmcc === "0.2.253" && version.dmccBuild === "dmcc-playtest-v02253");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.240"') && read("assets/js/app.js").includes("sheet-playtest-v03240"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.253"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02253"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
 const html = read("index.html");
 const dm = read("dm/index.html");
-check("html.sheet", html.includes("map/ssdns-map.js?v=0.3.239-playfix") && html.includes("assets/js/app.js?v=0.3.239-playfix") && html.includes("map/ssdns-map-fx.js?v=0.3.239-p1c"));
-check("html.dm", dm.includes("../map/ssdns-map.js?v=0.2.252-playfix") && dm.includes("assets/js/dmcc.js?v=0.2.252-playfix") && dm.includes("assets/js/v2.js?v=0.2.252-playfix"));
-check("html.demo", read("map/demo.html").includes("ssdns-map.js?v=0.3.239-playfix"));
+check("html.sheet", html.includes("map/ssdns-map.js?v=0.3.240-playfix") && html.includes("assets/js/app.js?v=0.3.240-playfix") && html.includes("map/ssdns-map-fx.js?v=0.3.240-p1c"));
+check("html.dm", dm.includes("../map/ssdns-map.js?v=0.2.253-playfix") && dm.includes("assets/js/dmcc.js?v=0.2.253-playfix") && dm.includes("assets/js/v2.js?v=0.2.253-playfix"));
+check("html.demo", read("map/demo.html").includes("ssdns-map.js?v=0.3.240-playfix"));
 
 const map = read("map/ssdns-map.js");
-const call = map.slice(map.indexOf("const barHp = underTokenHp"), map.indexOf("const downMark"));
-check("call.dmOnly", call.includes("role === 'dm' && barHp && !t.spellPiece && t.kind !== 'asset' && t.kind !== 'chest'") && call.includes("paintDmTokenHpBar(ctx, s, r, barHp)"));
+const call = map.slice(map.indexOf("const barHp = underTokenHp"), map.indexOf("Guardian budget is a number"));
+check("call.dmOnly", call.includes("role === 'dm' && barHp && !t.spellPiece && t.kind !== 'asset' && t.kind !== 'chest'") && call.includes("paintDmTokenHpBar(ctx, s, r, barHp, nameY + Math.max(14, nameFont + 2))"));
 const playerAt = map.indexOf("Under-name bar stays the player view");
 const playerBar = map.slice(playerAt, map.indexOf("live rect preview", playerAt));
 check("player.kept", playerBar.includes("role !== 'dm' && barHp && barHp.max") && !playerBar.includes("paintDmTokenHpBar"));
@@ -85,7 +85,8 @@ function fakeCtx() {
     restore() {},
     beginPath() {},
     arc() {},
-    clip() {},
+    clip() { this.clipped = true; },
+    clipped: false,
     fillRect(x, y, w, h) { rects.push({ x: x, y: y, w: w, h: h, fill: this.fillStyle }); },
     strokeRect(x, y, w, h) { strokes.push({ x: x, y: y, w: w, h: h, style: this.strokeStyle }); },
     measureText(txt) { return { width: String(txt).length * 5 }; },
@@ -99,14 +100,13 @@ function paint(hp, r) {
   host.__bar(box.ctx, { x: 200, y: 200 }, r == null ? 30 : r, hp);
   return box;
 }
-function inside(rect, r) {
-  const s = { x: 200, y: 200 };
-  return rect.y >= s.y + r * 0.64 - 0.01 && rect.y + rect.h <= s.y + r + 0.01;
+function belowRing(rect, r) {
+  return rect.y >= 200 + r - 0.01;
 }
 
 const full = paint({ cur: 17, max: 20 });
-check("paint.track", full.rects.length >= 2 && full.rects[0].fill === "rgba(18,14,10,0.92)" && inside(full.rects[0], 30), JSON.stringify(full.rects[0]));
-check("paint.green", full.rects[1].fill === "#4caf50" && Math.abs(full.rects[1].w / full.rects[0].w - 17 / 20) < 0.02 && inside(full.rects[1], 30), JSON.stringify(full.rects[1]));
+check("paint.track", full.rects.length >= 2 && full.rects[0].fill === "rgba(18,14,10,0.92)" && belowRing(full.rects[0], 30) && !full.ctx.clipped, JSON.stringify(full.rects[0]));
+check("paint.green", full.rects[1].fill === "#4caf50" && Math.abs(full.rects[1].w / full.rects[0].w - 17 / 20) < 0.02 && belowRing(full.rects[1], 30), JSON.stringify(full.rects[1]));
 check("paint.number", full.texts.some((t) => t.txt === "17/20" && t.fill === "#fff8e8"), JSON.stringify(full.texts));
 check("paint.edge", full.strokes[0] && full.strokes[0].style === "rgba(232,220,200,0.92)");
 
@@ -116,7 +116,7 @@ const low = paint({ cur: 2, max: 11 });
 check("paint.red", low.rects[1] && low.rects[1].fill === "#f44336" && low.texts.some((t) => t.txt === "2/11"));
 
 const dead = paint({ cur: 0, max: 11 });
-check("paint.empty", dead.rects.length === 1 && dead.rects[0].fill === "rgba(18,14,10,0.92)" && inside(dead.rects[0], 30), JSON.stringify(dead.rects));
+check("paint.empty", dead.rects.length === 1 && dead.rects[0].fill === "rgba(18,14,10,0.92)" && belowRing(dead.rects[0], 30), JSON.stringify(dead.rects));
 check("paint.deadEdge", dead.strokes.some((s) => s.style === "#e74c3c") && dead.texts.some((t) => t.txt === "0/11" && t.fill === "#f0b4ae"));
 
 const none = paint(null);
