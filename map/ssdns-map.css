@@ -996,7 +996,13 @@ body.map-fullscreen #mapMount > .ssm-drawer.placed {
   padding: 6px 2px 4px;
   border-bottom: 1px solid #5a4e40;
 }
-.ssm-vital-hp { flex: 1 1 140px; min-width: 120px; display: flex; flex-direction: column; gap: 4px; }
+.ssm-vital-hp { flex: 1 1 180px; min-width: 140px; display: flex; flex-direction: column; gap: 4px; }
+.ssm-hpedit { display: flex; align-items: center; gap: 6px; }
+.ssm-hpedit .ssm-hpbar { flex: 1 1 auto; min-width: 48px; }
+.ssm-drawer .ssm-ac,
+.ssm-drawer .ssm-maxhp { display: inline-flex; margin: 0; }
+.ssm-drawer .ssm-ac input,
+.ssm-drawer .ssm-maxhp input { width: 56px; }
 .ssm-hpnum { font-weight: 700; }
 .ssm-hpbar-row {
   height: 14px;

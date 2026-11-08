@@ -858,6 +858,8 @@
       "drawer:act": "act",
       "drawer:cover": "cover",
       "drawer:speed": "speed",
+      "drawer:ac": "ac",
+      "drawer:maxHp": "maxHp",
       "drawer:disarm": "disarm",
       "drawer:rob": "rob",
       "drawer:shove": "shove",

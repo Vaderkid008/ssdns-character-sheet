@@ -4454,19 +4454,50 @@ function movementBudgetForToken(token) {
   const mv = T.moveLeft(got && got.m, sp);
   return { free: false, active: true, left: mv.left, max: mv.max, speed: sp, used: mv.used, dash: !!(got && got.m && got.m.dash), disengage: !!(got && got.m && got.m.disengage), unlinked: false, combatantId: cur.id, kind: cur.kind, name: cur.name || "" };
 }
+function applyInstanceStat(row, patch) {
+  const EL = window.SSDNSEnemyLoot;
+  const beast = row && row.beastId ? beastRecord(row.beastId) : null;
+  if (EL && EL.editInstance) return EL.editInstance(row, beast, patch || {});
+  return { ok: false, reason: "Instance edit isn't loaded" };
+}
 function setEnemySpeed(detail) {
   detail = detail || {};
   const i = mapFightIndex(detail);
   if (i < 0) { DM.toast("No fight card linked"); return false; }
   const row = fight.order[i];
   if (!row || row.kind === "player") return false;
-  const n = parseInt(detail.speed, 10);
-  if (!isFinite(n) || n < 0) { DM.toast("Speed needs a number of feet"); return false; }
-  row.speed = n;
+  const res = applyInstanceStat(row, { speed: detail.speed });
+  if (!res || !res.ok) { DM.toast((res && res.reason) || "Speed needs a number of feet"); return false; }
   saveRemoteTable();
   renderFight();
   if (window.SSDNSMapHost && window.SSDNSMapHost.refreshMove) { try { window.SSDNSMapHost.refreshMove(); } catch (e) {} }
-  DM.toast((row.name || "Enemy") + " speed is " + n + " ft");
+  DM.toast((row.name || "Enemy") + " speed is " + row.speed + " ft");
+  return true;
+}
+function setEnemyAc(detail) {
+  detail = detail || {};
+  const i = mapFightIndex(detail);
+  if (i < 0) { DM.toast("No fight card linked"); return false; }
+  const row = fight.order[i];
+  if (!row || row.kind === "player") return false;
+  const res = applyInstanceStat(row, { ac: detail.ac });
+  if (!res || !res.ok) { DM.toast((res && res.reason) || "AC needs a number"); return false; }
+  saveRemoteTable();
+  renderFight();
+  DM.toast((row.name || "Enemy") + " AC is " + row.ac);
+  return true;
+}
+function setEnemyMaxHp(detail) {
+  detail = detail || {};
+  const i = mapFightIndex(detail);
+  if (i < 0) { DM.toast("No fight card linked"); return false; }
+  const row = fight.order[i];
+  if (!row || row.kind === "player") return false;
+  const res = applyInstanceStat(row, { maxHp: detail.maxHp });
+  if (!res || !res.ok) { DM.toast((res && res.reason) || "Max HP needs a number"); return false; }
+  saveRemoteTable();
+  renderFight();
+  DM.toast((row.name || "Enemy") + " max HP is " + row.maxHp);
   return true;
 }
 function spendMoveForToken(token, feet) {
@@ -13558,7 +13589,9 @@ async function mapGearAdd(detail) {
   const EL = window.SSDNSEnemyLoot;
   const row = gearRow(detail);
   if (!EL || !row) { DM.toast("No enemy card"); return false; }
-  const res = EL.addGear(row, detail.itemId, detail.qty);
+  const res = EL.editInstance
+    ? EL.editInstance(row, beastRecord(row.beastId), { itemId: detail.itemId, qty: detail.qty })
+    : EL.addGear(row, detail.itemId, detail.qty);
   if (!res || !res.ok) { DM.toast((res && res.reason) || "Can't add that"); return false; }
   await saveRemoteTable();
   renderFight();
@@ -13946,6 +13979,8 @@ window.SSDNSMapFight = {
   },
   link(detail) { return linkMapToken(detail); },
   speed(detail) { return setEnemySpeed(detail); },
+  ac(detail) { return setEnemyAc(detail); },
+  maxHp(detail) { return setEnemyMaxHp(detail); },
   placeBeast(detail) { return mapPlaceBeast(detail); },
   onTokenRemoved(detail) { unlinkMapToken(detail); },
   noteAttackRolls(rolls) { noteAttackRolls(rolls); },
