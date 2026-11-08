@@ -1026,6 +1026,13 @@ body.map-fullscreen #mapMount > .ssm-drawer.placed {
 .ssdns-playercard input, .ssdns-playercard select, .ssdns-playercard button { width: 100%; }
 .ssdns-playercard .ssm-tools { display: flex; flex-wrap: wrap; gap: 4px; }
 .ssdns-playercard .ssm-lights { flex: 1 1 100%; font-size: 12px; font-weight: 700; color: #e8c36a; }
+.ssdns-playercard .ssm-spell-lights { display: flex; flex-direction: column; gap: 4px; }
+.ssdns-playercard .n62 button.ssm-light-toggle {
+  width: 100%; text-align: left; min-height: 28px; padding: 4px 8px; border-radius: 8px;
+  background: var(--drawer-row-bg, #14181c); color: var(--drawer-row-ink, #f3ead8);
+  border: 1px solid var(--drawer-row-edge, #2d333c); cursor: pointer;
+}
+.ssdns-playercard .n62 button.ssm-light-toggle.on { border-color: #e2c56a; color: #ffe7a8; }
 .ssm-ambient { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: #e8dcc8; }
 .ssm-light-legend { display: flex; gap: 4px; margin: 4px 0 2px; }
 .ssm-light-legend span {

@@ -201,7 +201,7 @@
           spell: true,
           spellLevel: placed && placed.spellLevel != null ? placed.spellLevel : null,
           magical: true,
-          out: false
+          out: !!on[k + ":out"]
         });
       }
     });
@@ -259,7 +259,7 @@
   function tokenProfile(c) {
     return {
       lights: activeLights(c).map(function (l) {
-        return { id: l.id, name: l.name, bright: l.bright, dim: l.dim, cone: !!l.cone, out: false };
+        return { id: l.id, name: l.name, bright: l.bright, dim: l.dim, cone: !!l.cone, out: !!l.out };
       }),
       darkvision: darkvisionFeet(c),
       skulker: hasSkulker(c),
@@ -744,6 +744,34 @@
     });
     return changed;
   }
+  /* Spells whose glow is on. :out douses the light and leaves the spell up,
+     so the drawer can turn it back on without a second light. */
+  function drawerSpellRows(c) {
+    var on = (c && c.lightOn) || {};
+    var rows = [];
+    Object.keys(EMITTERS).forEach(function (key) {
+      var id = "spell:" + key;
+      if (!on[id]) return;
+      var spec = EMITTERS[key];
+      rows.push({
+        key: id,
+        name: spec.name,
+        bright: spec.bright,
+        dim: spec.dim,
+        place: spec.place,
+        off: !!on[id + ":out"]
+      });
+    });
+    return rows;
+  }
+  function setSpellGlow(c, key, out) {
+    var id = String(key || "").indexOf("spell:") === 0 ? String(key) : ("spell:" + String(key || ""));
+    var bag = lightOn(c);
+    if (!bag[id]) return false;
+    if (out) bag[id + ":out"] = true;
+    else delete bag[id + ":out"];
+    return true;
+  }
   function douseItem(c, uid, out) {
     var it = items(c).filter(function (x) { return x && x.uid === uid; })[0];
     if (!it) return { ok: false, reason: "No item." };
@@ -823,7 +851,7 @@
     FT: FT, TABLE: TABLE, specFor: specFor, radii: radii, handsUsed: handsUsed, hold: hold, setHood: setHood,
     LIGHT_SLOTS: LIGHT_SLOTS, lightSlotOf: lightSlotOf, slotName: slotName, handLights: handLights,
     lightInSlot: lightInSlot, ensureSlots: ensureSlots, pickLightSlot: pickLightSlot,
-    setSpell: setSpell, douseItem: douseItem, litItem: litItem, activeLights: activeLights, spellLights: spellLights,
+    setSpell: setSpell, setSpellGlow: setSpellGlow, drawerSpellRows: drawerSpellRows, douseItem: douseItem, litItem: litItem, activeLights: activeLights, spellLights: spellLights,
     EMITTERS: EMITTERS, NOT_EMITTERS: NOT_EMITTERS, emitter: emitter, gridFeet: gridFeet, inRangeOf: inRangeOf,
     clusterOk: clusterOk, canAddOrb: canAddOrb, canDragOrb: canDragOrb, hostileTarget: hostileTarget,
     needsUnwillingSave: needsUnwillingSave, dexSave: dexSave, borrowedText: borrowedText, borrowedRow: borrowedRow,
