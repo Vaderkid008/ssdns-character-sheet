@@ -12370,10 +12370,78 @@ async function loadSceneImage(sceneId, opts) {
     };
     animRaf = requestAnimationFrame(step);
   }
+  /* First snapshot is the fight as we found it. A start after that slams
+     ROLL INITIATIVE, then ROUND n. A later round increment slams ROUND n only. */
+  let stingerSeen = false;
+  let stingerQueue = [];
+  let stingerPlaying = false;
+  let stingerTimer = 0;
+  function planCombatStinger(prev, next) {
+    const was = !!(prev && prev.started);
+    const now = !!(next && next.started);
+    const prevRound = Number(prev && prev.round) || 0;
+    const round = Number(next && next.round) || 0;
+    if (!was && now) return [{ kind: "init" }, { kind: "round", n: round || 1 }];
+    if (was && now && round > prevRound) return [{ kind: "round", n: round }];
+    return [];
+  }
+  function stingerNode() {
+    let pop = q('combatStinger');
+    if (pop) return pop;
+    pop = document.createElement('div');
+    pop.setAttribute('data-act', 'combatStinger');
+    pop.className = 'ssm-stinger';
+    pop.setAttribute('aria-live', 'polite');
+    pop.innerHTML = '<div class="ssm-stinger-plate" data-act="stingerPlate"></div>';
+    el.appendChild(pop);
+    return pop;
+  }
+  function paintStinger(card) {
+    const pop = stingerNode();
+    const plate = pop.querySelector('[data-act="stingerPlate"]');
+    const rule = '<div class="ssm-stinger-rule" aria-hidden="true"></div>';
+    if (card && card.kind === 'round') {
+      plate.innerHTML = rule + '<div class="ssm-stinger-kicker">ROUND</div><div class="ssm-stinger-num">' + esc(card.n) + '</div>' + rule;
+    } else {
+      plate.innerHTML = rule + '<div class="ssm-stinger-word">ROLL</div><div class="ssm-stinger-word">INITIATIVE</div>' + rule;
+    }
+    pop.classList.remove('is-on');
+    void pop.offsetWidth;
+    pop.classList.add('is-on');
+  }
+  function hideStinger() {
+    const pop = q('combatStinger');
+    if (pop) pop.classList.remove('is-on');
+  }
+  function pumpStinger() {
+    const card = stingerQueue.shift();
+    if (!card) { stingerPlaying = false; hideStinger(); return; }
+    stingerPlaying = true;
+    paintStinger(card);
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const life = reduce ? 1100 : 2300;
+    clearTimeout(stingerTimer);
+    stingerTimer = setTimeout(() => {
+      hideStinger();
+      stingerTimer = setTimeout(pumpStinger, reduce ? 60 : 160);
+    }, life);
+  }
+  function playStingers(cards) {
+    if (!cards || !cards.length) return;
+    stingerQueue = stingerQueue.concat(cards);
+    if (!stingerPlaying) pumpStinger();
+  }
+  function noteCombatStinger(prev, next) {
+    if (!next) return;
+    if (!stingerSeen) { stingerSeen = true; return; }
+    playStingers(planCombatStinger(prev, next));
+  }
   function syncCombatants(initiative) {
     const prevId = state.currentTurnId;
     const prevStarted = !!(state.initiative && state.initiative.started);
+    const prevInit = state.initiative;
     state.initiative = initiative || { order: [], turn: 0 };
+    noteCombatStinger(prevInit, state.initiative);
     if (initiative && Object.prototype.hasOwnProperty.call(initiative, 'showDowned')) adoptShowDowned(!!initiative.showDowned);
     noteLightRound(state.initiative);
     /* N76: an ended map initiative heals a stale sheet lock before the next Attack click.
@@ -15927,6 +15995,8 @@ attachInteract();
 return {
   destroy,
   syncCombatants,
+  combatStingerPlan: planCombatStinger,
+  showCombatStinger: function (card) { paintStinger(card || { kind: "init" }); },
   setChat,
   pushFeed,
   requestDraw,
