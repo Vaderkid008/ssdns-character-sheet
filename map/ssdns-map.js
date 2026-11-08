@@ -498,6 +498,8 @@ const state = {
   pendingTarget: null,
   spellZones: [],
   spellZonesLive: false,
+  /* True after a DM scene or a full DM zone publish. Players may then drop a piece whose zone is gone. */
+  zoneRoster: false,
   spellEmitters: [],
   spellEmittersLive: false,
   lightSeq: 0,
@@ -2569,12 +2571,18 @@ function syncSpellPieces() {
     if (!row || row.kind !== "token") return;
     want[String(z.id)] = { zone: z, row: row };
   });
-  /* Only the DM deletes a published piece. A player map that has not heard every zone yet must not remove one. */
-  if (role === "dm") {
+  /* The DM always owns the roster. A player drops a piece only after a full DM publish or scene,
+     so a partial sheet sync cannot delete a zone this map has not heard yet. */
+  if (role === "dm" || state.zoneRoster) {
     const dropping = (state.tokens || []).filter(t => t && t.spellPiece && t.zoneId && !want[String(t.zoneId)]);
     dropping.forEach(t => { if (t.spellPiece === "guardian of faith") guardianGarnish(t, t, "clear"); });
     const drop = dropping.map(t => t.id);
-    if (drop.length) removeMapTokens(drop, { silent: true, keepOwner: true });
+    if (drop.length && role === "dm") removeMapTokens(drop, { silent: true, keepOwner: true });
+    else if (drop.length) {
+      state.tokens = (state.tokens || []).filter(t => t && drop.indexOf(t.id) < 0);
+      drop.forEach(id => { delete shared.tokens[id]; });
+      requestDraw();
+    }
   }
   Object.keys(want).forEach(id => {
     const z = want[id].zone;
@@ -3242,12 +3250,13 @@ function noteChunk4ZoneGone(prev, next) {
     });
   });
 }
-function adoptSpellZones(list, seq) {
+function adoptSpellZones(list, seq, opts) {
   const prev = (state.spellZones || []).slice();
   const next = (Array.isArray(list) ? list : []).map(z => Object.assign({}, z));
   state.spellZones = next.filter(z => !(z && z.id && state.zoneGone[String(z.id)]));
   noteChunk4ZoneGone(prev, state.spellZones);
   state.spellZonesLive = true;
+  if (opts && opts.roster) state.zoneRoster = true;
   if (seq) state.zoneSeq = Number(seq) || state.zoneSeq;
   stampDispelledLights();
   stampBorrowedLights();
@@ -3274,7 +3283,8 @@ function publishZoneFeed(zones) {
     id: id, ts: new Date().toISOString(), from: uid,
     fromName: role === "dm" ? "DM" : "Player",
     text: "zone", kind: "sfx", event: "zone",
-    zones: zones, zoneSeq: state.zoneSeq
+    zones: zones, zoneSeq: state.zoneSeq,
+    full: role === "dm"
   };
   try {
     const p = adapter.write("tableFeed/" + id, row, { by: uid });
@@ -3287,15 +3297,23 @@ function applyZoneFeed(row) {
   const seq = Number(row.zoneSeq) || 0;
   if (state.spellZonesLive && seq && state.zoneSeq && seq < state.zoneSeq) return;
   const incoming = row.zones.filter(z => z && z.id);
-  const incomingIds = {};
-  incoming.forEach(z => { incomingIds[String(z.id)] = 1; });
-  const sender = String(row.from || "");
-  const kept = (state.spellZones || []).filter(z => {
-    if (!z || !z.id || incomingIds[String(z.id)]) return false;
-    if (sender && (String(z.casterId || "") === sender || String(z.casterUid || "") === sender)) return false;
-    return true;
-  });
-  adoptSpellZones(kept.concat(incoming), seq || Date.now());
+  const Z = window.SSDNSSpellZones;
+  const full = !!row.full;
+  let merged;
+  if (Z && Z.mergeFeed) merged = Z.mergeFeed(state.spellZones, incoming, { full: full, sender: row.from || "" });
+  else if (full) merged = incoming.map(z => Object.assign({}, z));
+  else {
+    const incomingIds = {};
+    incoming.forEach(z => { incomingIds[String(z.id)] = 1; });
+    const sender = String(row.from || "");
+    const kept = (state.spellZones || []).filter(z => {
+      if (!z || !z.id || incomingIds[String(z.id)]) return false;
+      if (sender && (String(z.casterId || "") === sender || String(z.casterUid || "") === sender)) return false;
+      return true;
+    });
+    merged = kept.concat(incoming);
+  }
+  adoptSpellZones(merged, seq || Date.now(), { roster: full });
   persistSpellZones();
 }
 function clampZoneRounds(existing, incoming) {
@@ -15498,7 +15516,7 @@ async function loadSceneImage(sceneId, opts) {
         const hadMeta = JSON.stringify((shared.scenes[sid] || {}).meta || null);
         shared.scenes[sid] = next;
         if (Array.isArray(next.spellZones) && sid === activeSceneId() && (!state.spellZonesLive || (Number(next.zoneSeq) || 0) >= (state.zoneSeq || 0))) {
-          adoptSpellZones(next.spellZones, Number(next.zoneSeq) || 0);
+          adoptSpellZones(next.spellZones, Number(next.zoneSeq) || 0, { roster: true });
         }
         if (Array.isArray(next.spellEmitters) && sid === activeSceneId() && (!state.spellEmittersLive || (Number(next.lightSeq) || 0) >= (state.lightSeq || 0))) {
           adoptSpellEmitters(next.spellEmitters, Number(next.lightSeq) || 0);
