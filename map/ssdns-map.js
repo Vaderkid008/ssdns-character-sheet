@@ -440,6 +440,8 @@ const state = {
   tokens: [],
   room: null,
   view: { x: 0, y: 0, zoom: 1 },
+  /* Last canvas size that was actually paintable. A 0×0 read during fullscreen must not replace it. */
+  layoutBox: null,
   drag: null,
   selected: null,
   selectedIds: [],
@@ -1851,21 +1853,60 @@ function fxFromFeed(row) {
 }
 
 // --- render ---
+function liveCanvasBox() {
+  return { w: canvas.clientWidth || 0, h: canvas.clientHeight || 0 };
+}
 function viewBox() {
-  const w = canvas.clientWidth || el.clientWidth || 1;
-  const h = canvas.clientHeight || el.clientHeight || 1;
-  return { w: w, h: h };
+  const live = liveCanvasBox();
+  if (live.w > 1 && live.h > 1) return live;
+  if (state.layoutBox && state.layoutBox.w > 1 && state.layoutBox.h > 1) return state.layoutBox;
+  return { w: 1, h: 1 };
+}
+/* Full screen can report 0×0 while the grid settles. Writing that into the bitmap
+   clears the board, and the next observation often never comes, so the map stays black
+   until the button is pressed again. Keep the last good buffer and try once layout lands. */
+let layoutTries = 0;
+let layoutTimer = 0;
+function scheduleLayout() {
+  if (layoutTimer || dead || layoutTries > 12) return;
+  layoutTries += 1;
+  layoutTimer = requestAnimationFrame(() => {
+    layoutTimer = 0;
+    resize();
+  });
+}
+function syncBacking() {
+  const dpr = Math.min((typeof window !== 'undefined' && window.devicePixelRatio) || 1, 2);
+  const live = liveCanvasBox();
+  if (live.w < 2 || live.h < 2) return false;
+  state.layoutBox = { w: live.w, h: live.h };
+  const bw = Math.round(live.w * dpr);
+  const bh = Math.round(live.h * dpr);
+  if (canvas.width !== bw || canvas.height !== bh) {
+    canvas.width = bw;
+    canvas.height = bh;
+  }
+  if (ctx && ctx.setTransform) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  sizeFxCanvas(dpr, live);
+  return true;
 }
 function resize() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const box = viewBox();
-  if (canvas.width !== Math.round(box.w * dpr) || canvas.height !== Math.round(box.h * dpr)) {
-    canvas.width = box.w * dpr;
-    canvas.height = box.h * dpr;
+  if (!syncBacking()) {
+    scheduleLayout();
+    return;
   }
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  sizeFxCanvas(dpr, box);
+  layoutTries = 0;
   draw();
+}
+function relayout() {
+  layoutTries = 0;
+  resize();
+  if (!layoutTimer) {
+    layoutTimer = requestAnimationFrame(() => {
+      layoutTimer = 0;
+      resize();
+    });
+  }
 }
 function sizeFxCanvas(dpr, box) {
   if (!fxCanvas) return;
@@ -4359,6 +4400,10 @@ function doorGlyphReport() {
 function draw() {
   publishTokenColors();
   if (!state.scene) return;
+  if (!syncBacking()) {
+    scheduleLayout();
+    return;
+  }
   try { sceneData(); } catch (e) { console.error(e); return; }
   const dpr = Math.min((typeof window !== 'undefined' && window.devicePixelRatio) || 1, 2);
   if (ctx.setTransform) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -15669,6 +15714,7 @@ return {
   setChat,
   pushFeed,
   requestDraw,
+  relayout,
   refreshCard,
   refreshStrip: fillStripMarkers,
   refreshMove: function () {
