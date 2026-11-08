@@ -12028,6 +12028,7 @@ async function loadSceneImage(sceneId, opts) {
     /* 0.2.77: the DM keeps the strip with no fight running ("No fight running" + Roll Initiative);
        players still see it only while there is a turn order. */
     strip.hidden = !order.length && role !== 'dm';
+    if (role === 'dm' && toolbar.parentNode) toolbar.parentNode.removeChild(toolbar);
     strip.innerHTML = '';
     strip.classList.toggle('is-idle', !order.length);
     strip.classList.remove('is-crowded');
@@ -12044,7 +12045,9 @@ async function loadSceneImage(sceneId, opts) {
         roll.textContent = 'Roll Initiative';
         roll.addEventListener('click', () => emit('initiative:roll', {}));
         strip.appendChild(roll);
-        appendStripChallenge(strip);
+        const tail = beginStripTail(strip);
+        appendStripChallenge(tail);
+        dockDmMapTools(strip);
       }
       return;
     }
@@ -12111,14 +12114,15 @@ async function loadSceneImage(sceneId, opts) {
     }
     if (role === 'dm') appendStripMarkers(strip); /* Turn UX on the map: the current player's markers, before Next */
     if (role === 'dm') {
-      appendStripChallenge(strip);
+      const tail = beginStripTail(strip);
+      appendStripChallenge(tail);
       const next = document.createElement('button');
       next.type = 'button';
       next.className = 'btn btn-primary btn-next';
       next.setAttribute('data-act', 'stripNext');
       next.textContent = 'Next';
       next.addEventListener('click', () => emit('initiative:next', {}));
-      strip.appendChild(next);
+      tail.appendChild(next);
       const prev = document.createElement('button');
       prev.type = 'button';
       prev.className = 'btn sm';
@@ -12126,11 +12130,11 @@ async function loadSceneImage(sceneId, opts) {
       prev.textContent = 'Undo last Next'; /* turn order PR 1: the DM page asks first and restores, never refreshes markers */
       prev.title = 'Undo the last Next (the DM page asks first)';
       prev.addEventListener('click', () => emit('initiative:prev', {}));
-      strip.appendChild(prev);
+      tail.appendChild(prev);
       /* 0.2.77: End combat sits at the far end, set apart from Next / Previous; the DM page asks first. */
       const gap = document.createElement('span');
       gap.className = 'ssm-strip-gap';
-      strip.appendChild(gap);
+      tail.appendChild(gap);
       const end = document.createElement('button');
       end.type = 'button';
       end.className = 'btn sm btn-end-combat';
@@ -12138,11 +12142,35 @@ async function loadSceneImage(sceneId, opts) {
       end.textContent = 'End combat';
       end.title = 'End the fight (asks first)';
       end.addEventListener('click', () => emit('initiative:end', {}));
-      strip.appendChild(end);
+      tail.appendChild(end);
+      dockDmMapTools(strip);
     }
+  }
+  /* Challenge / Next / Undo / End stay one cluster on the right of the fight row. */
+  function beginStripTail(strip) {
+    const tail = document.createElement('div');
+    tail.className = 'ssm-strip-tail';
+    tail.setAttribute('data-act', 'stripTail');
+    strip.appendChild(tail);
+    return tail;
   }
   /* Turn UX on the map: markers for the combatant whose turn it is (DM page only; the host returns the same HTML as the
      DM card's marker row, and the DM page's own click handler edits them) */
+  /* N42: the DM map tools sit in the open middle of the fight strip, between the
+     action cluster and Next / End combat. The toolbar node is moved, not copied. */
+  function dockDmMapTools(strip) {
+    if (role !== 'dm' || !strip || !toolbar) return;
+    let slot = strip.querySelector('[data-act="stripTools"]');
+    if (!slot) {
+      slot = document.createElement('div');
+      slot.className = 'ssm-strip-tools';
+      slot.setAttribute('data-act', 'stripTools');
+    }
+    strip.appendChild(slot);
+    slot.appendChild(toolbar);
+    toolbar.classList.add('is-docked');
+    el.classList.add('dm-tools-docked');
+  }
   function appendStripChallenge(strip) {
     if (role !== 'dm' || !strip) return;
     const b = document.createElement('button');

@@ -170,11 +170,29 @@
     Object.keys(st.oa).forEach(function (id) { var e = st.oa[id]; if (!e || now - num(e.seq, now) > k) delete st.oa[id]; });
     return st;
   }
+  /* A hostile leaves the turn order only when they are dead, not while they are
+     Down and still on death saves. Players and marked allies stay. */
+  function hostileDead(row) {
+    if (!row || row.kind === "player") return false;
+    if (row.ally === true || row.friendly === true) return false;
+    var side = String(row.side || "").toLowerCase();
+    if (side === "friendly" || side === "ally") return false;
+    if (row.kind !== "enemy") return false;
+    if (row.disintegrated) return true;
+    var status = String(row.status || "");
+    if (/^dead$/i.test(status) || /disintegrat/i.test(status)) return true;
+    var fails = (row.deathSaves && row.deathSaves.fail) || [];
+    var n = 0;
+    var i;
+    for (i = 0; i < fails.length; i++) if (fails[i]) n += 1;
+    return n >= 3;
+  }
+
   root.SSDNSTurn = {
     unlocked: unlocked, inFight: inFight, lockedFor: lockedFor, canMoveToken: canMoveToken, oaEntry: oaEntry, oaApproved: oaApproved,
     moveLeft: moveLeft, pruneOa: pruneOa,
     UNDO_MAX: UNDO_MAX, current: current, rowFor: rowFor, isTurnOf: isTurnOf, keyFor: keyFor, fresh: fresh, markersFor: markersFor,
     snapshot: snapshot, beginTurn: beginTurn, undoNext: undoNext, canUndo: canUndo, clearTurnState: clearTurnState,
-    canEndTurn: canEndTurn, outOfTurn: outOfTurn
+    canEndTurn: canEndTurn, outOfTurn: outOfTurn, hostileDead: hostileDead
   };
 })(typeof window !== "undefined" ? window : this);
