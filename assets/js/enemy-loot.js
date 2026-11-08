@@ -392,6 +392,50 @@
     box.rolled = true;
     return box;
   }
+  /* A fresh placed copy. Catalog numbers only. Nothing another copy was given. */
+  function catalogCopy(beast) {
+    beast = beast || {};
+    return {
+      id: "",
+      kind: "enemy",
+      beastId: beast.id || "",
+      name: beast.name || "",
+      ac: beast.ac,
+      hp: beast.hp,
+      maxHp: beast.hp,
+      speed: beast.speed,
+      inventory: []
+    };
+  }
+  /* One placed token. The bestiary object passed in is not written. */
+  function editInstance(row, beast, patch) {
+    patch = patch || {};
+    if (!row || row.kind === "player") return { ok: false, reason: "Instance edits are for an enemy or NPC." };
+    if (patch.ac != null && patch.ac !== "") {
+      var ac = parseInt(patch.ac, 10);
+      if (!isFinite(ac) || ac < 0) return { ok: false, reason: "AC needs a number." };
+      row.ac = ac;
+    }
+    if (patch.maxHp != null && patch.maxHp !== "") {
+      var max = parseInt(patch.maxHp, 10);
+      if (!isFinite(max) || max < 0) return { ok: false, reason: "Max HP needs a number." };
+      row.maxHp = max;
+      var cur = parseInt(row.hp, 10);
+      if (isFinite(cur) && cur > max) row.hp = max;
+    }
+    if (patch.speed != null && patch.speed !== "") {
+      var sp = parseInt(patch.speed, 10);
+      if (!isFinite(sp) || sp < 0) return { ok: false, reason: "Speed needs a number of feet." };
+      row.speed = sp;
+    }
+    var item = null;
+    if (patch.itemId) {
+      var added = addGear(row, patch.itemId, patch.qty);
+      if (!added || !added.ok) return added || { ok: false, reason: "Can't add that" };
+      item = added.item || null;
+    }
+    return { ok: true, row: row, item: item, catalogId: beast && beast.id || "" };
+  }
   function tagLine(item) {
     if (!item) return "";
     var bits = [];
@@ -410,6 +454,8 @@
     isFirearm: isFirearm,
     firearmById: firearmById,
     addGear: addGear,
+    catalogCopy: catalogCopy,
+    editInstance: editInstance,
     removeGear: removeGear,
     syncAttacks: syncAttacks,
     choices: choices,

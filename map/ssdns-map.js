@@ -9308,7 +9308,7 @@ function drawerHpTone(pct) {
   const band = pct > 50 ? 'is-high' : (pct > 25 ? 'is-mid' : 'is-low');
   return band + dead;
 }
-function drawerVitalsHtml(ac, hp, speedBit, noHpPool) {
+function drawerVitalsHtml(ac, hp, speedBit, noHpPool, edit) {
   hp = hp || {};
   const maxHp = noHpPool ? NaN : Number(hp.max);
   const haveCur = !noHpPool && hp.cur !== '' && hp.cur != null && isFinite(Number(hp.cur));
@@ -9318,9 +9318,15 @@ function drawerVitalsHtml(ac, hp, speedBit, noHpPool) {
     ? 'No HP pool'
     : ('HP ' + (hp.cur != null && hp.cur !== '' ? hp.cur : '—') + '/' + (hp.max != null && hp.max !== '' ? hp.max : '—') + (hp.temp ? ' (+' + hp.temp + ')' : ''));
   const bar = hpPct == null ? '' : '<div class="ssm-hpbar ssm-hpbar-row ' + drawerHpTone(hpPct) + '" role="meter" aria-label="HP" aria-valuemin="0" aria-valuenow="' + esc(curHp) + '" aria-valuemax="' + esc(maxHp) + '"><span style="width:' + hpPct + '%"></span></div>';
+  const acBit = edit
+    ? '<label class="ssm-act ssm-ac">AC <input data-act="enemyAc" type="number" min="0" step="1" value="' + (ac != null && ac !== '' ? esc(ac) : '') + '" aria-label="Armor class"></label>'
+    : '<span class="ssm-vital">AC ' + esc(ac != null ? ac : '—') + '</span>';
+  const maxBit = (edit && !noHpPool)
+    ? '<label class="ssm-act ssm-maxhp">Max <input data-act="enemyMaxHp" type="number" min="0" step="1" value="' + (hp.max != null && hp.max !== '' ? esc(hp.max) : '') + '" aria-label="Maximum HP"></label>'
+    : '';
   return '<div class="ssm-vitals" data-act="vitals">' +
-    '<span class="ssm-vital">AC ' + esc(ac != null ? ac : '—') + '</span>' +
-    '<span class="ssm-vital ssm-vital-hp"><span class="ssm-hpnum">' + esc(num) + '</span>' + bar + '</span>' +
+    acBit +
+    '<span class="ssm-vital ssm-vital-hp"><span class="ssm-hpnum">' + esc(num) + '</span><span class="ssm-hpedit">' + bar + maxBit + '</span></span>' +
     '<span class="ssm-vital">' + speedBit + '</span></div>';
 }
 function dmToolsHtml(inner) {
@@ -14704,7 +14710,7 @@ async function loadSceneImage(sceneId, opts) {
       '<div class="ssm-drawer-body">' +
       lightDrawerHtml(state.tokens.find(t => t && t.id === tokenId)) +
       pendingBannerHtml(tokenId) +
-      drawerVitalsHtml(card.ac, hp, speedBit, noHpPool) +
+      drawerVitalsHtml(card.ac, hp, speedBit, noHpPool, true) +
       deathLine +
       markerRow +
       actToggle +
@@ -14941,6 +14947,18 @@ async function loadSceneImage(sceneId, opts) {
       const n = parseInt(speedBox.value, 10);
       if (!isFinite(n) || n < 0) { speedBox.value = String(speedNum); return; }
       emit('drawer:speed', detail({ speed: n }));
+    });
+    const acBox = d.querySelector('[data-act="enemyAc"]');
+    if (acBox) acBox.addEventListener('change', () => {
+      const n = parseInt(acBox.value, 10);
+      if (!isFinite(n) || n < 0) { acBox.value = card.ac != null ? String(card.ac) : ''; return; }
+      emit('drawer:ac', detail({ ac: n }));
+    });
+    const maxBox = d.querySelector('[data-act="enemyMaxHp"]');
+    if (maxBox) maxBox.addEventListener('change', () => {
+      const n = parseInt(maxBox.value, 10);
+      if (!isFinite(n) || n < 0) { maxBox.value = hp.max != null ? String(hp.max) : ''; return; }
+      emit('drawer:maxHp', detail({ maxHp: n }));
     });
     const coverPick = d.querySelector('[data-act="coverPick"]');
     const coverLock = d.querySelector('[data-act="coverLock"]');
