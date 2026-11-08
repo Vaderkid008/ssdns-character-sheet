@@ -5642,6 +5642,7 @@ function onEnemySheetClick(e) {
                 ? window.SSDNSSpellRiders.objectDropLine("Heat Metal", one.name, !!(save && save.failed && !save.blocked))
                 : "";
               if (line) DM.toast(line);
+              if (save && save.failed && !save.blocked) dropHeldWeapon(one.id, one.name);
             }).catch(() => {});
           }
         }
@@ -9988,6 +9989,7 @@ function applyRequest(req, reqId) {
       const dropLine = window.SSDNSSpellRiders && window.SSDNSSpellRiders.objectDropLine
         ? window.SSDNSSpellRiders.objectDropLine(req.spell || req.label || "", name, !!(save && save.failed && !save.blocked))
         : "";
+      if (dropLine && save && save.failed && !save.blocked) dropHeldWeapon(req.targetId, name);
       if (!dropLine && save && save.failed && req.condition) {
         const caster = { id: req.from || "", name: who, kind: "player" };
         const tgt = row || { id: req.targetId, name: name };
@@ -13164,13 +13166,49 @@ function grabSlotFree(actor, weapon) {
   const used = Equip.countSlots(character, lookup);
   return (used[slot] || 0) < Equip.LIMITS[slot];
 }
+function dropHeldWeapon(targetId, targetName) {
+  const i = mapFightIndex({ combatantId: targetId, tokenId: targetId });
+  const row = i >= 0 ? fight.order[i] : null;
+  const attacks = (row && row.card && row.card.attacks) || (row && row.attackList) || [];
+  const atk = attacks.find((a) => a && a.dropped !== true && a.equipped !== false) || attacks.find((a) => a && a.dropped !== true);
+  if (atk) { atk.dropped = true; atk.equipped = false; }
+  const host = window.SSDNSMapHost;
+  const at = host && host.tokenPos ? host.tokenPos((row && row.mapTokenId) || targetId) : null;
+  if (host && host.pinWeaponDrop) {
+    host.pinWeaponDrop({
+      name: (atk && atk.name) || "Heated metal",
+      itemId: (atk && (atk.weapon || atk.id)) || "",
+      dirty: !!(atk && atk.dirty),
+      at: at ? { x: at.x + 1, y: at.y } : null,
+      fromId: (row && row.id) || targetId || "",
+      reason: "Heat Metal"
+    });
+  }
+  if (row) saveRemoteTable();
+  if (atk) DM.toast((atk.name || "The object") + " is on the map" + (targetName ? " by " + targetName : "") + ".");
+}
 function applyEnemyGrab(actor, target, plan) {
   const enemy = (plan && plan.enemy) || {};
   if (target && target.kind === "enemy" && target.card && Array.isArray(target.card.attacks)) {
     const dropId = enemy.dropAttackId || enemy.removeAttackId || "";
     if (dropId) {
       const atk = target.card.attacks.find((a) => a && (a.id === dropId || a.name === dropId));
-      if (atk && enemy.dropAttackId) { atk.equipped = false; atk.dropped = true; }
+      if (atk && enemy.dropAttackId) {
+        atk.equipped = false;
+        atk.dropped = true;
+        const host = window.SSDNSMapHost;
+        const at = host && host.tokenPos ? host.tokenPos(target.mapTokenId || target.id) : null;
+        if (host && host.pinWeaponDrop) {
+          host.pinWeaponDrop({
+            name: atk.name || "Dropped weapon",
+            itemId: atk.weapon || atk.id || "",
+            dirty: !!atk.dirty,
+            at: at ? { x: at.x + 1, y: at.y } : null,
+            fromId: target.id,
+            reason: "Stolen"
+          });
+        }
+      }
       if (atk && enemy.removeAttackId) target.card.attacks = target.card.attacks.filter((a) => a !== atk);
     }
   }

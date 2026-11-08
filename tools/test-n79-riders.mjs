@@ -198,8 +198,8 @@ check("rules.untouched", rulesDiff === "", rulesDiff);
 const rules = read("assets/data/rules.js");
 check("rules.nover", !rules.includes("0.3.169") && !rules.includes("spell-riders"));
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.246" && version.sheetBuild === "sheet-playtest-v03246");
-check("ver.dmcc", version.dmcc === "0.2.259" && version.dmccBuild === "dmcc-playtest-v02259");
+check("ver.sheet", version.sheet === "0.3.247" && version.sheetBuild === "sheet-playtest-v03247");
+check("ver.dmcc", version.dmcc === "0.2.260" && version.dmccBuild === "dmcc-playtest-v02260");
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

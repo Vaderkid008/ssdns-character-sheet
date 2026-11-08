@@ -696,10 +696,12 @@
       };
     }
     if (isGun(id) || GUNS[id] || rulesGun(id)) {
+      /* Drop loot rows omit dirty and stay Dirty. A stolen or Heat Metal drop sets dirty explicitly. */
+      var dirty = row.dirty == null ? true : !!row.dirty;
       return {
         kind: "reward_item",
         sort: "weapon",
-        payload: { id: id, text: label, dirty: true, qty: 1, reason: "Loot" }
+        payload: { id: id, text: label, dirty: dirty, qty: 1, reason: "Loot" }
       };
     }
     var tags = tagOf(id);
