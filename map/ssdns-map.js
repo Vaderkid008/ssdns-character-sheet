@@ -1193,7 +1193,9 @@ if (role === 'dm') {
             <details class="n62-acc" data-n62-acc="link">
               <summary>Link · lights · vision</summary>
               <div class="n62-accbody">
+                <div class="n62-zlabel">Light</div>
                 <div class="ssm-lights" data-act="playerLights">No light in hand</div>
+                <div class="ssm-spell-lights" data-act="playerSpellLights"></div>
                 <div class="ssm-light-legend" data-act="lightLegend" data-ambient="dark" aria-label="Light: Bright, Dim, Dark, magical darkness">
                   <span data-level="bright">Bright</span>
                   <span data-level="dim">Dim</span>
@@ -10314,7 +10316,81 @@ function paintLightRings(sight, px) {
     const rows = mine ? tokenLightList(mine) : [];
     const dv = mine && Number(mine.darkvision) || 0;
     readout.textContent = (rows.length ? rows.map(l => (l.name || 'Light') + ' ' + (l.bright || 0) + '/' + (l.dim || 0)).join(' · ') : 'No light in hand') + (dv ? ' · darkvision ' + dv + ' ft' : '');
+    paintPlayerSpellLights();
   }
+  paintLightMeasure(sight, px);
+}
+function playerCharacter() {
+  try {
+    const doc = window.SSDNSApp && window.SSDNSApp.doc && window.SSDNSApp.doc();
+    return doc && doc.character;
+  } catch (e) { return null; }
+}
+function paintPlayerSpellLights() {
+  const box = q('playerSpellLights');
+  if (!box || role !== 'player') return;
+  const L = window.SSDNSLighting;
+  const c = playerCharacter();
+  const rows = L && L.drawerSpellRows && c ? L.drawerSpellRows(c).slice() : [];
+  const known = {};
+  rows.forEach(r => { if (r && r.key) known[r.key] = 1; });
+  const mine = state.tokens.find(t => t && t.ownerUid === uid);
+  const stuckName = {
+    "produce flame": "spell:produce-flame",
+    "flame blade": "spell:flame-blade",
+    "fire shield": "spell:fire-shield",
+    "sunbeam": "spell:sunbeam",
+    "light": "spell:light",
+    "dancing lights": "spell:dancing-lights",
+    "daylight": "spell:daylight"
+  };
+  (mine && mine.lights || []).forEach(l => {
+    if (!l || l.out) return;
+    const key = stuckName[String(l.name || "").toLowerCase()];
+    if (!key || known[key]) return;
+    known[key] = 1;
+    rows.push({ key: key, name: l.name, bright: Number(l.bright) || 0, dim: Number(l.dim) || 0, off: false, stuck: true });
+  });
+  if (!rows.length) { box.innerHTML = ''; return; }
+  box.innerHTML = rows.map(row => {
+    const on = !row.off;
+    return '<button type="button" class="ssm-light-toggle' + (on ? ' on' : '') + '" data-act="spellLight" data-light-key="' + esc(row.key) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
+      esc(row.name) + ' ' + (row.bright || 0) + '/' + (row.dim || 0) + (on ? ' · on' : ' · off') + '</button>';
+  }).join('');
+}
+function togglePlayerSpellLight(key) {
+  const L = window.SSDNSLighting;
+  const c = playerCharacter();
+  if (!L || !L.setSpellGlow || !c || !key) return;
+  const id = String(key).indexOf('spell:') === 0 ? String(key) : ('spell:' + key);
+  const bare = id.replace(/^spell:/, '');
+  const row = (L.drawerSpellRows(c) || []).find(r => r && r.key === id);
+  const wantOut = row ? !row.off : true;
+  if (row) {
+    if (window.SSDNSApp && window.SSDNSApp.applyPatch) {
+      window.SSDNSApp.applyPatch(d => { if (d && d.character) L.setSpellGlow(d.character, id, wantOut); });
+    } else L.setSpellGlow(c, id, wantOut);
+  }
+  const mine = uid;
+  spellEmitterList().forEach(em => {
+    if (!em) return;
+    const emKey = String(em.key || '').replace(/^spell:/, '');
+    if (emKey !== bare) return;
+    const owner = em.casterUid || em.casterId || '';
+    if (owner && owner !== mine && !(tokenByRef(em.casterId) && tokenByRef(em.casterId).ownerUid === mine)) return;
+    douseEmitterId(em.id, wantOut);
+  });
+  if (wantOut) {
+    try {
+      window.dispatchEvent(new CustomEvent('ssdns-light-dismiss', { detail: { key: bare, casterId: mine } }));
+    } catch (e) {}
+  }
+  syncOwnerLights();
+  if (L.paintBox) { try { L.paintBox(); } catch (e2) {} }
+  paintPlayerSpellLights();
+  requestDraw();
+}
+function paintLightMeasure(sight, px) {
   /* Measurement strokes are a DM test overlay. Players never see them, even if the flag is on.
      Lighting wash, fog punches, torch and darkvision sight, and the player lights readout stay. */
   if (role !== 'dm' || !state.showLightRings) return;
@@ -11550,7 +11626,15 @@ function douseSelected(out) {
   const n62Card = q('playerCard');
   if (n62Card && !n62Card.dataset.n62) {
     n62Card.dataset.n62 = '1';
-    n62Card.addEventListener('click', (e) => { n62OnClick(e, () => paintPlayerFight()); });
+    n62Card.addEventListener('click', (e) => {
+      const lightBtn = e.target && e.target.closest && e.target.closest('[data-act="spellLight"]');
+      if (lightBtn) {
+        e.preventDefault();
+        togglePlayerSpellLight(lightBtn.getAttribute('data-light-key'));
+        return;
+      }
+      n62OnClick(e, () => paintPlayerFight());
+    });
   }
 }
 
