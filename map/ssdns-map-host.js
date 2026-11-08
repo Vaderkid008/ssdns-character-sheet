@@ -824,6 +824,18 @@
       }
       return;
     }
+    if (name === "loot:randomize") {
+      var lootApi = root.SSDNSMapFight;
+      if (lootApi && typeof lootApi.randomizeLoot === "function") {
+        try {
+          Promise.resolve(lootApi.randomizeLoot(detail)).then(function (res) {
+            if (map && map.noteLootForce) map.noteLootForce(res && res.again);
+            if (map && map.refreshCard) map.refreshCard();
+          }, function () {});
+        } catch (eLoot) {}
+      }
+      return;
+    }
     if (name === "token:hidden") {
       var hideApi = root.SSDNSMapFight;
       if (hideApi && typeof hideApi.hidden === "function") {
