@@ -827,6 +827,22 @@
     });
     return { zones: kept, removed: removed, logs: logs };
   }
+  /* A DM publish is the whole scene. A player publish only replaces that caster's grids,
+     so one sheet sync cannot wipe someone else's zone. */
+  function mergeFeed(local, incoming, opts) {
+    opts = opts || {};
+    var next = (incoming || []).filter(function (z) { return z && z.id; }).map(function (z) { return Object.assign({}, z); });
+    if (opts.full) return next;
+    var ids = {};
+    next.forEach(function (z) { ids[String(z.id)] = 1; });
+    var sender = String(opts.sender || "");
+    var kept = (local || []).filter(function (z) {
+      if (!z || !z.id || ids[String(z.id)]) return false;
+      if (sender && (String(z.casterId || "") === sender || String(z.casterUid || "") === sender)) return false;
+      return true;
+    }).map(function (z) { return Object.assign({}, z); });
+    return kept.concat(next);
+  }
   /* One pip per round up to 10. Longer clocks use 10 proportional pips so the
      iron plate stays the width of a 1-minute zone. Ember at 3 rounds or fewer. */
   var BADGE_PIP_CAP = 10;
@@ -1207,6 +1223,7 @@
     scaledDice: scaledDice,
     roundsFromDur: roundsFromDur,
     tickRounds: tickRounds,
+    mergeFeed: mergeFeed,
     clearZones: clearZones,
     badgeView: badgeView,
     zoneMarks: zoneMarks,
