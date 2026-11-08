@@ -1084,7 +1084,10 @@
         document.body.classList.toggle("map-fullscreen");
         var on = document.body.classList.contains("map-fullscreen");
         full.textContent = on ? "Exit full screen" : "Full screen";
-        if (map && map.requestDraw) map.requestDraw();
+        /* Relayout after the class change. requestDraw alone paints the old buffer and a 0×0
+           observation used to clear it, so the board stayed black until the next toggle. */
+        if (map && map.relayout) map.relayout();
+        else if (map && map.requestDraw) map.requestDraw();
         setTimeout(stripHeight, 60); /* Turn UX on the map: the strip moves; the player card follows */
         if (!on) {
           var ab = document.getElementById("appbar");
