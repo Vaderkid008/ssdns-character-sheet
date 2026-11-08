@@ -14595,7 +14595,6 @@ async function loadSceneImage(sceneId, opts) {
       const bare = state.tokens.find(t => t && t.id === tokenId);
       d.innerHTML = drawerHeadHtml('No fight card linked') +
         '<div class="ssm-drawer-body">' +
-        lightDrawerHtml(bare) +
         '<label class="ssm-section" for="ssm-link-pick">Link to…</label>' +
         '<select data-act="linkPick" id="ssm-link-pick" aria-label="Link to…">' +
         '<option value="">Link to…</option>' +
@@ -14605,6 +14604,7 @@ async function loadSceneImage(sceneId, opts) {
         group('Custom', option('custom', custom)) +
         '</select>' +
         '<p class="ssm-tactics">Players can be laid out before a fight. A bestiary or custom enemy is added on the Fight tab and linked here.</p>' +
+        lightDrawerHtml(bare) +
         bombToolsHtml(bare) +
         '</div>';
       const c = d.querySelector('[data-act="drawerClose"]');
