@@ -1272,6 +1272,8 @@ if (role === 'dm') {
 const FXA = window.SSDNSMapFx || null;
 const fxBoot = Date.now();
 const fxLive = [];
+/* Short lights riding a fire or lightning projectile. Cleared when the FX ends or Effects is off. */
+let fxBoltLights = [];
 const fxTimers = [];
 const fxDrew = [];
 let fxRaf = 0;
@@ -1671,7 +1673,9 @@ function fxFrame() {
       const spellName = String((e.spec && (e.spec.spell || e.spec.weapon)) || "");
       if (look === "thorn" || look === "enfeeble" || look === "deathray" || look === "sickray" || look === "sunburst" || look === "icebomb" || look === "void" || look === "massword" || look === "masscure" || look === "healcolumn" || (look === "cold" && /ray of frost/i.test(spellName))) bodyLive = true;
     });
-    if (shook || was || erodeLive || bodyLive) { try { draw(); } catch (e) {} }
+    let boltLit = false;
+    try { boltLit = syncFxLights(now); } catch (eLit) { boltLit = false; }
+    if (shook || was || erodeLive || bodyLive || boltLit) { try { draw(); } catch (e) {} }
     if (fxCtx.setTransform) fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     fxCtx.clearRect(0, 0, box.w, box.h);
     if (shook && fxCtx.setTransform) fxCtx.setTransform(dpr, 0, 0, dpr, fxShake.x * dpr, fxShake.y * dpr);
@@ -1688,8 +1692,48 @@ function fxFrame() {
     fxFrameOn = false;
   }
 }
+/* Grid light for one in-flight bolt. A hidden caster starts at the fog edge, same as gun FX. */
+function fxLightSpan(g) {
+  if (!g || !g.T) return null;
+  const tok = g.tokS;
+  if (tok && tok.hidden) {
+    const origin = fxCenter(tok);
+    const see = (x, y) => role === 'player' ? playerSees(x, y) : fxPublicSees(x, y, tok.sceneId);
+    const edge = fxWalk(origin, g.T, see);
+    if (!edge || edge.at < 1) return null;
+    return { from: { x: edge.x, y: edge.y }, to: g.T };
+  }
+  const from = (g.srcHidden && g.src) ? g.src : (g.S || g.src);
+  if (!from) return null;
+  return { from: from, to: g.T };
+}
+function syncFxLights(now) {
+  const prev = fxBoltLights.length;
+  if (!fxOn() || !FXA || !FXA.projectileLight) { fxBoltLights = []; return prev > 0; }
+  const lights = [];
+  fxLive.forEach(e => {
+    if (!e || !e.spec || !e.geo) return;
+    const spot = FXA.projectileLight(e.spec, now - e.t0);
+    if (!spot) return;
+    const span = fxLightSpan(e.geo);
+    if (!span) return;
+    const u = Math.max(0, Math.min(1, Number(spot.u) || 0));
+    const x = span.from.x + (span.to.x - span.from.x) * u;
+    const y = span.from.y + (span.to.y - span.from.y) * u;
+    if ((e.geo.srcHidden || (e.geo.tokS && e.geo.tokS.hidden)) && role === 'player' && !playerSees(x, y)) return;
+    const feet = Number(spot.feet) > 0 ? Number(spot.feet) : 5;
+    lights.push({
+      x: x, y: y, bright: feet, dim: 0, radius: feet / 5,
+      cone: false, facing: 0, name: '', id: 'fx-bolt', magical: true, spell: true
+    });
+  });
+  fxBoltLights = lights;
+  return lights.length > 0 || prev > 0;
+}
 function fxStopAll() {
   fxLive.length = 0;
+  const hadLight = fxBoltLights.length > 0;
+  fxBoltLights = [];
   fxTimers.splice(0).forEach(t => { try { clearTimeout(t); } catch (e) {} });
   if (fxRaf) { cancelAnimationFrame(fxRaf); fxRaf = 0; }
   const was = fxShaking || fxShake.x || fxShake.y;
@@ -1700,7 +1744,7 @@ function fxStopAll() {
     if (fxCtx.setTransform) fxCtx.setTransform(fxDpr(), 0, 0, fxDpr(), 0, 0);
     fxCtx.clearRect(0, 0, box.w, box.h);
   }
-  if (was) { try { draw(); } catch (e) {} }
+  if (was || hadLight) { try { draw(); } catch (e) {} }
 }
 /* Chain hops travel as fight-row ids. Public tokens omit combatantId, so a player
    map cannot resolve them and the extra bolts never draw. Stamp the square the
@@ -2218,6 +2262,7 @@ function buildSight(viewerUid, sceneId, forceMode) {
   testLightRows(sd).forEach(ls => out.lights.push(ls));
   zoneLightRows().forEach(ls => out.lights.push(ls));
   spellEmitterRows(sid).forEach(ls => out.lights.push(ls));
+  if (fxOn()) fxBoltLights.forEach(ls => { if (ls) out.lights.push(ls); });
   return out;
 }
 function sightFor(viewerUid, sceneId) { return buildSight(viewerUid, sceneId, ''); }
