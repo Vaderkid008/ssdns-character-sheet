@@ -169,7 +169,7 @@ window.SSDNSMap = { create(opts) {
     el.dispatchEvent(new CustomEvent(name, { detail }));
     if (host.on) host.on(name, detail);
   }
-  function requestDraw() { if (raf || dead) return; raf = requestAnimationFrame(() => { raf = 0; if (!dead) draw(); }); }
+  function requestDraw() { if (raf || dead) return; raf = requestAnimationFrame(() => { raf = 0; if (!dead) { draw(); placeCommandMenu(); } }); }
   function toast(msg) {
     let t = q('toast');
     if (!t) { t = document.createElement('div'); t.setAttribute('data-act', 'toast'); t.style.cssText = 'position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:rgba(180,60,60,.95);color:#fff;padding:8px 16px;border-radius:6px;z-index:20;font-size:14px;'; el.appendChild(t); }
@@ -474,6 +474,9 @@ const state = {
   /* B13: in a fight, green reach and click-to-walk are off until the strip Move chip is on.
      Outside a fight this flag is ignored and click-to-move stays free. Edit tokens bypasses it. */
   moveMode: false,
+  /* Reach and path arrows stay off until the token menu's Move is tapped. */
+  moveArmed: false,
+  commandToken: "",
   /* DM "Edit tokens". Off by default. Persisted only for the DM role (ssdns.map.dmEdit). */
   dmEdit: false,
   rangeWeaponId: "",
@@ -603,6 +606,15 @@ on(document, 'keydown', e => {
   }
   /* B13: Esc leaves Move mode even when the strip, not the canvas, has focus. A fog polygon
      in progress and a text field keep Esc for themselves. */
+  if (e.key === 'Escape' && state.moveArmed) {
+    const tag = e.target && e.target.tagName;
+    const typing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
+    if (!typing) {
+      e.preventDefault();
+      cancelTokenCommand('esc');
+      return;
+    }
+  }
   if (e.key === 'Escape' && state.moveMode && fightOn()) {
     const tag = e.target && e.target.tagName;
     const typing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
@@ -6642,6 +6654,109 @@ function showAssetMenu(token) {
   menu.hidden = false;
   menu.innerHTML = assetMenuHtml(token);
 }
+function commandToken() {
+  return (state.tokens || []).find(t => t && t.id === state.commandToken) || null;
+}
+function interactTarget(actor) {
+  if (!actor || !actor.pos) return null;
+  const I = interactApi();
+  const walls = ((sceneData() && sceneData().walls) || []).filter(w => w && w.door && (role === 'dm' || !doorIsSecret(w)));
+  if (I && I.inReach) {
+    for (let i = 0; i < walls.length; i++) {
+      const gate = I.inReach(actor, walls[i], false, 5);
+      if (gate && gate.ok) return { kind: 'door', wall: walls[i] };
+    }
+  }
+  const near = (state.tokens || []).filter(t => t && t !== actor && feetBetween(actor, t) != null && feetBetween(actor, t) <= 5);
+  const chest = near.find(t => t.kind === 'chest' || t.lootBoxId);
+  if (chest) return { kind: 'chest', token: chest };
+  const A = assetLib();
+  const asset = near.find(t => {
+    if (!t || t.kind !== 'asset' || !A || !A.reachGate || !A.menuActions) return false;
+    const gate = A.reachGate(actor, t, assetReachNeed(t));
+    return !!(gate && gate.ok && A.menuActions(t.asset).some(a => a && !a.stub));
+  });
+  if (asset) return { kind: 'asset', token: asset };
+  return null;
+}
+function hideCommandMenu() {
+  state.commandToken = "";
+  const menu = el.querySelector('[data-act="tokenCmd"]');
+  if (menu) menu.remove();
+  if (el) el.dataset.moveArmed = state.moveArmed ? '1' : '0';
+}
+function cancelTokenCommand(why) {
+  state.moveArmed = false;
+  state.moveHover = null;
+  if (state.moveConfirm) state.moveConfirm.pending = null;
+  if (state.moveMode && window.SSDNSMoveMode) window.SSDNSMoveMode.set(false, why || 'cancel');
+  hideCommandMenu();
+  requestDraw();
+}
+function armTokenMove() {
+  const token = commandToken();
+  if (!token || !canDrag(token)) return;
+  state.moveArmed = true;
+  if (fightOn() && window.SSDNSMoveMode) window.SSDNSMoveMode.set(true, 'menu');
+  placeCommandMenu();
+  requestDraw();
+}
+function useTokenInteract() {
+  const token = commandToken();
+  const hit = interactTarget(token);
+  if (!hit) return;
+  if (hit.kind === 'door') showDoorMenu(hit.wall, token);
+  else if (hit.kind === 'chest') showChestMenu(hit.token);
+  else if (hit.kind === 'asset') showAssetMenu(hit.token);
+}
+function placeCommandMenu() {
+  const token = commandToken();
+  let menu = el.querySelector('[data-act="tokenCmd"]');
+  if (!token || !state.scene) {
+    if (menu) menu.remove();
+    if (el) el.dataset.moveArmed = state.moveArmed ? '1' : '0';
+    return;
+  }
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.className = 'ssm-token-cmd';
+    menu.setAttribute('data-act', 'tokenCmd');
+    menu.innerHTML = '<button type="button" data-act="tokenCmdMove">Move</button><button type="button" data-act="tokenCmdInteract">Interact</button>';
+    menu.addEventListener('pointerdown', ev => ev.stopPropagation());
+    menu.addEventListener('click', ev => {
+      ev.stopPropagation();
+      const act = ev.target && ev.target.getAttribute && ev.target.getAttribute('data-act');
+      if (act === 'tokenCmdMove') armTokenMove();
+      if (act === 'tokenCmdInteract') useTokenInteract();
+    });
+    el.appendChild(menu);
+  }
+  const move = menu.querySelector('[data-act="tokenCmdMove"]');
+  const interact = menu.querySelector('[data-act="tokenCmdInteract"]');
+  if (move) {
+    move.disabled = !canDrag(token);
+    move.classList.toggle('is-on', !!state.moveArmed);
+  }
+  if (interact) interact.disabled = !interactTarget(token);
+  const px = state.scene.grid.px || 70;
+  const s = worldToScreen((token.pos.x + 0.5) * px, token.pos.y * px);
+  const r = ((Number(token.size) || 1) * px * (state.view.zoom || 1)) / 2;
+  const ox = canvas ? canvas.offsetLeft || 0 : 0;
+  const oy = canvas ? canvas.offsetTop || 0 : 0;
+  menu.style.left = Math.round(ox + s.x + r + 8) + 'px';
+  menu.style.top = Math.round(oy + s.y - 8) + 'px';
+  el.dataset.moveArmed = state.moveArmed ? '1' : '0';
+}
+function showCommandMenu(token) {
+  if (!token || !token.id) return;
+  if (state.commandToken !== token.id) {
+    state.moveArmed = false;
+    state.moveHover = null;
+    if (state.moveConfirm) state.moveConfirm.pending = null;
+  }
+  state.commandToken = token.id;
+  placeCommandMenu();
+}
 function selectToken(token) {
   if (!token) return;
   if (state.pendingTarget && role === 'dm') {
@@ -7166,8 +7281,10 @@ function clearMovePreview() {
 }
 /* Right-click leaves Move mode during a fight. Outside a fight it only clears the path preview. */
 function cancelMoveGesture() {
+  state.moveArmed = false;
   if (fightOn() && state.moveMode && window.SSDNSMoveMode) window.SSDNSMoveMode.set(false, 'cancel');
   else clearMovePreview();
+  placeCommandMenu();
 }
 let suppressFeetToast = false;
 function exitMoveMode(why) {
@@ -7198,6 +7315,7 @@ function onMoveModeEvent(e) {
   }
   const was = !!state.moveMode;
   state.moveMode = on;
+  state.moveArmed = !!on;
   if (!on) {
     state.moveHover = null;
     if (state.moveConfirm) state.moveConfirm.pending = null;
@@ -7639,8 +7757,8 @@ function hoverAt(cell, screen) {
   };
 }
 function noteMoveHover(e) {
-  /* Edit tokens and a fight with Move mode off show no path. Outside a fight the path stays. */
-  if (dmEditing() || (fightOn() && !state.moveMode)) {
+  /* Arrows stay hidden until Move is tapped, in a fight and outside one. */
+  if (dmEditing() || !state.moveArmed) {
     if (state.moveHover) { state.moveHover = null; requestDraw(); }
     return;
   }
@@ -7970,7 +8088,8 @@ function tryClickMove(cell) {
   if (state.tool) return false;
   /* Edit ON: empty-square clicks do not click-walk and do not spend feet. */
   if (dmEditing()) return false;
-  /* B13: in a fight, clicks walk only while Move mode is on. Outside a fight they still walk. */
+  /* Clicks walk only after Move is tapped. Outside a fight that is the same gate. */
+  if (!state.moveArmed) return false;
   if (fightOn() && !state.moveMode) return false;
   if (reactHold) { toast('Waiting on opportunity attacks…'); return true; }
   const mover = activeMover();
@@ -8013,7 +8132,7 @@ function tryClickMove(cell) {
   return true;
 }
 function paintMoveReach() {
-  if (dmEditing()) return;
+  if (dmEditing() || !state.moveArmed) return;
   const hover = state.moveHover;
   const mover = activeMover();
   /* Green fill exists only while Move mode is on. The walk is gated the same way. */
@@ -8039,6 +8158,7 @@ function paintMoveReach() {
   if (hover && hover.showReach === false) return;
 }
 function paintMoveHover() {
+  if (!state.moveArmed) return;
   const hover = state.moveHover;
   if (!hover || !state.scene) return;
   const px = state.scene.grid.px;
@@ -8562,10 +8682,12 @@ function onPointerDown(e) {
     if (hit && hit.kind === 'asset' && role === 'player' && !e.shiftKey) {
       if (!tokenSeenBy(hit, sightFor(uid, getPlayerScene()))) { toast("You can't see that."); return; }
       selectToken(hit);
+      showCommandMenu(hit);
       return;
     }
     if (hit && (hit.kind === 'chest' || hit.lootBoxId) && !e.shiftKey) {
       selectToken(hit);
+      showCommandMenu(hit);
       return;
     }
     if (hit && state.pendingTarget && role === 'dm') {
@@ -8578,6 +8700,7 @@ function onPointerDown(e) {
         // select locked token so DM can unlock it, but don't start a drag
         state.selectedIds = [hit.id];
         state.selected = hit;
+        showCommandMenu(hit);
         openDrawer(hit.id);
         draw();
         return;
@@ -8587,6 +8710,7 @@ function onPointerDown(e) {
         if (idx >= 0) state.selectedIds.splice(idx, 1);
         else state.selectedIds.push(hit.id);
         state.selected = hit;
+        showCommandMenu(hit);
         draw();
         return;
       } else if (role === 'dm' && state.selectedIds.includes(hit.id)) {
@@ -8602,12 +8726,20 @@ function onPointerDown(e) {
       if (!dmEditing() && fightOn() && activeMover() && activeMover().id === hit.id && moveApi()) {
         state.selectedIds = [hit.id];
         state.selected = hit;
-        if (!state.moveMode) {
+        showCommandMenu(hit);
+        if (!state.moveArmed || !state.moveMode) {
           if (role === 'dm') openDrawer(hit.id);
           draw();
           return;
         }
         state.drag = { moveAim: true, token: hit, sx: e.clientX, sy: e.clientY };
+        if (role === 'dm') openDrawer(hit.id);
+        draw();
+        return;
+      }
+      /* A plain click selects and shows Move / Interact. The drag and the path wait for Move. */
+      if (!dmEditing() && !state.moveArmed) {
+        showCommandMenu(hit);
         if (role === 'dm') openDrawer(hit.id);
         draw();
         return;
@@ -8622,6 +8754,8 @@ function onPointerDown(e) {
       if (role === 'dm') openDrawer(hit.id);
       if (hit.kind === 'asset') showAssetMenu(hit);
     } else if (hit && role === 'player') {
+      selectToken(hit);
+      showCommandMenu(hit);
       if (hit.locked) toast('That token is locked');
       else if (canControl(hit) && turnBlocksMove()) toast("It isn't your turn. Your token moves on your turn.");
       else toast('No permission to move that token');
@@ -8637,7 +8771,7 @@ function onPointerDown(e) {
         const selPt = localXY(e);
         state.drag = { select: true, sx: selPt.x, sy: selPt.y, cx: e.clientX, cy: e.clientY };
       } else {
-        state.drag = { pan: true, sx: e.clientX, sy: e.clientY, vx: state.view.x, vy: state.view.y, clickMove: !state.tool && e.button === 0 };
+        state.drag = { pan: true, sx: e.clientX, sy: e.clientY, vx: state.view.x, vy: state.view.y, clickMove: state.moveArmed && !state.tool && e.button === 0, dismissMenu: !state.moveArmed && !state.tool && e.button === 0 };
       }
     }
   }
@@ -8783,11 +8917,18 @@ function onPointerUp(e) {
     if (Math.hypot(dx, dy) < CLICK_SLOP) {
       if (state.drag.vx != null) { state.view.x = state.drag.vx; state.view.y = state.drag.vy; }
       tryClickMove(cellUnderEvent(e));
+      cancelTokenCommand('ground');
     }
+  } else if (state.drag && state.drag.dismissMenu && e.button === 0) {
+    const dx = e.clientX - state.drag.sx, dy = e.clientY - state.drag.sy;
+    if (Math.hypot(dx, dy) < CLICK_SLOP) hideCommandMenu();
   } else if (state.drag && state.drag.select && state.drag.cx != null && e.button === 0 && !state.tool) {
     const dx = e.clientX - state.drag.cx, dy = e.clientY - state.drag.cy;
     if (Math.hypot(dx, dy) < CLICK_SLOP) {
-      tryClickMove(cellUnderEvent(e));
+      if (state.moveArmed) {
+        tryClickMove(cellUnderEvent(e));
+        cancelTokenCommand('ground');
+      } else hideCommandMenu();
       state.drag.select = false;
     }
   }
