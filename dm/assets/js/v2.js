@@ -219,6 +219,7 @@ function captureSecrets() {
     /* B8: gear stays on the DM secret. The public turn order built below does not copy it. */
     secret.inventory = Array.isArray(row.inventory) ? row.inventory.map((item) => Object.assign({}, item)) : [];
     secret.lootDropped = row.lootDropped || "";
+    secret.lootRandomized = !!row.lootRandomized;
     fight.secrets[row.id] = secret;
   });
 }
@@ -243,6 +244,7 @@ function restoreSecrets() {
     if (secret.lastWeaponId && !row.lastWeaponId) row.lastWeaponId = String(secret.lastWeaponId);
     if (Array.isArray(secret.inventory)) row.inventory = secret.inventory.map((item) => Object.assign({}, item));
     if (secret.lootDropped != null) row.lootDropped = secret.lootDropped || "";
+    if (secret.lootRandomized) row.lootRandomized = true;
   });
 }
 function playersSeeLine(row, i) {
@@ -13645,6 +13647,38 @@ async function mapDropLoot(detail) {
   DM.toast("Dropped " + (row.name || "enemy") + " loot" + (bits.length ? ": " + bits.join(", ") : ""));
   return box.id;
 }
+async function randomizeMapLoot(detail) {
+  detail = detail || {};
+  const EL = window.SSDNSEnemyLoot;
+  if (!EL || typeof EL.randomizeRow !== "function") { DM.toast("Loot isn't loaded"); return { filled: 0, skipped: 0, again: false }; }
+  const ids = Array.isArray(detail.tokenIds) ? detail.tokenIds : [];
+  const seen = {};
+  let filled = 0;
+  let skipped = 0;
+  let againN = 0;
+  ids.forEach((id) => {
+    const i = mapFightIndex({ tokenId: id });
+    if (i < 0) { skipped += 1; return; }
+    const row = fight.order[i];
+    if (!row || seen[row.id]) return;
+    seen[row.id] = 1;
+    const beast = row.beastId ? beastRecord(row.beastId) : null;
+    const res = EL.randomizeRow(row, beast, { force: !!detail.force });
+    if (res && res.ok) filled += 1;
+    else {
+      skipped += 1;
+      if (res && res.reason === "randomized") againN += 1;
+    }
+  });
+  if (filled) {
+    await saveRemoteTable();
+    renderFight();
+  }
+  const again = againN > 0 && !detail.force;
+  const tail = again ? (" Press Randomize again to roll the " + againN + " already randomized.") : "";
+  DM.toast("Loot filled " + filled + ", skipped " + skipped + "." + tail);
+  return { filled: filled, skipped: skipped, again: again };
+}
 window.SSDNSMapFight = {
   setShowDowned(on) {
     fight.showDowned = !!on;
@@ -13979,6 +14013,7 @@ window.SSDNSMapFight = {
   },
   link(detail) { return linkMapToken(detail); },
   speed(detail) { return setEnemySpeed(detail); },
+  randomizeLoot(detail) { return randomizeMapLoot(detail); },
   ac(detail) { return setEnemyAc(detail); },
   maxHp(detail) { return setEnemyMaxHp(detail); },
   placeBeast(detail) { return mapPlaceBeast(detail); },

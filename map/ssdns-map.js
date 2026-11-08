@@ -1088,6 +1088,7 @@ if (role === 'dm') {
     </div>
     <button data-act="addTokenBtn">Add token</button>
     <button type="button" data-act="bestiaryBtn" aria-expanded="false" title="Place a bestiary creature: it joins the fight already linked">Bestiary</button>
+    <button type="button" data-act="randomizeLootBtn" title="Add pocket loot to every enemy on this map. Skips players, allies, spell pieces, and tokens already rolled or already dropped.">Randomize loot</button>
     <button data-act="addPcBtn">Add player token</button>
     <button data-act="dupTokenBtn">Duplicate</button>
     <button data-act="copyTokenBtn">Copy</button>
@@ -1897,6 +1898,15 @@ function resize() {
   }
   layoutTries = 0;
   draw();
+}
+function noteLootForce(on) {
+  state.lootForce = !!on;
+  const btn = q('randomizeLootBtn');
+  if (!btn) return;
+  btn.textContent = on ? 'Randomize again' : 'Randomize loot';
+  btn.title = on
+    ? 'Roll pocket loot again for enemies already randomized. Dropped loot, players, and allies stay skipped.'
+    : 'Add pocket loot to every enemy on this map. Skips players, allies, spell pieces, and tokens already rolled or already dropped.';
 }
 function relayout() {
   layoutTries = 0;
@@ -11666,6 +11676,18 @@ function douseSelected(out) {
   });
   q('addTokenBtn').addEventListener('click', () => { addEnemyToken(); flashBtn('addTokenBtn'); });
   if (q('bestiaryBtn')) { q('bestiaryBtn').addEventListener('click', () => toggleBestiary()); bindBestiaryDrop(); }
+  if (q('randomizeLootBtn')) q('randomizeLootBtn').addEventListener('click', () => {
+    const ids = (state.tokens || []).filter(t => {
+      if (!t || !onViewedScene(t)) return false;
+      if (t.kind === 'player' || t.kind === 'asset' || t.kind === 'chest') return false;
+      if (t.spellPiece || t.lootBoxId) return false;
+      return true;
+    }).map(t => t.id);
+    const force = !!state.lootForce;
+    state.lootForce = false;
+    noteLootForce(false);
+    emit('loot:randomize', { tokenIds: ids, force: force });
+  });
   q('addPcBtn').addEventListener('click', () => { addPlayerToken(); flashBtn('addPcBtn'); });
   q('dupTokenBtn').addEventListener('click', () => {
     const list = selectedTokens();
@@ -15733,6 +15755,7 @@ return {
   pushFeed,
   requestDraw,
   relayout,
+  noteLootForce,
   refreshCard,
   refreshStrip: fillStripMarkers,
   refreshMove: function () {

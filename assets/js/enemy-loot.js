@@ -10,6 +10,26 @@
 
   /* act1-saddlebag.json cash.dice. The smallest v1.4 money line. */
   var SADDLE_CASH = { dice: "2d6x5" };
+  /* Shared pocket rolls. Existing catalog ids only. Not the Act I stash tables,
+     and not a parse of bestiary loot prose. Outlaw is the named hook for that
+     beast id; the IDEAS d6 cash table is not in the repo. */
+  var ENEMY_POCKETS = [
+    { id: "hardtack-jerky-1-day", qty: 1 },
+    { id: "bread-loaf", qty: 1 },
+    { id: "cheese-hunk", qty: 1 },
+    { id: "whiskey-bottle", qty: 1 },
+    { id: "lamp-oil", qty: 1 },
+    { id: "lariat-50-ft", qty: 1 }
+  ];
+  var OUTLAW_POCKETS = [
+    { id: "hardtack-jerky-1-day", qty: 1 },
+    { id: "whiskey-bottle", qty: 1 },
+    { id: "lariat-50-ft", qty: 1 },
+    { id: "lamp-oil", qty: 1 },
+    { id: "bounty-warrant", qty: 1 },
+    { id: "frontier-keepsake", qty: 1 }
+  ];
+  var POCKET_TABLES = { "enemy-pockets": ENEMY_POCKETS, outlaw: OUTLAW_POCKETS };
   var RELIC_FALLBACK = ["viper", "python", "boa", "cobra", "cotton-mouth", "fer-de-lance", "cascabel", "timber-rat", "massasauga", "twin-puff-adder-left", "twin-puff-adder-right"];
   var EMPTY_TABLE = {
     id: "enemy-drop",
@@ -436,6 +456,63 @@
     }
     return { ok: true, row: row, item: item, catalogId: beast && beast.id || "" };
   }
+  function rollDie(sides, rng) {
+    var roll = typeof rng === "function" ? rng() : Math.random();
+    if (!isFinite(roll)) roll = 0;
+    return 1 + Math.floor(roll * sides);
+  }
+  function isAllyRow(row) {
+    if (!row) return false;
+    var side = String(row.side || "").toLowerCase();
+    if (side === "friendly" || side === "ally") return true;
+    return row.ally === true || row.friendly === true;
+  }
+  function pocketTableKey(row, beast) {
+    var explicit = (row && row.pocketTable) || (beast && (beast.pocketTable || beast.lootTable)) || "";
+    if (POCKET_TABLES[explicit]) return explicit;
+    var id = String((beast && beast.id) || (row && row.beastId) || "").toLowerCase();
+    if (id.indexOf("outlaw") >= 0 || id.indexOf("rustler") >= 0) return "outlaw";
+    return "enemy-pockets";
+  }
+  function skipRandomize(row, opts) {
+    if (!row || row.kind === "player") return "player";
+    if (isAllyRow(row)) return "ally";
+    if (row.spellPiece || row.pieceType === "effect" || row.kind === "asset" || row.kind === "chest" || row.lootBoxId) return "piece";
+    if (row.noHpPool === true || row.noPockets === true) return "nopockets";
+    if (row.kind && row.kind !== "enemy" && row.kind !== "npc") return "piece";
+    if (row.lootDropped) return "dropped";
+    if (row.lootRandomized && !(opts && opts.force)) return "randomized";
+    return "";
+  }
+  /* Additive pocket roll for one fight row. Does not place a chest and does not
+     copy stat-block guns into Gear. The bestiary object is not written. */
+  function randomizeRow(row, beast, opts) {
+    opts = opts || {};
+    var why = skipRandomize(row, opts);
+    if (why) return { ok: false, reason: why, added: [] };
+    var held = cashOnRow(row);
+    var key = pocketTableKey(row, beast);
+    var table = POCKET_TABLES[key] || ENEMY_POCKETS;
+    var face = rollDie(table.length, opts.rng);
+    var pick = table[face - 1];
+    var spec = pick && known(pick.id);
+    if (spec && (spec.kind === "gun" || spec.kind === "relic")) pick = null;
+    var added = [];
+    if (pick && pick.id) {
+      var gear = addGear(row, pick.id, pick.qty || 1);
+      if (gear && gear.ok && gear.item) added.push(gear.item);
+    }
+    if (!held.have) {
+      var cash = pocketCash(row, opts.rng);
+      if (cash && cash.branch === "es" && Number(cash.es) > 0) {
+        var purse = addGear(row, "es", cash.es);
+        if (purse && purse.ok && purse.item) added.push(purse.item);
+      }
+    }
+    if (!added.length) return { ok: false, reason: "empty", added: [] };
+    row.lootRandomized = true;
+    return { ok: true, reason: "", added: added, table: key };
+  }
   function tagLine(item) {
     if (!item) return "";
     var bits = [];
@@ -460,6 +537,9 @@
     syncAttacks: syncAttacks,
     choices: choices,
     planDrop: planDrop,
+    randomizeRow: randomizeRow,
+    skipRandomize: skipRandomize,
+    pocketTableKey: pocketTableKey,
     fillBox: fillBox,
     ammoIdFor: ammoIdFor,
     tagLine: tagLine,
