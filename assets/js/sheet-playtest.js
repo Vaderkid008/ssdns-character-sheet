@@ -1232,9 +1232,11 @@
 
   var shownTurn = "";
   var pendingAim = "";
+  var stickyAim = "";
   var combatWasOn = false;
   function clearSheetAim() {
     pendingAim = "";
+    stickyAim = "";
     var sel = $("#atkTarget");
     if (!sel) return;
     sel.value = "";
@@ -1869,15 +1871,22 @@
           (label + (far ? " — out of range, " + (seen.feet != null ? seen.feet : "?") + " ft" : "")).replace(/[&<>]/g, "") + "</option>";
       });
       sel.innerHTML = html;
-      var kept = keep && !blockedIds[keep] && rows.some(function (row) { return String(row.id) === String(keep); });
-      var aimNow = pendingAim && !blockedIds[pendingAim] && rows.some(function (row) { return String(row.id) === String(pendingAim); });
+      var liveIds = rows.filter(function (row) { return row && row.id && !blockedIds[row.id]; }).map(function (row) { return String(row.id); });
+      var aimNow = pendingAim && liveIds.indexOf(String(pendingAim)) >= 0;
+      if (keep && keep !== "__free") stickyAim = String(keep);
       if (aimNow) {
         sel.value = String(pendingAim);
+        stickyAim = String(pendingAim);
         sel.setAttribute("data-last-enemy", String(pendingAim));
         pendingAim = "";
-      } else if (kept) sel.value = keep;
-      else if (keep === "__free") sel.value = "__free";
-      else sel.value = "";
+      } else {
+        var pick = root.SSDNSTurn && root.SSDNSTurn.chooseTarget
+          ? root.SSDNSTurn.chooseTarget(keep, stickyAim, liveIds)
+          : { value: keep && liveIds.indexOf(String(keep)) >= 0 ? keep : (keep === "__free" ? "__free" : ""), sticky: stickyAim };
+        stickyAim = pick.sticky || "";
+        sel.value = pick.value;
+        if (stickyAim) sel.setAttribute("data-last-enemy", stickyAim);
+      }
       paintShoveButton();
       /* Downed but still in the fight stays remembered. Gone from the list does not. */
       var last = sel.getAttribute("data-last-enemy") || "";
@@ -1897,6 +1906,8 @@
       if (!sel._revealBound) {
         sel._revealBound = true;
         sel.addEventListener("change", function () {
+          if (!sel.value || sel.value === "__free") stickyAim = "";
+          else stickyAim = sel.value;
           if (root.SSDNSPlaytest.paintReveal) root.SSDNSPlaytest.paintReveal();
           if (root.SSDNSPlaytest.syncCover) root.SSDNSPlaytest.syncCover();
         });

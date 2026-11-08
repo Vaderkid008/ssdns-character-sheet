@@ -480,6 +480,10 @@ const state = {
   rangeChoices: [],
   rangeMoved: {},
   playerTarget: "",
+  /* Last creature chosen in the target picker. Survives a redraw that would
+     otherwise land on Free shot. Cleared when they pick Free shot or No target. */
+  lastAimId: "",
+  aimBlank: false,
   drawerOpen: false,
   drawerTokenId: null,
   drawerOffhand: false,
@@ -11941,6 +11945,8 @@ async function loadSceneImage(sceneId, opts) {
   }
   function clearLocalAim() {
     state.playerTarget = "";
+    state.lastAimId = "";
+    state.aimBlank = false;
     state.rangeTargetId = NO_TARGET;
     state.rowTargets = {};
     if (role === "player" && host.setSheetTarget) host.setSheetTarget("");
@@ -11953,6 +11959,7 @@ async function loadSceneImage(sceneId, opts) {
     let playerCleared = false;
     let rangeCleared = false;
     if (state.playerTarget && drop[String(state.playerTarget)]) { state.playerTarget = ""; playerCleared = true; }
+    if (state.lastAimId && drop[String(state.lastAimId)]) { state.lastAimId = ""; state.aimBlank = true; }
     if (state.rangeTargetId && state.rangeTargetId !== NO_TARGET && drop[String(state.rangeTargetId)]) {
       state.rangeTargetId = NO_TARGET;
       rangeCleared = true;
@@ -12460,6 +12467,17 @@ async function loadSceneImage(sceneId, opts) {
       else options.push({ id: id, label: label });
     });
     return options;
+  }
+  /* Free shot stays in the list, but a redraw must not select it on its own.
+     The last creature sticks until they pick someone else, pick Free shot or
+     No target, or that creature leaves the list. */
+  function settleAim(keep, creatureIds, explicitBlank, explicitFree) {
+    const T = window.SSDNSTurn;
+    const sticky = (explicitBlank || explicitFree) ? "" : (state.lastAimId || "");
+    const cur = explicitFree ? FREE_SHOT : (explicitBlank ? "" : (keep || ""));
+    const pick = T && T.chooseTarget ? T.chooseTarget(cur, sticky, creatureIds || []) : { value: cur, sticky: sticky };
+    if (!explicitBlank && !explicitFree) state.lastAimId = pick.sticky || "";
+    return pick.value;
   }
   function playerFightModel() {
     if (typeof host.ownCard === 'function') {
@@ -13467,10 +13485,15 @@ async function loadSceneImage(sceneId, opts) {
     }
     let armHtml = '';
     let hitHtml = '';
-    const targetHtml = playerTargetOptions().map(o => {
-      const on = String(o.id) === String(state.playerTarget || '') ? ' selected' : '';
+    const targetChoices = playerTargetOptions();
+    const playerCreatures = targetChoices.filter(o => o && o.id && o.id !== FREE_SHOT).map(o => o.id);
+    const playerAim = settleAim(state.playerTarget || "", playerCreatures, state.aimBlank && !state.playerTarget, state.playerTarget === FREE_SHOT);
+    if (playerAim && playerAim !== FREE_SHOT) { state.playerTarget = playerAim; state.aimBlank = false; }
+    else if (playerAim === FREE_SHOT) { state.playerTarget = FREE_SHOT; state.aimBlank = true; }
+    const targetHtml = targetChoices.map(o => {
+      const on = String(o.id) === String(playerAim || '') ? ' selected' : '';
       const off = o.disabled ? ' disabled' : '';
-      return '<option value="' + esc(o.id) + '"' + (o.disabled ? off : on) + '>' + esc(o.label || 'No target') + '</option>';
+      return '<option value="' + esc(o.id) + '"' + off + on + '>' + esc(o.label || 'No target') + '</option>';
     }).join('');
     const attacks = (card.attacks || []).map(a => {
       const rowTarget = (state.rowTargets && state.rowTargets[a.id]) || state.playerTarget || '';
@@ -13510,7 +13533,7 @@ async function loadSceneImage(sceneId, opts) {
       const html = playerTargetOptions().map(o => {
         const on = String(o.id) === String(chosen) ? ' selected' : '';
       const off = o.disabled ? ' disabled' : '';
-        return '<option value="' + esc(o.id) + '"' + (o.disabled ? off : on) + '>' + esc(o.label || 'No target') + '</option>';
+        return '<option value="' + esc(o.id) + '"' + off + on + '>' + esc(o.label || 'No target') + '</option>';
       }).join('');
       return playerCylinderRow(a, html);
     }).join('');
@@ -13670,6 +13693,8 @@ async function loadSceneImage(sceneId, opts) {
         state.rowTargets = state.rowTargets || {};
         if (wid) state.rowTargets[wid] = sel.value;
         state.playerTarget = sel.value;
+        state.aimBlank = !sel.value || sel.value === FREE_SHOT;
+        state.lastAimId = state.aimBlank ? "" : sel.value;
         if (host.setSheetTarget) host.setSheetTarget(sel.value);
         paintPlayerFight();
         requestDraw();
@@ -13678,6 +13703,8 @@ async function loadSceneImage(sceneId, opts) {
     root.querySelectorAll('[data-act="n62Target"]').forEach(sel => {
       sel.addEventListener('change', () => {
         state.playerTarget = sel.value;
+        state.aimBlank = !sel.value || sel.value === FREE_SHOT;
+        state.lastAimId = state.aimBlank ? "" : sel.value;
         if (host.setSheetTarget) host.setSheetTarget(sel.value);
         paintPlayerFight();
         requestDraw();
@@ -14176,7 +14203,13 @@ async function loadSceneImage(sceneId, opts) {
       selectedTokenId: picked ? picked.id : '',
       selectedCombatantId: picked ? tokenCombatant(picked.id) : ''
     })) || { options: [], selected: '' };
-    const aimId = state.rangeTargetId === NO_TARGET ? '' : (state.rangeTargetId || targetPack.selected || '');
+    const creatureIds = (targetPack.options || []).map(o => o && o.id).filter(id => id && id !== FREE_SHOT);
+    const explicitBlank = state.rangeTargetId === NO_TARGET;
+    const explicitFree = state.rangeTargetId === FREE_SHOT;
+    const remembered = explicitBlank || explicitFree ? "" : (state.rangeTargetId || targetPack.selected || "");
+    const aimId = settleAim(remembered, creatureIds, explicitBlank, explicitFree);
+    if (!explicitBlank && !explicitFree && aimId && aimId !== FREE_SHOT) state.rangeTargetId = aimId;
+    else if (aimId === FREE_SHOT && !explicitBlank) state.rangeTargetId = FREE_SHOT;
     state.pendingValid = (targetPack.options || []).map(o => o && o.id).filter(Boolean);
     /* 0.3.67: 'Free shot' is always the first entry: the gun fires with no target. */
     const aimListed = aimId === FREE_SHOT || (targetPack.options || []).some(o => o && o.id === aimId);
@@ -14536,8 +14569,10 @@ async function loadSceneImage(sceneId, opts) {
     if (cancelBtn) cancelBtn.addEventListener('click', (ev) => { ev.stopPropagation(); cancelPendingTarget(); });
     d.querySelectorAll('[data-act="cylTarget"]').forEach(sel => {
       sel.addEventListener('change', () => {
-        /* 0.3.67: 'No target' is a real choice; it must not snap back to the fight's default target */
+        /* 0.3.67: 'No target' is a real choice; it must not snap back to the fight's default target.
+           A creature stays selected across the next attack. Free shot is only kept when they pick it. */
         state.rangeTargetId = sel.value || NO_TARGET;
+        state.lastAimId = (!sel.value || sel.value === FREE_SHOT) ? "" : sel.value;
         renderDrawer();
         draw();
       });

@@ -160,8 +160,8 @@ check("src.darts", sheet.includes("assignDarts") && v2.includes("askSpellDarts")
 check("src.find", v2.includes("r.mapTokenId === want"));
 check("src.rules", !rules.includes("spell-area") && !rules.includes("0.3.169") && !read("database.rules.json").includes("0.3.169"));
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.240" && version.sheetBuild === "sheet-playtest-v03240");
-check("ver.dmcc", version.dmcc === "0.2.253" && version.dmccBuild === "dmcc-playtest-v02253");
+check("ver.sheet", version.sheet === "0.3.241" && version.sheetBuild === "sheet-playtest-v03241");
+check("ver.dmcc", version.dmcc === "0.2.254" && version.dmccBuild === "dmcc-playtest-v02254");
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

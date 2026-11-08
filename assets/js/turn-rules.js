@@ -188,11 +188,32 @@
     return n >= 3;
   }
 
+  /* Keep the last creature in a target picker. Free shot and No target stay
+     available when they were chosen on purpose. A creature that is no longer
+     in the list falls back to Free shot. */
+  function chooseTarget(keep, sticky, ids) {
+    var has = {};
+    (ids || []).forEach(function (id) { if (id) has[String(id)] = 1; });
+    function ok(id) { return !!(id && id !== "__free" && id !== "__none" && has[String(id)]); }
+    var cur = keep == null ? "" : String(keep);
+    if (cur === "__free") {
+      if (ok(sticky)) return { value: String(sticky), sticky: String(sticky) };
+      return { value: "__free", sticky: "" };
+    }
+    if (cur === "" || cur === "__none") {
+      if (ok(sticky)) return { value: String(sticky), sticky: String(sticky) };
+      return { value: "", sticky: "" };
+    }
+    if (ok(cur)) return { value: cur, sticky: cur };
+    if (ok(sticky)) return { value: String(sticky), sticky: String(sticky) };
+    return { value: "__free", sticky: "" };
+  }
+
   root.SSDNSTurn = {
     unlocked: unlocked, inFight: inFight, lockedFor: lockedFor, canMoveToken: canMoveToken, oaEntry: oaEntry, oaApproved: oaApproved,
     moveLeft: moveLeft, pruneOa: pruneOa,
     UNDO_MAX: UNDO_MAX, current: current, rowFor: rowFor, isTurnOf: isTurnOf, keyFor: keyFor, fresh: fresh, markersFor: markersFor,
     snapshot: snapshot, beginTurn: beginTurn, undoNext: undoNext, canUndo: canUndo, clearTurnState: clearTurnState,
-    canEndTurn: canEndTurn, outOfTurn: outOfTurn, hostileDead: hostileDead
+    canEndTurn: canEndTurn, outOfTurn: outOfTurn, hostileDead: hostileDead, chooseTarget: chooseTarget
   };
 })(typeof window !== "undefined" ? window : this);

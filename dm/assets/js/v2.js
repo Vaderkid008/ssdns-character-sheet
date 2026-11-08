@@ -7282,6 +7282,8 @@ function askEnemyStrike(row, preset) {
       ? `<label>Grip <select id="enemyGrip" aria-label="One or two hands"><option value="1">One-handed</option><option value="2">Two-handed</option></select></label>`
       : "";
     dlg.innerHTML = `<form method="dialog"><h2>${esc(title)}</h2><p class="fine">${esc(row.name || "Enemy")} attacks.</p><label>Target <select id="enemyTarget">${options}</select></label><label>Attack bonus <input id="enemyBonus" type="number" value="${bonus == null ? "" : esc(bonus)}" placeholder="blank asks"></label>${grip}<label>Damage <input id="enemyDice" value="${esc(dice)}" placeholder="1d6+2"></label><div class="dlg-foot"><button class="btn" value="no" type="button">Cancel</button><button class="btn btn-primary" value="yes" type="submit">Roll</button></div></form>`;
+    const targetSel = dlg.querySelector("#enemyTarget");
+    if (targetSel && def) targetSel.value = def;
     const gripSel = dlg.querySelector("#enemyGrip");
     const diceInput = dlg.querySelector("#enemyDice");
     if (gripSel && diceInput && preset && preset.versatile) {
