@@ -2415,3 +2415,106 @@ body.map-fullscreen #mapMount:has(> .ssm-turnstrip:not([hidden])) .ssdns-toolbar
 .ssm-drawer.n62 button.n62-end:active { transform: translateY(1px); }
 .ssm-drawer.n62 { width: min(392px, calc(100% - 16px)); background: linear-gradient(180deg, #1c1814, #12100c); border-color: #6b5428; }
 .ssdns-playercard .ssm-card-head .n62-pill { flex: none; }
+
+/* N62 list chrome. One set of tokens on both drawers, so a later contrast
+   change cannot land on the player card and miss the DM card (or the reverse).
+   Gear rows, attack rows, overflow lists, and the fields inside them use it.
+   The cast card's own spell buttons stay on the N61 skin. */
+.ssdns-playercard,
+.ssm-drawer {
+  --drawer-row-bg: #14181c;
+  --drawer-row-hover: #1c242c;
+  --drawer-row-press: #0e1216;
+  --drawer-row-ink: #f3ead8;
+  --drawer-row-muted: #8d8a82;
+  --drawer-row-edge: #2d333c;
+}
+.ssdns-playercard .n62-li,
+.ssm-drawer .n62-li,
+.ssdns-playercard .ssm-item,
+.ssm-drawer .ssm-item,
+.ssdns-playercard .ssm-gear li,
+.ssm-drawer .ssm-gear li {
+  background: var(--drawer-row-bg);
+  color: var(--drawer-row-ink);
+  border: 1px solid var(--drawer-row-edge);
+  border-radius: 8px;
+}
+.ssdns-playercard .ssm-item,
+.ssm-drawer .ssm-item,
+.ssdns-playercard .ssm-gear li,
+.ssm-drawer .ssm-gear li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 7px 9px;
+  font-size: 12px;
+}
+.ssdns-playercard .ssm-item:hover,
+.ssm-drawer .ssm-item:hover,
+.ssdns-playercard .ssm-gear li:hover,
+.ssm-drawer .ssm-gear li:hover { background: var(--drawer-row-hover); }
+.ssdns-playercard .n62 .ssm-item button,
+.ssm-drawer.n62 .ssm-item button,
+.ssdns-playercard .n62 .ssm-gear li button,
+.ssm-drawer.n62 .ssm-gear li button {
+  width: auto;
+  flex: 0 0 auto;
+  min-height: 24px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--drawer-row-hover);
+  color: var(--drawer-row-ink);
+  border: 1px solid var(--drawer-row-edge);
+}
+.ssdns-playercard .n62 .ssm-item button:hover,
+.ssm-drawer.n62 .ssm-item button:hover,
+.ssdns-playercard .n62 .ssm-gear li button:hover,
+.ssm-drawer.n62 .ssm-gear li button:hover { background: var(--drawer-row-press); }
+.ssdns-playercard .n62 button.ssm-atk,
+.ssm-drawer.n62 button.ssm-atk {
+  background: var(--drawer-row-bg);
+  color: var(--drawer-row-ink);
+  border: 1px solid var(--drawer-row-edge);
+  border-radius: 8px;
+}
+.ssdns-playercard .n62 button.ssm-atk:hover,
+.ssm-drawer.n62 button.ssm-atk:hover { background: var(--drawer-row-hover); }
+.ssdns-playercard .n62 button.ssm-atk:active,
+.ssm-drawer.n62 button.ssm-atk:active { background: var(--drawer-row-press); }
+.ssdns-playercard .n62 button.ssm-atk.ssm-arm,
+.ssm-drawer.n62 button.ssm-atk.ssm-arm {
+  border: 2px dashed #c0583a;
+  color: #f3d9a4;
+  font-weight: 700;
+}
+.ssdns-playercard .n62 .ssm-tools button,
+.ssm-drawer.n62 .ssm-tools button {
+  background: var(--drawer-row-bg);
+  color: var(--drawer-row-ink);
+  border: 1px solid var(--drawer-row-edge);
+  border-radius: 8px;
+}
+.ssdns-playercard .n62 .ssm-tools button:hover,
+.ssm-drawer.n62 .ssm-tools button:hover { background: var(--drawer-row-hover); }
+.ssdns-playercard select,
+.ssm-drawer select,
+.ssdns-playercard input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=file]):not([type=range]):not([type=color]),
+.ssm-drawer input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=file]):not([type=range]):not([type=color]),
+.page .ssdns-playercard select,
+.page .ssm-drawer select,
+.page .ssdns-playercard input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=file]):not([type=range]):not([type=color]),
+.page .ssm-drawer input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=file]):not([type=range]):not([type=color]),
+.page .ssdns-playercard select:focus,
+.page .ssm-drawer select:focus,
+.page .ssdns-playercard input:focus,
+.page .ssm-drawer input:focus {
+  background: var(--drawer-row-bg);
+  color: var(--drawer-row-ink);
+  -webkit-text-fill-color: var(--drawer-row-ink);
+  caret-color: var(--drawer-row-ink);
+  color-scheme: dark;
+  border: 1px solid var(--drawer-row-edge);
+}
