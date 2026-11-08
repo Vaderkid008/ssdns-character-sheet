@@ -88,8 +88,7 @@
   max-width: none;
   white-space: nowrap;
 }
-.ssdns-map button.ssm-challenge,
-.ssm-turnstrip button.ssm-challenge {
+.ssdns-map button.ssm-challenge {
   background: #3d2e18;
   color: #e2c56a;
   border: 2px solid #e2c56a;
@@ -97,6 +96,18 @@
   font-weight: 800;
   letter-spacing: .04em;
   width: auto;
+}
+.ssm-turnstrip button.ssm-challenge {
+  background: #2a241c;
+  color: #efe6d4;
+  border: 1px solid #3a332c;
+  box-shadow: none;
+  font-weight: 700;
+  letter-spacing: .04em;
+  width: auto;
+  min-height: 26px;
+  border-radius: 999px;
+  padding: 0 10px;
 }
 .ssdns-map .dice-bar.dice-bar-map {
   grid-area: dice;
@@ -678,6 +689,17 @@ body.map-fullscreen .tabs {
       "right"
       "dock";
   }
+  body:not(.map-fullscreen) .ssdns-map.dm-tools-docked,
+  body.map-fullscreen #mapMount.dm-tools-docked {
+    grid-template-rows: auto auto auto minmax(120px, 1fr) auto auto;
+    grid-template-areas:
+      "strip"
+      "dice"
+      "left"
+      "stage"
+      "right"
+      "dock";
+  }
   body:not(.map-fullscreen) .ssdns-map:not(:has(.ssdns-leftbar)) {
     grid-template-rows: auto auto auto minmax(220px, 1fr) auto auto;
     grid-template-areas:
@@ -693,6 +715,15 @@ body.map-fullscreen .tabs {
     grid-template-areas:
       "strip"
       "bar"
+      "dice"
+      "stage"
+      "right"
+      "dock";
+  }
+  body:not(.map-fullscreen) .ssdns-map.dm-tools-docked:not(:has(.ssdns-leftbar)),
+  body.map-fullscreen #mapMount.dm-tools-docked:not(:has(.ssdns-leftbar)) {
+    grid-template-areas:
+      "strip"
       "dice"
       "stage"
       "right"
@@ -1302,10 +1333,10 @@ body.map-fullscreen #mapMount > .ssm-drawer {
   align-items: center;
   overflow: hidden; /* the chip lane scrolls; Next / Undo / End combat stay in view */
   max-width: 100%;
-  background: #16130f;
-  border: 2px solid #3fbf9a;
-  border-radius: 10px;
-  padding: 8px 8px;
+  background: #12100e;
+  border: 0;
+  border-radius: 8px;
+  padding: 4px 8px;
   -webkit-overflow-scrolling: touch;
 }
 .ssm-turnstrip[hidden] { display: none !important; }
@@ -1317,14 +1348,14 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
   top: auto;
   z-index: 4;
   max-width: none;
-  background: #16130f;
+  background: #12100e;
 }
 .ssm-turnstrip .turn-chip { cursor: pointer; flex: 0 0 auto; height: 26px; min-height: 0; gap: 4px; padding: 0 7px 0 2px; font-size: 12px; line-height: 1; border-radius: 999px; }
 .ssm-turnstrip .turn-chip .chip-face { width: 20px; height: 20px; font-size: 9px; }
 .ssm-turnstrip .turn-chip .chip-name { max-width: 8.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ssm-turnstrip .turn-chip.current { box-shadow: 0 0 0 2px #e2c56a; opacity: 1; }
 /* End-turn weight: solid, heavy, still labelled Next (the DM advances the order). */
-.ssm-turnstrip .btn-next { flex: 0 0 auto; min-height: 32px; padding: 0 14px; border-radius: 6px; background: #8b2f1f; color: #fff; border: 2px solid #5e1e13; font-weight: 800; letter-spacing: .08em; }
+.ssm-turnstrip .btn-next { flex: 0 0 auto; min-height: 28px; padding: 0 12px; border-radius: 6px; background: #8b2f1f; color: #fff; border: 0; font-weight: 800; letter-spacing: .06em; }
 .ssm-turnstrip .btn-next:hover { background: #a33b28; border-color: #5e1e13; color: #fff; }
 .ssm-turnstrip .turn-round { flex: none; color: #e2c56a; font-size: 12px; letter-spacing: .04em; white-space: nowrap; font-family: "Oswald", "Arial Narrow", sans-serif; }
 .ssm-turnstrip .dm-turn-now { flex: none; max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: #b42318; color: #fff; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; font-size: 10px; border-radius: 4px; padding: 2px 6px; font-family: "Oswald", "Arial Narrow", sans-serif; }
@@ -1379,7 +1410,7 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
 .ssm-turnstrip.is-crowded .turn-chip { gap: 4px; padding: 2px 6px 2px 2px; font-size: 12px; }
 .ssm-turnstrip.is-crowded .turn-chip .chip-face { width: 22px; height: 22px; font-size: 10px; }
 .ssm-turnstrip.is-crowded .turn-chip .chip-name { max-width: 8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ssm-turnstrip .btn-end-combat { flex: 0 0 auto; border: 2px solid #c0392b; color: #ffd7cf; background: #3a1714; }
+.ssm-turnstrip .btn-end-combat { flex: 0 0 auto; border: 0; color: #fff; background: #b42318; font-weight: 800; }
 .token-chip { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
 .name-mode { display: inline-flex; gap: 4px; flex-wrap: wrap; }
 .name-mode button.on { box-shadow: inset 0 0 0 2px #e8c36a; }
@@ -1604,12 +1635,73 @@ body.map-fullscreen #mapMount > canvas.ssm-fx {
 .ssm-turnstrip .ssm-strip-markers .ssm-markers { display: inline-flex; flex-wrap: nowrap; align-items: center; gap: 4px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; white-space: nowrap; }
 .ssm-turnstrip .ssm-strip-markers .pip-label { color: #c9a227; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
 .ssm-turnstrip .ssm-strip-markers .tr-move,
-.ssm-turnstrip .tl-move { color: #efe6d4; font-size: 12px; white-space: nowrap; padding: 3px 7px; border-radius: 999px; background: rgba(0,0,0,.28); border: 1px solid rgba(201,162,39,.5); }
+.ssm-turnstrip .tl-move { color: #efe6d4; font-size: 12px; white-space: nowrap; padding: 3px 7px; border-radius: 999px; background: rgba(0,0,0,.35); border: 1px solid #3a332c; }
 .ssm-turnstrip button.tl-move,
 .ssm-turnstrip button.ssm-move-readout { font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; width: auto; line-height: 1.2; appearance: none; }
 .ssm-turnstrip button.tl-move.is-on,
 .ssm-turnstrip button.ssm-move-readout.is-on { background: rgba(64, 168, 96, 0.42); border-color: #8fd4a8; box-shadow: 0 0 0 1px rgba(111, 191, 79, 0.75); }
-.ssm-turnstrip .tl-act { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 999px; border: 1px solid rgba(201,162,39,.55); color: #efe6d4; font: 700 11px/1 "Oswald", "Arial Narrow", sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+.ssm-turnstrip .tl-act { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 999px; border: 1px solid #3a332c; color: #efe6d4; font: 700 11px/1 "Oswald", "Arial Narrow", sans-serif; letter-spacing: .06em; text-transform: uppercase; background: #2a241c; }
+.ssm-turnstrip .ssm-strip-tail {
+  margin-left: auto;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+.ssm-turnstrip .ssm-strip-tools {
+  flex: 1 0 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border-top: 1px solid #2a241c;
+  padding-top: 4px;
+}
+.ssm-turnstrip .ssm-strip-tools .ssdns-toolbar {
+  position: static;
+  grid-area: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: hidden;
+}
+.ssm-turnstrip .ssm-strip-tools .ssdns-toolbar button,
+.ssm-turnstrip .ssm-strip-tools .ssdns-toolbar select {
+  min-height: 24px;
+  padding: 2px 7px;
+  font-size: 11px;
+}
+.ssm-turnstrip .ssm-strip-tools input[type="range"] { width: 72px; }
+.ssm-turnstrip .ssm-strip-tools [data-act="roleBadge"],
+.ssm-turnstrip .ssm-strip-tools [data-act="challengeBtn"] { display: none; }
+.ssdns-map.dm-tools-docked {
+  grid-template-rows: auto auto minmax(120px, 1fr) auto;
+  grid-template-areas:
+    "strip strip strip"
+    "dice dice dice"
+    "left stage right"
+    "dock dock dock";
+}
+.ssdns-map.dm-tools-docked:not(:has(.ssdns-leftbar)) {
+  grid-template-areas:
+    "strip strip"
+    "dice dice"
+    "stage right"
+    "dock dock";
+}
+.ssdns-map.dm-tools-docked:not(:has(.ssdns-leftbar)):not(:has(.ssdns-rightbar)) {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "strip"
+    "dice"
+    "stage"
+    "dock";
+}
 .ssm-turnstrip .tl-act.on { background: #e2c56a; color: #2c2a24; border-color: #8a6a12; }
 .ssm-turnstrip .pip-action:not(.used) { background: #6fbf4f; border-color: #3d6b2e; color: #fff; }
 .ssm-turnstrip .pip-bonus:not(.used) { background: #e2b33a; border-color: #8a6a12; color: #2c2a24; }

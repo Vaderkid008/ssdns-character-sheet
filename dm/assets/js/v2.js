@@ -1336,6 +1336,7 @@ function fightLogCards() {
 }
 function renderFight() {
   const run = () => {
+    dropDeadHostiles();
     syncDamageMode();
     absorbFightInputs();
     const list = $("#initList");
@@ -1875,12 +1876,53 @@ function watchConditions() {
   });
   if (typeof cb === "function") DM.state.unsubs.push(cb);
 }
+let deadSweeping = false;
+function dropDeadHostiles() {
+  const T = window.SSDNSTurn;
+  if (deadSweeping || !T || !T.hostileDead || !fight.order || !fight.order.length) return false;
+  const keep = [];
+  const gone = [];
+  let before = 0;
+  let tookCurrent = false;
+  fight.order.forEach((row, i) => {
+    if (T.hostileDead(row)) {
+      gone.push(row);
+      if (i < fight.turn) before += 1;
+      if (i === fight.turn) tookCurrent = true;
+    } else keep.push(row);
+  });
+  if (!gone.length) return false;
+  deadSweeping = true;
+  try {
+    fight.order = keep;
+    if (!keep.length) fight.turn = 0;
+    else if (tookCurrent) fight.turn = Math.max(0, fight.turn - before) % keep.length;
+    else fight.turn = Math.max(0, Math.min(keep.length - 1, fight.turn - before));
+    gone.forEach((row) => {
+      DM.toast((row.name || "Enemy") + " is dead and leaves the turn order. The token stays on the map.");
+    });
+    if (tookCurrent && fight.started && keep.length && window.SSDNSTurn) {
+      const who = fight.order[fight.turn];
+      try { if (who) riderPhase(who, "start"); } catch (e1) {}
+      try { if (who) zonePhase(who, "start"); } catch (e2) {}
+      try {
+        const snap = window.SSDNSTurn.snapshot(fight);
+        window.SSDNSTurn.beginTurn(fight, snap);
+      } catch (e3) {}
+      if (who) sendYourTurn(who, false);
+    }
+  } finally {
+    deadSweeping = false;
+  }
+  return true;
+}
 function nextLivingIndex(from) {
   const len = fight.order.length;
   let i = from;
   for (let n = 0; n < len; n++) {
     i = (i + 1) % len;
-    if (!enemyFled(fight.order[i])) return { index: i, wrapped: i <= from };
+    const dead = window.SSDNSTurn && window.SSDNSTurn.hostileDead && window.SSDNSTurn.hostileDead(fight.order[i]);
+    if (!enemyFled(fight.order[i]) && !dead) return { index: i, wrapped: i <= from };
   }
   const next = len ? (from + 1) % len : 0;
   return { index: next, wrapped: next <= from };
@@ -2698,11 +2740,12 @@ function markerExtrasHtml(row, m, opts) {
   /* Keep "Move N/N ft" as one text run. Tests match that string. */
   const move = moveFeetHtml(mv.left, mv.max, !!(opts && opts.pills));
   if (opts && opts.pills) {
+    const steps = `<button type="button" class="btn xs tl-step" data-dm-move="5" title="Moved 5 ft">−</button><button type="button" class="btn xs tl-step" data-dm-move="-5" title="Give back 5 ft">+</button>`;
     const pills = ["dash", "disengage", "dodge"].map((k) => {
       const label = k === "dash" ? "Dash" : (k === "disengage" ? "Disengage" : "Dodge");
       return `<span class="tl-act${m[k] ? " on" : ""}">${label}</span>`;
     }).join("");
-    return move + pills;
+    return move + steps + pills;
   }
   const flags = ["dash", "disengage", "dodge"].filter((k) => m[k]).map((k) => `<span class="badge eld">${k === "dash" ? "Dash" : (k === "disengage" ? "Disengage" : "Dodge")}</span>`).join("");
   return move + flags;
@@ -4295,6 +4338,29 @@ function enemyItemById(row, uid) {
   if (!row || !uid) return null;
   const lists = [].concat(row.inventory || [], (row.card && row.card.items) || []);
   return lists.filter((it) => it && (String(it.uid || "") === String(uid) || String(it.id || "") === String(uid)))[0] || null;
+}
+function adjustStripMove(delta) {
+  const cur = fight.started ? fight.order[fight.turn] : null;
+  if (!cur) return;
+  if (cur.kind === "player") {
+    const T = window.SSDNSTurn;
+    const pid = cur.playerId || cur.id;
+    const m = playerMarkers(pid);
+    if (!T || !m) return;
+    const sp = playerSpeed(pid);
+    const mv = T.moveLeft(m, sp);
+    let d = parseInt(delta, 10) || 0;
+    if ((parseInt(delta, 10) || 0) > 0 && sp <= 0) { DM.toast("Speed 0 ft."); return; }
+    if (d > 0) d = Math.min(d, mv.left);
+    if (d < 0) d = -Math.min(-d, mv.used);
+    if (!d) { DM.toast("Movement unchanged"); return; }
+    m.moveUsed = Math.max(0, (parseInt(m.moveUsed, 10) || 0) + d);
+    writePlayerMarkers(pid, m, "Moved " + d + " ft.", ["moveUsed"]);
+    if (window.SSDNSMapHost && window.SSDNSMapHost.refreshMove) { try { window.SSDNSMapHost.refreshMove(); } catch (e) {} }
+    renderFight();
+    return;
+  }
+  adjustEnemyMove(delta);
 }
 function adjustEnemyMove(delta) {
   const T = window.SSDNSTurn;
@@ -10149,7 +10215,7 @@ function wireClicks() {
       return;
     }
     if (t.hasAttribute("data-strip-next")) { nextTurn(); return; }
-    if (t.hasAttribute("data-dm-move")) { adjustEnemyMove(t.getAttribute("data-dm-move")); return; }
+    if (t.hasAttribute("data-dm-move")) { adjustStripMove(t.getAttribute("data-dm-move")); return; }
     if (t.hasAttribute("data-dm-act")) { toggleEnemyAct(t.getAttribute("data-dm-act")); return; }
     if (t.hasAttribute("data-dm-pip")) {
       if (t.getAttribute("data-dm-pip") === "reaction" && t.hasAttribute("data-dm-react")) {
@@ -13821,7 +13887,10 @@ window.SSDNSMapFight = {
     }
     const successes = ((row.deathSaves && row.deathSaves.success) || []).filter(Boolean).length;
     const fails = ((row.deathSaves && row.deathSaves.fail) || []).filter(Boolean).length;
-    if (fails >= 3) line += " · dead";
+    if (fails >= 3) {
+      line += " · dead";
+      if (row.kind !== "player") row.status = "Dead";
+    }
     else if (successes >= 3) line += " · stable";
     await DM.pushLedger({ who: "DM", playerId: pid || "all", type: "death_save", what: line, oldVal: null, newVal: nat, flag: nat === 1 });
     await DM.pushRoll({ who: row.name || "DM", label: "Death save", formula: "1d20", result: nat, detail: line, nat: nat, private: false });

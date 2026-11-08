@@ -1171,8 +1171,8 @@ select:-webkit-autofill {
    Fight-tab cards and the other pages keep their own layout. */
 #turnStrip.turn-strip {
   display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;
-  margin: 0 0 12px; padding: 8px 8px; overflow: hidden;
-  background: #16130f; color: #efe6d4; border: 2px solid #3fbf9a; border-radius: 10px;
+  margin: 0 0 12px; padding: 4px 8px; overflow: hidden;
+  background: #12100e; color: #efe6d4; border: 0; border-radius: 8px;
 }
 #turnStrip .turn-round { flex: none; font-family: var(--label); font-size: 12px; letter-spacing: .04em; color: #e2c56a; white-space: nowrap; font-weight: 600; }
 #turnStrip .dm-turn-now {
@@ -1222,11 +1222,11 @@ select:-webkit-autofill {
 #turnStrip .pip-bonus:not(.used) { background: #e2b33a; border-color: #8a6a12; color: #2c2a24; }
 #turnStrip .pip-reaction:not(.used) { background: #5c9bd1; border-color: #2f5f86; color: #fff; }
 #turnStrip .pip.used { background: #d8d0c2; border-color: #a99d8a; color: #8a7f6c; text-decoration: line-through; }
-#turnStrip .tl-move { white-space: nowrap; padding: 3px 7px; border-radius: 999px; background: rgba(0,0,0,.28); border: 1px solid rgba(201,162,39,.5); color: #efe6d4; font-size: 12px; }
+#turnStrip .tl-move { white-space: nowrap; padding: 3px 7px; border-radius: 999px; background: rgba(0,0,0,.35); border: 1px solid #3a332c; color: #efe6d4; font-size: 12px; }
 #turnStrip button.tl-move { font: inherit; font-size: 12px; cursor: pointer; width: auto; line-height: 1.2; appearance: none; }
 #turnStrip button.tl-move.is-on,
 .ssm-markers button.tl-move.is-on { background: rgba(64, 168, 96, 0.42); border-color: #8fd4a8; box-shadow: 0 0 0 1px rgba(111, 191, 79, 0.75); }
-#turnStrip .tl-act { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; border: 1px solid rgba(201,162,39,.55); color: #efe6d4; font-family: var(--label); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+#turnStrip .tl-act { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; border: 1px solid #3a332c; background: #2a241c; color: #efe6d4; font-family: var(--label); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 #turnStrip .tl-act.on { background: #e2c56a; color: #2c2a24; border-color: #8a6a12; }
 .dm-turn-markers .pip-action:not(.used), .turn-rules .pip-action:not(.used), .ssm-markers .pip-action:not(.used) { background: #6fbf4f; border-color: #3d6b2e; color: #fff; }
 .dm-turn-markers .pip-bonus:not(.used), .turn-rules .pip-bonus:not(.used), .ssm-markers .pip-bonus:not(.used) { background: #e2b33a; border-color: #8a6a12; color: #2c2a24; }
