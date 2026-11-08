@@ -7017,6 +7017,54 @@ function beadsPaint(ctx, A, B, lt, seed) {
     hookTimeout = (opts && opts.timeoutMs != null && isFinite(ms) && ms >= 0) ? Math.min(ms, 30000) : HOOK_TIMEOUT_MS;
     return !!hook;
   }
+  /* In-flight fire and lightning. 5 ft around the head, then a short impact flash.
+     Fireball's flash is the painted 20-ft burst, not a Fire Bolt beam. The light
+     ends with the flash; the long ember fade does not keep a standing emitter.
+     Cold, force, cones, and touch spells are not projectiles. */
+  function projectileLight(spec, lt) {
+    var look = lookOf(spec || {});
+    if (!isFinite(lt) || lt < 0) return null;
+    var flight, end, curve, flashFeet, flashMs;
+    if (look === "fire") {
+      flight = LOOK_TIME.fire.grow;
+      end = flight + LOOK_TIME.fire.fade;
+      curve = "easeOut";
+      flashFeet = 15;
+      flashMs = 180;
+    } else if (look === "lightning") {
+      flight = LOOK_TIME.lightning.grow;
+      end = flight + LOOK_TIME.lightning.hold + LOOK_TIME.lightning.fade;
+      curve = "easeOut";
+      flashFeet = 15;
+      flashMs = 200;
+    } else if (look === "fireball") {
+      flight = LOOK_TIME.fireball.grow;
+      end = flight + LOOK_TIME.fireball.hold + LOOK_TIME.fireball.fade;
+      curve = "easeInOut";
+      flashFeet = 20;
+      flashMs = 400;
+    } else if (look === "scorching-ray") {
+      flight = 110;
+      end = flight + 170 + 300;
+      curve = "easeOut";
+      flashFeet = 15;
+      flashMs = 180;
+    } else if (look === "chain-lightning") {
+      flight = 80;
+      end = flight + 380 + 320;
+      curve = "easeOut";
+      flashFeet = 15;
+      flashMs = 200;
+    } else return null;
+    if (lt > end) return null;
+    if (lt < flight) {
+      var t = lt / Math.max(1, flight);
+      var u = curve === "easeInOut" ? easeInOut(t) : easeOut(t);
+      return { phase: "flight", u: u, feet: 5, look: look };
+    }
+    if (lt >= flight + flashMs) return null;
+    return { phase: "flash", u: 1, feet: flashFeet, look: look };
+  }
   function effectEvent(spec, extra) {
     spec = spec || {};
     var nat = spec.nat != null ? Number(spec.nat) : null;
@@ -7039,7 +7087,8 @@ function beadsPaint(ctx, A, B, lt, seed) {
     paint: paint, paintRider: paintRider, paintGuidePop: paintGuidePop, zoneLayer: zoneLayer, hailIdle: hailstormIdle,
     erodeToken: erodeToken, erodeFront: function (lt) { return Chunk1Fx.erodeFront(lt); },
     nudge: tokenNudge, retort: function (ctx, look, lt, g) { Chunk2Fx.retort(ctx, look, lt, g); },
-    hash: hash, dirOf: dirOf
+    hash: hash, dirOf: dirOf,
+    projectileLight: projectileLight
   };
   root.SSDNSMapFX = root.SSDNSMapFx; /* alias: both spellings work */
 })(typeof window !== "undefined" ? window : globalThis);
