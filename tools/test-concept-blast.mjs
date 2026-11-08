@@ -168,7 +168,7 @@ check("shake.wall", mag({ type: "spell", spell: "Wall of Fire", dmg: "fire" }, 8
 check("shake.done", mag({ type: "spell", spell: "Fireball" }, 4000) < 0.01);
 
 const ver = JSON.parse(read("version.json"));
-check("ver.tip", ver.sheet === "0.3.240" && ver.dmcc === "0.2.253" && ver.sheetBuild === "sheet-playtest-v03240" && ver.dmccBuild === "dmcc-playtest-v02253", JSON.stringify(ver));
+check("ver.tip", ver.sheet === "0.3.241" && ver.dmcc === "0.2.254" && ver.sheetBuild === "sheet-playtest-v03241" && ver.dmccBuild === "dmcc-playtest-v02254", JSON.stringify(ver));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/", pretendToBeVisual: true, runScripts: "dangerously" });
 const w = dom.window;
