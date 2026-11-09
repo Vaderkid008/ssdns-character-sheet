@@ -105,6 +105,9 @@ check("zoom.die", !!layer.querySelector(".die-face") && /d20\.webp/.test(layer.q
 var motion = layer.getAttribute("data-motion");
 check("zoom.motion", Z.motions.indexOf(motion) >= 0, motion);
 layer.click();
+await new Promise((r) => setTimeout(r, 30));
+const heldZoom = on.window.document.querySelector(".d20-zoom");
+if (heldZoom) heldZoom.click();
 await live;
 check("zoom.skipClears", !on.window.document.querySelector(".d20-zoom"));
 const again = on.window.SSDNSD20Zoom.play({ nat: 20, crit: true, id: "live1", fancy: true });
@@ -128,6 +131,9 @@ await new Promise((r) => setTimeout(r, 30));
 const failLayer = on.window.document.querySelector(".d20-zoom");
 check("zoom.fail", !!failLayer && failLayer.querySelector(".d20-zoom-word").textContent === "Fail" && failLayer.classList.contains("is-fail") && !!failLayer.querySelector(".d20-zoom-crack"));
 if (failLayer) failLayer.click();
+await new Promise((r) => setTimeout(r, 30));
+const failHeld = on.window.document.querySelector(".d20-zoom");
+if (failHeld) failHeld.click();
 await failP;
 
 on.window.matchMedia = function (q) { return { matches: String(q).indexOf("reduce") >= 0, media: q }; };

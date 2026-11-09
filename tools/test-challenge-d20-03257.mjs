@@ -41,6 +41,7 @@ w.SSDNSSheet = { addLog: function () {} };
 w.SSDNSTestRoll = function () { return 14; };
 const ctx = dom.getInternalVMContext();
 vm.runInContext(read("assets/js/dice-art.js"), ctx);
+vm.runInContext(read("assets/js/challenge-sfx.js"), ctx);
 vm.runInContext(read("assets/js/d20-plain.js"), ctx);
 vm.runInContext(read("assets/js/d20-zoom.js"), ctx);
 vm.runInContext(read("assets/js/dm-join.js"), ctx);
@@ -92,8 +93,10 @@ check("click.fail", fail && fail.fancy === true && fail.kind === "fumble" && fai
 
 Z.present = realPresent;
 const spins = [];
+const realPlain = P.play.bind(P);
 P.play = function (spec) { spins.push(spec); return Promise.resolve(); };
 await Z.play({ nat: 12, id: "sheet-d20" });
+P.play = realPlain;
 const spin = spins[0] || {};
 check("sheet.normal", spins.length === 1 && spin.motion === "spin" && spin.fancy === false && spin.challenge === false && spin.suspense === false && spin.kind === "plain" && spin.nat === 12, JSON.stringify(spin));
 check("sheet.noPack", Z.pack({ nat: 20, id: "sheet-crit" }) == null && Z.pack({ nat: 20, id: crit.id }) && Z.pack({ nat: 20, id: crit.id }).fancy === true);
@@ -114,14 +117,26 @@ w.SSDNSAudio = {
   play: function (name) { heard.push(name); },
   playNow: function (name) { heard.push(name); }
 };
-await Z.play({ nat: 20, fancy: true, challenge: true, id: "sfx20" });
-check("sfx.crit", heard.length === 1 && heard[0] === "challenge-nat20-crit", heard.join(","));
+async function dismissHeld(ev) {
+  const p = Z.play(ev);
+  await new Promise((r) => setTimeout(r, 40));
+  const layer = w.document.querySelector(".d20-zoom, .d20-plain");
+  if (layer) layer.click();
+  await p;
+}
+function packPlayed(file) {
+  return w.SSDNSChallengeSfx.trace().some((row) => row.kind === "play" && String(row.file).indexOf(file) >= 0);
+}
+await dismissHeld({ nat: 20, fancy: true, challenge: true, id: "sfx20" });
+check("sfx.crit", heard.length === 0 && packPlayed("challenge-nat20-crit.wav"), heard.join(","));
 heard.length = 0;
-await Z.play({ nat: 1, fancy: true, challenge: true, id: "sfx1" });
-check("sfx.fail", heard.length === 1 && heard[0] === "challenge-fail", heard.join(","));
+w.SSDNSChallengeSfx.resetTrace();
+await dismissHeld({ nat: 1, fancy: true, challenge: true, id: "sfx1" });
+check("sfx.fail", heard.length === 0 && packPlayed("challenge-fail.wav"), heard.join(","));
 heard.length = 0;
-await Z.play({ nat: 14, fancy: true, challenge: true, id: "sfx14" });
-check("sfx.mid", heard.length === 0, heard.join(","));
+w.SSDNSChallengeSfx.resetTrace();
+await dismissHeld({ nat: 14, fancy: true, challenge: true, id: "sfx14" });
+check("sfx.mid", heard.length === 0 && packPlayed("roll-d20.mp3") && !packPlayed("challenge-nat20-crit.wav"), JSON.stringify(w.SSDNSChallengeSfx.trace().map((r) => r.kind + " " + (r.file || ""))));
 heard.length = 0;
 await Z.play({ nat: 8, id: "sfx-plain" });
 check("sfx.other", heard.length === 0, heard.join(","));

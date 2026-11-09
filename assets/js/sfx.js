@@ -204,6 +204,7 @@
       try { audio.pause(); } catch (e2) {}
       if (!depth && CUE_FALLBACK[eventName]) startSfx(map, CUE_FALLBACK[eventName], 1);
     });
+    audio._sfxEvent = eventName;
     liveSfx.push(audio);
     audio.addEventListener("ended", function () {
       var i = liveSfx.indexOf(audio);
@@ -588,6 +589,16 @@
   function resetQueue() {
     pendingTimers.forEach(function (t) { try { clearTimeout(t); } catch (e) {} });
     pendingTimers = []; nextFreeAt = 0; lastShot = null; lastResult = null; orphanResults = [];
+  }
+
+  function stopNamed(name) {
+    var want = String(name || "");
+    if (!want) return;
+    liveSfx = liveSfx.filter(function (audio) {
+      if (!audio || audio._sfxEvent !== want) return !!audio;
+      try { audio.pause(); } catch (e) {}
+      return false;
+    });
   }
 
   function stopMusic() {
@@ -978,6 +989,7 @@
     pickVariant: pickVariant,
     /** attack-fx: play at once, outside the shot/result queue (the map calls this on the frame it draws). */
     playNow: function (name) { try { root.dispatchEvent(new CustomEvent("ssdns-sfx", { detail: name })); } catch (e) {} if (prefs.muted || volume() <= 0) return 0; startNow(String(name || "")); return 0; },
+    stop: stopNamed,
     hasFile: function (name) { var f = eventFiles(sfxMap || {}, name); return !!(f && f.length); },
     playbackJitter: playbackJitter,
     resetVariants: function () { lastVariant = {}; },
