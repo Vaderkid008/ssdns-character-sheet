@@ -64,6 +64,8 @@
   "enemy-downed": "enemy-downed.mp3",
   "nat20": "nat20.mp3",
   "nat1": "nat1.mp3",
+  "challenge-nat20-crit": "challenge-nat20-crit.wav",
+  "challenge-fail": "challenge-fail.wav",
   "sting-tension": "sting-tension.mp3",
   "sting-reveal": "sting-reveal.mp3",
   "reward": "reward.mp3",
@@ -289,6 +291,12 @@
   ],
   "nat1": [
    "nat1.mp3"
+  ],
+  "challenge-nat20-crit": [
+   "challenge-nat20-crit.wav"
+  ],
+  "challenge-fail": [
+   "challenge-fail.wav"
   ],
   "sting-tension": [
    "sting-tension.mp3"
