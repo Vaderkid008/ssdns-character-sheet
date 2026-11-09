@@ -8424,8 +8424,12 @@ async function cardCast(i, n, opts) {
     if (spellConcentrates(spell, known)) areaDetail += noteConcentration(row, name, level);
     const hadarCast = /hunger of hadar/i.test(name);
     await publishCardRoll(row, areaDetail, hadarCast ? null : (outcome.rolled ? outcome.rolled.result : 0), {
-      formula: hadarCast ? "" : ((outcome.rolled && outcome.rolled.formula) || "—"),
-      plain: hadarCast,
+      formula: (hadarCast || (outcome.rolled && (outcome.rolled.zoneHold || outcome.rolled.plain))) ? "" : ((outcome.rolled && outcome.rolled.formula) || "—"),
+      plain: hadarCast || !!(outcome.rolled && (outcome.rolled.zoneHold || outcome.rolled.plain)),
+      zoneHold: !!(outcome.rolled && outcome.rolled.zoneHold),
+      dice: outcome.rolled && outcome.rolled.dice,
+      rolls: outcome.rolled && outcome.rolled.rolls,
+      faces: outcome.rolled && outcome.rolled.faces,
       spell: true
     });
     playCue();
@@ -8454,7 +8458,7 @@ async function cardCast(i, n, opts) {
     const dartNotes = applyDartGroups(row, name, rolled, dartPicks, DM.uid("spell"));
     if (dartNotes.length) detail += " · " + dartNotes.join(", ");
     if (spellConcentrates(spell, known)) detail += noteConcentration(row, name, level);
-    await publishCardRoll(row, detail, rolled.result || 0, { formula: rolled.formula || "—", spell: true });
+    await publishCardRoll(row, detail, rolled.result || 0, { formula: rolled.zoneHold || rolled.plain ? "" : (rolled.formula || "—"), plain: !!(rolled.zoneHold || rolled.plain), dice: rolled.dice, rolls: rolled.rolls, faces: rolled.faces, spell: true });
     playCue();
     await saveRemoteTable();
     renderFight();
@@ -8533,7 +8537,7 @@ async function cardCast(i, n, opts) {
     }
     detail += " · " + chosen.map((c) => c.name || c.id).join(", ");
     if (spellConcentrates(spell, known)) detail += noteConcentration(row, name, level);
-    await publishCardRoll(row, detail, rolledCard.result || 0, { formula: rolledCard.formula || "—", spell: true });
+    await publishCardRoll(row, detail, rolledCard.result || 0, { formula: rolledCard.zoneHold || rolledCard.plain ? "" : (rolledCard.formula || "—"), plain: !!(rolledCard.zoneHold || rolledCard.plain), dice: rolledCard.dice, rolls: rolledCard.rolls, faces: rolledCard.faces, spell: true });
     if (kind === "heal" && chosen.length) {
       const healedCard = chosen.map((one) => resolveStrikeTarget(one.id) || one);
       const fxExtra = { hops: healedCard.slice(1).map((whoT) => ({ id: whoT.id })) };
@@ -8715,7 +8719,7 @@ async function cardCast(i, n, opts) {
     if (cardApplied.notes.length) cardDetail += " · " + cardApplied.notes.join("; ");
     if (cardApplied.totalLine) cardDetail += " · " + cardApplied.totalLine;
     if (spellConcentrates(spell, known)) cardDetail += noteConcentration(row, name, level);
-    await publishCardRoll(row, cardDetail, cardRoll.result || 0, { formula: cardRoll.formula || "—", spell: true });
+    await publishCardRoll(row, cardDetail, cardRoll.result || 0, { formula: cardRoll.zoneHold || cardRoll.plain ? "" : (cardRoll.formula || "—"), plain: !!(cardRoll.zoneHold || cardRoll.plain), dice: cardRoll.dice, rolls: cardRoll.rolls, faces: cardRoll.faces, spell: true });
     playCue();
     await saveRemoteTable();
     renderFight();

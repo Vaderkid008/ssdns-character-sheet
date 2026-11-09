@@ -156,17 +156,30 @@
   function rollParts(parsed, crit) {
     var bits = [];
     var total = parsed.flat || 0;
+    var dice = [];
     (parsed.parts || []).forEach(function (p) {
       var count = Math.abs(p.n) * (crit ? 2 : 1);
       var rolls = [];
       var i;
-      for (i = 0; i < count; i++) rolls.push(die(p.sides));
+      for (i = 0; i < count; i++) {
+        var face = die(p.sides);
+        rolls.push(face);
+        dice.push({ sides: p.sides, face: face });
+      }
       var sum = rolls.reduce(function (a, b) { return a + b; }, 0);
-      if (p.n < 0) { total -= sum; bits.push("-" + count + "d" + p.sides + " (" + rolls.join("+") + ")"); }
-      else { total += sum; bits.push(count + "d" + p.sides + " (" + rolls.join("+") + ")"); }
+      var marks = rolls.map(function (n) { return "«" + n + "»"; }).join(" ");
+      if (p.n < 0) { total -= sum; bits.push("-" + count + "d" + p.sides + (marks ? " " + marks : "")); }
+      else { total += sum; bits.push(count + "d" + p.sides + (marks ? " " + marks : "")); }
     });
     if (parsed.flat) bits.push((parsed.flat > 0 ? "+" : "") + parsed.flat);
-    return { total: total, detail: bits.join(" ") || "0", formula: formulaOf(parsed, crit) };
+    return {
+      total: total,
+      detail: bits.join(" ") || "0",
+      formula: formulaOf(parsed, crit),
+      dice: dice,
+      rolls: dice.map(function (d) { return d.face; }),
+      faces: dice.map(function (d) { return d.face; })
+    };
   }
   function weaponParts(text) {
     var m = String(text || "").match(/(\d+\s*d\s*\d+(?:\s*[+-]\s*\d+\s*d\s*\d+)*(?:\s*[+-]\s*\d+)?)/i);
@@ -241,14 +254,29 @@
         formula: formula || "—",
         result: result,
         detail: detail || text,
-        spark: spark || ""
+        spark: spark || "",
+        dice: [],
+        rolls: [],
+        faces: []
       };
+    }
+    /* Keep the faces that were actually rolled on the log row. A line that
+       does not show those faces (no damage yet) must not carry them. */
+    function carry(packObj, rolled) {
+      if (!packObj || !rolled || !rolled.dice || !rolled.dice.length) return packObj;
+      var shown = String(packObj.text || "") + " " + String(packObj.detail || "");
+      if (shown.indexOf("«") < 0) return packObj;
+      packObj.dice = (packObj.dice || []).concat(rolled.dice);
+      packObj.rolls = (packObj.rolls || []).concat(rolled.rolls || []);
+      packObj.faces = packObj.rolls.slice();
+      return packObj;
     }
 
     if (opts.sustainAuto) {
       var autoS = bundle(shaped(), false);
       var sustainText = name + " · sustain " + autoS.text;
       var sustainPack = pack(sustainText, false, null, false, autoS.rolled.formula, autoS.rolled.total, sustainText, "");
+      carry(sustainPack, autoS.rolled);
       sustainPack.damageTotal = autoS.rolled.total;
       sustainPack.damageDetail = autoS.text;
       sustainPack.kind = "auto";
@@ -265,6 +293,7 @@
       var shown = null;
       var b;
       var beamShown = [];
+      var beamDiceBag = [];
       var beamShots = [];
       var beamHit = 0;
       var ago = 0;
@@ -286,6 +315,7 @@
         var beamDice = parseDice(row.dice || "1d10");
         if (!missb && ago) beamDice.flat = (beamDice.flat || 0) + ago;
         var one = bundle(beamDice, critb && !missb);
+        if (!missb && one.rolled && one.rolled.dice) beamDiceBag = beamDiceBag.concat(one.rolled.dice);
         if (!missb && ago) one.text = one.text.replace(/ = (-?\d+)$/, " (Agonizing) = $1");
         var push = (!missb && opts.repelling) ? 10 : 0;
         var face = missb ? " MISS" : ((critb ? " CRIT · on hit " : " on hit ") + one.text + (push ? " · push " + push + " ft" : ""));
@@ -307,6 +337,7 @@
       packedBeams.kind = "attack";
       packedBeams.assign = "beam";
       packedBeams.beamCount = beams;
+      carry(packedBeams, { dice: beamDiceBag, rolls: beamDiceBag.map(function (d) { return d.face; }) });
       return packedBeams;
     }
 
@@ -320,6 +351,7 @@
       var rNat = null;
       var rSum = 0;
       var dartRows = [];
+      var rayDiceBag = [];
       var rayShots = [];
       var rayHit = 0;
       var sparked = false;
@@ -333,6 +365,7 @@
         if (kind === "auto") {
           var auto = bundle(rayDice, false);
           rSum += auto.rolled.total;
+          if (auto.rolled && auto.rolled.dice) rayDiceBag = rayDiceBag.concat(auto.rolled.dice);
           rbits.push("dart " + (r + 1) + " " + auto.text);
           dartRows.push({ n: r + 1, total: auto.rolled.total, text: auto.text });
         } else {
@@ -346,6 +379,7 @@
           if (rm) rMiss = true;
           if (rNat == null || rc) rNat = rn;
           var rd = bundle(rayDice, rc && !rm);
+          if (!rm && rd.rolled && rd.rolled.dice) rayDiceBag = rayDiceBag.concat(rd.rolled.dice);
           var rface = rm ? " MISS" : ((rc ? " CRIT · on hit " : " on hit ") + rd.text);
           rbits.push("ray " + (r + 1) + " " + rayPair.shown + sign(atkBonus) + dieBit(dier) + " = " + rtot + rface);
           var rayAmt = rm ? 0 : rd.rolled.total;
@@ -373,6 +407,7 @@
         packedRays.assign = "ray";
         packedRays.rayCount = rays;
       }
+      carry(packedRays, { dice: rayDiceBag, rolls: rayDiceBag.map(function (d) { return d.face; }) });
       return packedRays;
     }
 
@@ -429,6 +464,8 @@
           var wr = rollParts(wp, crit && !miss);
           dmgBits += " + weapon " + wr.detail;
           dmgTotal += wr.total;
+          spellRoll.dice = (spellRoll.dice || []).concat(wr.dice || []);
+          spellRoll.rolls = (spellRoll.rolls || []).concat(wr.rolls || []);
         }
       }
       var dmgText = (miss && row.missHalf) ? ("MISS · half " + dmgBits + " = " + dmgTotal) : (miss ? "MISS" : ((crit ? "CRIT · on hit " : "on hit ") + dmgBits + " = " + dmgTotal));
@@ -446,6 +483,7 @@
       packed.damageDetail = dmgTotal ? (dmgBits + " = " + dmgTotal) : "";
       packed.kind = kind;
       packed.dieMods = dieA.parts;
+      carry(packed, spellRoll);
       if (row.save) packed.save = row.save;
       if (row.onFail) packed.condition = miss ? "" : row.onFail;
       if (!miss && row.onHit) {
@@ -512,7 +550,8 @@
       }
       var dcText = "DC " + (opts.dc != null && opts.dc !== "" ? opts.dc : "?") + " " + (row.save || "save") + " save";
       var stext = name + gun + " · " + dcText + " · " + (row.castDamage === false ? "no damage now" : saveRoll.text) + half + laterNote;
-      var savePack = pack(stext, false, null, false, saveRoll.rolled.formula, row.castDamage === false ? 0 : saveRoll.rolled.total, dcText + " · " + saveRoll.text + half + laterNote, "");
+      var savePack = pack(stext, false, null, false, row.castDamage === false ? "" : saveRoll.rolled.formula, row.castDamage === false ? 0 : saveRoll.rolled.total, dcText + " · " + saveRoll.text + half + laterNote, "");
+      if (row.castDamage !== false) carry(savePack, saveRoll.rolled);
       savePack.damageTotal = row.castDamage === false ? saveRoll.rolled.total : saveRoll.rolled.total;
       savePack.damageDetail = saveRoll.text;
       savePack.kind = "save";
@@ -569,6 +608,7 @@
       var heal = bundle(shaped(), false);
       var htext = name + gun + " · heals " + heal.text;
       var healPack = pack(htext, false, null, false, heal.rolled.formula, heal.rolled.total, htext, "");
+      carry(healPack, heal.rolled);
       healPack.damageTotal = heal.rolled.total;
       healPack.damageDetail = heal.text;
       healPack.kind = "heal";
@@ -607,6 +647,7 @@
       if (row.budget) atext += " · budget " + row.budget;
       if (row.applyNow === false) atext += " · not dealt on cast";
       var autoPack = pack(atext, false, null, false, autoRoll.rolled.formula, autoRoll.rolled.total, atext, "");
+      carry(autoPack, autoRoll.rolled);
       autoPack.damageTotal = autoRoll.rolled.total;
       autoPack.damageDetail = autoRoll.text;
       autoPack.kind = "auto";
@@ -623,7 +664,7 @@
       if (row.chip) rider += " · chip " + row.chip;
       if (row.dur) rider += " · " + row.dur;
       if (row.conc === false) rider += " · not concentration";
-      var riderPack = pack(rider, false, null, false, row.dice || "—", 0, rider, "");
+      var riderPack = pack(rider, false, null, false, "", 0, rider, "");
       riderPack.kind = "rider";
       riderPack.damageTotal = 0;
       riderPack.trigger = row.trigger || "";

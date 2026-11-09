@@ -630,7 +630,7 @@
     if (!quiet) {
       var feed = {
         id: id, ts: entry.ts, from: state.uid,
-        fromName: entry.characterName || entry.who, characterName: entry.characterName || "", playerName: entry.playerName || "", weapon: entry.weapon || "", spellName: entry.spellName || "", text: rollText(entry), kind: "roll", who: entry.characterName || entry.who, formula: entry.formula || "", dice: Array.isArray(entry.dice) ? entry.dice : null
+        fromName: entry.characterName || entry.who, characterName: entry.characterName || "", playerName: entry.playerName || "", weapon: entry.weapon || "", spellName: entry.spellName || "", text: rollText(entry), kind: "roll", who: entry.characterName || entry.who, formula: entry.formula || "", detail: entry.detail || "", dice: Array.isArray(entry.dice) ? entry.dice : null, rolls: Array.isArray(entry.rolls) ? entry.rolls : null, faces: Array.isArray(entry.faces) ? entry.faces : null
       };
       if (fxReq && !entry.awaitDm && root.SSDNSMapFx && root.SSDNSMapFx.request) {
         try { feed.fxReq = root.SSDNSMapFx.request(fxReq); } catch (e) {}
@@ -2842,6 +2842,11 @@
           playerName: row.playerName || "",
           who: row.who || row.fromName || "",
           weapon: row.weapon || "",
+          formula: row.formula || "",
+          detail: row.detail || text,
+          dice: row.dice || null,
+          rolls: row.rolls || null,
+          faces: row.faces || null,
           dieHold: !!(row.die || row.zoom),
           replace: row.kind === "roll" && /→\s*(HIT|MISS|CRIT)/.test(text)
         });

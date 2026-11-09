@@ -151,8 +151,9 @@
     }).join("") + '<button type="button" class="die-more" data-die-more title="Show all dice">+' + (dice.length - keep) + "</button></span>";
   }
   function iconsFor(sides, faces) {
-    if (!faces || !faces.length) return iconHtml(sides);
-    return groupHtml(faces.map(function (n) { return { sides: sides, face: n }; }));
+    var nums = (faces || []).map(Number).filter(function (n) { return isFinite(n); });
+    if (!nums.length || nums.length !== (faces || []).length) return "";
+    return groupHtml(nums.map(function (n) { return { sides: sides, face: n }; }));
   }
   /* "2d6+1d4+1" -> terms [{count:2,sides:6},{count:1,sides:4}], mod 1 */
   function poolOf(formula) {
@@ -201,7 +202,9 @@
   }
   function diceFromEntry(entry, html) {
     if (entry && Array.isArray(entry.dice) && entry.dice.length && entry.dice[0] && entry.dice[0].sides) {
-      return entry.dice.map(function (d) { return { sides: Number(d.sides), face: d.face == null ? null : Number(d.face) }; });
+      var rows = entry.dice.map(function (d) { return { sides: Number(d.sides), face: d.face == null ? null : Number(d.face) }; });
+      if (rows.some(function (d) { return !isFinite(d.face); })) return null;
+      return rows;
     }
     var pool = poolOf(entry && entry.formula);
     if (pool.terms.length < 2) return null;
@@ -209,11 +212,11 @@
     var faces = [];
     if (entry && Array.isArray(entry.rolls) && entry.rolls.length === total) faces = entry.rolls.map(Number);
     else if (entry && entry.detail) faces = parseFaces(entry.detail, { count: total, mod: pool.mod ? String(pool.mod) : "" });
-    if (faces.length !== total) faces = [];
+    if (faces.length !== total) return null;
     var out = [];
     var k = 0;
     pool.terms.forEach(function (t) {
-      for (var i = 0; i < t.count; i++) out.push({ sides: t.sides, face: faces.length ? faces[k++] : null });
+      for (var i = 0; i < t.count; i++) out.push({ sides: t.sides, face: faces[k++] });
     });
     return out;
   }
@@ -292,7 +295,8 @@
       var spec = { count: Math.max(1, parseInt(count || "1", 10) || 1), sides: Number(sides), mod: mod || "" };
       var faces = parseFaces(html, spec);
       if (faces.length !== spec.count) faces = [];
-      return iconsFor(spec.sides, faces) + formula;
+      var icons = iconsFor(spec.sides, faces);
+      return icons ? icons + formula : formula;
     });
   }
   /* 0.3.78: an older DMCC wrote one plain die as "d4 1d4 = 4 (4)" (label echo + repeated face).
@@ -345,12 +349,11 @@
       var faces = facesOf(entry, spec, html);
       var icons = iconsFor(spec.sides, faces);
       var re = new RegExp("(\\d*)d" + spec.sides + "(?![0-9])", "i");
+      if (!icons) return html;
       if (re.test(html)) return html.replace(re, icons + "$&");
       return icons + " " + html;
     }
     if (sidesOf(html)) return decorate(html);
-    var fromFormula = sidesOf(entry && entry.formula);
-    if (fromFormula) return iconHtml(fromFormula) + " " + html;
     return html;
   }
   function roll(sides, rng) {

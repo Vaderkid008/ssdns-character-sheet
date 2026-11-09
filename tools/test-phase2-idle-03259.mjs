@@ -1,5 +1,5 @@
 /**
- * Phase 2 idle spice (sheet 0.3.266 / DMCC 0.2.279).
+ * Phase 2 idle spice (sheet 0.3.268 / DMCC 0.2.281).
  * Call Lightning keeps a storm and a lingering bolt. Branding Smite stays marked.
  * Hunger of Hadar whispers inside the locked sphere. Blade Barrier kicks a little grit while it idles.
  *   node tools/test-phase2-idle-03259.mjs
@@ -18,8 +18,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.266" && ver.dmcc === "0.2.279" && ver.sheetBuild === "sheet-playtest-v03266" && ver.dmccBuild === "dmcc-playtest-v02279");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.266") && !read("database.rules.json").includes("0.3.266"));
+check("ver", ver.sheet === "0.3.268" && ver.dmcc === "0.2.281" && ver.sheetBuild === "sheet-playtest-v03268" && ver.dmccBuild === "dmcc-playtest-v02281");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.268") && !read("database.rules.json").includes("0.3.268"));
 check("bestiary.kept", read("dm/assets/js/v2.js").includes("bestiary.json?v=0.2.249-spell-tokens"));
 check("fullscreen.guard", read("map/ssdns-map.js").includes("A 0×0 read during fullscreen must not replace it."));
 
