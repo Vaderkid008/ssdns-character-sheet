@@ -2438,6 +2438,15 @@ function beadsPaint(ctx, A, B, lt, seed) {
       ctx.fill();
     }
     ctx.restore();
+    var utilGrit = {
+      bless: ["240,205,120", "95,80,60"], fog: ["150,150,148", "95,80,60"], hand: ["120,230,215", "95,80,60"],
+      heal: ["140,195,95", "95,80,60"], pwt: ["150,150,148", "95,80,60"], invis: ["190,215,225", "95,80,60"]
+    };
+    if (look === "hand" && B && lt > time.grow && lt - time.grow < 500) {
+      gritBurst(ctx, B.x, B.y, lt - time.grow, 500, 10, 96, (r || 18) * 1.1, utilGrit.hand, 3);
+    } else if (utilGrit[look] && look !== "hand" && lt < 700) {
+      gritBurst(ctx, p.x, p.y, lt, 700, 12, 97, (r || 18) * (look === "fog" ? 1.8 : 1.2), utilGrit[look], 3);
+    }
   }
   /* Chunk 1 Phase 1 Love-it outlines. Shape + clear effect, ported from the demo painters.
      Ground marks share this overlay (above tokens) so they stay on the same clock as the beam.
@@ -6960,8 +6969,12 @@ function beadsPaint(ctx, A, B, lt, seed) {
         ctx.fill();
       }
       if (lt > time.grow && B) bloom(ctx, B, 14, lt - time.grow, col, col, 2);
-      if ((look === "chloroform" || look === "snap") && B && lt > time.grow && lt - time.grow < 700) {
-        gritBurst(ctx, B.x, B.y, lt - time.grow, 700, 12, look === "snap" ? 94 : 95, rad * 1.2, look === "snap" ? ["95,220,205", "95,80,60"] : ["190,175,210", "95,80,60"], 3);
+      var shotGrit = {
+        chloroform: ["190,175,210", "95,80,60"], snap: ["95,220,205", "95,80,60"],
+        morph: ["170,200,110", "95,80,60"], rift: ["95,220,205", "95,80,60"]
+      };
+      if (shotGrit[look] && B && lt > time.grow && lt - time.grow < 700) {
+        gritBurst(ctx, B.x, B.y, lt - time.grow, 700, 12, look === "snap" ? 94 : (look === "morph" ? 98 : 95), rad * 1.2, shotGrit[look], 3);
       }
       ctx.restore();
       return;
