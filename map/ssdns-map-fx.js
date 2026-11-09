@@ -1196,7 +1196,10 @@ function poisonPaint(ctx, A, B, lt, seed) {
     ctx.beginPath(); ctx.arc(x, y, 16 + rand() * 18, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
-  if (lt > T.grow) bloom(ctx, B, 22, lt - T.grow, "190,185,80", "110,105,40", 2);
+  if (lt > T.grow) {
+    bloom(ctx, B, 22, lt - T.grow, "190,185,80", "110,105,40", 2);
+    gritBurst(ctx, B.x, B.y, lt - T.grow, T.fade, 14, (seed || 3) + 9, 42, ["150,140,70", "40,42,18"], 4);
+  }
 }
 function necroticPaint(ctx, A, B, lt, seed) {
   var T = LOOK_TIME.necrotic;
@@ -1218,7 +1221,10 @@ function necroticPaint(ctx, A, B, lt, seed) {
   strokePath(ctx, pts, "95,45,100", 8, 0.6 * f);
   strokePath(ctx, pts, "185,170,180", 2, 0.7 * f);
   ctx.restore();
-  if (lt > T.grow) bloom(ctx, B, 14, lt - T.grow, "170,140,175", "90,40,100", 2);
+  if (lt > T.grow) {
+    bloom(ctx, B, 14, lt - T.grow, "170,140,175", "90,40,100", 2);
+    gritBurst(ctx, B.x, B.y, lt - T.grow, T.hold + T.fade, 12, (seed || 5) + 4, 34, ["185,170,180", "95,80,60"], 4);
+  }
 }
 function radiantPaint(ctx, A, B, lt) {
   var T = LOOK_TIME.radiant;
@@ -1241,7 +1247,10 @@ function radiantPaint(ctx, A, B, lt) {
     ctx.fillRect(B.x - 10, B.y - 70 * shaft, 20, 70 * shaft);
   }
   ctx.restore();
-  if (lt > T.grow) bloom(ctx, B, 16, lt - T.grow, "255,235,170", "225,170,70", 2);
+  if (lt > T.grow) {
+    bloom(ctx, B, 16, lt - T.grow, "255,235,170", "225,170,70", 2);
+    gritBurst(ctx, B.x, B.y, lt - T.grow, T.fade, 12, 23, 36, ["255,232,170", "95,80,60"], 4);
+  }
 }
 function thunderPaint(ctx, A, B, lt, seed) {
   var T = LOOK_TIME.thunder;
@@ -2305,7 +2314,10 @@ function beadsPaint(ctx, A, B, lt, seed) {
       ctx.fill();
     }
     ctx.restore();
-    if (g > 0.92) bloom(ctx, B, 14, lt - T.grow * 0.92, "170,110,255", "80,230,215", 2);
+    if (g > 0.92) {
+      bloom(ctx, B, 14, lt - T.grow * 0.92, "170,110,255", "80,230,215", 2);
+      gritBurst(ctx, B.x, B.y, Math.max(0, lt - T.grow * 0.92), T.fade, 12, (seed || 6) + 2, 34, ["155,65,240", "60,215,195"], 3);
+    }
   }
   function scurvePaint(ctx, A, B, lt) {
     var T = LOOK_TIME.scurve;
@@ -2326,6 +2338,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
     strokePath(ctx, pts, "150,50,230", 20, 0.42 * f);
     strokePath(ctx, pts, "25,200,175", 4.4, 0.95 * f);
     ctx.restore();
+    if (lt > T.grow) gritBurst(ctx, B.x, B.y, lt - T.grow, T.hold + T.fade, 12, 71, 36, ["150,50,230", "25,200,175"], 3);
   }
   function bulletPaint(ctx, A, B, lt, seed) {
     var T = LOOK_TIME.bullet;
@@ -2357,7 +2370,10 @@ function beadsPaint(ctx, A, B, lt, seed) {
       ctx.stroke();
     }
     ctx.restore();
-    if (lt > T.grow) bloom(ctx, B, 12, lt - T.grow, "170,110,255", "80,230,215", 2);
+    if (lt > T.grow) {
+      bloom(ctx, B, 12, lt - T.grow, "170,110,255", "80,230,215", 2);
+      gritBurst(ctx, B.x, B.y, lt - T.grow, T.fade, 12, (seed || 8) + 3, 32, ["205,175,255", "150,110,240"], 3);
+    }
   }
   function shieldPaint(ctx, T, r, lt) {
     var time = LOOK_TIME.shield;
@@ -6885,6 +6901,8 @@ function beadsPaint(ctx, A, B, lt, seed) {
       ctx.beginPath();
       ctx.arc(at.x, at.y, rad * (kind === "held" ? 1.16 : 1.08), 0, Math.PI * 2);
       ctx.stroke();
+      var wrapGrit = { foxfire: ["150,120,170", "95,80,60"], brass: ["220,180,90", "95,80,60"], molasses: ["225,160,60", "95,80,60"], lasso: ["95,220,205", "95,80,60"] };
+      if (wrapGrit[look] && lt < 700) gritBurst(ctx, at.x, at.y, lt, 700, 12, 80, rad * 1.4, wrapGrit[look], 3);
       if (look === "tintype") {
         var ghost;
         for (ghost = 0; ghost < 3; ghost++) {
