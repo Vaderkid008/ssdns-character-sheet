@@ -1,5 +1,5 @@
 /**
- * Token click menu (sheet 0.3.265 / DMCC 0.2.278).
+ * Token click menu (sheet 0.3.267 / DMCC 0.2.280).
  * Selecting a token shows Move / Interact and does not paint reach or path arrows.
  * Move reveals the existing indicators. Escape or empty ground hides them again.
  * Interact stays disabled when nothing already in reach can be used.
@@ -20,10 +20,10 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.265" && version.sheetBuild === "sheet-playtest-v03265");
-check("ver.dmcc", version.dmcc === "0.2.278" && version.dmccBuild === "dmcc-playtest-v02278");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.265"') && read("assets/js/app.js").includes("sheet-playtest-v03265"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.278"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02278"));
+check("ver.sheet", version.sheet === "0.3.267" && version.sheetBuild === "sheet-playtest-v03267");
+check("ver.dmcc", version.dmcc === "0.2.280" && version.dmccBuild === "dmcc-playtest-v02280");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.267"') && read("assets/js/app.js").includes("sheet-playtest-v03267"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.280"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02280"));
 
 const mapSrc = read("map/ssdns-map.js");
 const css = read("map/ssdns-map.css");
