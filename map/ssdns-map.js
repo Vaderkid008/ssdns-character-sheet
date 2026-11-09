@@ -213,7 +213,7 @@ window.SSDNSMap = { create(opts) {
       ownerUid: t.ownerUid || '', controlledBy: t.controlledBy || [],
       ownerCanMove: t.ownerCanMove !== false, locked: !!t.locked,
       label: t.label || t.name || '', size: t.size || 1, name: t.name || '',
-      kind: t.kind || '', lootBoxId: t.lootBoxId || '',
+      kind: t.kind || '', storyMarker: t.storyMarker || '', lootBoxId: t.lootBoxId || '',
       weaponDrop: t.weaponDrop ? { name: t.weaponDrop.name || t.name || '', itemId: t.weaponDrop.itemId || '', dirty: !!t.weaponDrop.dirty, taken: !!t.weaponDrop.taken } : null,
       spellPiece: t.spellPiece || '', zoneId: t.zoneId || '',
       noHpPool: !!t.noHpPool, notTargetable: !!t.notTargetable, noInit: !!t.noInit,
@@ -406,6 +406,7 @@ function applySharedToTokens() {
       else if (s.ownerUid) t.ownerUid = s.ownerUid;
       if (s.combatantId) t.combatantId = s.combatantId;
       if (s.kind) t.kind = s.kind;
+      if (s.storyMarker) t.storyMarker = s.storyMarker;
       if (s.spellPiece) t.spellPiece = s.spellPiece;
       if (s.zoneId) t.zoneId = s.zoneId;
       if (s.noHpPool) t.noHpPool = true;
@@ -1094,6 +1095,7 @@ if (role === 'dm') {
     <button type="button" data-act="bestiaryBtn" aria-expanded="false" title="Place a bestiary creature: it joins the fight already linked">Bestiary</button>
     <button type="button" data-act="randomizeLootBtn" title="Add pocket loot to every enemy on this map. Skips players, allies, spell pieces, and tokens already rolled or already dropped.">Randomize loot</button>
     <button data-act="addPcBtn">Add player token</button>
+    <button type="button" data-act="partyTokenBtn" title="One story marker for the whole party on this map. It is not a fighter, and moving it does not move anyone's token.">Party token</button>
     <button data-act="dupTokenBtn">Duplicate</button>
     <button data-act="copyTokenBtn">Copy</button>
     <button data-act="pasteTokenBtn">Paste</button>
@@ -1374,7 +1376,7 @@ function fxFacing(S, spec) {
   let best = null, bestD = Infinity;
   const faceScene = sceneKey(S);
   (state.tokens || []).forEach(t => {
-    if (!t || t === S || !t.pos || t.hidden || t.kind === 'marker') return;
+    if (!t || t === S || !t.pos || t.hidden || t.kind === 'marker' || isPartyToken(t)) return;
     if (sceneKey(t) !== faceScene) return;
     if (!!t.ownerUid === !!S.ownerUid && t.kind === S.kind) return;
     const o = fxCenter(t), d = Math.hypot(o.x - c.x, o.y - c.y);
@@ -1576,7 +1578,7 @@ function fxNeighbors(worldCenter, squares, skip) {
   const px = fxPx();
   const out = [];
   (state.tokens || []).forEach(t => {
-    if (!t || !t.pos || t.kind === "marker" || t.kind === "asset") return;
+    if (!t || !t.pos || t.kind === "marker" || t.kind === "asset" || isPartyToken(t)) return;
     if (skip && skip.some(one => one && (one === t || one.id === t.id))) return;
     if (!tokenSeen(t)) return;
     const c = fxCenter(t);
@@ -2209,7 +2211,7 @@ function ambientOf(sd) {
   return a === 'bright' || a === 'dim' ? a : 'dark';
 }
 function tokenLightList(t) {
-  if (!t || !t.pos || t.hidden || t.dmDoused) return [];
+  if (!t || !t.pos || t.hidden || t.dmDoused || isPartyToken(t)) return [];
   const c = fxCenter(t);
   const face = (Number(t.facing) || 0) * Math.PI / 180;
   const rows = Array.isArray(t.lights) ? t.lights.filter(l => l && !l.out) : [];
@@ -2251,7 +2253,7 @@ function buildSight(viewerUid, sceneId, forceMode) {
     shapes: sd.fogShapes || []
   };
   for (const t of state.tokens) {
-    if (!t || !t.pos || t.hidden) continue;
+    if (!t || !t.pos || t.hidden || isPartyToken(t)) continue;
     if ((t.sceneId || 'scn_dustyspur01') !== sid) continue;
     tokenLightList(t).forEach(ls => out.lights.push(ls));
     const party = !!(t.ownerUid || t.kind === 'player');
@@ -3537,7 +3539,7 @@ function sweepFollow(mover, from, to) {
 function creatureOn(x, y, ignoreId) {
   const hit = (state.tokens || []).find(t => {
     if (!t || !t.pos || t.id === ignoreId) return false;
-    if (t.spellPiece || t.notTargetable || t.kind === "asset" || t.kind === "chest" || t.kind === "marker") return false;
+    if (t.spellPiece || t.notTargetable || t.kind === "asset" || t.kind === "chest" || t.kind === "marker" || isPartyToken(t)) return false;
     if (hideDownedToken(t)) return false;
     const size = t.size || 1;
     return x >= t.pos.x && x < t.pos.x + size && y >= t.pos.y && y < t.pos.y + size;
@@ -4927,7 +4929,7 @@ function draw() {
     const nameY = s.y + r + 4;
     ctx.fillText(t.label || t.name.slice(0, 8), s.x, nameY);
     /* DM bar is under the name, clear of the ring. Assets, chests, and spell pieces are not creatures. */
-    if (role === 'dm' && barHp && !t.spellPiece && t.kind !== 'asset' && t.kind !== 'chest') {
+    if (role === 'dm' && barHp && !t.spellPiece && t.kind !== 'asset' && t.kind !== 'chest' && !isPartyToken(t)) {
       paintDmTokenHpBar(ctx, s, r, barHp, nameY + Math.max(14, nameFont + 2));
     }
     /* Guardian budget is a number on the card, not an HP bar. */
@@ -5436,6 +5438,7 @@ function selectedTokens() {
 }
 function cloneToken(src, dx, dy) {
   if (!src || !src.pos || !state.scene) { toast('Cannot copy that'); return null; }
+  if (isPartyToken(src)) { toast('One party token on this map'); return null; }
   const id = 'tok_' + Date.now().toString(36) + Math.floor(Math.random() * 1000);
   const clean = JSON.parse(JSON.stringify(src, (k, v) => k === '_img' ? undefined : v));
   clean.id = id;
@@ -5465,8 +5468,9 @@ function cloneToken(src, dx, dy) {
   return clean;
 }
 function copyTokens() {
-  const list = selectedTokens();
-  if (!list.length) { toast('Select a token'); return; }
+  const picked = selectedTokens();
+  const list = picked.filter(t => !isPartyToken(t));
+  if (!list.length) { toast(picked.some(isPartyToken) ? 'The party token stays one per map' : 'Select a token'); return; }
   state.clipboard = list.map(t => JSON.parse(JSON.stringify(t)));
   toast('Copied ' + list.length);
 }
@@ -5872,7 +5876,7 @@ function tokensInBlast(area, origins, facing, excludeId) {
   const out = [];
   (state.tokens || []).forEach(t => {
     if (!t || !t.pos) return;
-    if (hideDownedToken(t)) return;
+    if (hideDownedToken(t) || isPartyToken(t)) return;
     if (t.hidden && role !== "dm") return;
     if (!onViewedScene(t)) return;
     if (excludeId && area.self && (t.id === excludeId || t.ownerUid === excludeId || t.combatantId === excludeId)) return;
@@ -6086,7 +6090,7 @@ function blastCreatureAt(e) {
   if (!state.scene) return null;
   const w = pointerWorld(e);
   const t = hitTest(w.x, w.y);
-  if (!t || !t.pos || t.spellPiece || t.notTargetable) return null;
+  if (!t || !t.pos || t.spellPiece || t.notTargetable || isPartyToken(t)) return null;
   if (t.kind === "marker" || t.kind === "chest" || t.kind === "asset") return null;
   if (hideDownedToken(t)) return null;
   return t;
@@ -7130,6 +7134,94 @@ function syncPartyFromSnapshot() {
   dedupeLinkedTokens(fightKeepMap());
   ensurePartyTokens();
 }
+/* Story marker for a big map outside a fight. One per scene. Not a combatant. */
+function isPartyToken(t) {
+  return !!(t && (t.kind === 'party' || t.storyMarker === 'party'));
+}
+function partyTokenId(sceneId) {
+  return 'pty_' + String(sceneId || activeSceneId() || 'scn_dustyspur01');
+}
+function partyOnScene(sceneId) {
+  const sid = sceneId || activeSceneId() || 'scn_dustyspur01';
+  return (state.tokens || []).find(t => t && isPartyToken(t) && (t.sceneId || 'scn_dustyspur01') === sid) || null;
+}
+const PARTY_ART = '../assets/map-props/asset-baggage-cart.webp';
+function placePartyToken(opts) {
+  if (role !== 'dm' || !state.scene) return null;
+  opts = opts || {};
+  const sid = activeSceneId() || 'scn_dustyspur01';
+  const existing = partyOnScene(sid);
+  if (existing) {
+    selectToken(existing);
+    openDrawer(existing.id);
+    toast('Party token is already on this map');
+    draw();
+    return existing;
+  }
+  const cell = (opts.pos && isFinite(opts.pos.x) && isFinite(opts.pos.y)) ? { x: Math.floor(opts.pos.x), y: Math.floor(opts.pos.y) } : viewCenterCell();
+  const label = String(opts.label || 'Party').slice(0, 16) || 'Party';
+  const token = makeToken({
+    id: partyTokenId(sid),
+    kind: 'party',
+    storyMarker: 'party',
+    name: label,
+    label: label,
+    ownerUid: '',
+    ownerCanMove: false,
+    controlledBy: [],
+    combatantId: '',
+    sheetId: '',
+    noInit: true,
+    noHpPool: true,
+    notTargetable: true,
+    color: '#c9a227',
+    image: PARTY_ART,
+    size: 1,
+    pos: cell,
+    sceneId: sid
+  });
+  if (!token) return null;
+  selectToken(token);
+  openDrawer(token.id);
+  toast('Party token placed');
+  draw();
+  return token;
+}
+function movePartyToken(x, y) {
+  if (role !== 'dm') return null;
+  const t = partyOnScene();
+  if (!t || !t.pos) return null;
+  const others = (state.tokens || []).filter(tok => tok && tok.pos && tok.id !== t.id).map(tok => ({ id: tok.id, x: tok.pos.x, y: tok.pos.y }));
+  const spot = clampFootprint(Math.floor(Number(x)), Math.floor(Number(y)), t.size || 1);
+  t.pos = { x: spot.x, y: spot.y };
+  if (shared.tokens[t.id]) shared.tokens[t.id].pos = { x: spot.x, y: spot.y };
+  saveToken(t.id);
+  draw();
+  const moved = others.some(row => {
+    const live = state.tokens.find(tok => tok && tok.id === row.id);
+    return live && live.pos && (live.pos.x !== row.x || live.pos.y !== row.y);
+  });
+  return { id: t.id, x: t.pos.x, y: t.pos.y, othersMoved: moved };
+}
+function renamePartyToken(label) {
+  if (role !== 'dm') return '';
+  const t = partyOnScene();
+  if (!t) return '';
+  const next = String(label || 'Party').slice(0, 16) || 'Party';
+  setLabel(t, next);
+  t.name = next;
+  if (shared.tokens[t.id]) shared.tokens[t.id].name = next;
+  saveToken(t.id);
+  draw();
+  return t.label;
+}
+function removePartyToken() {
+  if (role !== 'dm') return false;
+  const t = partyOnScene();
+  if (!t) return false;
+  removeMapTokens([t.id], { silent: true, keepOwner: true });
+  return true;
+}
 function makeToken(spec) {
   if (!state.scene) return null;
   spec = spec || {};
@@ -7159,11 +7251,26 @@ function makeToken(spec) {
     locked: false,
     hidden: false,
     pos: { x: at.x, y: at.y },
-    sceneId: activeSceneId() || 'scn_dustyspur01',
+    sceneId: spec.sceneId || activeSceneId() || 'scn_dustyspur01',
     image: spec.image || '',
     sheetId: spec.sheetId || (spec.kind === 'player' ? owner : ''),
     combatantId: spec.combatantId || (spec.kind === 'player' ? owner : '')
   };
+  if (spec.kind === 'party' || spec.storyMarker === 'party') {
+    token.kind = 'party';
+    token.storyMarker = 'party';
+    token.noInit = true;
+    token.noHpPool = true;
+    token.notTargetable = true;
+    token.ownerUid = '';
+    token.ownerCanMove = false;
+    token.controlledBy = [];
+    token.combatantId = '';
+    token.sheetId = '';
+    token.lights = [];
+    token.torch = false;
+    token.darkvision = 0;
+  }
   if (spec.spellPiece) {
     token.spellPiece = String(spec.spellPiece);
     token.zoneId = spec.zoneId || '';
@@ -7810,7 +7917,7 @@ function showDownedNow() {
   return !!state.showDowned;
 }
 function tokenDowned(t) {
-  if (!t || t.spellPiece || t.kind === 'asset' || t.kind === 'chest') return false;
+  if (!t || t.spellPiece || t.kind === 'asset' || t.kind === 'chest' || isPartyToken(t)) return false;
   const facts = reactorFacts(t);
   const row = {
     kind: t.ownerUid ? 'player' : (t.kind || ''),
@@ -8959,8 +9066,8 @@ function onPointerDown(e) {
         showCommandMenu(hit);
         draw();
         return;
-      } else if (role === 'dm' && state.selectedIds.includes(hit.id)) {
-        // already in selection — keep group and drag all
+      } else if (role === 'dm' && state.selectedIds.includes(hit.id) && !isPartyToken(hit)) {
+        // already in selection — keep group and drag all. The party marker never rides along.
         state.selected = hit;
       } else {
         state.selectedIds = [hit.id];
@@ -8992,15 +9099,31 @@ function onPointerDown(e) {
       }
       /* token size: ox/oy is the grabbed square, so a 4x4 token grabbed by a corner does not jump */
       const gpx = state.scene.grid.px;
+      if (isPartyToken(hit)) {
+        state.selectedIds = [hit.id];
+        state.selected = hit;
+      } else {
+        state.selectedIds = state.selectedIds.filter(id => {
+          const tok = state.tokens.find(t => t && t.id === id);
+          return tok && !isPartyToken(tok);
+        });
+        if (state.selectedIds.indexOf(hit.id) < 0) state.selectedIds.push(hit.id);
+      }
       state.drag = { token: hit, ox: Math.round(w.x / gpx - 0.5), oy: Math.round(w.y / gpx - 0.5), sx: e.clientX, sy: e.clientY, starts: {} };
       state.selectedIds.forEach(id => {
         const t = state.tokens.find(tok => tok.id === id);
-        if (t) state.drag.starts[id] = { x: t.pos.x, y: t.pos.y };
+        if (t && (isPartyToken(hit) || !isPartyToken(t))) state.drag.starts[id] = { x: t.pos.x, y: t.pos.y };
       });
       if (role === 'dm') openDrawer(hit.id);
       if (hit.kind === 'asset') showAssetMenu(hit);
     } else if (hit && role === 'player') {
       selectToken(hit);
+      if (isPartyToken(hit)) {
+        hideCommandMenu();
+        toast('The DM moves the party token');
+        draw();
+        return;
+      }
       showCommandMenu(hit);
       if (hit.locked) toast('That token is locked');
       else if (canControl(hit) && turnBlocksMove()) toast("It isn't your turn. Your token moves on your turn.");
@@ -9309,7 +9432,7 @@ function onPointerUp(e) {
     Object.keys(state.drag.starts).forEach(id => {
       const t = state.tokens.find(tok => tok && tok.id === id);
       const origin = state.drag.starts[id];
-      if (!t || !origin || !t.pos) return;
+      if (!t || !origin || !t.pos || isPartyToken(t)) return;
       noteZoneCross(t, origin, { x: t.pos.x, y: t.pos.y });
     });
   }
@@ -10867,7 +10990,7 @@ function tokenCombatant(tokenId) {
 function cellTaken(x, y, ignore) {
   const skip = ignore || {};
   return state.tokens.some(t => {
-    if (!t || !t.pos || skip[t.id]) return false;
+    if (!t || !t.pos || skip[t.id] || isPartyToken(t)) return false;
     if (role !== 'dm' && t.hidden) return false;
     if (!onViewedScene(t)) return false;
     if (window.SSDNSAssetLibrary && window.SSDNSAssetLibrary.gatePassable && window.SSDNSAssetLibrary.gatePassable(t)) return false;
@@ -10893,7 +11016,7 @@ function clampFootprint(x, y, size, grid) {
 /** Tokens that block movement / placement for this viewer (players never collide with what they cannot see). */
 function blockingTokens(ignore) {
   const skip = ignore || {};
-  return state.tokens.filter(t => t && t.pos && !skip[t.id] && !(role !== 'dm' && t.hidden) && !(window.SSDNSAssetLibrary && window.SSDNSAssetLibrary.gatePassable && window.SSDNSAssetLibrary.gatePassable(t)));
+  return state.tokens.filter(t => t && t.pos && !skip[t.id] && !isPartyToken(t) && !(role !== 'dm' && t.hidden) && !(window.SSDNSAssetLibrary && window.SSDNSAssetLibrary.gatePassable && window.SSDNSAssetLibrary.gatePassable(t)));
 }
 function areaTaken(x, y, size, ignore) {
   const s = tokSquares(size);
@@ -11870,7 +11993,7 @@ function douseSelected(out) {
   if (q('randomizeLootBtn')) q('randomizeLootBtn').addEventListener('click', () => {
     const ids = (state.tokens || []).filter(t => {
       if (!t || !onViewedScene(t)) return false;
-      if (t.kind === 'player' || t.kind === 'asset' || t.kind === 'chest') return false;
+      if (t.kind === 'player' || t.kind === 'asset' || t.kind === 'chest' || isPartyToken(t)) return false;
       if (t.spellPiece || t.lootBoxId) return false;
       return true;
     }).map(t => t.id);
@@ -11880,10 +12003,12 @@ function douseSelected(out) {
     emit('loot:randomize', { tokenIds: ids, force: force });
   });
   q('addPcBtn').addEventListener('click', () => { addPlayerToken(); flashBtn('addPcBtn'); });
+  if (q('partyTokenBtn')) q('partyTokenBtn').addEventListener('click', () => { placePartyToken(); flashBtn('partyTokenBtn'); });
   q('dupTokenBtn').addEventListener('click', () => {
     const list = selectedTokens();
     if (!list.length) { toast('Select a token'); return; }
     const made = list.map((src, i) => cloneToken(src, 1, i)).filter(Boolean);
+    if (!made.length) return;
     state.selectedIds = made.map(t => t.id);
     state.selected = made[0];
     made.forEach(t => saveToken(t.id));
@@ -11896,8 +12021,8 @@ function douseSelected(out) {
   function setControl(grant) {
     const who = q('grantUid').value;
     if (!who) { toast('No player to grant'); return; }
-    const list = selectedTokens();
-    if (!list.length) { toast('Select a token'); return; }
+    const list = selectedTokens().filter(t => !isPartyToken(t));
+    if (!list.length) { toast(selectedTokens().some(isPartyToken) ? 'The party token stays with the DM' : 'Select a token'); return; }
     list.forEach(t => {
       t.controlledBy = t.controlledBy || [];
       if (grant && !t.controlledBy.includes(who)) t.controlledBy.push(who);
@@ -14652,6 +14777,24 @@ async function loadSceneImage(sceneId, opts) {
     }
     d.classList.remove('n62');
     const tokenId = state.drawerTokenId;
+    const partyTok = state.tokens.find(t => t && t.id === tokenId && isPartyToken(t));
+    if (partyTok) {
+      d.innerHTML = drawerHeadHtml(partyTok.label || 'Party', 'story') +
+        '<div class="ssm-drawer-body">' +
+        '<p class="ssm-tactics">Story marker for the whole party on this map. It has no HP, and it does not join the fight. Drag moves only this marker.</p>' +
+        '<label>Name <input data-act="partyName" maxlength="16" value="' + esc(partyTok.label || 'Party') + '" aria-label="Party token name"></label>' +
+        '<div class="ssm-row"><button type="button" data-act="partyDelete">Remove party token</button></div>' +
+        '</div>';
+      const c = d.querySelector('[data-act="drawerClose"]');
+      if (c) c.addEventListener('click', closeDrawer);
+      const nameBox = d.querySelector('[data-act="partyName"]');
+      if (nameBox) nameBox.addEventListener('change', () => { renamePartyToken(nameBox.value); });
+      const del = d.querySelector('[data-act="partyDelete"]');
+      if (del) del.addEventListener('click', () => { removePartyToken(); closeDrawer(); });
+      syncDockChrome(d);
+      done();
+      return;
+    }
     const assetTok = state.tokens.find(t => t && t.id === tokenId && t.kind === 'asset');
     if (assetTok) {
       const A = window.SSDNSAssetLibrary;
@@ -16039,6 +16182,11 @@ return {
     if (role === 'player') paintAddMine();
   },
   addPlayerTokenFor,
+  placePartyToken,
+  movePartyToken,
+  renamePartyToken,
+  removePartyToken,
+  mayDrag: function (id) { return canDrag(tokenByRef(id)); },
   ensureDefaultScene: ensureDefaultScene,
   maps: function () { return libraryApi(); },
   placeLinkedToken,
@@ -16136,6 +16284,7 @@ return {
       const b = worldToScreen((t.pos.x + sz) * px, (t.pos.y + sz) * px);
       return { id: t.id, label: t.label || t.name || '', kind: t.kind || '', size: sz, x: t.pos.x, y: t.pos.y,
         hidden: !!t.hidden, sceneId: t.sceneId || '', ownerUid: t.ownerUid || '',
+        story: isPartyToken(t), noInit: !!t.noInit, notTargetable: !!t.notTargetable, noHpPool: !!t.noHpPool,
         controlledBy: (t.controlledBy || []).slice(), spellPiece: t.spellPiece || '', zoneId: t.zoneId || '',
         budgetLeft: t.budgetLeft != null ? t.budgetLeft : null, image: t.image || '',
         screen: { x1: a.x, y1: a.y, x2: b.x, y2: b.y } };

@@ -1,6 +1,6 @@
 /**
  * Spell QA: Flaming Sphere cast log and the blank-die class
- * (sheet 0.3.266 / DMCC 0.2.279).
+ * (sheet 0.3.269 / DMCC 0.2.282).
  *   node tools/test-spell-qa-03256.mjs
  * rules.js is not regenerated.
  */
@@ -18,8 +18,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.266" && ver.dmcc === "0.2.279" && ver.sheetBuild === "sheet-playtest-v03266" && ver.dmccBuild === "dmcc-playtest-v02279");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.266") && !read("database.rules.json").includes("0.3.266"));
+check("ver", ver.sheet === "0.3.269" && ver.dmcc === "0.2.282" && ver.sheetBuild === "sheet-playtest-v03269" && ver.dmccBuild === "dmcc-playtest-v02282");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.269") && !read("database.rules.json").includes("0.3.269"));
 check("bestiary.kept", read("dm/assets/js/v2.js").includes("bestiary.json?v=0.2.249-spell-tokens"));
 
 const context = { console, Math, Date, JSON, parseInt, isFinite, Number, String, Object, Array, Promise, RegExp };
