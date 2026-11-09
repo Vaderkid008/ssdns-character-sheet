@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.283"; // dmcc-playtest-v02283
+const VERSION = "0.2.284"; // dmcc-playtest-v02284
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";
@@ -813,7 +813,9 @@ async function pushRoll(entry) {
         text: text, kind: "roll", who: entry.who || "DM",
         formula: entry.plain ? "" : (entry.formula || ""),
         rolls: Array.isArray(entry.rolls) ? entry.rolls : null,
-        dice: Array.isArray(entry.dice) ? entry.dice : null
+        dice: Array.isArray(entry.dice) ? entry.dice : null,
+        faces: Array.isArray(entry.faces) ? entry.faces : null,
+        detail: entry.detail || ""
       };
       if (entry.die && entry.die.kind === "plain" && entry.die.fancy) {
         feed.die = {

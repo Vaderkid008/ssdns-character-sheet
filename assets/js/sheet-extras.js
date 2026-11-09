@@ -3159,8 +3159,11 @@
     }
     addLog({
       id: "roll:" + rollId,
-      kind: "roll", text: rolled.text, label: rolled.label, formula: rolled.formula,
-      attack: rolled.attack, nat: rolled.nat, crit: rolled.crit
+      kind: "roll", text: rolled.text, label: rolled.label,
+      formula: rolled.plain || rolled.zoneHold ? "" : rolled.formula,
+      detail: rolled.detail || rolled.text,
+      dice: rolled.dice || null, rolls: rolled.rolls || rolled.faces || null, faces: rolled.faces || rolled.rolls || null,
+      attack: rolled.attack, nat: rolled.nat, crit: rolled.crit, plain: !!rolled.plain
     });
     var spellFx = null;
     if (rolled.attack && !rolled.multi && rolled.nat != null) {
@@ -3196,10 +3199,14 @@
       root.SSDNSDmJoin.postRoll({
         id: rollId,
         label: rolled.label,
-        formula: rolled.plain ? "" : rolled.formula,
+        formula: rolled.plain || rolled.zoneHold ? "" : rolled.formula,
         result: rolled.plain ? null : rolled.result,
         plain: !!rolled.plain,
+        zoneHold: !!rolled.zoneHold,
         detail: rolled.detail,
+        dice: rolled.dice || null,
+        rolls: rolled.rolls || rolled.faces || null,
+        faces: rolled.faces || rolled.rolls || null,
         ac: rolled.heal ? null : acForRoll,
         nat1: false,
         isFirearm: !!fromChamber,
@@ -5371,7 +5378,7 @@
         text += " · " + ((placed.area && placed.area.label) || "5-foot-diameter sphere");
         postPlacedLooks(spellName, row, placed, rollId);
       }
-      addLog({ id: "roll:" + rollId, kind: "roll", text: text, label: rolled.label || spellName, formula: rolled.formula, attack: !!rolled.attack, nat: rolled.nat, crit: !!rolled.crit });
+      addLog({ id: "roll:" + rollId, kind: "roll", text: text, label: rolled.label || spellName, formula: rolled.zoneHold || rolled.plain ? "" : rolled.formula, detail: rolled.detail || text, dice: rolled.dice || null, rolls: rolled.rolls || rolled.faces || null, faces: rolled.faces || rolled.rolls || null, attack: !!rolled.attack, nat: rolled.nat, crit: !!rolled.crit, plain: !!rolled.plain });
       toast(text);
       if (placed && joined() && !whisperOn() && root.SSDNSDmJoin && root.SSDNSDmJoin.postDamage) {
         var full = Number(rolled.damageTotal != null ? rolled.damageTotal : rolled.result) || 0;

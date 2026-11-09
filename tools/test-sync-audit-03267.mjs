@@ -1,6 +1,6 @@
 /**
  * Player rolls and Challenge zooms show on the DM screen.
- * Sheet 0.3.270 / DMCC 0.2.283.
+ * Sheet 0.3.271 / DMCC 0.2.284.
  *   node tools/test-sync-audit-03267.mjs
  */
 import fs from "node:fs";
@@ -18,8 +18,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.270" && ver.dmcc === "0.2.283" && ver.sheetBuild === "sheet-playtest-v03270" && ver.dmccBuild === "dmcc-playtest-v02283");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.270") && !read("database.rules.json").includes("0.3.270"));
+check("ver", ver.sheet === "0.3.271" && ver.dmcc === "0.2.284" && ver.sheetBuild === "sheet-playtest-v03271" && ver.dmccBuild === "dmcc-playtest-v02284");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.271") && !read("database.rules.json").includes("0.3.271"));
 
 const v2 = read("dm/assets/js/v2.js");
 const fnAt = v2.indexOf("function feedZoomPlan");
@@ -51,8 +51,8 @@ check("dm.skipsTalk", plan({ id: "t1", ts: fresh, from: "player-1", kind: "roll"
 
 const sheet = read("index.html");
 const dm = read("dm/index.html");
-check("cache.sheet", sheet.includes("d20-zoom.js?v=0.3.270-challenge") && sheet.includes("dice-art.js?v=0.3.270-challenge") && sheet.includes("sfx.js?v=0.3.270-challenge") && sheet.includes("challenge-sfx.js?v=0.3.270-challsfx") && sheet.indexOf("challenge-sfx.js") < sheet.indexOf("d20-zoom.js") && sheet.includes("spell-tokens.js?v=0.3.172-n85") && sheet.includes("ssdns-map.js?v=0.3.270-hellmaker"));
-check("cache.dm", dm.includes("d20-zoom.js?v=0.2.283-challenge") && dm.includes("dice-art.js?v=0.2.283-challenge") && dm.includes("sfx.js?v=0.2.283-challenge") && dm.includes("challenge-sfx.js?v=0.2.283-challsfx") && dm.includes("v2.js?v=0.2.283-playfix") && dm.includes("supplies.js?v=0.2.181-supplies") && dm.includes("spell-tokens.js?v=0.2.185-n85") && dm.includes("ssdns-map.js?v=0.2.283-hellmaker"));
+check("cache.sheet", sheet.includes("d20-zoom.js?v=0.3.271-challenge") && sheet.includes("dice-art.js?v=0.3.271-challenge") && sheet.includes("sfx.js?v=0.3.271-challenge") && sheet.includes("challenge-sfx.js?v=0.3.271-challsfx") && sheet.indexOf("challenge-sfx.js") < sheet.indexOf("d20-zoom.js") && sheet.includes("spell-tokens.js?v=0.3.172-n85") && sheet.includes("ssdns-map.js?v=0.3.271-hellmaker"));
+check("cache.dm", dm.includes("d20-zoom.js?v=0.2.284-challenge") && dm.includes("dice-art.js?v=0.2.284-challenge") && dm.includes("sfx.js?v=0.2.284-challenge") && dm.includes("challenge-sfx.js?v=0.2.284-challsfx") && dm.includes("v2.js?v=0.2.284-playfix") && dm.includes("supplies.js?v=0.2.181-supplies") && dm.includes("spell-tokens.js?v=0.2.185-n85") && dm.includes("ssdns-map.js?v=0.2.284-hellmaker"));
 check("src.oneWatch", v2.split("function watchTableSfx").length === 2);
 check("src.noRebind", v2.includes("if (fight._sfxRoom === room && fight._sfxUnsub && DM.state.unsubs.indexOf(fight._sfxUnsub) >= 0) return;"));
 const join = read("assets/js/dm-join.js");
