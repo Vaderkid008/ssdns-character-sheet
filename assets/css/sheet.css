@@ -718,6 +718,17 @@ html, body { overflow-x: hidden; }
   body:not(.sheet-dock-collapsed) .dice-tray,
   body:not(.sheet-dock-collapsed) main { margin-right: 300px; }
   body:not(.sheet-dock-collapsed) .turn-panel { max-width: calc(100% - 324px); }
+  /* The parchment is centered in the column beside the table log. The tab row
+     used to take the leftover space on the right, so a wide or zoomed-out
+     window parked Main through Log on the dark page. */
+  body:not(.sheet-dock-collapsed) .tabs {
+    box-sizing: border-box;
+    width: min(1200px, calc(100% - 300px - 24px));
+    max-width: min(1200px, calc(100% - 300px - 24px));
+    margin-left: calc(12px + max(0px, (100% - 300px - 24px - 1200px) / 2));
+    margin-right: auto;
+    overflow-x: auto;
+  }
   body.sheet-dock-collapsed .sheet-dock { width: 48px; }
   body.sheet-dock-collapsed .dock-filters,
   body.sheet-dock-collapsed .dock-feed,
