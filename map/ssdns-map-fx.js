@@ -6875,6 +6875,10 @@ function beadsPaint(ctx, A, B, lt, seed) {
       ctx.lineTo(A.x + Math.cos(angc + 0.42) * len, A.y + Math.sin(angc + 0.42) * len);
       ctx.closePath();
       ctx.fill();
+      if ((look === "terror" || look === "limelight") && lt < 700) {
+        var tip = { x: A.x + Math.cos(angc) * len * 0.62, y: A.y + Math.sin(angc) * len * 0.62 };
+        gritBurst(ctx, tip.x, tip.y, lt, 700, 14, look === "terror" ? 92 : 93, rad * 1.6, look === "terror" ? ["150,70,170", "95,80,60"] : ["220,170,90", "95,80,60"], 4);
+      }
       ctx.restore();
       return;
     }
@@ -6901,7 +6905,10 @@ function beadsPaint(ctx, A, B, lt, seed) {
       ctx.beginPath();
       ctx.arc(at.x, at.y, rad * (kind === "held" ? 1.16 : 1.08), 0, Math.PI * 2);
       ctx.stroke();
-      var wrapGrit = { foxfire: ["150,120,170", "95,80,60"], brass: ["220,180,90", "95,80,60"], molasses: ["225,160,60", "95,80,60"], lasso: ["95,220,205", "95,80,60"] };
+      var wrapGrit = {
+        foxfire: ["150,120,170", "95,80,60"], brass: ["220,180,90", "95,80,60"], molasses: ["225,160,60", "95,80,60"], lasso: ["95,220,205", "95,80,60"],
+        jinx: ["120,30,30", "95,80,60"], flight: ["200,185,160", "95,80,60"], haze: ["230,180,110", "95,80,60"], tintype: ["200,205,205", "95,80,60"]
+      };
       if (wrapGrit[look] && lt < 700) gritBurst(ctx, at.x, at.y, lt, 700, 12, 80, rad * 1.4, wrapGrit[look], 3);
       if (look === "tintype") {
         var ghost;
