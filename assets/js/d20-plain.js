@@ -4,9 +4,11 @@
    hold, no long suspense, no gold Love-it ring, no CRITICAL / FAIL.
    The reserved show is only for a gold Challenge roll (fancy / suspense):
    blank until the number stamps (~1.05s), and nat 20 / nat 1 stay blank 2–3×
-   longer before d20-zoom.js plays forge / FAIL. This file does not draw
-   CRITICAL, FAIL, forge, or crack. Map Effects off and reduced motion skip to
-   the landed number. Tap, Esc, Space, or Enter mid-spin does the same. */
+   longer before d20-zoom.js plays forge / FAIL. A Challenge 2–19 stays on
+   screen until a click or Escape, with a small "click to close" hint.
+   This file does not draw CRITICAL, FAIL, forge, or crack. Map Effects off
+   and reduced motion skip to the landed number. Tap, Esc, Space, or Enter
+   mid-spin does the same. Ordinary spins still close on their own. */
 (function (root) {
   "use strict";
 
@@ -327,6 +329,11 @@
       ".d20-plain-skip{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);z-index:2;",
       "background:rgba(28,20,12,.9);color:#f4e6c4;border:1px solid #c4a574;border-radius:999px;",
       "padding:8px 16px;font:600 14px/1 system-ui,sans-serif;cursor:pointer;}",
+      ".d20-plain.is-hold .d20-plain-skip{display:none;}",
+      ".d20-plain-hint{position:absolute;left:0;right:0;bottom:28px;margin:0;text-align:center;z-index:2;",
+      "font:500 13px/1 system-ui,sans-serif;letter-spacing:.06em;color:rgba(244,230,196,.62);",
+      "opacity:0;pointer-events:none;}",
+      ".d20-plain.is-hold .d20-plain-hint{opacity:.85;}",
       "@media (prefers-reduced-motion:reduce){.d20-plain-ring{animation:none!important}}"
     ].join("");
     root.document.head.appendChild(style);
@@ -367,7 +374,9 @@
       kind: normal ? "spin" : (suspense ? (spec.kind === "fumble" || value === 1 ? "fumble" : "crit") : "plain"),
       motion: normal ? "spin" : (spec.motion || (suspense ? "" : "fast")),
       who: spec.who || "",
-      label: spec.label || ""
+      label: spec.label || "",
+      fancy: !!(spec.fancy || spec.challenge),
+      challenge: !!spec.challenge
     };
   }
   function play(spec) {
@@ -402,6 +411,9 @@
         if (raf && root.cancelAnimationFrame) root.cancelAnimationFrame(raf);
         clearTimeout(raf);
         clearTimeout(timer);
+        if (sticky && root.SSDNSChallengeSfx && typeof root.SSDNSChallengeSfx.stop === "function") {
+          try { root.SSDNSChallengeSfx.stop(); } catch (eStop) {}
+        }
         if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
         if (root.document && root.document.body) root.document.body.classList.remove("d20-plain-open");
         if (root.document) root.document.removeEventListener("keydown", onKey, true);
@@ -409,6 +421,14 @@
       }
       var suspense = !!spec.suspense;
       var normal = !!spec.normal;
+      var sticky = !!spec.fancy && !suspense && !normal;
+      var ticked = false;
+      function noteChallengeTick() {
+        if (ticked || !sticky) return;
+        ticked = true;
+        var S = root.SSDNSChallengeSfx;
+        if (S && typeof S.mid === "function") { try { S.mid(); } catch (eTick) {} }
+      }
       function draw(t) {
         var wide = spin && spin.offsetWidth ? spin.offsetWidth : 280;
         var fr = normal
@@ -436,11 +456,16 @@
           layer.classList.add("is-land");
           landed = true;
           paintStage(spec.value);
+          if (sticky) noteChallengeTick();
         }
         return fr;
       }
       function holdThenClose() {
         clearTimeout(timer);
+        if (sticky) {
+          if (layer) layer.classList.add("is-hold");
+          return;
+        }
         timer = setTimeout(finish, (normal ? 0.35 : HOLD_AFTER) * 1000);
       }
       function skip() {
@@ -452,6 +477,7 @@
         if (layer) layer.classList.add(normal ? "is-normal" : "is-land");
         landed = true;
         paintStage(spec.value);
+        if (sticky) noteChallengeTick();
         holdThenClose();
       }
       function onKey(e) {
@@ -490,6 +516,7 @@
         '<div class="d20-plain-mover"><div class="d20-plain-spin" data-plain-die><img src="' + dieSrc() + '" alt="">' +
         '<div class="d20-plain-num" data-plain-num></div></div></div></div>' +
         '<p class="d20-plain-label"></p>' +
+        (sticky ? '<p class="d20-plain-hint">click to close</p>' : "") +
         '<button type="button" class="d20-plain-skip">Tap to skip</button>';
       var lab = layer.querySelector(".d20-plain-label");
       if (lab) lab.textContent = label;
@@ -507,6 +534,7 @@
         layer.classList.add(normal ? "is-normal" : "is-land");
         landed = true;
         paintStage(spec.value);
+        if (sticky) noteChallengeTick();
         holdThenClose();
         return;
       }

@@ -145,8 +145,8 @@ const sheet = read("assets/js/sheet-extras.js");
 check("map.tint", map.includes("fxHealSlot") && map.includes("healIndex") && map.includes('look === "massword"'));
 check("wire.dm", dm.includes("function chipsPresent") && dm.includes("fxExtra.cleared") && dm.includes("healed.slice(1)"));
 check("wire.sheet", sheet.includes("function healFxExtra") && sheet.includes("extra.cleared"));
-check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.265-p1c") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.278-p1c"));
-check("ver", JSON.parse(read("version.json")).sheet === "0.3.265" && JSON.parse(read("version.json")).dmcc === "0.2.278");
+check("src.fx", read("index.html").includes("map/ssdns-map-fx.js?v=0.3.266-p1c") && read("dm/index.html").includes("../map/ssdns-map-fx.js?v=0.2.279-p1c"));
+check("ver", JSON.parse(read("version.json")).sheet === "0.3.266" && JSON.parse(read("version.json")).dmcc === "0.2.279");
 
 console.log(failures.length ? "\n" + failures.length + " FAILED" : "\nall chunk6 fx checks passed");
 process.exit(failures.length ? 1 : 0);

@@ -23,6 +23,8 @@
    A short shooter id is used only when none of those is set. The same zoom
    pack goes out on the roll feed, so the whole room sees that name.
    Tap, Escape, Enter, or Space mid-spin skips to the landed crit or FAIL card.
+   That landed Challenge card stays until a click or Escape. It does not time out.
+   A small "click to close" hint shows once the result is on screen.
    Map Effects off and reduced motion skip the tumble and show that landed card.
    Tumble cue by motion: fiery roll prefers d20-roll-fire else roll-d20; C1 is
    roll-d20; slam prefers d20-slam else d20-whoosh else roll-d20; C3 prefers
@@ -36,7 +38,6 @@
 (function (root) {
   "use strict";
 
-  var HOLD_MS = 700;
   var C2_LAND_MS = 2850;
   var C2_TOTAL_MS = 4000;
   var MOTIONS = ["roll", "c1", "c2", "c3"];
@@ -118,6 +119,12 @@
   /* Jessey's Challenge clips. Nat 20 first, fail second. This overlay only. */
   function challengeSting(crit) {
     return crit ? "challenge-nat20-crit" : "challenge-fail";
+  }
+  /* The land sting plays out while the card is up. Dismiss cuts it. A timer does not. */
+  function stopChallengeSting() {
+    var A = root.SSDNSAudio;
+    if (!A || typeof A.stop !== "function") return;
+    try { A.stop(challengeSting(true)); A.stop(challengeSting(false)); } catch (e) {}
   }
   function cleanName(v) {
     return String(v == null ? "" : v).replace(/\s+/g, " ").trim();
@@ -249,6 +256,11 @@
       ".d20-zoom-skip{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);z-index:6;",
       "background:rgba(28,20,12,.9);color:#f4e6c4;border:1px solid #c4a574;border-radius:999px;",
       "padding:8px 16px;font:600 14px/1 system-ui,sans-serif;cursor:pointer;}",
+      ".d20-zoom.is-hold .d20-zoom-skip{display:none;}",
+      ".d20-zoom-hint{position:absolute;left:0;right:0;bottom:28px;margin:0;text-align:center;z-index:6;",
+      "font:500 13px/1 system-ui,sans-serif;letter-spacing:.06em;color:rgba(244,230,196,.62);",
+      "opacity:0;pointer-events:none;}",
+      ".d20-zoom.is-hold .d20-zoom-hint{opacity:.85;}",
       ".d20-zoom-spin.is-fallback .die-face{background:#1a3a36;border-radius:18px;border:6px solid #e8dcc8;}",
       ".d20-zoom-spin.is-fallback img{opacity:0;}",
       ".d20-zoom-rawnum{position:absolute;inset:0;display:grid;place-items:center;font:800 72px/1 Georgia,serif;color:#4fdccb;}",
@@ -269,6 +281,12 @@
       ".d20-zoom.is-bump.is-land .d20-zoom-spin{animation:d20-bump .28s ease-out both;}",
       "@keyframes d20-bump{0%{transform:scale(1.12)}100%{transform:scale(1)}}",
       ".d20-zoom.is-motion-c2 .d20-zoom-spin{animation:d20-c2 4s linear both;}",
+      ".d20-zoom.is-ch-timed.is-motion-c2 .d20-zoom-spin{animation-name:d20-c2-ch;animation-duration:850ms;animation-timing-function:cubic-bezier(.35,.1,.3,1);}",
+      "@keyframes d20-c2-ch{0%{transform:scale(.45) rotate(0deg);filter:blur(6px);opacity:.3}",
+      "55%{transform:scale(.8) rotate(900deg);filter:blur(5px);opacity:1}",
+      "76%{transform:scale(1.3) rotate(1062deg);filter:blur(0)}",
+      "87%{transform:scale(.9) rotate(1080deg);filter:blur(0)}",
+      "100%{transform:scale(1) rotate(1080deg);filter:none;opacity:1}}",
       "@keyframes d20-c2{0%{transform:scale(.30) rotate(0deg);filter:blur(9px);opacity:.4}",
       "20%{transform:scale(.48) rotate(900deg);filter:blur(6px);opacity:1}",
       "40%{transform:scale(.70) rotate(1440deg);filter:blur(2px)}",
@@ -428,10 +446,13 @@
       var fx = null;
       var crit = kind === "crit";
       var reduced = reducedMotion() || !effectsOn();
-      var motion = reduced ? "still" : ((ev && MOTIONS.indexOf(ev.motion) >= 0) ? ev.motion : pickMotion());
-      var motionMs = reduced ? 0 : (MOTION_MS[motion] || 900);
+      var picked = (ev && MOTIONS.indexOf(ev.motion) >= 0) ? ev.motion : pickMotion();
+      var pack = root.SSDNSChallengeSfx;
+      var show = pack && typeof pack.plan === "function" ? pack.plan(picked, crit) : null;
+      var motion = reduced ? "still" : picked;
+      var motionMs = reduced ? 0 : (show ? show.landAt : (MOTION_MS[motion] || 900));
       var spinDir = ev && ev.dir === -1 ? -1 : 1;
-      var useC2 = motion === "c2" && !reduced && root.SSDNSPlainRoll && typeof root.SSDNSPlainRoll.c2Frame === "function";
+      var useC2 = !show && motion === "c2" && !reduced && root.SSDNSPlainRoll && typeof root.SSDNSPlainRoll.c2Frame === "function";
       var started = Date.now();
       var zoomId = String((ev && (ev.id || ev.rollId)) || "");
       var snapped = false;
@@ -453,6 +474,8 @@
         if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
         if (root.document && root.document.body) root.document.body.classList.remove("d20-zoom-open");
         if (root.document) root.document.removeEventListener("keydown", onKey, true);
+        if (pack && typeof pack.stop === "function") { try { pack.stop(); } catch (eStop) {} }
+        stopChallengeSting();
         resolve();
       }
       function onKey(e) {
@@ -470,6 +493,7 @@
       layer = root.document.createElement("div");
       var failC2 = useC2 && !crit;
       var motionCls = reduced ? " is-reduced" : (useC2 ? " is-c2" : (" is-motion-" + motion + (motion === "c2" ? " is-c2" : "")));
+      if (show) motionCls += " is-ch-timed";
       layer.className = "d20-zoom " + (crit ? "is-crit" : "is-fail") + motionCls + (failC2 ? " is-fail-c2" : "");
       layer.setAttribute("data-motion", motion);
       layer.setAttribute("role", "dialog");
@@ -494,6 +518,7 @@
         '<canvas class="d20-zoom-front"></canvas>' +
         '<p class="d20-zoom-who" data-zoom-who hidden></p>' +
         '<p class="d20-zoom-word">' + (crit ? "Critical" : "Fail") + "</p>" +
+        '<p class="d20-zoom-hint" data-zoom-hint>click to close</p>' +
         '<button type="button" class="d20-zoom-skip">Tap to skip</button>';
       root.document.body.classList.add("d20-zoom-open");
       root.document.body.appendChild(layer);
@@ -502,7 +527,8 @@
       watchArt(spin);
       fx = makeFx(layer.querySelector(".d20-zoom-back"), layer.querySelector(".d20-zoom-front"));
       paintWho(layer, ev);
-      if (!reduced) cueFirst(tumbleCues(motion));
+      if (show && pack && typeof pack.begin === "function") { try { pack.begin(show); } catch (eBegin) {} }
+      else if (!reduced) cueFirst(tumbleCues(motion));
       function skipTo() { if (landed) finish(); else land(true); }
       openSkip = skipTo;
       layer.addEventListener("click", skipTo);
@@ -711,9 +737,9 @@
             });
           }
         }
-        cueFirst([challengeSting(crit)]);
-        var hold = (!skip && motion === "c2" && !reduced) ? Math.max(HOLD_MS, C2_TOTAL_MS - motionMs) : HOLD_MS;
-        later(finish, hold);
+        if (show && pack && typeof pack.land === "function") { try { pack.land(show); } catch (eLand) {} }
+        else cueFirst([challengeSting(crit)]);
+        layer.classList.add("is-hold");
       }
 
       if (reduced || motionMs <= 0) land(true);
