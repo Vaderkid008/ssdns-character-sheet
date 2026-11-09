@@ -2841,7 +2841,7 @@ function zoneLoopLive() {
   zones.forEach(z => {
     if (!z) return;
     if (z.key === "guardian of faith") guard = true;
-    if (chunk4ZoneKey(z.key)) { live[zoneFxId(z)] = 1; hit = true; }
+    if (chunk4ZoneKey(z.key) || z.key === "call lightning") { live[zoneFxId(z)] = 1; hit = true; }
     if (z.key !== "wall of fire") return;
     live[zoneFxId(z)] = 1;
     hit = true;
@@ -3137,6 +3137,14 @@ function paintSpellZones() {
       const cell = px * (state.view.zoom || 1);
       const C = worldToScreen(Number(zone.origin.x) * px, Number(zone.origin.y) * px);
       try { FXA.hailIdle(ctx, C, cell, zone.id || "ice"); } catch (eIce) {}
+      paintZonePulse(zone, px);
+      return;
+    }
+    if (zone.key === "call lightning" && FXA && FXA.stormIdle) {
+      const cell = px * (state.view.zoom || 1);
+      const C = worldToScreen(Number(zone.origin.x) * px, Number(zone.origin.y) * px);
+      try { FXA.stormIdle(ctx, C, cell, zone.id || "storm"); } catch (eStorm) {}
+      paintLastingZoneDisc(zone, px);
       paintZonePulse(zone, px);
       return;
     }
