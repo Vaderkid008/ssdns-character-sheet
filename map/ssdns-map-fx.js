@@ -6835,6 +6835,11 @@ function beadsPaint(ctx, A, B, lt, seed) {
       }
       if (look === "briar" && lt < 800) gritBurst(ctx, at.x, at.y, lt, 800, 14, 61, rad * 1.6, ["70,62,38", "95,80,60"], 5);
       if (look === "cholla" && at && lt < 800) gritBurst(ctx, at.x, at.y, lt, 800, 16, 55, rad * 1.8, ["215,190,130", "95,80,60"], 4);
+      var zoneGrit = {
+        darkvoid: ["95,80,60", "40,36,32"], silk: ["220,215,200", "95,80,60"], hush: ["190,190,180", "95,80,60"],
+        mesmer: ["210,150,170", "95,80,60"], gutfog: ["120,105,60", "95,80,60"], tentacles: ["95,220,205", "95,80,60"]
+      };
+      if (zoneGrit[look] && at && lt < 800) gritBurst(ctx, at.x, at.y, lt, 800, 14, 64, rad * 1.7, zoneGrit[look], 4);
       if (look === "silk" || look === "briar" || look === "tentacles") {
         var arm;
         ctx.strokeStyle = rgba(col, 0.75 * f);
@@ -6907,7 +6912,8 @@ function beadsPaint(ctx, A, B, lt, seed) {
       ctx.stroke();
       var wrapGrit = {
         foxfire: ["150,120,170", "95,80,60"], brass: ["220,180,90", "95,80,60"], molasses: ["225,160,60", "95,80,60"], lasso: ["95,220,205", "95,80,60"],
-        jinx: ["120,30,30", "95,80,60"], flight: ["200,185,160", "95,80,60"], haze: ["230,180,110", "95,80,60"], tintype: ["200,205,205", "95,80,60"]
+        jinx: ["120,30,30", "95,80,60"], flight: ["200,185,160", "95,80,60"], haze: ["230,180,110", "95,80,60"], tintype: ["200,205,205", "95,80,60"],
+        agathys: ["200,225,250", "95,80,60"]
       };
       if (wrapGrit[look] && lt < 700) gritBurst(ctx, at.x, at.y, lt, 700, 12, 80, rad * 1.4, wrapGrit[look], 3);
       if (look === "tintype") {
@@ -6954,6 +6960,9 @@ function beadsPaint(ctx, A, B, lt, seed) {
         ctx.fill();
       }
       if (lt > time.grow && B) bloom(ctx, B, 14, lt - time.grow, col, col, 2);
+      if ((look === "chloroform" || look === "snap") && B && lt > time.grow && lt - time.grow < 700) {
+        gritBurst(ctx, B.x, B.y, lt - time.grow, 700, 12, look === "snap" ? 94 : 95, rad * 1.2, look === "snap" ? ["95,220,205", "95,80,60"] : ["190,175,210", "95,80,60"], 3);
+      }
       ctx.restore();
       return;
     }
