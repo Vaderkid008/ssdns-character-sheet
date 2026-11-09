@@ -1482,7 +1482,9 @@
         "#ssdns-challenge .fine{margin:0 0 12px;opacity:.75;font-size:13px;}",
         "#ssdns-challenge button.opt{display:flex;justify-content:space-between;width:100%;margin:0 0 8px;padding:10px 12px;border-radius:10px;border:1px solid #8a7048;background:#24180f;color:#f4e6c4;font:600 15px/1.2 system-ui;cursor:pointer;}",
         "#ssdns-challenge button.opt.on{border-color:#e2c56a;box-shadow:0 0 0 2px rgba(226,197,106,.35);}",
-        "#ssdns-challenge .roll{width:100%;margin-top:8px;padding:12px;border-radius:12px;border:2px solid #e2c56a;background:#3d2e18;color:#e2c56a;font:800 16px/1 Georgia,serif;letter-spacing:.04em;cursor:pointer;}",
+        "#ssdns-challenge button.die{display:grid;place-items:center;width:100%;margin:4px 0 0;padding:8px 0 0;border:0;background:transparent;cursor:pointer;}",
+        "#ssdns-challenge button.die .die-face{width:168px;height:168px;}",
+        "#ssdns-challenge .tap{margin:2px 0 0;text-align:center;font-size:12px;letter-spacing:.04em;color:#e2c56a;}",
         "#ssdns-challenge .later{margin:8px 0 0;font-size:12px;opacity:.6;}"
       ].join("");
       root.document.head.appendChild(style);
@@ -1490,7 +1492,11 @@
     var host = root.document.createElement("div");
     host.id = "ssdns-challenge";
     var dcText = payload.dc != null && payload.dc !== "" ? (" · DC " + payload.dc) : "";
-    host.innerHTML = '<div class="card" role="dialog" aria-label="DM challenge"><h2></h2><p class="fine"></p><div class="opts"></div><button type="button" class="roll">ROLL 1d20 + bonus</button><p class="later">Ask for help later. A nearby Storyteller must agree before it stacks.</p></div>';
+    host.innerHTML = '<div class="card" role="dialog" aria-label="DM challenge"><h2></h2><p class="fine"></p><div class="opts"></div><button type="button" class="die" data-challenge-die aria-label="Click the die to roll"></button><p class="tap">Click the die to roll</p><p class="later">Ask for help later. A nearby Storyteller must agree before it stacks.</p></div>';
+    var dieBtn = host.querySelector("[data-challenge-die]");
+    var Dice = root.SSDNSDice;
+    if (Dice && typeof Dice.faceHtml === "function") dieBtn.innerHTML = Dice.faceHtml(20, "", 168);
+    else dieBtn.innerHTML = '<span class="die-face" data-sides="20" style="width:168px;height:168px"><img src="assets/img/dice/d20.webp" alt="d20"></span>';
     host.querySelector("h2").textContent = payload.label || payload.check || "Challenge";
     host.querySelector(".fine").textContent = "DM challenge" + dcText + " · you were asked to roll";
     var box = host.querySelector(".opts");
@@ -1509,7 +1515,7 @@
       });
       box.appendChild(b);
     });
-    host.querySelector(".roll").addEventListener("click", function () {
+    dieBtn.addEventListener("click", function () {
       if (host.parentNode) host.parentNode.removeChild(host);
       var bonus = picked ? picked.bonus : 0;
       var nat = 1 + Math.floor(Math.random() * 20);

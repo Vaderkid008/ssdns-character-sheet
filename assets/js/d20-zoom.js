@@ -26,10 +26,11 @@
    Map Effects off and reduced motion skip the tumble and show that landed card.
    Tumble cue by motion: fiery roll prefers d20-roll-fire else roll-d20; C1 is
    roll-d20; slam prefers d20-slam else d20-whoosh else roll-d20; C3 prefers
-   d20-whoosh else roll-d20. Land sting is d20-crit/nat20 or d20-fumble/nat1,
-   except slam prefers d20-impact first. Not in the pack yet (hooks only):
+   d20-whoosh else roll-d20. The Challenge land sting is challenge-nat20-crit
+   on a nat 20 and challenge-fail on a nat 1. It plays once, on this overlay
+   only, when CRITICAL or FAIL is revealed. A 2–19 and any other d20 do not
+   play those clips. Not in the pack yet (hooks only):
    d20-roll-fire, d20-slam, d20-whoosh, d20-impact, d20-crit, d20-fumble.
-   This file does not invent audio.
    Embers, gunsmoke, the crack, and the plum haze are CSS and canvas. Transparent
    sprites can replace them later; nothing here waits on Art Bot. */
 (function (root) {
@@ -113,6 +114,10 @@
     var sting = crit ? ["d20-crit", "nat20"] : ["d20-fumble", "nat1"];
     if (motion === "c2") return ["d20-impact"].concat(sting);
     return sting;
+  }
+  /* Jessey's Challenge clips. Nat 20 first, fail second. This overlay only. */
+  function challengeSting(crit) {
+    return crit ? "challenge-nat20-crit" : "challenge-fail";
   }
   function cleanName(v) {
     return String(v == null ? "" : v).replace(/\s+/g, " ").trim();
@@ -706,7 +711,7 @@
             });
           }
         }
-        if (!reduced && !skip) cueFirst(landCues(motion, crit));
+        cueFirst([challengeSting(crit)]);
         var hold = (!skip && motion === "c2" && !reduced) ? Math.max(HOLD_MS, C2_TOTAL_MS - motionMs) : HOLD_MS;
         later(finish, hold);
       }
@@ -865,7 +870,8 @@
     motionMs: { roll: MOTION_MS.roll, c1: MOTION_MS.c1, c2: MOTION_MS.c2, c3: MOTION_MS.c3, c2Total: C2_TOTAL_MS },
     pickMotion: pickMotion,
     rollerName: rollerName,
-    cues: { tumble: tumbleCues, land: landCues },
+    cues: { tumble: tumbleCues, land: landCues, challenge: { crit: "challenge-nat20-crit", fail: "challenge-fail" } },
+    challengeSting: challengeSting,
     install: install
   };
   install();
