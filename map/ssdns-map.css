@@ -1411,6 +1411,97 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
   text-transform: uppercase; padding: 12px 18px; border: 2px solid #ffd0c8; border-radius: 6px;
   box-shadow: 0 10px 28px rgba(0,0,0,.45); font-family: "Oswald", "Arial Narrow", sans-serif;
 }
+/* Combat stinger. Forge-stamp slam, same family as the d20 word slam: start large, land, hold, fade.
+   One overlay for every round number. No baked per-round art. */
+.ssm-stinger {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 46%, rgba(92, 62, 36, 0.42) 0%, rgba(28, 18, 12, 0.55) 38%, rgba(6, 4, 3, 0.92) 72%, #050302 100%),
+    repeating-linear-gradient(118deg, rgba(255, 236, 200, 0.015) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(12deg, rgba(0, 0, 0, 0.18) 0 1px, transparent 1px 11px),
+    #1a120e;
+}
+.ssm-stinger.is-on { display: flex; }
+.ssm-stinger-plate {
+  width: min(920px, 92%);
+  text-align: center;
+  color: #e4d5b8;
+  font-family: "Times New Roman", Georgia, serif;
+  text-shadow:
+    0 0 8px rgba(176, 206, 96, 0.55),
+    0 0 18px rgba(120, 150, 64, 0.28),
+    0 2px 0 #3d2e1c,
+    0 10px 22px rgba(0, 0, 0, 0.8);
+}
+.ssm-stinger.is-on .ssm-stinger-plate { animation: ssm-stinger-slam 2.3s cubic-bezier(.15, .8, .2, 1) both; }
+.ssm-stinger.is-hold .ssm-stinger-plate { animation: none; opacity: 1; transform: none; filter: none; }
+@keyframes ssm-stinger-slam {
+  0% { opacity: 0; transform: scale(1.35) translateY(-4%); filter: brightness(1.7); }
+  14% { opacity: 1; transform: scale(0.97) translateY(0); filter: brightness(1.12); }
+  20% { opacity: 1; transform: scale(1); filter: brightness(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.ssm-stinger-rule {
+  position: relative;
+  height: 14px;
+  margin: 10px auto;
+  width: min(640px, 88%);
+}
+.ssm-stinger-rule::before {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 6px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #8d877c 18%, #c9c2b4 50%, #8d877c 82%, transparent);
+}
+.ssm-stinger-rule::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  width: 9px;
+  height: 9px;
+  transform: translateX(-50%) rotate(45deg);
+  border: 1px solid #b7b1a4;
+  background: #16100c;
+  box-shadow: -220px 0 0 -3px #9a9488, 220px 0 0 -3px #9a9488;
+}
+.ssm-stinger-word {
+  font-size: clamp(52px, 9vw, 104px);
+  line-height: 0.9;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+}
+.ssm-stinger-kicker {
+  font-size: clamp(28px, 4.6vw, 54px);
+  letter-spacing: 0.18em;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.ssm-stinger-num {
+  font-size: clamp(96px, 18vw, 210px);
+  line-height: 0.82;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ssm-stinger.is-on .ssm-stinger-plate { animation: ssm-stinger-fade 1.1s ease both; }
+}
+@keyframes ssm-stinger-fade {
+  0% { opacity: 0; }
+  12% { opacity: 1; }
+  72% { opacity: 1; }
+  100% { opacity: 0; }
+}
 .ssm-turnpop.is-on { animation: ssm-turnpop 1.8s ease forwards; }
 @keyframes ssm-turnpop {
   0% { opacity: 0; transform: translateX(-50%) translateY(6px); }
