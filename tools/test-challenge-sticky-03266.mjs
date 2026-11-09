@@ -60,6 +60,7 @@ w.SSDNSApp = {
 w.SSDNSTestRoll = () => 20;
 const ctx = dom.getInternalVMContext();
 vm.runInContext(read("assets/js/dice-art.js"), ctx);
+vm.runInContext(read("assets/js/challenge-sfx.js"), ctx);
 vm.runInContext(read("assets/js/d20-plain.js"), ctx);
 vm.runInContext(read("assets/js/d20-zoom.js"), ctx);
 vm.runInContext(read("assets/js/dm-join.js"), ctx);
@@ -70,10 +71,13 @@ const critP = Z.play({ nat: 20, fancy: true, challenge: true, id: "hold20" });
 await flush(900);
 const crit = w.document.querySelector(".d20-zoom");
 check("hold.crit", !!crit && crit.classList.contains("is-hold") && crit.querySelector("[data-zoom-hint]").textContent === "click to close", crit && crit.className);
-check("hold.sting", heard[0] === "challenge-nat20-crit" && stopped.length === 0, heard.join(",") + " stop " + stopped.join(","));
+const sting = w.SSDNSChallengeSfx.trace().some((row) => row.kind === "play" && String(row.file).indexOf("challenge-nat20-crit.wav") >= 0);
+const stopsBefore = w.SSDNSChallengeSfx.trace().filter((row) => row.kind === "stop").length;
+check("hold.sting", sting && heard.length === 0, heard.join(","));
 crit.click();
 await critP;
-check("click.crit", !w.document.querySelector(".d20-zoom") && stopped.includes("challenge-nat20-crit") && stopped.includes("challenge-fail"));
+const stopsAfter = w.SSDNSChallengeSfx.trace().filter((row) => row.kind === "stop").length;
+check("click.crit", !w.document.querySelector(".d20-zoom") && stopsAfter > stopsBefore);
 
 heard.length = 0;
 stopped.length = 0;

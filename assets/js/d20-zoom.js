@@ -281,6 +281,12 @@
       ".d20-zoom.is-bump.is-land .d20-zoom-spin{animation:d20-bump .28s ease-out both;}",
       "@keyframes d20-bump{0%{transform:scale(1.12)}100%{transform:scale(1)}}",
       ".d20-zoom.is-motion-c2 .d20-zoom-spin{animation:d20-c2 4s linear both;}",
+      ".d20-zoom.is-ch-timed.is-motion-c2 .d20-zoom-spin{animation-name:d20-c2-ch;animation-duration:850ms;animation-timing-function:cubic-bezier(.35,.1,.3,1);}",
+      "@keyframes d20-c2-ch{0%{transform:scale(.45) rotate(0deg);filter:blur(6px);opacity:.3}",
+      "55%{transform:scale(.8) rotate(900deg);filter:blur(5px);opacity:1}",
+      "76%{transform:scale(1.3) rotate(1062deg);filter:blur(0)}",
+      "87%{transform:scale(.9) rotate(1080deg);filter:blur(0)}",
+      "100%{transform:scale(1) rotate(1080deg);filter:none;opacity:1}}",
       "@keyframes d20-c2{0%{transform:scale(.30) rotate(0deg);filter:blur(9px);opacity:.4}",
       "20%{transform:scale(.48) rotate(900deg);filter:blur(6px);opacity:1}",
       "40%{transform:scale(.70) rotate(1440deg);filter:blur(2px)}",
@@ -440,10 +446,13 @@
       var fx = null;
       var crit = kind === "crit";
       var reduced = reducedMotion() || !effectsOn();
-      var motion = reduced ? "still" : ((ev && MOTIONS.indexOf(ev.motion) >= 0) ? ev.motion : pickMotion());
-      var motionMs = reduced ? 0 : (MOTION_MS[motion] || 900);
+      var picked = (ev && MOTIONS.indexOf(ev.motion) >= 0) ? ev.motion : pickMotion();
+      var pack = root.SSDNSChallengeSfx;
+      var show = pack && typeof pack.plan === "function" ? pack.plan(picked, crit) : null;
+      var motion = reduced ? "still" : picked;
+      var motionMs = reduced ? 0 : (show ? show.landAt : (MOTION_MS[motion] || 900));
       var spinDir = ev && ev.dir === -1 ? -1 : 1;
-      var useC2 = motion === "c2" && !reduced && root.SSDNSPlainRoll && typeof root.SSDNSPlainRoll.c2Frame === "function";
+      var useC2 = !show && motion === "c2" && !reduced && root.SSDNSPlainRoll && typeof root.SSDNSPlainRoll.c2Frame === "function";
       var started = Date.now();
       var zoomId = String((ev && (ev.id || ev.rollId)) || "");
       var snapped = false;
@@ -465,6 +474,7 @@
         if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
         if (root.document && root.document.body) root.document.body.classList.remove("d20-zoom-open");
         if (root.document) root.document.removeEventListener("keydown", onKey, true);
+        if (pack && typeof pack.stop === "function") { try { pack.stop(); } catch (eStop) {} }
         stopChallengeSting();
         resolve();
       }
@@ -483,6 +493,7 @@
       layer = root.document.createElement("div");
       var failC2 = useC2 && !crit;
       var motionCls = reduced ? " is-reduced" : (useC2 ? " is-c2" : (" is-motion-" + motion + (motion === "c2" ? " is-c2" : "")));
+      if (show) motionCls += " is-ch-timed";
       layer.className = "d20-zoom " + (crit ? "is-crit" : "is-fail") + motionCls + (failC2 ? " is-fail-c2" : "");
       layer.setAttribute("data-motion", motion);
       layer.setAttribute("role", "dialog");
@@ -516,7 +527,8 @@
       watchArt(spin);
       fx = makeFx(layer.querySelector(".d20-zoom-back"), layer.querySelector(".d20-zoom-front"));
       paintWho(layer, ev);
-      if (!reduced) cueFirst(tumbleCues(motion));
+      if (show && pack && typeof pack.begin === "function") { try { pack.begin(show); } catch (eBegin) {} }
+      else if (!reduced) cueFirst(tumbleCues(motion));
       function skipTo() { if (landed) finish(); else land(true); }
       openSkip = skipTo;
       layer.addEventListener("click", skipTo);
@@ -725,7 +737,8 @@
             });
           }
         }
-        cueFirst([challengeSting(crit)]);
+        if (show && pack && typeof pack.land === "function") { try { pack.land(show); } catch (eLand) {} }
+        else cueFirst([challengeSting(crit)]);
         layer.classList.add("is-hold");
       }
 

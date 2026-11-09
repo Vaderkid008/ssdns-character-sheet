@@ -411,6 +411,9 @@
         if (raf && root.cancelAnimationFrame) root.cancelAnimationFrame(raf);
         clearTimeout(raf);
         clearTimeout(timer);
+        if (sticky && root.SSDNSChallengeSfx && typeof root.SSDNSChallengeSfx.stop === "function") {
+          try { root.SSDNSChallengeSfx.stop(); } catch (eStop) {}
+        }
         if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
         if (root.document && root.document.body) root.document.body.classList.remove("d20-plain-open");
         if (root.document) root.document.removeEventListener("keydown", onKey, true);
@@ -419,6 +422,13 @@
       var suspense = !!spec.suspense;
       var normal = !!spec.normal;
       var sticky = !!spec.fancy && !suspense && !normal;
+      var ticked = false;
+      function noteChallengeTick() {
+        if (ticked || !sticky) return;
+        ticked = true;
+        var S = root.SSDNSChallengeSfx;
+        if (S && typeof S.mid === "function") { try { S.mid(); } catch (eTick) {} }
+      }
       function draw(t) {
         var wide = spin && spin.offsetWidth ? spin.offsetWidth : 280;
         var fr = normal
@@ -446,6 +456,7 @@
           layer.classList.add("is-land");
           landed = true;
           paintStage(spec.value);
+          if (sticky) noteChallengeTick();
         }
         return fr;
       }
@@ -466,6 +477,7 @@
         if (layer) layer.classList.add(normal ? "is-normal" : "is-land");
         landed = true;
         paintStage(spec.value);
+        if (sticky) noteChallengeTick();
         holdThenClose();
       }
       function onKey(e) {
@@ -522,6 +534,7 @@
         layer.classList.add(normal ? "is-normal" : "is-land");
         landed = true;
         paintStage(spec.value);
+        if (sticky) noteChallengeTick();
         holdThenClose();
         return;
       }
