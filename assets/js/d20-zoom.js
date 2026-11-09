@@ -23,6 +23,8 @@
    A short shooter id is used only when none of those is set. The same zoom
    pack goes out on the roll feed, so the whole room sees that name.
    Tap, Escape, Enter, or Space mid-spin skips to the landed crit or FAIL card.
+   That landed Challenge card stays until a click or Escape. It does not time out.
+   A small "click to close" hint shows once the result is on screen.
    Map Effects off and reduced motion skip the tumble and show that landed card.
    Tumble cue by motion: fiery roll prefers d20-roll-fire else roll-d20; C1 is
    roll-d20; slam prefers d20-slam else d20-whoosh else roll-d20; C3 prefers
@@ -36,7 +38,6 @@
 (function (root) {
   "use strict";
 
-  var HOLD_MS = 700;
   var C2_LAND_MS = 2850;
   var C2_TOTAL_MS = 4000;
   var MOTIONS = ["roll", "c1", "c2", "c3"];
@@ -118,6 +119,12 @@
   /* Jessey's Challenge clips. Nat 20 first, fail second. This overlay only. */
   function challengeSting(crit) {
     return crit ? "challenge-nat20-crit" : "challenge-fail";
+  }
+  /* The land sting plays out while the card is up. Dismiss cuts it. A timer does not. */
+  function stopChallengeSting() {
+    var A = root.SSDNSAudio;
+    if (!A || typeof A.stop !== "function") return;
+    try { A.stop(challengeSting(true)); A.stop(challengeSting(false)); } catch (e) {}
   }
   function cleanName(v) {
     return String(v == null ? "" : v).replace(/\s+/g, " ").trim();
@@ -249,6 +256,11 @@
       ".d20-zoom-skip{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);z-index:6;",
       "background:rgba(28,20,12,.9);color:#f4e6c4;border:1px solid #c4a574;border-radius:999px;",
       "padding:8px 16px;font:600 14px/1 system-ui,sans-serif;cursor:pointer;}",
+      ".d20-zoom.is-hold .d20-zoom-skip{display:none;}",
+      ".d20-zoom-hint{position:absolute;left:0;right:0;bottom:28px;margin:0;text-align:center;z-index:6;",
+      "font:500 13px/1 system-ui,sans-serif;letter-spacing:.06em;color:rgba(244,230,196,.62);",
+      "opacity:0;pointer-events:none;}",
+      ".d20-zoom.is-hold .d20-zoom-hint{opacity:.85;}",
       ".d20-zoom-spin.is-fallback .die-face{background:#1a3a36;border-radius:18px;border:6px solid #e8dcc8;}",
       ".d20-zoom-spin.is-fallback img{opacity:0;}",
       ".d20-zoom-rawnum{position:absolute;inset:0;display:grid;place-items:center;font:800 72px/1 Georgia,serif;color:#4fdccb;}",
@@ -453,6 +465,7 @@
         if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
         if (root.document && root.document.body) root.document.body.classList.remove("d20-zoom-open");
         if (root.document) root.document.removeEventListener("keydown", onKey, true);
+        stopChallengeSting();
         resolve();
       }
       function onKey(e) {
@@ -494,6 +507,7 @@
         '<canvas class="d20-zoom-front"></canvas>' +
         '<p class="d20-zoom-who" data-zoom-who hidden></p>' +
         '<p class="d20-zoom-word">' + (crit ? "Critical" : "Fail") + "</p>" +
+        '<p class="d20-zoom-hint" data-zoom-hint>click to close</p>' +
         '<button type="button" class="d20-zoom-skip">Tap to skip</button>';
       root.document.body.classList.add("d20-zoom-open");
       root.document.body.appendChild(layer);
@@ -712,8 +726,7 @@
           }
         }
         cueFirst([challengeSting(crit)]);
-        var hold = (!skip && motion === "c2" && !reduced) ? Math.max(HOLD_MS, C2_TOTAL_MS - motionMs) : HOLD_MS;
-        later(finish, hold);
+        layer.classList.add("is-hold");
       }
 
       if (reduced || motionMs <= 0) land(true);
