@@ -5363,9 +5363,12 @@
       var tgt = currentTarget();
       var rollId = "r_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       var text = rolled.text || (spellName + " cast");
-      if (placed) {
+      if (placed && !rolled.zoneHold) {
         var crowd = placed.tokens || [];
         text += " · " + ((placed.area && placed.area.label) || "area") + ": " + (crowd.length ? crowd.map(function (t) { return t.name || "token"; }).join(", ") : "nobody in the area");
+        postPlacedLooks(spellName, row, placed, rollId);
+      } else if (placed) {
+        text += " · " + ((placed.area && placed.area.label) || "5-foot-diameter sphere");
         postPlacedLooks(spellName, row, placed, rollId);
       }
       addLog({ id: "roll:" + rollId, kind: "roll", text: text, label: rolled.label || spellName, formula: rolled.formula, attack: !!rolled.attack, nat: rolled.nat, crit: !!rolled.crit });
@@ -5588,16 +5591,21 @@
       if (turnKey && Zonce && Zonce.once && !Zonce.once(seen, tick, targetId, turnKey)) return;
       var uidNow = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
       if (tick.hostile && tick.casterId && (tick.casterId === targetId || (tick.casterId === uidNow && detail && detail.ownerUid === uidNow))) return;
-      var line = (tick.spell || "Zone") + (tick.save ? " SAVE " + tick.save + " or " : " ") + (tick.formula || tick.dice || "") + (tick.amount != null ? " = " + tick.amount : "") + " " + (tick.type || "");
+      var Rtick = root.SSDNSSpellRiders;
+      var rolledTick = (tick.save || !(tick.faces && tick.faces.length)) && Rtick && Rtick.rollExpr && (tick.dice || tick.formula)
+        ? Rtick.rollExpr(tick.dice || tick.formula, false)
+        : { formula: tick.formula || tick.dice || "", faces: tick.faces || [], total: tick.amount || 0 };
+      if (tick.faces && tick.faces.length) rolledTick = { formula: tick.formula || tick.dice || "", faces: tick.faces, total: tick.amount || 0 };
+      var faceMarks = (rolledTick.faces || []).map(function (n) { return "«" + n + "»"; }).join(" ");
+      var diceShown = (rolledTick.formula || "") + (faceMarks ? " " + faceMarks : "");
+      var line = (tick.spell || "Zone") + (tick.save ? " · " + tick.save + " save · " : " · ") + diceShown + (rolledTick.total != null && diceShown ? " = " + rolledTick.total : "") + " " + (tick.type || "") + (tick.half ? " · half on a success" : "") + (tick.onFail ? "" : "");
       addLog({ kind: "roll", text: line });
       toast(line);
       if (!joined() || !root.SSDNSDmJoin || !root.SSDNSDmJoin.postDamage) return;
       if (tick.save) {
-        var Rsave = root.SSDNSSpellRiders;
-        var rolledSave = Rsave && Rsave.rollExpr ? Rsave.rollExpr(tick.dice, false) : { total: 0, formula: tick.dice || "" };
         root.SSDNSDmJoin.postDamage({
-          amount: rolledSave.total, label: tick.spell || "Zone", type: "spell", save: tick.save,
-          dc: tick.dc, dice: (rolledSave.formula || tick.dice || "") + " " + (tick.type || ""), half: !!tick.half,
+          amount: rolledTick.total, label: tick.spell || "Zone", type: "spell", save: tick.save,
+          dc: tick.dc, dice: diceShown + " " + (tick.type || ""), half: !!tick.half,
           targetId: targetId, targetName: tick.targetName || "",
           zoneId: tick.zoneId || "", zoneBudget: tick.budget || 0,
           rollId: "zone_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)

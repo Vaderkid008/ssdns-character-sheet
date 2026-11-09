@@ -477,12 +477,39 @@
     }
 
     if (kind === "save") {
+      var ZonesHold = root.SSDNSSpellZones;
+      var holdKey = norm(name);
+      var zoneHold = !!(ZonesHold && ZonesHold.defersCast && ZonesHold.defersCast(holdKey) && row.castDamage === false && row.dice && !row.onFail && !row.later);
+      if (zoneHold) {
+        /* A deferred area must not roll on the cast. An unrolled "2d6" in the
+           line paints a blank die, and "a condition only" is not this spell. */
+        var holdText = holdKey === "flaming sphere"
+          ? (name + gun + " · 5-foot-diameter sphere · Dexterity save, half on a success, when the sphere rams a creature or a creature ends its turn within 5 feet · no damage on the cast")
+          : (name + gun + " · area placed · the save and damage wait until a creature is caught · no damage on the cast");
+        var holdPack = pack(holdText, false, null, false, "", null, holdText, "");
+        holdPack.text = holdText;
+        holdPack.detail = holdText;
+        holdPack.formula = "";
+        holdPack.result = null;
+        holdPack.plain = true;
+        holdPack.zoneHold = true;
+        holdPack.damageTotal = 0;
+        holdPack.damageDetail = "";
+        holdPack.kind = "save";
+        holdPack.half = !!row.half;
+        holdPack.save = row.save || "";
+        holdPack.applyNow = false;
+        return holdPack;
+      }
       var saveRoll = bundle(shaped(), false);
       var half = row.half ? " (half on a successful save)" : "";
       if (row.onSave === "none") half = " (none on a successful save)";
       if (row.damageAuto) half = " (automatic; " + (row.save || "CON") + " save only to drop)";
       var laterNote = "";
-      if (row.castDamage === false) laterNote = " · failed save: " + (row.onFail || "a condition") + " only; " + ((row.later && row.later.dice) || row.dice || "") + " on a failed end-of-turn save";
+      if (row.castDamage === false) {
+        laterNote = " · failed save: " + (row.onFail || "a condition") + " only";
+        if (row.later && row.later.when) laterNote += "; the rest waits for a later " + row.later.when + " save";
+      }
       var dcText = "DC " + (opts.dc != null && opts.dc !== "" ? opts.dc : "?") + " " + (row.save || "save") + " save";
       var stext = name + gun + " · " + dcText + " · " + (row.castDamage === false ? "no damage now" : saveRoll.text) + half + laterNote;
       var savePack = pack(stext, false, null, false, saveRoll.rolled.formula, row.castDamage === false ? 0 : saveRoll.rolled.total, dcText + " · " + saveRoll.text + half + laterNote, "");
