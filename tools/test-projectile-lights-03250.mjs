@@ -1,6 +1,6 @@
 /**
  * COA #15 — fire and lightning projectiles carry a short fog-cutting light
- * (sheet 0.3.251 / DMCC 0.2.264).
+ * (sheet 0.3.252 / DMCC 0.2.265).
  *   node tools/test-projectile-lights-03250.mjs
  * rules.js is not regenerated. Fireball stays a comet, then the burst.
  */
@@ -114,7 +114,7 @@ const started = api.fx({ id: "fxbolt", type: "spell", spell: "Fire Bolt", dmg: "
 await Promise.resolve();
 await Promise.resolve();
 w.flushFx(0);
-w.flushFx(80);
+for (let i = 0; i < 5; i++) w.flushFx(16);
 const head = w.SSDNSMapFx.projectileLight(bolt, 80);
 const hx = ax + (bx - ax) * head.u;
 const hy = ay + (by - ay) * head.u;
@@ -126,9 +126,9 @@ w.flushFx(16);
 check("effects.off", api.lightAt(hx, hy, "p1") === "dark", api.lightAt(hx, hy, "p1"));
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.251" && ver.dmcc === "0.2.264" && ver.sheetBuild === "sheet-playtest-v03251" && ver.dmccBuild === "dmcc-playtest-v02264");
+check("ver", ver.sheet === "0.3.252" && ver.dmcc === "0.2.265" && ver.sheetBuild === "sheet-playtest-v03252" && ver.dmccBuild === "dmcc-playtest-v02265");
 const rules = read("assets/data/rules.js");
-check("rules.clean", !rules.includes("0.3.251") && !rules.includes("0.2.264") && !read("database.rules.json").includes("0.3.251"));
+check("rules.clean", !rules.includes("0.3.252") && !rules.includes("0.2.265") && !read("database.rules.json").includes("0.3.252"));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

@@ -1270,6 +1270,12 @@ if (role === 'dm') {
    public row (tableFeed, kind "sfx", event "fx") that the sheet and DMCC sound handlers already ignore.
    Players never get a hidden token's id or position: a hidden shooter becomes a fog-edge start point, or no row. */
 const FXA = window.SSDNSMapFx || null;
+/* Shared with token slides. 50ms cap: a hitch eases forward instead of skipping the impact. */
+const fxAnimNow = (FXA && FXA.makeAnimClock) ? FXA.makeAnimClock(50) : function (wall) { return wall; };
+function fxStamp() {
+  const wall = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+  return fxAnimNow(wall);
+}
 const fxBoot = Date.now();
 const fxLive = [];
 /* Short lights riding a fire or lightning projectile. Cleared when the FX ends or Effects is off. */
@@ -1483,7 +1489,7 @@ function fxPlay(spec, geo, opts) {
   try { el.dispatchEvent(new CustomEvent('ssdns-map-fx', { detail: ev })); } catch (e) {}
   return FXA.beforeEffect(ev).then(() => {
     if (dead || !fxOn()) return false;
-    entry.t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    entry.t0 = fxStamp();
     fxLive.push(entry);
     cues.forEach(c => {
       const t = setTimeout(() => {
@@ -1611,7 +1617,7 @@ function fxMarkNames(t) {
 let fxErodeCanvas = null;
 function fxDustFrame(t) {
   if (!FXA || !t || !FXA.lookOf) return null;
-  const now = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+  const now = fxStamp();
   for (let i = 0; i < fxLive.length; i++) {
     const e = fxLive[i];
     if (!e || !e.spec || !e.geo || !e.geo.tokT) continue;
@@ -1655,7 +1661,7 @@ function fxFrame() {
     if (dead || !fxCtx) { fxLive.length = 0; fxShake = { x: 0, y: 0 }; fxShaking = false; return; }
     const box = viewBox();
     const dpr = fxDpr();
-    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const now = fxStamp();
     for (let i = fxLive.length - 1; i >= 0; i--) {
       if (now - fxLive[i].t0 > fxLive[i].plan.duration) fxLive.splice(i, 1);
     }
@@ -2447,7 +2453,7 @@ function fxHealSlot(e, t) {
 }
 function fxBodyNudge(t) {
   if (!FXA || !FXA.nudge || !t || !fxLive.length) return null;
-  const now = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+  const now = fxStamp();
   for (let i = 0; i < fxLive.length; i++) {
     const e = fxLive[i];
     if (!e || !e.spec) continue;
@@ -2555,7 +2561,7 @@ function paintStickyMarks(ctx, t, s, r) {
     if (!look || seen[look]) return;
     seen[look] = 1;
     if (wrap) {
-      if (!fxCoversLook(t, wrap) && FX.paintRider) FX.paintRider(ctx, wrap, s.x, s.y, r, (typeof performance !== "undefined" ? performance.now() : Date.now()));
+      if (!fxCoversLook(t, wrap) && FX.paintRider) FX.paintRider(ctx, wrap, s.x, s.y, r, fxStamp());
       return;
     }
     const rich = look === "guiding-bolt" || look === "chill-touch" || look === "cage"
@@ -2563,7 +2569,7 @@ function paintStickyMarks(ctx, t, s, r) {
       || look === "rime" || look === "flameblade" || look === "enfeeble"
       || look === "produceflame" || look === "frostray" || look === "sickray";
     if (rich && FX.paintRider) {
-      if (!fxCoversLook(t, look)) FX.paintRider(ctx, look, s.x, s.y, r, (typeof performance !== "undefined" ? performance.now() : Date.now()));
+      if (!fxCoversLook(t, look)) FX.paintRider(ctx, look, s.x, s.y, r, fxStamp());
       return;
     }
     const col = (FX.chunkColor && FX.chunkColor(look)) || "185,170,180";
@@ -8489,7 +8495,7 @@ function startSlide(id, points) {
   state.slides = (state.slides || []).filter(s => s.id !== id);
   state.lastPaths = state.lastPaths || {};
   state.lastPaths[id] = points.map(pt => ({ x: pt.x, y: pt.y }));
-  state.slides.push({ id, points, start: Date.now(), ms: Math.max(400, points.length * 280) });
+  state.slides.push({ id, points, start: fxStamp(), ms: Math.max(400, points.length * 280) });
   ensureAnim();
 }
 function dropPin() {
@@ -12336,7 +12342,7 @@ async function loadSceneImage(sceneId, opts) {
     if (animRaf || dead) return;
     const step = () => {
       if (dead) return;
-      const now = Date.now();
+      const now = fxStamp();
       let live = false;
       state.slides = (state.slides || []).filter(s => {
         const t = state.tokens.find(tok => tok.id === s.id);
