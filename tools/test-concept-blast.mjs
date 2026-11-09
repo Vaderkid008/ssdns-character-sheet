@@ -132,12 +132,20 @@ const tail = travel.filter((op) => op.op === "stroke" && segLen(op) > 40 && segL
 check("fireball.travel", flight >= 300 && travel.some((op) => op.op === "fill" && op.arc && op.arc.r > 8 && op.arc.r < cell && Math.hypot(op.arc.x - head.x, op.arc.y - head.y) < 36) && tail.length >= 1, JSON.stringify({ flight, tails: tail.length }));
 check("fireball.travelNotSphere", !travel.some((op) => op.op === "fill" && op.arc && op.arc.r > cell * 2) && !spans(travel, from, boomAt));
 const ball = trace(FX, { spell: "Fireball", dmg: "fire" }, flight + 340, ballGeo);
-const disc = ball.filter((op) => op.op === "fill" && op.arc && op.arc.r > cell * 2.5);
+const cookie = ball.filter((op) => op.op === "fill" && op.arc && op.arc.r > cell * 2.5 && Math.hypot(op.arc.x - boomAt.x, op.arc.y - boomAt.y) < 8);
 const ballStreaks = ball.filter((op) => op.op === "stroke" && segLen(op) > 4);
 const ballLobes = ball.filter((op) => op.op === "fill" && op.arc && op.arc.r > 8);
+let fireEdge = 0;
+ball.forEach((op) => {
+  (op.pts || []).forEach((p) => {
+    const d = Math.hypot(p[0] - boomAt.x, p[1] - boomAt.y);
+    if (d > cell * 3.1 && d < cell * 4.6) fireEdge += 1;
+  });
+});
 check("fireball.look", FX.lookOf({ type: "spell", spell: "Fireball", dmg: "fire" }) === "fireball");
-check("fireball.disc", disc.length >= 1 && disc.some((op) => Math.hypot(op.arc.x - boomAt.x, op.arc.y - boomAt.y) < 8), JSON.stringify(disc.map((op) => Math.round(op.arc.r))));
-check("fireball.solid", ball.some((op) => op.op === "fill" && /180,\s*48,\s*12/.test(op.fillStyle)));
+check("fireball.reach", fireEdge >= 8, String(fireEdge));
+check("fireball.notCookie", cookie.length === 0, JSON.stringify(cookie.map((op) => Math.round(op.arc.r))));
+check("fireball.flames", ball.some((op) => op.op === "fill" && /255,\s*140,\s*45|200,\s*60,\s*15|255,\s*225,\s*160/.test(op.fillStyle || "")));
 check("fireball.embers", ballStreaks.length >= 40, String(ballStreaks.length));
 check("fireball.lobes", ballLobes.length >= 20, String(ballLobes.length));
 check("fireball.notBeam", !spans(ball, from, boomAt) && ballStreaks.every((op) => {
@@ -168,7 +176,7 @@ check("shake.wall", mag({ type: "spell", spell: "Wall of Fire", dmg: "fire" }, 8
 check("shake.done", mag({ type: "spell", spell: "Fireball" }, 4000) < 0.01);
 
 const ver = JSON.parse(read("version.json"));
-check("ver.tip", ver.sheet === "0.3.252" && ver.dmcc === "0.2.265" && ver.sheetBuild === "sheet-playtest-v03252" && ver.dmccBuild === "dmcc-playtest-v02265", JSON.stringify(ver));
+check("ver.tip", ver.sheet === "0.3.253" && ver.dmcc === "0.2.266" && ver.sheetBuild === "sheet-playtest-v03253" && ver.dmccBuild === "dmcc-playtest-v02266", JSON.stringify(ver));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/", pretendToBeVisual: true, runScripts: "dangerously" });
 const w = dom.window;

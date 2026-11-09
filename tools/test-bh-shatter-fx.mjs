@@ -200,7 +200,14 @@ const flight = FX.lookTime("fireball").grow;
 const travel = trace(FX, { spell: "Fireball", dmg: "fire" }, flight * 0.45, ballGeo);
 const ball = trace(FX, { spell: "Fireball", dmg: "fire" }, flight + 340, ballGeo);
 check("fireball.comet", !travel.some((op) => op.op === "fill" && op.arc && op.arc.r > cell * 2));
-check("fireball.disc", ball.some((op) => op.op === "fill" && op.arc && op.arc.r > cell * 2.5 && Math.hypot(op.arc.x - boomAt.x, op.arc.y - boomAt.y) < 8));
+let fireEdge = 0;
+ball.forEach((op) => {
+  (op.pts || []).forEach((p) => {
+    const d = Math.hypot(p[0] - boomAt.x, p[1] - boomAt.y);
+    if (d > cell * 3.1 && d < cell * 4.6) fireEdge += 1;
+  });
+});
+check("fireball.fire", fireEdge >= 8 && !ball.some((op) => op.op === "fill" && op.arc && op.arc.r > cell * 2.5 && Math.hypot(op.arc.x - boomAt.x, op.arc.y - boomAt.y) < 8), String(fireEdge));
 check("wall.blank", FX.lookOf({ type: "spell", spell: "Wall of Fire", dmg: "fire" }) === "" && trace(FX, { spell: "Wall of Fire", dmg: "fire" }, 240, ballGeo).length === 0);
 
 const handsShake = peakShake(FX, { spell: "Burning Hands" }, 0, 400);
