@@ -14,15 +14,15 @@ function check(name, ok) {
 }
 
 const ver = JSON.parse(read("version.json"));
-check("ver.sheet", ver.sheet === "0.3.267");
-check("ver.dmcc", ver.dmcc === "0.2.280");
-check("ver.sheetBuild", ver.sheetBuild === "sheet-playtest-v03267");
-check("ver.dmccBuild", ver.dmccBuild === "dmcc-playtest-v02280");
+check("ver.sheet", ver.sheet === "0.3.270");
+check("ver.dmcc", ver.dmcc === "0.2.283");
+check("ver.sheetBuild", ver.sheetBuild === "sheet-playtest-v03270");
+check("ver.dmccBuild", ver.dmccBuild === "dmcc-playtest-v02283");
 
 const rules = read("assets/data/rules.js");
 const db = read("database.rules.json");
-check("rules.untouched", !rules.includes("--drawer-row-bg") && !rules.includes("0.3.267"));
-check("db.untouched", !db.includes("--drawer-row-bg") && !db.includes("0.2.280"));
+check("rules.untouched", !rules.includes("--drawer-row-bg") && !rules.includes("0.3.270"));
+check("db.untouched", !db.includes("--drawer-row-bg") && !db.includes("0.2.283"));
 
 const css = read("map/ssdns-map.css");
 const block = css.slice(css.indexOf("/* N62 list chrome"));
@@ -40,4 +40,4 @@ if (failed) {
   console.log(failed + " failed");
   process.exit(1);
 }
-console.log("n62 drawer lists 0.3.267 ok");
+console.log("n62 drawer lists 0.3.270 ok");
