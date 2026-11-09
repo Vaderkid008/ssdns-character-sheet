@@ -7154,10 +7154,11 @@ function partyOnScene(sceneId) {
   const sid = sceneId || activeSceneId() || 'scn_dustyspur01';
   return (state.tokens || []).find(t => t && isPartyToken(t) && (t.sceneId || 'scn_dustyspur01') === sid) || null;
 }
-const PARTY_ART = '../assets/images/party-six-shooter.svg';
+/* Hell Maker, square-fit from assets/img/dm-only/hell-maker.webp. Story marker only. */
+const PARTY_ART = '../assets/images/party-hell-maker.webp';
 function partyFace(image) {
   const src = String(image || '');
-  if (!src || src.indexOf('asset-baggage-cart') >= 0) return PARTY_ART;
+  if (!src || src.indexOf('asset-baggage-cart') >= 0 || src.indexOf('party-six-shooter.svg') >= 0) return PARTY_ART;
   return src;
 }
 function placePartyToken(opts) {
