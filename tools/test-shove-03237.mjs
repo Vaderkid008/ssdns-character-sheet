@@ -1,5 +1,5 @@
 /**
- * Creature Shove replaces one attack (sheet 0.3.263 / DMCC 0.2.276).
+ * Creature Shove replaces one attack (sheet 0.3.264 / DMCC 0.2.277).
  * A win slides the target 5 feet. It does not offer prone.
  *
  *   node tools/test-shove-03237.mjs
@@ -18,8 +18,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.263" && version.sheetBuild === "sheet-playtest-v03263");
-check("ver.dmcc", version.dmcc === "0.2.276" && version.dmccBuild === "dmcc-playtest-v02276");
+check("ver.sheet", version.sheet === "0.3.264" && version.sheetBuild === "sheet-playtest-v03264");
+check("ver.dmcc", version.dmcc === "0.2.277" && version.dmccBuild === "dmcc-playtest-v02277");
 check("rules.untouched", !read("assets/data/rules.js").includes("creature Shove"));
 
 const context = vm.createContext({ console, Math });

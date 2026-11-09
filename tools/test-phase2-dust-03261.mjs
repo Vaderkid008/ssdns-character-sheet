@@ -1,5 +1,5 @@
 /**
- * Phase 2 missiles, beams, and wraps (sheet 0.3.263 / DMCC 0.2.276).
+ * Phase 2 missiles, beams, and wraps (sheet 0.3.264 / DMCC 0.2.277).
  * Magic Missile, Eldritch Blast, Moonbeam, Spirit Guardians, Cloudkill, and Inflict Wounds
  * throw grit when they land. Faerie Fire, Haste, Slow, and Hold Person dust the ring they already draw.
  *   node tools/test-phase2-dust-03261.mjs
@@ -18,8 +18,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.263" && ver.dmcc === "0.2.276" && ver.sheetBuild === "sheet-playtest-v03263" && ver.dmccBuild === "dmcc-playtest-v02276");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.263") && !read("database.rules.json").includes("0.3.263"));
+check("ver", ver.sheet === "0.3.264" && ver.dmcc === "0.2.277" && ver.sheetBuild === "sheet-playtest-v03264" && ver.dmccBuild === "dmcc-playtest-v02277");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.264") && !read("database.rules.json").includes("0.3.264"));
 check("bestiary.kept", read("dm/assets/js/v2.js").includes("bestiary.json?v=0.2.249-spell-tokens"));
 check("fullscreen.guard", read("map/ssdns-map.js").includes("A 0×0 read during fullscreen must not replace it."));
 check("prior.kept", read("map/ssdns-map-fx.js").includes("function stormIdle") && read("map/ssdns-map-fx.js").includes('["45,28,20", "95,80,60"]'));
