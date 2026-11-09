@@ -544,6 +544,9 @@
     smitefire: { grow: 110, hold: 80, fade: 640 },
     fear: { grow: 110, hold: 280, fade: 900 },
     blind: { grow: 110, hold: 40, fade: 560 },
+    /* Banishing and Staggering left the generic named dot. Same on-hit clock as the other smites. */
+    banish: { grow: 110, hold: 200, fade: 700 },
+    stagger: { grow: 110, hold: 160, fade: 700 },
     /* Chunk 4 Phase 1 clocks. Sticky idles live on the zone layer; these cover the cast, the tick, and the boom. */
     wallice: { grow: 360, hold: 520, fade: 420 },
     wallthorn: { grow: 360, hold: 520, fade: 420 },
@@ -946,7 +949,7 @@
   }
 /* Phase 2 grit. Source-over specks so a Love-it shape keeps its fill.
    n is capped: a lasting zone must not repaint a demo-sized field every frame. */
-function gritBurst(ctx, x, y, t, life, n, seed, radius, cols) {
+function gritBurst(ctx, x, y, t, life, n, seed, radius, cols, speck) {
   if (!ctx || !(t >= 0) || !(life > 0) || t > life || !(radius > 1)) return;
   n = Math.max(0, Math.min(40, n || 0));
   if (!n) return;
@@ -955,6 +958,7 @@ function gritBurst(ctx, x, y, t, life, n, seed, radius, cols) {
   if (fade <= 0) return;
   var r = rng((seed || 1) + 17);
   var palette = cols && cols.length ? cols : ["95,80,60", "120,100,75"];
+  var sz = speck > 1.5 ? speck : 2.2;
   var i;
   ctx.save();
   ctx.globalCompositeOperation = "source-over";
@@ -963,8 +967,8 @@ function gritBurst(ctx, x, y, t, life, n, seed, radius, cols) {
     var v = 0.25 + r() * 0.75;
     var d = radius * v * (1 - Math.pow(1 - Math.min(1, u * 1.4), 2));
     var drop = radius * 0.12 * u * u;
-    ctx.fillStyle = rgba(palette[i % palette.length], fade * (0.4 + r() * 0.45));
-    ctx.fillRect(x + Math.cos(a) * d - 1.1, y + Math.sin(a) * d + drop - 1.1, 2.2, 2.2);
+    ctx.fillStyle = rgba(palette[i % palette.length], fade * ((speck > 1.5 ? 0.62 : 0.4) + r() * 0.4));
+    ctx.fillRect(x + Math.cos(a) * d - sz / 2, y + Math.sin(a) * d + drop - sz / 2, sz, sz);
   }
   ctx.restore();
 }
@@ -1531,7 +1535,7 @@ function blastShake(lt, amp, dur) {
    Hunter's Mark stays on brand. */
 function chunk3Spell(look, spec) {
   var name = low((spec && (spec.spell || spec.weapon)) || "");
-  if (look === "skybolt" || look === "sunshaft" || look === "prism" || look === "meteors" || look === "orb" || look === "produceflame" || look === "sickray" || look === "smitefire" || look === "fear" || look === "blind") return true;
+  if (look === "skybolt" || look === "sunshaft" || look === "prism" || look === "meteors" || look === "orb" || look === "produceflame" || look === "sickray" || look === "smitefire" || look === "fear" || look === "blind" || look === "banish" || look === "stagger") return true;
   if (look === "deathray" && /finger of death/.test(name)) return true;
   if (look === "brand" && /branding smite/.test(name)) return true;
   if (look === "thunder" && /thunderous smite/.test(name)) return true;
@@ -3386,7 +3390,8 @@ function beadsPaint(ctx, A, B, lt, seed) {
   /* Chunk 3 Phase 1 Love-it outlines. Shape + clear effect. One beat per real cast, hit, or token event.
      Demo clocks (second strike, foe step-in, caster step, smite strip) are not reproduced.
      Phase 2 first cut: Prismatic kicked dust, Sunbeam lane motes, Meteor rock grit, Thunderous flung grit.
-     Still out: Produce Flame extinguish pop, Call Lightning / Branding ultra-low idle, Banishing and Staggering.
+     Phase 2 next cut: Produce Flame ash when the coal goes out, Banishing rift dust, Staggering kicked dirt.
+     Still out: Call Lightning and Branding ultra-low idle loops.
      Ground scorch shares this overlay, same as Chunk 1–2. */
   var Chunk3Fx = (function () {
   var TAU = Math.PI * 2;
@@ -4032,6 +4037,8 @@ function beadsPaint(ctx, A, B, lt, seed) {
       });
     }
     fireBurst(ctx, B, t - travel, 620, G.cell * 0.72, 13);
+    /* The coal goes out as ash, not a clean fade. */
+    if (t >= travel) gritBurst(ctx, B.x, B.y, t - travel, 520, 12, 41, G.cell * 0.45, ["45,28,20", "95,80,60"], 5);
   }
 
   /* 9. Ray of Frost and Ray of Sickness. */
@@ -4191,6 +4198,21 @@ function beadsPaint(ctx, A, B, lt, seed) {
           }
         }
       }
+      if (kind === "banishing") {
+        flash(ctx, B, tb, 480, G.cell * 0.8, "95,220,205", "232,255,250");
+        if (tb < 640) {
+          var banU = tb / 640;
+          add(ctx, function () {
+            ring(ctx, B.x, B.y, G.rT + (1 - easeOut(banU)) * G.cell * 0.9, 2.4, rgba("95,220,205", 1 - banU), 8);
+            glow(ctx, B.x, B.y, G.cell * 0.42 * Math.max(0.2, easeOut(banU)), [[0, rgba("10,16,18", 0.7)], [1, rgba("95,220,205", 0)]]);
+          });
+        }
+        gritBurst(ctx, B.x, B.y, tb, 700, 14, 33, G.cell * 0.7, ["200,220,210", "95,80,60"], 5);
+      }
+      if (kind === "staggering") {
+        flash(ctx, B, tb, 420, G.cell * 0.75, "215,125,170", "255,210,230");
+        gritBurst(ctx, B.x, B.y, tb, 640, 16, 34, G.cell * 0.85, ["95,80,60", "120,100,75"], 5);
+      }
       if (kind === "blinding" && tb < 560) {
         var bu = tb / 560;
         add(ctx, function () {
@@ -4230,7 +4252,9 @@ function beadsPaint(ctx, A, B, lt, seed) {
     smitebrand: smiteOf("branding"),
     smiteboom: smiteOf("thunderous"),
     fear: smiteOf("wrathful"),
-    blind: smiteOf("blinding")
+    blind: smiteOf("blinding"),
+    banish: smiteOf("banishing"),
+    stagger: smiteOf("staggering")
   };
   var UNDER = { skybolt: skyUnder, meteors: meteorUnder };
   function shakeOf(look, lt, spec) {
@@ -4260,7 +4284,8 @@ function beadsPaint(ctx, A, B, lt, seed) {
   /* Chunk 4 Phase 1 Love-it outlines. Shape + clear effect. One beat per real cast, enter, start, end, Clear, or detonate.
      Demo clocks (foe step-ins, scripted second skins, the DM CLEAR pill) are not reproduced.
      Phase 2 first cut: Flame Strike and Fire Storm flung dirt, Sunburst dust motes, Freezing Sphere debris.
-     Still out: wall-raise dust, thorn dust, briar grit, Blade Barrier sparks, Hunger whispers. Art idle webms are not in the tip assets, so slots 4–5 loop on the canvas.
+     Phase 2 next cut: Wall of Ice and Wall of Thorns kick dust while the wall is still growing. Blade Barrier already throws sparks on that same grow.
+     Still out: Hunger whispers (the sphere stays as locked), and art idle webms are not in the tip assets, so slots 4–5 loop on the canvas.
      Sticky walls, voids, cubes, swarms, furnace clouds, and the Delayed Blast bead idle on the zone layer.
      Rules radii: Freezing Sphere, Sunburst, and Circle of Death are 60 ft. The Love-it board drew those at 4.5 cells. */
   var Chunk4Fx = (function () {
@@ -4518,6 +4543,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
           glow(ctx, Pg.x, Pg.y, hw * 1.6, [[0, rgba(PAL.cold.hot, 0.35 * a)], [1, rgba(PAL.cold.glow, 0)]]);
         } else glow(ctx, E.x, E.y, c * 0.6, [[0, rgba(PAL.cold.hot, 0.9)], [1, rgba(PAL.cold.glow, 0)]]);
       });
+      if (mode !== "idle" && st.p < 1) gritBurst(ctx, E.x, E.y, lt, 700, 10, 51, c * 0.55, ["200,225,250", "95,80,60"], 4);
     }
     function thornWall(ctx, W, lt, G, mode) {
       var st = wallEnd(W, lt, mode), a = st.a * 1.15, E = st.E, c = G.cell, hw = c * 0.27, n = norm(W.A, W.B), L = dist(W.A, E);
@@ -4544,6 +4570,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
         }
       }
       if (st.p < 1) add(ctx, function () { glow(ctx, E.x, E.y, c * 0.45, [[0, rgba(PAL.briar.prickHot, 0.5)], [1, rgba(PAL.briar.prick, 0)]]); });
+      if (mode !== "idle" && st.p < 1) gritBurst(ctx, E.x, E.y, lt, 700, 12, 52, c * 0.5, ["70,62,38", "95,80,60"], 4);
     }
     function bladeWall(ctx, W, lt, G, mode) {
       var st = wallEnd(W, lt, mode), a = st.a * 1.2, E = st.E, c = G.cell, hw = c * 0.26, n = norm(W.A, W.B), L = dist(W.A, E);
@@ -6712,6 +6739,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
           ctx.stroke();
         }
       }
+      if (look === "briar" && lt < 800) gritBurst(ctx, at.x, at.y, lt, 800, 14, 61, rad * 1.6, ["70,62,38", "95,80,60"], 5);
       if (look === "silk" || look === "briar" || look === "tentacles") {
         var arm;
         ctx.strokeStyle = rgba(col, 0.75 * f);

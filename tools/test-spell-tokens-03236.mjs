@@ -1,6 +1,6 @@
 /**
  * Spell-token cards drop on cast and link to the caster.
- * Live tip after the shove restack is sheet 0.3.254 / DMCC 0.2.267.
+ * Live tip after the shove restack is sheet 0.3.255 / DMCC 0.2.268.
  * Spiritual Weapon, Flaming Sphere, and Guardian of Faith are effect pieces.
  *
  *   node tools/test-spell-tokens-03236.mjs
@@ -20,8 +20,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.254" && version.sheetBuild === "sheet-playtest-v03254");
-check("ver.dmcc", version.dmcc === "0.2.267" && version.dmccBuild === "dmcc-playtest-v02267");
+check("ver.sheet", version.sheet === "0.3.255" && version.sheetBuild === "sheet-playtest-v03255");
+check("ver.dmcc", version.dmcc === "0.2.268" && version.dmccBuild === "dmcc-playtest-v02268");
 
 const bestiary = JSON.parse(read("dm/assets/data/bestiary.json"));
 function card(id) { return bestiary.find((b) => b && b.id === id); }
