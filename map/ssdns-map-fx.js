@@ -7077,6 +7077,28 @@ function beadsPaint(ctx, A, B, lt, seed) {
     }, extra || {});
   }
 
+  /* One motion clock. A late frame (a full map redraw, a busy room) moves at most
+     maxStep ms, so a bolt does not leap to its impact. Time already missed is
+     dropped, not replayed as a stutter. Calls within 4ms share one stamp so
+     the projectile, its light, and a token slide in the same turn stay together. */
+  function makeAnimClock(maxStep) {
+    var cap = maxStep > 0 ? maxStep : 50;
+    var wallAt = 0;
+    var clock = 0;
+    var seen = false;
+    return function (wall) {
+      if (!isFinite(wall)) wall = 0;
+      if (!seen) { seen = true; wallAt = wall; return clock; }
+      if (wall - wallAt < 4) return clock;
+      var dt = wall - wallAt;
+      wallAt = wall;
+      if (!(dt > 0)) dt = 0;
+      if (dt > cap) dt = cap;
+      clock += dt;
+      return clock;
+    };
+  }
+
   root.SSDNSMapFx = {
     beforeEffect: beforeEffect, setBeforeEffect: setBeforeEffect, effectEvent: effectEvent, HOOK_TIMEOUT_MS: HOOK_TIMEOUT_MS,
     PREF_KEY: PREF_KEY, enabled: enabled, setEnabled: setEnabled,
@@ -7088,7 +7110,8 @@ function beadsPaint(ctx, A, B, lt, seed) {
     erodeToken: erodeToken, erodeFront: function (lt) { return Chunk1Fx.erodeFront(lt); },
     nudge: tokenNudge, retort: function (ctx, look, lt, g) { Chunk2Fx.retort(ctx, look, lt, g); },
     hash: hash, dirOf: dirOf,
-    projectileLight: projectileLight
+    projectileLight: projectileLight,
+    makeAnimClock: makeAnimClock
   };
   root.SSDNSMapFX = root.SSDNSMapFx; /* alias: both spellings work */
 })(typeof window !== "undefined" ? window : globalThis);
