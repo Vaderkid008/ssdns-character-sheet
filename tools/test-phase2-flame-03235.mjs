@@ -1,5 +1,5 @@
 /**
- * Phase 2 tip (sheet 0.3.269 / DMCC 0.2.282).
+ * Phase 2 tip (sheet 0.3.270 / DMCC 0.2.283).
  * Shocking Grasp touch is 5 ft, including a diagonal neighbour, and does not
  * take ranged-spell disadvantage for being next to the target. 10 ft stays blocked.
  * Sacred Flame paints a column and a failed DEX save reduces token HP.
@@ -20,8 +20,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.269" && version.sheetBuild === "sheet-playtest-v03269");
-check("ver.dmcc", version.dmcc === "0.2.282" && version.dmccBuild === "dmcc-playtest-v02282");
+check("ver.sheet", version.sheet === "0.3.270" && version.sheetBuild === "sheet-playtest-v03270");
+check("ver.dmcc", version.dmcc === "0.2.283" && version.dmccBuild === "dmcc-playtest-v02283");
 
 function extractFunction(src, name) {
   const re = new RegExp("(?:async\\s+)?function\\s+" + name + "\\s*\\(");
