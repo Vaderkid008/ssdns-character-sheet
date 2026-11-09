@@ -925,7 +925,10 @@
     ctx.arc(hx, hy, 8, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
-    if (lt > T.grow) bloom(ctx, B, 18, lt - T.grow, "255,150,55", "180,45,15", 4);
+    if (lt > T.grow) {
+      bloom(ctx, B, 18, lt - T.grow, "255,150,55", "180,45,15", 4);
+      gritBurst(ctx, B.x, B.y, lt - T.grow, T.fade, 12, (seed || 3) + 8, 36, ["45,28,20", "95,80,60"], 4);
+    }
   }
   function coldPaint(ctx, A, B, lt) {
     var T = LOOK_TIME.cold;
@@ -945,7 +948,10 @@
     ctx.closePath();
     ctx.fill();
     ctx.restore();
-    if (lt > T.grow) bloom(ctx, B, 16, lt - T.grow, "225,240,255", "90,135,195", 2);
+    if (lt > T.grow) {
+      bloom(ctx, B, 16, lt - T.grow, "225,240,255", "90,135,195", 2);
+      gritBurst(ctx, B.x, B.y, lt - T.grow, T.fade, 12, 19, 32, ["200,225,250", "95,80,60"], 4);
+    }
   }
 /* Phase 2 grit. Source-over specks so a Love-it shape keeps its fill.
    n is capped: a lasting zone must not repaint a demo-sized field every frame. */
@@ -1169,7 +1175,10 @@ function acidPaint(ctx, A, B, lt) {
   ctx.fillStyle = rgba("225,235,150", 0.85 * f);
   ctx.beginPath(); ctx.arc(hx - 4, hy - 5, 4, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
-  if (lt > T.grow) bloom(ctx, B, 16, lt - T.grow, "175,210,55", "95,140,20", 2);
+  if (lt > T.grow) {
+    bloom(ctx, B, 16, lt - T.grow, "175,210,55", "95,140,20", 2);
+    gritBurst(ctx, B.x, B.y, lt - T.grow, T.fade, 14, 27, 40, ["125,180,40", "95,80,60"], 4);
+  }
 }
 function poisonPaint(ctx, A, B, lt, seed) {
   var T = LOOK_TIME.poison;
@@ -4112,6 +4121,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
     var A = G.A || G.S;
     if (!G.quiet) needle(ctx, A, B, lt, PAL.cold.glow, PAL.cold.hot, false);
     var th = lt - (G.quiet ? 0 : RF.grow);
+    if (!G.quiet && th >= 0 && th < 700) gritBurst(ctx, B.x, B.y, th, 700, 12, 19, (G.cell || 70) * 0.5, ["200,225,250", "95,80,60"], 4);
     if (!G.quiet && th >= 0 && th < 380) {
       var u = th / 380;
       add(ctx, function () {
@@ -6808,6 +6818,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
         }
       }
       if (look === "briar" && lt < 800) gritBurst(ctx, at.x, at.y, lt, 800, 14, 61, rad * 1.6, ["70,62,38", "95,80,60"], 5);
+      if (look === "cholla" && at && lt < 800) gritBurst(ctx, at.x, at.y, lt, 800, 16, 55, rad * 1.8, ["215,190,130", "95,80,60"], 4);
       if (look === "silk" || look === "briar" || look === "tentacles") {
         var arm;
         ctx.strokeStyle = rgba(col, 0.75 * f);
@@ -6833,6 +6844,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
       ctx.strokeStyle = rgba("214,160,72", 0.9 * f);
       ctx.lineWidth = 2;
       ctx.stroke();
+      if (look === "gale" && lt < 800) gritBurst(ctx, (A.x + B.x) / 2, (A.y + B.y) / 2, lt, 800, 16, 44, Math.max(48, Math.hypot(B.x - A.x, B.y - A.y) * 0.45), ["200,185,160", "95,80,60"], 4);
       ctx.restore();
       return;
     }
@@ -6858,6 +6870,12 @@ function beadsPaint(ctx, A, B, lt, seed) {
         ctx.arc(p.x, p.y, rad * 0.95, 0, Math.PI * 2);
         ctx.fill();
       });
+      if (look === "dustpop") {
+        [A, B].forEach(function (p, i) {
+          if (!p) return;
+          gritBurst(ctx, p.x, p.y, lt, time.grow + time.hold + time.fade, 12, 48 + i, rad * 1.3, ["178,168,150", "95,80,60"], 4);
+        });
+      }
       ctx.restore();
       return;
     }
