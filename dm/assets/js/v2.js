@@ -6406,6 +6406,28 @@ function playTableSfx(eventName) {
     from: DM.state.uid
   });
 }
+/* A live tableFeed row the DM should show. Own rolls already played here.
+   History older than 15s stays in the log and does not replay. Sfx rows are not zooms. */
+function feedZoomPlan(row, selfUid, started) {
+  if (!row || row.kind === "sfx") return "";
+  if (row.from && selfUid && String(row.from) === String(selfUid)) return "";
+  const ts = Date.parse(row.ts || "");
+  const born = Number(started) || 0;
+  if (!ts || ts + 15000 < born) return "";
+  if (row.zoom && typeof row.zoom === "object") return "zoom";
+  if (row.die && typeof row.die === "object") return "die";
+  return "";
+}
+function replayFeedZoom(row, started) {
+  const how = feedZoomPlan(row, DM.state && DM.state.uid, started);
+  const Zoom = window.SSDNSD20Zoom;
+  if (!how || !Zoom) return;
+  try {
+    if (how === "zoom" && typeof Zoom.play === "function") Zoom.play(row.zoom);
+    else if (how === "die" && typeof Zoom.present === "function") Zoom.present(row.die);
+  } catch (e) {}
+}
+window.SSDNSFeedSync = { plan: feedZoomPlan };
 function watchTableSfx() {
   if (DM.state.demo || !DM.state.db || !DM.state.roomCode || !DM.state._fb) return;
   const room = DM.state.roomCode;
@@ -6427,7 +6449,11 @@ function watchTableSfx() {
       if (seen[id]) return;
       seen[id] = 1;
       const row = val[id];
-      if (!row || row.kind !== "sfx") return;
+      if (!row) return;
+      if (row.kind !== "sfx") {
+        replayFeedZoom(row, started);
+        return;
+      }
       const ts = Date.parse(row.ts);
       if (!ts || ts + 4000 < started) return;
       const heard = window.SSDNSAudio && window.SSDNSAudio.sharedCue
