@@ -2858,6 +2858,7 @@ function zoneLoopLive() {
     hit = true;
   });
   Object.keys(zoneFxBorn).forEach(id => { if (!live[id]) delete zoneFxBorn[id]; });
+  if (syncScarMotion(zones)) hit = true;
   return hit || guard;
 }
 function chunk4ZoneKey(key) {
@@ -3104,6 +3105,173 @@ function paintZoneBadges(zones) {
     node.style.top = top + "px";
   });
 }
+/* Fireball's leftover scar. The 8d6 burst stays on the cast painter.
+   This plate is the existing 20-ft burn-scar only: char underneath, the
+   looping flame overlay on top, and the still plate when motion is off
+   or the loop cannot play. One shared loop for every scar in the scene.
+   Ring centre (505, 516) and radius 289 are the hand-fit on the 1024 plate.
+   The 480 loop is that same plate. The clip is the zone circle, so the
+   square media cannot grow the footprint or lay an opaque rectangle. */
+const SCAR_ART = {
+  char: "fx/fireball-aftermath/char-decal.png",
+  still: "fx/fireball-aftermath/overlay.png",
+  loop: "fx/fireball-aftermath/idle-overlay.webm"
+};
+const SCAR_PLATE = 1024;
+const SCAR_RING = { cx: 505, cy: 516, r: 289 };
+const scarStill = { char: null, still: null };
+let scarVideo = null;
+let scarVideoState = "idle";
+let scarPlayKicked = false;
+function scarFxOn() {
+  try {
+    const FX = window.SSDNSMapFx;
+    if (FX && typeof FX.enabled === "function") {
+      if (!FX.enabled()) return false;
+    } else if (window.localStorage && window.localStorage.getItem("ssdns.map.fx") === "0") return false;
+  } catch (e) {}
+  try {
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
+  } catch (e2) {}
+  return true;
+}
+function scarReady(img) {
+  return !!(img && img.complete && img.naturalWidth > 0 && !img._scarDead);
+}
+function scarRingFor(pxSize) {
+  const s = (Number(pxSize) || SCAR_PLATE) / SCAR_PLATE;
+  return { w: pxSize, h: pxSize, cx: SCAR_RING.cx * s, cy: SCAR_RING.cy * s, r: SCAR_RING.r * s };
+}
+function scarImage(slot) {
+  if (scarStill[slot]) return scarStill[slot];
+  const img = new Image();
+  img.decoding = "async";
+  img.addEventListener("load", () => requestDraw());
+  img.addEventListener("error", () => { img._scarDead = true; requestDraw(); });
+  img.src = asset(SCAR_ART[slot]);
+  scarStill[slot] = img;
+  return img;
+}
+function scarLoop() {
+  if (scarVideo) return scarVideo;
+  const v = document.createElement("video");
+  v.muted = true;
+  v.loop = true;
+  v.playsInline = true;
+  v.preload = "auto";
+  v.setAttribute("playsinline", "");
+  v.setAttribute("aria-hidden", "true");
+  /* Off the map, but in the document. A detached or display:none loop
+     does not decode, so the canvas would stick on the still plate. */
+  v.style.cssText = "position:fixed;left:-4800px;top:0;width:480px;height:480px;opacity:0.02;pointer-events:none;";
+  scarVideo = v;
+  scarVideoState = "loading";
+  v.addEventListener("error", () => { scarVideoState = "dead"; requestDraw(); });
+  v.addEventListener("loadeddata", () => {
+    if (scarVideoState === "dead") return;
+    scarVideoState = "live";
+    requestDraw();
+  });
+  const host = document.body || document.documentElement;
+  if (host) host.appendChild(v);
+  v.src = asset(SCAR_ART.loop);
+  return v;
+}
+function scarTryPlay(v) {
+  if (!v || scarVideoState === "dead") return;
+  if (!v.paused && v.readyState >= 2) {
+    scarVideoState = "live";
+    return;
+  }
+  if (scarPlayKicked) return;
+  scarPlayKicked = true;
+  let p;
+  try { p = v.play(); } catch (e) { scarVideoState = "dead"; return; }
+  if (p && typeof p.then === "function") {
+    p.then(() => { if (scarVideoState !== "dead") scarVideoState = "live"; }).catch(() => {
+      scarVideoState = "dead";
+      requestDraw();
+    });
+  }
+}
+/* True while a scar still needs frames. No fireball zone pauses the loop
+   and drops out of the animation pump, so a cleared scene does not keep decoding. */
+function syncScarMotion(zones) {
+  const want = scarFxOn() && (zones || []).some(z => z && z.key === "fireball" && !zoneIsToken(z));
+  if (!want) {
+    if (scarVideo && !scarVideo.paused) {
+      try { scarVideo.pause(); } catch (e) {}
+    }
+    scarPlayKicked = false;
+    return false;
+  }
+  const v = scarLoop();
+  scarTryPlay(v);
+  return scarVideoState !== "dead";
+}
+function scarFrame() {
+  const v = scarVideo;
+  if (!scarFxOn() || !v || scarVideoState === "dead") return null;
+  if (v.readyState >= 2 && !v.paused && v.videoWidth > 0) return v;
+  return null;
+}
+function scarBlit(img, ring, center, radius) {
+  if (!img || !ring || !(ring.r > 0) || !(radius > 0)) return;
+  const scale = radius / ring.r;
+  ctx.drawImage(img, center.x - ring.cx * scale, center.y - ring.cy * scale, ring.w * scale, ring.h * scale);
+}
+function paintFireballScar(zone, px) {
+  if (!zone || !zone.origin) return;
+  const char = scarImage("char");
+  const still = scarImage("still");
+  const motion = scarFrame();
+  const charOk = scarReady(char);
+  const stillOk = scarReady(still);
+  if (!charOk && !stillOk && !motion) {
+    if (char && char._scarDead && still && still._scarDead) paintLastingZoneDisc(zone, px);
+    else if (traceZone(zone, px)) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(196,140,64,0.9)";
+      ctx.lineWidth = 1.25;
+      ctx.stroke();
+      ctx.restore();
+    }
+    return;
+  }
+  if (!traceZone(zone, px)) return;
+  const zoom = state.view.zoom || 1;
+  const radius = Math.max(2, ((Number(zone.radius) || 0) / 5) * px * zoom);
+  const center = worldToScreen(Number(zone.origin.x) * px, Number(zone.origin.y) * px);
+  ctx.save();
+  ctx.clip();
+  ctx.globalCompositeOperation = "source-over";
+  if (charOk) scarBlit(char, scarRingFor(char.naturalWidth || SCAR_PLATE), center, radius);
+  if (motion) scarBlit(motion, scarRingFor(motion.videoWidth || 480), center, radius);
+  else if (stillOk) scarBlit(still, scarRingFor(still.naturalWidth || SCAR_PLATE), center, radius);
+  ctx.restore();
+  if (!traceZone(zone, px)) return;
+  ctx.save();
+  ctx.strokeStyle = "rgba(196,140,64,0.9)";
+  ctx.lineWidth = 1.25;
+  ctx.stroke();
+  ctx.restore();
+}
+window.addEventListener("ssdns-map-fx-pref", () => {
+  if (scarFxOn() && scarVideoState === "dead") {
+    scarVideoState = "idle";
+    scarPlayKicked = false;
+  }
+  syncScarMotion(spellZoneList());
+  requestDraw();
+});
+try {
+  if (window.matchMedia) {
+    const reduceQ = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onReduce = () => { syncScarMotion(spellZoneList()); requestDraw(); };
+    if (reduceQ.addEventListener) reduceQ.addEventListener("change", onReduce);
+    else if (reduceQ.addListener) reduceQ.addListener(onReduce);
+  }
+} catch (eReduce) {}
 /* Lasting ink, drawn with the other zone plates (after the player's fog).
    Hunger's cast FX fades; without this disc the sphere vanishes into the black fog. */
 function paintLastingZoneDisc(zone, px) {
@@ -3167,6 +3335,11 @@ function paintSpellZones() {
     }
     if (chunk4ZoneKey(zone.key)) {
       paintChunk4Zone(zone, px, "under");
+      paintZonePulse(zone, px);
+      return;
+    }
+    if (zone.key === "fireball") {
+      paintFireballScar(zone, px);
       paintZonePulse(zone, px);
       return;
     }
