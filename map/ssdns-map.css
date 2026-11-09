@@ -2,6 +2,8 @@
 .ssdns-map {
   position: relative;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   height: calc(100vh - 230px);
   min-height: 420px;
   overflow: hidden;
@@ -42,7 +44,7 @@
     "dock";
 }
 .ssdns-map.hidden { visibility: hidden; }
-.page-map, #panel-map.panel { background: #1a1612; color: #e8dcc8; }
+.page-map, #panel-map.panel { background: #1a1612; color: #e8dcc8; overflow-x: auto; }
 .page-map .page-title, #panel-map h2 { color: #e8c36a; }
 .map-tabbar {
   display: flex;
@@ -1370,6 +1372,7 @@ body.map-fullscreen #mapMount > .ssm-drawer {
   gap: 6px;
   align-items: center;
   overflow: hidden; /* the chip lane scrolls; Next / Undo / End combat stay in view */
+  min-width: 0;
   max-width: 100%;
   background: #12100e;
   border: 0;
@@ -1753,7 +1756,7 @@ body.map-fullscreen #mapMount > canvas.ssm-fx {
    mode, for the player and the DM (grid row "strip" moved to the first row above). On the sheet the map shows the
    sheet's own turn strip (#turnPanel: round, turn order, Action / Bonus / R, movement, Dash / Disengage / Dodge,
    End turn), moved here by ssdns-map-host.js while the Map tab is open, so the two can never differ. */
-.ssdns-map > .ssm-turnhost { grid-area: strip; position: relative; z-index: 4; min-width: 0; }
+.ssdns-map > .ssm-turnhost { grid-area: strip; position: relative; z-index: 4; min-width: 0; max-width: 100%; overflow-x: auto; }
 .ssdns-map > .ssm-turnhost:empty,
 .ssdns-map > .ssm-turnhost:has(> #turnPanel[hidden]) { display: none; }
 .ssdns-map > .ssm-turnhost #turnPanel.turn-panel { margin: 0; max-width: 100%; box-sizing: border-box; background: #16130f; border-radius: 10px; border: 2px solid #3fbf9a; }

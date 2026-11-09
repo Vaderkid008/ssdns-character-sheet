@@ -589,9 +589,22 @@ kbd { font-family: var(--label); border: 1px solid var(--line); padding: 0 6px; 
   /* keep the fixed Exit Full Screen button clear of the narrower tool row */
   body.in-room.map-fullscreen #mapMount .ssdns-toolbar { padding-right: 176px; }
   /* On the Map tab the panel drops the centred max width and sits against the
-     feed, so the map grows into the room the strip frees up. */
-  body.in-room.map-tab-active .tabs,
+     feed, so the map grows into the room the strip frees up. The tab row stays
+     in that same box and scrolls inside it instead of painting on the dark page. */
   body.in-room.map-tab-active #panel-map { max-width: none; margin-left: 0; margin-right: 0; }
+  body.in-room.map-tab-active .tabs {
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    overflow-x: auto;
+    box-sizing: border-box;
+  }
+  body.in-room:not(.map-tab-active) .tabs {
+    max-width: min(var(--max), 100%);
+    overflow-x: auto;
+    box-sizing: border-box;
+  }
 }
 .town-bar, .store-picks { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
 .town-opt, .store-opt { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 10px; border: 1px solid var(--line); background: var(--bg); }
