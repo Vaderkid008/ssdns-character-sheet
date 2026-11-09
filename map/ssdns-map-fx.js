@@ -1444,15 +1444,9 @@ function loveFireballSpice(ctx, B, R, lt, cell) {
       [1, "rgba(255,125,35,0)"]
     ]);
   }
-  var grow = easeOut(lt / 380), fade = 1 - clamp((lt - 750) / 650);
+    var grow = easeOut(lt / 380), fade = 1 - clamp((lt - 750) / 650);
   if (fade > 0) {
     var s = R * 0.88 * grow;
-    softDisc(ctx, x, y, s * 1.15, [
-      [0, "rgba(255,225,160," + (0.3 * fade) + ")"],
-      [0.45, "rgba(255,125,35," + (0.3 * fade) + ")"],
-      [0.8, "rgba(200,60,15," + (0.25 * fade) + ")"],
-      [1, "rgba(200,60,15,0)"]
-    ]);
     var br = rng(19);
     for (i = 0; i < 46; i++) {
       var a0 = br() * Math.PI * 2, d0 = Math.sqrt(br()), rr = 0.22 + br() * 0.28, sp = (br() - 0.5) * 0.004, ph = br() * 10;
@@ -1480,36 +1474,6 @@ function loveFireballSpice(ctx, B, R, lt, cell) {
       [1, "rgba(255,125,35,0)"]
     ]);
   }
-  var rk = (lt - 60) / 520;
-  if (rk > 0 && rk < 1.8) {
-    var rr = lerp(R * 0.35, R, easeOut(Math.min(1, rk)));
-    var ra = rk < 1 ? 1 : 1 - (rk - 1) / 0.8;
-    var rw = lerp(30, 12, clamp(rk)) * sc;
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    ctx.fillStyle = stops(grad(ctx, "r", x, y, Math.max(0, rr - rw), x, y, rr + rw * 0.6), [
-      [0, "rgba(255,125,35,0)"],
-      [0.55, "rgba(255,225,160," + (0.6 * ra) + ")"],
-      [0.75, "rgba(255,125,35," + (0.5 * ra) + ")"],
-      [1, "rgba(200,60,15,0)"]
-    ]) || rgba("255,140,45", 0.4 * ra);
-    ctx.beginPath();
-    ctx.arc(x, y, rr + rw, 0, Math.PI * 2);
-    ctx.fill();
-    var lr = rng(91);
-    ctx.lineCap = "round";
-    for (i = 0; i < 70; i++) {
-      var lan = i / 70 * Math.PI * 2 + lr() * 0.08;
-      var len = (6 + lr() * 18) * (0.6 + 0.4 * Math.sin(lt * 0.03 + i)) * sc;
-      ctx.strokeStyle = lr() < 0.3 ? "rgba(255,225,160," + (0.28 * ra) + ")" : "rgba(255,140,45," + (0.28 * ra) + ")";
-      ctx.lineWidth = (2 + lr() * 4) * sc;
-      ctx.beginPath();
-      ctx.moveTo(x + Math.cos(lan) * (rr - 6 * sc), y + Math.sin(lan) * (rr - 6 * sc));
-      ctx.lineTo(x + Math.cos(lan) * (rr + len), y + Math.sin(lan) * (rr + len));
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
   var er = rng(4242);
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
@@ -1518,9 +1482,9 @@ function loveFireballSpice(ctx, B, R, lt, cell) {
     var ean = er() * Math.PI * 2, ev = 0.35 + er() * 0.75, elife = 600 + er() * 1100, est = 40 + er() * 220, ew = 1 + er() * 1.4;
     var ek = (lt - est) / elife;
     if (ek <= 0 || ek >= 1) continue;
-    var edist = R * 0.25 + ev * elife * (1 - Math.pow(1 - ek, 2)) * 0.5 * sc;
-    var ex = x + Math.cos(ean) * edist, ey = y + Math.sin(ean) * edist + ek * ek * 10 * sc;
-    var etail = (3 + 11 * (1 - ek)) * sc;
+    var edist = Math.min(R * 0.92, R * 0.2 + ev * ek * R * 0.85);
+    var ex = x + Math.cos(ean) * edist, ey = y + Math.sin(ean) * edist + ek * ek * 8 * sc;
+    var etail = Math.min(R * 0.07, (3 + 8 * (1 - ek)) * sc);
     ctx.strokeStyle = "rgba(" + (ek < 0.3 ? "255,225,160" : "255,125,35") + "," + (1 - ek) + ")";
     ctx.lineWidth = ew * sc;
     ctx.beginPath();
@@ -1531,10 +1495,15 @@ function loveFireballSpice(ctx, B, R, lt, cell) {
   ctx.restore();
   var hg = clamp((lt - 300) / 300) * (1 - clamp((lt - 1200) / 1600));
   if (hg > 0) {
-    softDisc(ctx, x, y, R, [
-      [0, "rgba(200,60,15," + (0.35 * hg) + ")"],
-      [1, "rgba(200,60,15,0)"]
-    ]);
+    var smoke = rng(77);
+    for (i = 0; i < 8; i++) {
+      var sang = smoke() * Math.PI * 2;
+      var soff = R * (0.2 + smoke() * 0.55);
+      softDisc(ctx, x + Math.cos(sang) * soff, y + Math.sin(sang) * soff, R * (0.22 + smoke() * 0.16), [
+        [0, "rgba(40,22,12," + (0.45 * hg) + ")"],
+        [1, "rgba(40,22,12,0)"]
+      ], "source-over");
+    }
   }
   if (lt > 900) {
     var scorch = clamp((lt - 900) / 400) * (1 - clamp((lt - 2200) / 800));
@@ -1739,37 +1708,61 @@ function fireballPaint(ctx, A, B, lt, seed, g) {
   var expand = easeOut(Math.min(1, boom / 180));
   var R = radius * (0.22 + 0.78 * expand);
   var core = boom < 200 ? 1 : f;
+  var puff = rng((seed || 4) + 9);
+  var i;
+  for (i = 0; i < 64; i++) {
+    var rim = i % 5 === 0;
+    var ang = puff() * Math.PI * 2 + Math.sin(boom * 0.015 + i * 1.1) * 0.7;
+    var rad = R * (rim ? 0.1 + puff() * 0.1 : 0.18 + puff() * 0.16);
+    var dist = rim ? R * (0.78 + puff() * 0.18) : Math.pow(puff(), 0.72) * R * 0.72;
+    var flick = 0.7 + 0.3 * Math.sin(boom * 0.023 + i * 0.8);
+    var hot = !rim && dist < R * 0.22;
+    var px = B.x + Math.cos(ang) * dist, py = B.y + Math.sin(ang) * dist;
+    softDisc(ctx, px, py, rad * (0.85 + 0.25 * flick), hot ? [
+      [0, "rgba(255,236,190," + (0.85 * f * flick) + ")"],
+      [0.45, "rgba(255,140,45," + (0.45 * f * flick) + ")"],
+      [1, "rgba(200,60,15,0)"]
+    ] : [
+      [0, "rgba(" + (puff() < 0.45 ? "255,140,45" : "200,60,15") + "," + (0.92 * f * flick) + ")"],
+      [0.5, "rgba(120,28,6," + (0.55 * f * flick) + ")"],
+      [1, "rgba(40,10,3,0)"]
+    ], "source-over");
+  }
+  for (i = 0; i < 18; i++) {
+    var sang = puff() * Math.PI * 2;
+    var soff = Math.pow(puff(), 0.5) * R * 0.55;
+    softDisc(ctx, B.x + Math.cos(sang) * soff, B.y + Math.sin(sang) * soff, R * (0.08 + puff() * 0.1), [
+      [0, "rgba(28,12,6," + (0.55 * f) + ")"],
+      [1, "rgba(20,8,4,0)"]
+    ], "source-over");
+  }
   ctx.save();
   ctx.globalCompositeOperation = "source-over";
-  ctx.fillStyle = rgba("180,48,12", 0.72 * f);
+  ctx.fillStyle = rgba("255,140,45", 0.9 * f);
   ctx.beginPath();
-  ctx.arc(B.x, B.y, R, 0, Math.PI * 2);
+  ctx.arc(B.x, B.y, Math.max(6, R * 0.05), 0, Math.PI * 2);
   ctx.fill();
-  ctx.restore();
-  ctx.save();
-  ctx.globalCompositeOperation = "lighter";
-  var coreR = Math.max(10, cell * (0.45 + 0.85 * Math.min(1, boom / 140)));
+  ctx.strokeStyle = rgba("255,225,160", 0.35 * f);
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  for (i = 0; i < 16; i++) {
+    var tick = puff() * Math.PI * 2;
+    var td = R * (0.9 + puff() * 0.08);
+    var jx = Math.cos(tick), jy = Math.sin(tick);
+    ctx.beginPath();
+    ctx.moveTo(B.x + jx * td, B.y + jy * td);
+    ctx.lineTo(B.x + jx * td * 0.94 + -jy * R * 0.03, B.y + jy * td * 0.94 + jx * R * 0.03);
+    ctx.stroke();
+  }
+  var coreR = Math.max(8, R * 0.14);
   ctx.fillStyle = stops(grad(ctx, "r", B.x, B.y, 0, B.x, B.y, coreR), [
-    [0, "rgba(255,252,236," + 0.98 * core + ")"],
-    [0.35, "rgba(255,230,170," + 0.85 * core + ")"],
-    [1, "rgba(255,140,40,0)"]
+    [0, "rgba(255,252,236," + 0.95 * core + ")"],
+    [0.45, "rgba(255,225,160," + 0.7 * core + ")"],
+    [1, "rgba(255,125,35,0)"]
   ]) || rgba("255,236,190", 0.9 * core);
   ctx.beginPath();
   ctx.arc(B.x, B.y, coreR, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = stops(grad(ctx, "r", B.x, B.y, coreR * 0.2, B.x, B.y, R), [
-    [0, "rgba(255,160,50," + 0.72 * f + ")"],
-    [0.55, "rgba(220,70,16," + 0.55 * f + ")"],
-    [1, "rgba(160,30,8,0)"]
-  ]) || rgba("255,125,35", 0.62 * f);
-  ctx.beginPath();
-  ctx.arc(B.x, B.y, R, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = rgba("255,236,190", 0.95 * f);
-  ctx.lineWidth = 4 + 8 * (1 - expand);
-  ctx.beginPath();
-  ctx.arc(B.x, B.y, R, 0, Math.PI * 2);
-  ctx.stroke();
   ctx.restore();
   loveFireballSpice(ctx, B, radius, boom, cell);
 }
