@@ -8149,8 +8149,10 @@ async function castAreaSpell(opts) {
     detail = CastLine && CastLine.hadarAnnounce
       ? CastLine.hadarAnnounce(opts.who || "Someone", cold)
       : ((opts.who || "Someone") + " casts " + opts.name + (cold.length ? " · inside: " + cold.join(", ") : " · nobody in the sphere"));
+  } else if (rolled && rolled.zoneHold) {
+    detail = (opts.who || "Someone") + " casts " + (rolled.text || opts.name);
   } else if (rolled && rolled.text) detail += " · " + rolled.text;
-  if (!/hunger of hadar/i.test(opts.name || "")) detail += names.length ? (" · " + names.join(", ")) : " · nobody in the area";
+  if (!/hunger of hadar/i.test(opts.name || "") && !(rolled && rolled.zoneHold)) detail += names.length ? (" · " + names.join(", ")) : " · nobody in the area";
   const zoneLine = adoptCastZone(opts.row, opts.name, placed, opts.slotLevel, opts.dc, zoneExtra);
   if (zoneLine) detail += " · " + zoneLine;
   const defer = window.SSDNSSpellZones && window.SSDNSSpellZones.defersCast && window.SSDNSSpellZones.defersCast(opts.name);

@@ -315,7 +315,7 @@
       next.shape = spec.shape || next.shape || "sphere";
       next.radius = radius;
       next.feet = radius;
-      next.label = radius + "-foot radius";
+      next.label = spec.key === "flaming sphere" ? "5-foot-diameter sphere" : (radius + "-foot radius");
     }
     if (next.rangeFeet == null && spec.range != null) next.rangeFeet = spec.range;
     return next;
