@@ -1,7 +1,7 @@
 /**
  * Food and water stays optional (Off / Loose / Strict, default Off).
  * Eat, meters, forage/hunt, horse feed, and a sated hot meal.
- * No spoilage. No new combat bonus. Sheet 0.3.264 / DMCC 0.2.277.
+ * No spoilage. No new combat bonus. Sheet 0.3.265 / DMCC 0.2.278.
  *   node tools/test-food-water-03258.mjs
  */
 import fs from "node:fs";
@@ -18,8 +18,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.264" && ver.dmcc === "0.2.277" && ver.sheetBuild === "sheet-playtest-v03264" && ver.dmccBuild === "dmcc-playtest-v02277");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.264") && !read("database.rules.json").includes("0.3.264") && !read("assets/data/rules.js").includes("hotMeal"));
+check("ver", ver.sheet === "0.3.265" && ver.dmcc === "0.2.278" && ver.sheetBuild === "sheet-playtest-v03265" && ver.dmccBuild === "dmcc-playtest-v02278");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.265") && !read("database.rules.json").includes("0.3.265") && !read("assets/data/rules.js").includes("hotMeal"));
 check("bestiary.kept", read("dm/assets/js/v2.js").includes("bestiary.json?v=0.2.249-spell-tokens"));
 
 const sheet = read("assets/js/supplies-sheet.js");

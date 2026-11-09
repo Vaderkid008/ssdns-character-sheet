@@ -4938,9 +4938,10 @@ function draw() {
     }
     paintAssetChip(ctx, t, s, r);
     const condRaws = tokenConditionRaws(t);
-    /* B2: DM-only link badge. Players never reach a hidden token, and this mark is role-gated too.
-       The word pill sits above the token, so this mark stays on the upper corner. */
-    if (role === 'dm' && !t.spellPiece && t.kind !== 'asset') {
+    /* DM-only link badge. A player token that is not on a sheet shows ⚠. A linked one shows ⛓.
+       Bestiary enemies, monsters, and NPC hostiles are not sheet tokens, so they get no mark.
+       Players never reach this block. The word pill sits above the token, so this mark stays on the upper corner. */
+    if (role === 'dm' && !t.spellPiece && t.kind !== 'asset' && tokenWantsSheetLink(t)) {
       const linkedSheet = !!(t.ownerUid && partyList().some(p => p && (p.uid || p.id) === t.ownerUid));
       const mark = linkedSheet ? '⛓' : '⚠';
       ctx.font = 'bold ' + Math.max(11, Math.round(r * 0.42)) + 'px system-ui, "Noto Color Emoji", sans-serif';
