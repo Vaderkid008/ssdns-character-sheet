@@ -400,6 +400,15 @@ function applySharedToTokens() {
       stampScene(t, s);
       if ((s.kind === 'asset' || t.kind === 'asset') && s.image && s.image !== t.image) t._img = null;
       t.image = s.image || t.image || '';
+      if (s.kind === 'party' || s.storyMarker === 'party' || t.kind === 'party' || t.storyMarker === 'party') {
+        const face = partyFace(t.image);
+        if (face !== t.image) {
+          t.image = face;
+          t._img = null;
+          if (s) s.image = face;
+          if (role === 'dm') saveToken(t.id);
+        }
+      }
       t.veil = !!s.veil;
       t.sheetId = s.sheetId || t.sheetId || '';
       if (s.spellPiece) t.ownerUid = s.ownerUid || '';
@@ -7145,7 +7154,12 @@ function partyOnScene(sceneId) {
   const sid = sceneId || activeSceneId() || 'scn_dustyspur01';
   return (state.tokens || []).find(t => t && isPartyToken(t) && (t.sceneId || 'scn_dustyspur01') === sid) || null;
 }
-const PARTY_ART = '../assets/map-props/asset-baggage-cart.webp';
+const PARTY_ART = '../assets/images/party-six-shooter.svg';
+function partyFace(image) {
+  const src = String(image || '');
+  if (!src || src.indexOf('asset-baggage-cart') >= 0) return PARTY_ART;
+  return src;
+}
 function placePartyToken(opts) {
   if (role !== 'dm' || !state.scene) return null;
   opts = opts || {};

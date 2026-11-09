@@ -23,10 +23,12 @@ check("ver", ver.sheet === "0.3.269" && ver.dmcc === "0.2.282" && ver.sheetBuild
 check("rules.clean", !read("assets/data/rules.js").includes("0.3.269") && !read("database.rules.json").includes("0.3.269"));
 const sheet = read("index.html");
 const dmHtml = read("dm/index.html");
-check("cache.sheet", sheet.includes('data-act="partyTokenBtn"') === false && sheet.includes("map/ssdns-map.js?v=0.3.269-party"));
-check("cache.dm", dmHtml.includes("Party token") === false && dmHtml.includes("../map/ssdns-map.js?v=0.2.282-party"));
+check("cache.sheet", sheet.includes('data-act="partyTokenBtn"') === false && sheet.includes("map/ssdns-map.js?v=0.3.269-sixgun"));
+check("cache.dm", dmHtml.includes("Party token") === false && dmHtml.includes("../map/ssdns-map.js?v=0.2.282-sixgun"));
 check("src.button", read("map/ssdns-map.js").includes('data-act="partyTokenBtn"') && read("map/ssdns-map.js").includes(">Party token</button>"));
-check("src.art", read("map/ssdns-map.js").includes("asset-baggage-cart.webp"));
+const svg = read("assets/images/party-six-shooter.svg");
+check("src.art", read("map/ssdns-map.js").includes("party-six-shooter.svg") && !read("map/ssdns-map.js").includes("PARTY_ART = '../assets/map-props/asset-baggage-cart.webp'"));
+check("svg.six", (svg.match(/<circle /g) || []).length >= 7 && svg.includes("Six-shooter") && !svg.includes("baggage"));
 
 function fakeFirebase() {
   const tree = {};
@@ -182,7 +184,7 @@ btn.click();
 await flush(30);
 const party = box(dm, (t) => t.story);
 check("place.one", !!party && party.kind === "party" && party.label === "Party" && party.noInit && party.notTargetable && party.noHpPool && !party.ownerUid, JSON.stringify(party));
-check("place.art", !!party && String(party.image || "").indexOf("asset-baggage-cart.webp") >= 0);
+check("place.art", !!party && String(party.image || "").indexOf("party-six-shooter.svg") >= 0 && String(party.image || "").indexOf("baggage") < 0);
 const again = dm.placePartyToken();
 check("place.noDup", again && again.id === party.id && dm.tokenBoxes().filter((t) => t.story).length === 1);
 const named = dm.renamePartyToken("The Posse");
@@ -294,6 +296,27 @@ await flush(30);
 check("remove.dm", !box(dm, (t) => t.story));
 check("remove.player", !box(player, (t) => t.story));
 check("remove.pcsStay", !!box(dm, (t) => t.id === pcBefore.id) && box(dm, (t) => t.id === pcBefore.id).x === pcBefore.x);
+
+const cartLive = fakeFirebase();
+const cartEl = w.document.createElement("div");
+w.document.body.appendChild(cartEl);
+const cartMap = w.SSDNSMap.create({
+  el: cartEl,
+  role: "dm",
+  uid: "dm",
+  adapter: w.SSDNSMapFirebase.create({ db: {}, fb: cartLive.fb, roomCode: "CART", role: "dm" }),
+  host: { players: () => [] },
+  options: {
+    scene,
+    tokens: { tokens: { pty_old: { id: "pty_old", kind: "party", storyMarker: "party", name: "Party", label: "Party", image: "../assets/map-props/asset-baggage-cart.webp", pos: { x: 2, y: 2 }, sceneId: "scn_dustyspur01", noInit: true, notTargetable: true, noHpPool: true, ownerCanMove: false } } },
+    assetBase: "map/",
+    players: () => [],
+    room: { table: { initiative: { order: [], turn: 0 } } }
+  }
+});
+await flush(40);
+const swapped = box(cartMap, (t) => t.id === "pty_old");
+check("cart.replaced", !!swapped && String(swapped.image).indexOf("party-six-shooter.svg") >= 0 && String(swapped.image).indexOf("baggage") < 0, JSON.stringify(swapped && swapped.image));
 
 if (failures.length) {
   console.log(failures.length + " failed");

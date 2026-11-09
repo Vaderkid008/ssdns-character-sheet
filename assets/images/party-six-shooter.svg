@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Six-shooter">
+  <title>Six-shooter</title>
+  <circle cx="50" cy="50" r="48" fill="#f4e6c4"/>
+  <path d="M30 58c-1 12 1 24 10 29 7 4 15 0 16-9 1-8-3-16-8-21l-8-5z" fill="#8d5a32" stroke="#1c140c" stroke-width="2.6" stroke-linejoin="round"/>
+  <path d="M36 50 30 34l9-3 7 14z" fill="#1c140c"/>
+  <path d="M32 48h20c2 0 4 2 4 5v9H38c-4 0-6-3-6-8v-6z" fill="#efe6d2" stroke="#1c140c" stroke-width="2.6" stroke-linejoin="round"/>
+  <rect x="54" y="44" width="34" height="13" rx="2" fill="#efe6d2" stroke="#1c140c" stroke-width="2.6"/>
+  <rect x="60" y="57" width="22" height="4" rx="1" fill="#d9d0ba" stroke="#1c140c" stroke-width="1.6"/>
+  <rect x="84" y="42" width="7" height="17" rx="1.2" fill="#efe6d2" stroke="#1c140c" stroke-width="2.4"/>
+  <circle cx="50" cy="48" r="15" fill="#f7f0de" stroke="#1c140c" stroke-width="2.6"/>
+  <g fill="#1c140c">
+    <circle cx="50" cy="37.5" r="2.15"/>
+    <circle cx="59.1" cy="42.8" r="2.15"/>
+    <circle cx="59.1" cy="53.2" r="2.15"/>
+    <circle cx="50" cy="58.5" r="2.15"/>
+    <circle cx="40.9" cy="53.2" r="2.15"/>
+    <circle cx="40.9" cy="42.8" r="2.15"/>
+  </g>
+  <path d="M40 62c0 11 9 15 17 11 3-2 4-6 2-11" fill="none" stroke="#1c140c" stroke-width="2.6" stroke-linecap="round"/>
+</svg>
