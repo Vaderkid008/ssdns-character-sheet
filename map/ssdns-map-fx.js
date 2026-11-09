@@ -1071,6 +1071,43 @@ function hailstormPaint(ctx, A, B, lt, seed, g) {
     }
     ctx.restore();
   }
+  /* Call Lightning while it is up: the storm stays over the cylinder and a bolt lingers.
+     The cast strike is still callLightning(). This does not change that drop. */
+  function stormIdle(ctx, center, cell, seedKey) {
+    if (!ctx || !center) return;
+    var cellN = cell || 70;
+    var now = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+    var spin = now / 1600;
+    var R = cellN * 1.15;
+    var i;
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    for (i = 0; i < 8; i++) {
+      var ang = spin * (i % 2 ? 0.2 : -0.14) + i * 0.8;
+      var ox = Math.cos(ang) * R * 0.32;
+      var oy = Math.sin(ang) * R * 0.16 - cellN * 1.05;
+      ctx.fillStyle = "rgba(48,50,58," + (0.34 + (i % 3) * 0.07) + ")";
+      ctx.beginPath();
+      ctx.arc(center.x + ox, center.y + oy, R * (0.42 + (i % 4) * 0.07), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+    var phase = now % 2200;
+    var bright = phase > 1500 ? (1 - (phase - 1500) / 700) : 0.28;
+    var kink = Math.sin(now / 180) * 10;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.strokeStyle = "rgba(180,210,255," + (0.35 + 0.55 * bright) + ")";
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(center.x, center.y - cellN * 1.55);
+    ctx.lineTo(center.x + kink, center.y - cellN * 0.7);
+    ctx.lineTo(center.x - kink * 0.4, center.y);
+    ctx.stroke();
+    ctx.restore();
+    if (phase > 1500) gritBurst(ctx, center.x, center.y, phase - 1500, 700, 8, (hash(String(seedKey || "storm")) % 90) + 3, cellN * 0.4, ["95,80,60", "120,100,75"], 3);
+  }
   function jagPaint(ctx, A, B, lt, seed) {
     var T = LOOK_TIME.lightning;
     if (lt < 0 || lt > T.grow + T.hold + T.fade) return;
@@ -3066,7 +3103,11 @@ function beadsPaint(ctx, A, B, lt, seed) {
   function brand(ctx, lt, G) {
     var A = G.A, B = targetOf(G), rT = G.rT; if (!B) return;
     if (G.pulse) { var flp = env(lt, 0, 60, 160, 600); hmMark(ctx, B, rT, 600 + lt, 1, flp); sparks(ctx, B.x, B.y, lt, 14, 62, 130, 500, PAL.radiant.hot, 1.5, 0); add(ctx, function () { var u = clamp(lt / 600); ring(ctx, B.x, B.y, rT + 7 + easeOut(u) * G.cell * 0.6, 2.5 * (1 - u), rgba(PAL.radiant.core, 1 - u), 10); }); return; }
-    if (G.quiet) { hmMark(ctx, B, rT, lt, 1, 0); return; }
+    if (G.quiet) {
+      hmMark(ctx, B, rT, lt, 1, 0);
+      gritBurst(ctx, B.x, B.y, (Number(lt) || 0) % 900, 900, 10, 91, (rT || 18) * 1.35, ["255,232,170", "95,80,60"], 3);
+      return;
+    }
     pulse(ctx, A, B, lt, BR.pulse, PAL.radiant.glow, PAL.radiant.hot);
     var a = clamp((lt - BR.pulse) / 280), fl = env(lt, BR.flare, BR.flare + 60, BR.flare + 160, BR.flare + 600);
     if (lt > BR.pulse && lt < BR.pulse + 380) { var u2 = (lt - BR.pulse) / 380; add(ctx, function () { glow(ctx, B.x, B.y, G.cell * (0.6 + 0.5 * u2), [[0, rgba(PAL.radiant.hot, 0.8 * (1 - u2))], [1, rgba(PAL.radiant.glow, 0)]]); }); sparks(ctx, B.x, B.y, lt - BR.pulse, 12, 61, 110, 380, PAL.radiant.core, 1.4, 0); }
@@ -4149,7 +4190,11 @@ function beadsPaint(ctx, A, B, lt, seed) {
   function smiteOf(kind) {
     return function (ctx, lt, G) {
       var S = G.S || G.A, B = targetOf(G); if (!B) return;
-      if (G.quiet && kind === "branding") { brandStar(ctx, B, G.rT, lt, 0.9); return; }
+      if (G.quiet && kind === "branding") {
+        brandStar(ctx, B, G.rT, lt, 0.9);
+        gritBurst(ctx, B.x, B.y, (Number(lt) || 0) % 900, 900, 10, 91, (G.rT || 18) * 1.35, ["255,232,170", "95,80,60"], 3);
+        return;
+      }
       weaponEdge(ctx, S, B, lt, G);
       var tb = lt - 110;
       if (tb < 0) return;
@@ -4285,7 +4330,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
      Demo clocks (foe step-ins, scripted second skins, the DM CLEAR pill) are not reproduced.
      Phase 2 first cut: Flame Strike and Fire Storm flung dirt, Sunburst dust motes, Freezing Sphere debris.
      Phase 2 next cut: Wall of Ice and Wall of Thorns kick dust while the wall is still growing. Blade Barrier already throws sparks on that same grow.
-     Still out: Hunger whispers (the sphere stays as locked), and art idle webms are not in the tip assets, so slots 4–5 loop on the canvas.
+     Hunger idle draws whispers inside the locked sphere. Art idle webms are not in the tip assets, so slots 4–5 loop on the canvas.
      Sticky walls, voids, cubes, swarms, furnace clouds, and the Delayed Blast bead idle on the zone layer.
      Rules radii: Freezing Sphere, Sunburst, and Circle of Death are 60 ft. The Love-it board drew those at 4.5 cells. */
   var Chunk4Fx = (function () {
@@ -4593,6 +4638,10 @@ function beadsPaint(ctx, A, B, lt, seed) {
         if (gl > 0.82) add(ctx, function () { star(ctx, H.x + Math.cos(spin) * hw, H.y + Math.sin(spin) * hw, 5, 4, 0.2, PAL.steel.glint, (gl - 0.82) / 0.18 * clamp(a), 0.3); });
       }
       if (st.p < 1) sparks(ctx, E.x, E.y, lt % 120, 6, Math.floor(lt / 120) + 4, 120, 120, PAL.steel.spark, 1.2, 6);
+      if (mode === "idle") {
+        var dustAt = lp(W.A, W.B, 0.5);
+        gritBurst(ctx, dustAt.x, dustAt.y, (Number(lt) || 0) % 1400, 1400, 8, 77, c * 0.45, ["90,95,105", "95,80,60"], 2.6);
+      }
     }
     function wallSkin(ctx, lt, G) {
       var skins = { ice: iceWall, thorns: thornWall, blades: bladeWall };
@@ -4653,12 +4702,31 @@ function beadsPaint(ctx, A, B, lt, seed) {
         } else iceHit(c, B, t, G);
       });
     }
+    function hungerWhispers(ctx, C, R, lt, a) {
+      if (!C || !(a > 0) || !(R > 8) || !ctx.fillText) return;
+      var i;
+      ctx.save();
+      ctx.globalCompositeOperation = "source-over";
+      ctx.font = "14px Georgia, serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      for (i = 0; i < 7; i++) {
+        var an = lt / 2600 + i * (TAU / 7);
+        var breathe = 0.42 + 0.28 * Math.sin(lt / 800 + i);
+        var rr = R * breathe;
+        var fade = 0.22 + 0.38 * (0.5 + 0.5 * Math.sin(lt / 540 + i * 1.4));
+        ctx.fillStyle = "rgba(214,206,220," + (fade * a) + ")";
+        ctx.fillText(i % 2 ? "\u2026" : "\u00b7", C.x + Math.cos(an) * rr, C.y + Math.sin(an) * rr);
+      }
+      ctx.restore();
+    }
     function hunger(ctx, lt, G) {
       var C = centerOf(G); if (!C) return;
       if (G.mode === "tick") { hungerTick(ctx, lt, G); return; }
       if (G.mode === "clear") { clearPop(ctx, C, G.cell * (G.zr || 4), lt); return; }
       var R = hhR(lt, G), a = G.mode === "idle" ? 0.92 : easeOut(clamp(lt / 300));
       glow(ctx, C.x, C.y, R, [[0, rgba(PAL.voidc.body, 0.2 * a)], [0.85, rgba(PAL.voidc.body, 0.16 * a)], [1, rgba(PAL.voidc.body, 0)]]);
+      if (G.mode === "idle") hungerWhispers(ctx, C, R * 0.72, lt, a);
       if (G.mode === "cast" && lt < 650) {
         add(ctx, function () {
           var u = clamp(lt / 650);
@@ -7127,7 +7195,7 @@ function beadsPaint(ctx, A, B, lt, seed) {
     classify: classify, resultOf: resultOf, plan: plan, sanitize: sanitize, request: request,
     lookOf: lookOf, lookSelf: lookSelf, lookTime: lookTime, shakeOf: shakeOf,
     stickyLook: stickyLook, wrapLook: wrapLook, chunkColor: chunkColor, tileOf: tileOf, namedLook: namedLook,
-    paint: paint, paintRider: paintRider, paintGuidePop: paintGuidePop, zoneLayer: zoneLayer, hailIdle: hailstormIdle,
+    paint: paint, paintRider: paintRider, paintGuidePop: paintGuidePop, zoneLayer: zoneLayer, hailIdle: hailstormIdle, stormIdle: stormIdle,
     erodeToken: erodeToken, erodeFront: function (lt) { return Chunk1Fx.erodeFront(lt); },
     nudge: tokenNudge, retort: function (ctx, look, lt, g) { Chunk2Fx.retort(ctx, look, lt, g); },
     hash: hash, dirOf: dirOf,

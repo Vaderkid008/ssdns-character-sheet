@@ -1,7 +1,7 @@
 /**
  * COA #14 — a lasting map effect ticks on the round wrap, not on the caster's turn,
  * and a DM publish drops it from the player map when the clock hits zero
- * (sheet 0.3.258 / DMCC 0.2.271).
+ * (sheet 0.3.259 / DMCC 0.2.272).
  *   node tools/test-out-of-turn-timers-03248.mjs
  * rules.js is not regenerated.
  */
@@ -96,9 +96,9 @@ check("wire.bomb", map.includes('data-act="bombDefuse"') && map.includes('data-a
 check("wire.badge", map.includes("ssm-zone-badges") && map.includes('if (role !== \'dm\') zoneBadgeLayer.hidden = true'));
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.258" && ver.dmcc === "0.2.271" && ver.sheetBuild === "sheet-playtest-v03258" && ver.dmccBuild === "dmcc-playtest-v02271");
+check("ver", ver.sheet === "0.3.259" && ver.dmcc === "0.2.272" && ver.sheetBuild === "sheet-playtest-v03259" && ver.dmccBuild === "dmcc-playtest-v02272");
 const rules = read("assets/data/rules.js");
-check("rules.clean", !rules.includes("0.3.258") && !rules.includes("0.2.271") && !read("database.rules.json").includes("0.3.258"));
+check("rules.clean", !rules.includes("0.3.259") && !rules.includes("0.2.272") && !read("database.rules.json").includes("0.3.259"));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");
