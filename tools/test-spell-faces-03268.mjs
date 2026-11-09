@@ -1,5 +1,5 @@
 /**
- * Spell log dice show the faces that were rolled (sheet 0.3.271 / DMCC 0.2.284).
+ * Spell log dice show the faces that were rolled (sheet 0.3.272 / DMCC 0.2.285).
  *   node tools/test-spell-faces-03268.mjs
  */
 import fs from "node:fs";
@@ -17,8 +17,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.271" && ver.dmcc === "0.2.284" && ver.sheetBuild === "sheet-playtest-v03271" && ver.dmccBuild === "dmcc-playtest-v02284");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.271") && !read("database.rules.json").includes("0.3.271"));
+check("ver", ver.sheet === "0.3.272" && ver.dmcc === "0.2.285" && ver.sheetBuild === "sheet-playtest-v03272" && ver.dmccBuild === "dmcc-playtest-v02285");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.272") && !read("database.rules.json").includes("0.3.272"));
 
 let seed = 11;
 function rng() {
