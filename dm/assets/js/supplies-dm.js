@@ -167,10 +167,11 @@ function survivalOf(r) {
   if (sk.survival != null) return Number(sk.survival) || 0;
   return 0;
 }
-/** ASSUMED: a successful forage or hunt grants 1 ration. The DM sets the DC. */
-async function forage(id, dc, mod) {
+/** ASSUMED: a successful forage or hunt grants 1 ration. The DM sets the DC. Player characters only. */
+async function forage(id, dc, mod, kind) {
   if (cfg.mode === "off") { DM.toast("Food & water is off."); return; }
   if (!id) { DM.toast("Pick a player to forage."); return; }
+  kind = kind === "hunt" ? "hunt" : "forage";
   dc = Number(dc);
   if (!isFinite(dc)) dc = 15;
   mod = Number(mod) || 0;
@@ -179,7 +180,8 @@ async function forage(id, dc, mod) {
   const pass = total >= dc;
   const who = players().filter((r) => r.id === id).map(nameOf)[0] || "A player";
   if (pass) await give([id], 1, 0);
-  const line = who + " forages: d20 " + nat + (mod >= 0 ? "+" : "") + mod + " = " + total + " vs DC " + dc + (pass ? ". Success: +1 ration (assumed yield)." : ". The wilds give nothing.");
+  const verb = kind === "hunt" ? "hunts" : "forages";
+  const line = who + " " + verb + ": d20 " + nat + (mod >= 0 ? "+" : "") + mod + " = " + total + " vs DC " + dc + (pass ? ". Success: +1 ration (assumed yield)." : ". The wilds give nothing.");
   await DM.pushLedger({ who: "DM", playerId: id, type: "supplies", what: line, oldVal: null, newVal: pass ? "+1 ration" : "miss", flag: false });
   DM.toast(line);
   const out = document.getElementById("supForageOut");
@@ -253,7 +255,8 @@ function paint() {
     '<label>Player <select id="supForageWho">' + (list.length ? list.map((r) => '<option value="' + esc(r.id) + '">' + esc(nameOf(r)) + "</option>").join("") : '<option value="">No players</option>') + "</select></label>" +
     '<label>DC <input type="number" id="supForageDc" value="15" style="width:4.5em"></label>' +
     '<label>Survival <input type="number" id="supForageMod" value="' + (list.length ? survivalOf(list[0]) : 0) + '" style="width:4.5em" title="d20 + this bonus. Filled from the player\'s Survival skill when you pick them."></label>' +
-    '<button type="button" class="btn sm" id="btnSupForage"' + (cfg.mode === "off" || !list.length ? " disabled" : "") + ">Roll</button>" +
+    '<button type="button" class="btn sm" id="btnSupForage"' + (cfg.mode === "off" || !list.length ? " disabled" : "") + ">Forage</button>" +
+    '<button type="button" class="btn sm" id="btnSupHunt"' + (cfg.mode === "off" || !list.length ? " disabled" : "") + ">Hunt</button>" +
     '<span class="fine" id="supForageOut">ASSUMED: a success grants 1 ration. No spoilage. Horse feed does not spoil either.</span>' +
     "</div>" +
     (cfg.summary ? '<p class="sup-summary" id="supSummary"><b>Day ' + esc(cfg.summary.day) + ":</b> " +
@@ -261,7 +264,7 @@ function paint() {
       "Not sharing: " + esc(cfg.summary.notSharing && cfg.summary.notSharing.length ? cfg.summary.notSharing.join(", ") : "nobody") + ".</p>" : "") +
     (list.length ? '<table class="sup-table"><thead><tr><th>Player</th><th>Rations</th><th>Water</th><th title="Days without food / safe days (3 + Con mod)">Hungry</th><th title="Set by the player on their sheet">Shares</th><th>Half</th><th>Exhaustion</th><th>Last day</th></tr></thead><tbody>' + rows + "</tbody></table>" : '<p class="fine">No players at the table yet.</p>') +
     mountBlocks(list) +
-    '<p class="fine">Rations are the meals in every item tagged food (Hardtack and Jerky, packs, DM-made food). Water is every item tagged water: canteens and waterskins, drink items, and loose gallons (8 lb a gallon, counted in carried weight). Give fills canteens first. Horse feed is oats, hay, or grain (5 ES, 10 lb): one portion for one horse or pack mule for the day. It never counts as player food, and it does not spoil. Loose can skip a day by marking Grazing. Strict needs a portion unless Grazing is marked. Hungry does not add exhaustion. Hot meals and campfires are still not in this pass. Players see these counts but can\'t change them; each player picks "Share with party" on their sheet (on unless they turn it off).</p>';
+    '<p class="fine">Rations are the meals in every item tagged food (Hardtack and Jerky, packs, DM-made food). Water is every item tagged water: canteens and waterskins, drink items, and loose gallons (8 lb a gallon, counted in carried weight). Give fills canteens first. Horse feed is oats, hay, or grain (5 ES, 10 lb): one portion for one horse or pack mule for the day. It never counts as player food, and it does not spoil. Loose can skip a day by marking Grazing. Strict needs a portion unless Grazing is marked. Hungry does not add exhaustion. A hot meal on the player sheet uses the cook pot they already carry (still a 1-gallon pot) and one meal, then marks them sated. No temp HP or other combat bonus is encoded. Food does not spoil. Players see these counts but can\'t change them; each player picks "Share with party" on their sheet (on unless they turn it off).</p>';
 }
 function mountBlocks(list) {
   const blocks = list.map((r) => {
@@ -314,8 +317,8 @@ function wire() {
   box.addEventListener("click", (e) => {
     const b = e.target.closest("button");
     if (!b) return;
-    if (b.id === "btnSupForage") {
-      forage(document.getElementById("supForageWho").value, document.getElementById("supForageDc").value, document.getElementById("supForageMod").value);
+    if (b.id === "btnSupForage" || b.id === "btnSupHunt") {
+      forage(document.getElementById("supForageWho").value, document.getElementById("supForageDc").value, document.getElementById("supForageMod").value, b.id === "btnSupHunt" ? "hunt" : "forage");
     } else if (b.id === "btnSupEndDay") endDay({});
     else if (b.id === "btnSupSkip") skipDay();
     else if (b.id === "btnSupGiveParty" || b.id === "btnSupTakeParty") {

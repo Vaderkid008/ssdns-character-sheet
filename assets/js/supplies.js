@@ -38,7 +38,7 @@
   function half(n) { return Math.round(num(n) * 2) / 2; }
 
   function defaults() {
-    return { mode: "off", water: 0, daysHungry: 0, halfOpen: false, pendingSave: null, last: null, day: 0, share: true, prepaid: { food: 0, water: 0 }, mounts: {} };
+    return { mode: "off", water: 0, daysHungry: 0, halfOpen: false, pendingSave: null, last: null, day: 0, share: true, sated: false, prepaid: { food: 0, water: 0 }, mounts: {} };
   }
   /** Fill missing fields; never throws on old saves. */
   function ensure(c) {
@@ -228,6 +228,30 @@
     if (ate >= 1) s.daysHungry = 0;
     return { ok: true, ate: ate, drank: drank };
   }
+  /** The cook pot stays a 1-gallon container. A hot meal uses it; it is not eaten. */
+  function hasCookPot(c) {
+    return itemsOf(c).some(function (it) {
+      if (!it) return false;
+      var id = it.catalogId || it.id || "";
+      return id === "cook-pot" || /^cook pot$/i.test(String(it.name || "").trim());
+    });
+  }
+  /**
+   * Cook a hot meal while Loose or Strict. Spends one meal (and up to 1 gal, same as Eat)
+   * and marks the Fed meter sated. No temp HP, advantage, or other combat bonus is encoded.
+   * The cook pot is not consumed. Mode off does nothing. Food does not spoil.
+   */
+  function hotMeal(c) {
+    var s = ensure(c);
+    if (s.mode === "off") return { ok: false, reason: "Food and water tracking is off." };
+    if (!hasCookPot(c)) return { ok: false, reason: "You need a cook pot." };
+    if (rations(c) < 1) return { ok: false, reason: "A hot meal needs one meal of food." };
+    var ate = eatNow(c);
+    if (!ate || !ate.ok) return ate || { ok: false, reason: "Nothing to eat or drink." };
+    if (!(ate.ate >= 1)) return { ok: false, reason: "A hot meal needs one meal of food." };
+    s.sated = true;
+    return { ok: true, ate: ate.ate, drank: ate.drank, sated: true, bonus: null };
+  }
 
   /**
    * One day passes for one character. Spends food and water and says what 5e does about it.
@@ -281,6 +305,7 @@
     if (restDrop) lines.push("Long rest with food and water: -1 exhaustion.");
     tickMounts(c).forEach(function (row) { lines.push(row.line); });
 
+    s.sated = false;
     s.day = num(s.day) + 1;
     s.last = { day: s.day, food: food, drank: drank, need: need, hot: !!opts.hot, gain: gain, restDrop: restDrop, save: save ? "pending" : "", at: new Date().toISOString() };
     return { food: food, ate: ateToday, daysHungry: s.daysHungry, limit: limit, foodGain: foodGain, need: need, drank: drank,
@@ -300,7 +325,7 @@
   /** Small read-only view for the DM card and the sheet. */
   function view(c) {
     var s = ensure(c);
-    return { mode: s.mode, rations: rations(c), water: waterTotal(c), daysHungry: s.daysHungry, pendingSave: !!s.pendingSave, last: s.last, day: s.day, share: s.share, prepaid: { food: s.prepaid.food, water: s.prepaid.water }, feed: feedPortions(c), mounts: mountView(c) };
+    return { mode: s.mode, rations: rations(c), water: waterTotal(c), daysHungry: s.daysHungry, sated: !!s.sated, pendingSave: !!s.pendingSave, last: s.last, day: s.day, share: s.share, prepaid: { food: s.prepaid.food, water: s.prepaid.water }, feed: feedPortions(c), mounts: mountView(c) };
   }
 
   /* ---- L0216 horse feed: oats / hay / grain, one portion per horse or pack mule ---- */
@@ -539,6 +564,8 @@
     giveRations: giveRations,
     eatMeals: eatMeals,
     eatNow: eatNow,
+    hasCookPot: hasCookPot,
+    hotMeal: hotMeal,
     giveWater: giveWater,
     foodLimit: foodLimit,
     waterNeed: waterNeed,

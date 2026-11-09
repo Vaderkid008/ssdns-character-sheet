@@ -22,7 +22,7 @@ const extras = read("assets/js/sheet-extras.js");
 check("rules.untouched", !rules.includes("tickMounts") && !rules.includes("horseFeed") && !rulesJs.includes("tickMounts") && !rulesJs.includes("0.3.169"));
 check("ui.player", sheet.includes('data-feed-mount') && sheet.includes(">Feed</button>") && sheet.includes("horse feed"));
 check("ui.dm", dm.includes("Give feed") && dm.includes("Clear Hungry") && dm.includes("data-sup-graze") && dm.includes("Horse feed does not spoil"));
-check("ui.noCampfire", !dm.includes("hot meal") && !dm.includes("campfire cook") && dm.includes("Hot meals and campfires are still not"));
+check("ui.hotMeal", sheet.includes('id="btnHotMeal"') && dm.includes("marks them sated") && dm.includes("does not spoil") && !dm.includes("Hot meals and campfires are still not"));
 check("wire.attacks", extras.includes("mountedAttackNote") && extras.includes("handlingNote") && extras.includes("mountAttackExtra"));
 
 const ctx = { console, setTimeout, clearTimeout };

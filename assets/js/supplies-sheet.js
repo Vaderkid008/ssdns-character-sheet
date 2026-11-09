@@ -220,6 +220,18 @@
           log(fed.ok ? ("You feed " + fed.name + " one portion of horse feed.") : fed.reason);
           return;
         }
+        var hot = e.target.closest ? e.target.closest("#btnHotMeal") : null;
+        if (hot) {
+          var meal = null;
+          patch(function (ch2) { meal = root.SSDNSSupplies.hotMeal(ch2); });
+          if (!meal) return;
+          if (!meal.ok) { log(meal.reason); return; }
+          var cooked = [];
+          if (meal.ate) cooked.push(meal.ate + " meal" + (meal.ate === 1 ? "" : "s"));
+          if (meal.drank) cooked.push(meal.drank + " gal");
+          log("You cook a hot meal (" + cooked.join(", ") + "). You are sated. No extra combat bonus is on the sheet.");
+          return;
+        }
         var b = e.target.closest ? e.target.closest("#btnEat") : null;
         if (!b) return;
         var res = null;
@@ -261,10 +273,10 @@
       '<div class="sup-cell' + (v.daysHungry > limit ? " bad" : "") + '" data-sup="hungry"><b>' + esc(v.daysHungry) + " / " + limit + '</b><span>Days without food</span><small>Safe for 3 + Con mod days</small></div>' +
       "</div>" +
       '<div class="sup-meters" aria-label="Hunger and thirst">' +
-      '<div class="sup-meter"><span>Fed</span><span class="sup-track"><span class="sup-fill" style="width:' + fedPct + '%"></span></span><small>' + esc(v.daysHungry) + " / " + limit + " days without</small></div>" +
+      '<div class="sup-meter"><span>Fed</span><span class="sup-track"><span class="sup-fill" style="width:' + fedPct + '%"></span></span><small>' + (v.sated ? '<b class="sup-sated">Sated</b> · ' : "") + esc(v.daysHungry) + " / " + limit + " days without</small></div>" +
       '<div class="sup-meter"><span>Water</span><span class="sup-track"><span class="sup-fill water" style="width:' + waterPct + '%"></span></span><small>' + esc(v.water) + " gal (1 gal covers today)</small></div>" +
       "</div>" +
-      '<div class="sup-eat"><button type="button" class="btn sm" id="btnEat">Eat</button><span class="fine">1 meal and up to 1 gal now. Counts toward today so the end of the day does not spend it twice.' + esc(prepaidTxt) + "</span></div>" +
+      '<div class="sup-eat"><button type="button" class="btn sm" id="btnEat">Eat</button><button type="button" class="btn sm" id="btnHotMeal">Hot meal</button><span class="fine">Eat is 1 meal and up to 1 gal now. A hot meal uses the cook pot you carry (it stays a 1-gallon pot) and one meal, then marks you sated. No extra combat bonus. Counts toward today so the end of the day does not spend it twice.' + esc(prepaidTxt) + "</span></div>" +
       mountBlock(c, v) +
       '<label class="toggle sup-share" title="On: at the end of a day, your leftover food and water can cover party members who are short. Off: yours stays yours (others who share can still cover you)."><input type="checkbox" id="supShare"' + (v.share !== false ? " checked" : "") + "> Share with party</label>" +
       (lastTxt ? '<p class="fine sup-last">' + esc(lastTxt) + "</p>" : "");
