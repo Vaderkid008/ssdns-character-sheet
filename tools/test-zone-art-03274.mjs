@@ -40,8 +40,8 @@ const KEYS = [
 ];
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.274" && ver.dmcc === "0.2.287" && ver.sheetBuild === "sheet-playtest-v03274" && ver.dmccBuild === "dmcc-playtest-v02287");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.274") && !read("database.rules.json").includes("0.3.274"));
+check("ver", ver.sheet === "0.3.275" && ver.dmcc === "0.2.288" && ver.sheetBuild === "sheet-playtest-v03275" && ver.dmccBuild === "dmcc-playtest-v02288");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.275") && !read("database.rules.json").includes("0.3.275"));
 
 const mapSrc = read("map/ssdns-map.js");
 check("wire.paint", mapSrc.includes("Art.paint(ctx, zone, zoneArtEnv())"));
