@@ -1,4 +1,4 @@
-/* Gold Challenge sound pack (sheet 0.3.279).
+/* Gold Challenge sound pack (sheet 0.3.280).
    Jessey's exported v2 timings. Ordinary dice do not call this.
    A motion's roll cue starts with the animation. Its land cue fires when the
    die actually lands. ring=false fades the roll cue over 150ms at that moment.
@@ -184,6 +184,10 @@
     if (!planRow.ring) fadeOut(rollAudio, 150);
     playCue(planRow, "land");
   }
+  function lockpick() {
+    note({ kind: "lockpick" });
+    return playFile(fileUrl("lockpick-attempt.mp3"), 0, 0);
+  }
   function stop() {
     clearTimers();
     live.forEach(function (a) { try { a.pause(); } catch (e) {} });
@@ -204,6 +208,7 @@
     plan: plan,
     begin: begin,
     land: land,
+    lockpick: lockpick,
     stop: stop,
     mid: mid,
     trace: function () { return trace.slice(); },

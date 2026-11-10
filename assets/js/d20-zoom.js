@@ -51,6 +51,7 @@
     "M54.5 47 L58.5 41.5 L63 40.5"
   ];
   var seen = {};
+  var lockpickHeard = {};
   var openLayer = {};
   var tail = Promise.resolve();
   var hooked = false;
@@ -790,6 +791,7 @@
     if (kind === "crit") { out.crit = true; out.result = "crit"; }
     else if (kind === "fumble") { out.crit = false; out.result = "miss"; }
     if (ev.fancy || ev.challenge) out.fancy = true;
+    if (ev.lockpick) out.lockpick = true;
     if (ev.label) out.label = String(ev.label).slice(0, 60);
     var min = Number(ev.critMin);
     if (isFinite(min) && min >= 2 && min <= 20) out.critMin = Math.round(min);
@@ -834,8 +836,22 @@
     }
     return safe;
   }
+  function playLockpickCue(ev) {
+    if (!ev || !ev.lockpick) return;
+    var id = String(ev.id || "");
+    if (id && lockpickHeard[id]) return;
+    if (id) lockpickHeard[id] = 1;
+    var S = root.SSDNSChallengeSfx;
+    if (S && typeof S.lockpick === "function") {
+      try { S.lockpick(); } catch (e) {}
+    }
+  }
   function present(ev) {
-    return startPose(ensurePose(ev));
+    var posedNow = ensurePose(ev);
+    if (!posedNow) return Promise.resolve();
+    var id = String(posedNow.id || "");
+    if (!(id && seen[id])) playLockpickCue(posedNow);
+    return startPose(posedNow);
   }
   function play(ev) {
     ev = ev || {};

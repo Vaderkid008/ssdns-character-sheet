@@ -1,6 +1,6 @@
 /**
  * Interact collects into the sheet, drops back onto the map, and lockpicks a DM DC.
- * Sheet 0.3.279 / DMCC 0.2.292.
+ * Sheet 0.3.280 / DMCC 0.2.293.
  *   node tools/test-interact-items-03279.mjs
  */
 import fs from "node:fs";
@@ -19,8 +19,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.279" && ver.dmcc === "0.2.292" && ver.sheetBuild === "sheet-playtest-v03279" && ver.dmccBuild === "dmcc-playtest-v02292");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.279") && !read("database.rules.json").includes("0.3.279"));
+check("ver", ver.sheet === "0.3.280" && ver.dmcc === "0.2.293" && ver.sheetBuild === "sheet-playtest-v03280" && ver.dmccBuild === "dmcc-playtest-v02293");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.280") && !read("database.rules.json").includes("0.3.280"));
 check("rules.toolsUse", /thieves' tools to disarm a trap or open a lock/.test(read("assets/data/rules.js")));
 check("heat.line", read("assets/js/spell-riders.js").includes("leaves inventory") && !read("assets/js/spell-riders.js").includes("Nothing leaves inventory"));
 check("heat.command", read("dm/assets/js/v2.js").includes('type: "take_gear"') && read("dm/assets/js/v2.js").includes("function dropHeldWeapon"));
