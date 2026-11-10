@@ -778,6 +778,55 @@
       payload: payload
     };
   }
+  function claimKey(boxId, rowId) {
+    var safe = function (v) { return String(v || "").replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 60); };
+    var id = "lootclaim_" + safe(boxId || "box") + "_" + safe(rowId || "row");
+    return { id: id, path: "tableFeed/" + id };
+  }
+  /* Claim each row before it is granted. claimFn must resolve one winner.
+     Take all uses the same claims, so a second take finds them gone. */
+  function claimTake(box, who, rows, claimFn) {
+    if (!box) return Promise.resolve({ ok: false, reason: "Can't take that" });
+    var takeAll = !rows;
+    if (takeAll && box.taken) return Promise.resolve({ ok: false, reason: "Already taken." });
+    var list = (rows || box.contents || []).filter(function (r) { return r && !r.taken; });
+    if (!list.length) return Promise.resolve({ ok: false, reason: box.taken ? "Already taken." : "Gone." });
+    var won = [];
+    var gone = [];
+    var chain = Promise.resolve();
+    list.forEach(function (row) {
+      chain = chain.then(function () {
+        if (!claimFn) { won.push(row); return; }
+        var key = claimKey(box.id || "box", row.id || row.name);
+        var body = {
+          id: key.id,
+          ts: new Date().toISOString(),
+          from: String(who || ""),
+          text: String(who || "Someone") + " took " + (row.name || row.id || "an item"),
+          boxId: String(box.id || ""),
+          rowId: String(row.id || row.name || "")
+        };
+        return Promise.resolve(claimFn(key.path, body)).then(function (res) {
+          if (res && res.won) won.push(row);
+          else {
+            row.taken = true;
+            gone.push({ id: row.id, owner: (res && res.owner) || "" });
+          }
+        });
+      });
+    });
+    return chain.then(function () {
+      if (!won.length) {
+        var mine = gone.length && gone.every(function (g) { return g.owner && g.owner === String(who || ""); });
+        return { ok: false, reason: mine ? "Already taken." : "Gone.", won: [], gone: gone, box: box };
+      }
+      var result = takeRows(box, who, takeAll ? null : won, null);
+      if ((box.contents || []).length && (box.contents || []).every(function (r) { return !r || r.taken; })) box.taken = true;
+      result.gone = gone;
+      result.box = box;
+      return result;
+    });
+  }
   function takeRows(box, uid, rows, character) {
     if (!visibleTo(box, uid, "player") && uid !== box.opener) return { ok: false, reason: "You can't see this box." };
     if (box.taken && (!rows || rows === box.contents)) return { ok: false, reason: "Already taken." };
@@ -908,7 +957,8 @@
   root.SSDNSLoot = {
     GUNS: GUNS, AMMO: AMMO, BUDGET: BUDGET, CHAPTER: CHAPTER, SEALED: SEALED,
     rollQty: rollQty, rollBox: rollBox, rollCash: rollCash, place: place, openBox: openBox, handPlace: handPlace,
-    visibleTo: visibleTo, takeRows: takeRows, takeAll: function (box, uid, character) { return takeRows(box, uid, null, character); },
+    visibleTo: visibleTo, takeRows: takeRows, claimTake: claimTake, claimKey: claimKey,
+    takeAll: function (box, uid, character) { return takeRows(box, uid, null, character); },
     applyTake: applyTake, budget: budget, tagOf: tagOf, illegalReason: illegalReason, nameOf: nameOf,
     register: register, tableFor: tableFor, tables: allTables, load: load, magicRare: magicRare, isGun: isGun,
     seedAccess: seedAccess, blocked: blocked, menu: menu, resolve: resolve, playCheck: playCheck,

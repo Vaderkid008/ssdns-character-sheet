@@ -1280,6 +1280,7 @@ body.map-fullscreen #mapMount .ssm-cropper canvas {
 }
 .ssm-chest-menu[hidden] { display: none; }
 .ssm-chest-menu button { margin: 0 6px 6px 0; }
+.ssm-chest-menu .ssm-roll { margin: 4px 0 6px; color: #ffe0a3; }
 .ssdns-leftbar [data-act="doorEdit"] {
   display: flex; flex-direction: column; gap: 4px; margin: 6px 0;
   font: 12px system-ui; color: #f3e6c8;

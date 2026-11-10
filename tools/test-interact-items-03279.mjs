@@ -62,6 +62,119 @@ check("take.lands", took.ok === true && box.taken === true && who.items.some((it
 const again = L.takeAll(box, "ada", who);
 check("take.once", again.ok === false && again.reason === "Already taken." && who.items.length === 1);
 
+const store = { pub: {}, dm: {} };
+const bus = [];
+const fbSrc = read("map/ssdns-map-firebase.js");
+const mem = { console }; mem.window = mem; vm.createContext(mem);
+vm.runInContext(fbSrc, mem);
+const ada = mem.SSDNSMapFirebase.memory({ role: "player", store, bus, uid: "ada" });
+const bev = mem.SSDNSMapFirebase.memory({ role: "player", store, bus, uid: "bev" });
+function freshBox() {
+  return {
+    id: "chest-race",
+    name: "Chest",
+    taken: false,
+    contents: [
+      { id: "trail-rations", name: "Trail rations", qty: 1 },
+      { id: "waterskin", name: "Waterskin", qty: 1 }
+    ],
+    cash: { es: 0, black: 0 },
+    lock: { dc: 0, unlocked: true },
+    reveal: "everyone",
+    shared: true
+  };
+}
+const boxA = freshBox();
+const boxB = freshBox();
+const sheetA = { items: [], ammo: [], guns: [], es: 0 };
+const sheetB = { items: [], ammo: [], guns: [], es: 0 };
+const [one, two] = await Promise.all([
+  L.claimTake(boxA, "ada", null, (path, value) => ada.claim(path, value)),
+  L.claimTake(boxB, "bev", null, (path, value) => bev.claim(path, value))
+]);
+const winner = one.ok ? one : two;
+const loser = one.ok ? two : one;
+if (winner.ok) L.applyTake(one.ok ? sheetA : sheetB, winner);
+check("race.oneWins", one.ok !== two.ok && loser.reason === "Gone." && (one.ok ? sheetA : sheetB).items.length === 2 && (one.ok ? sheetB : sheetA).items.length === 0, JSON.stringify({ one: one.ok, two: two.ok, reason: loser.reason }));
+const winnerBox = one.ok ? boxA : boxB;
+const winnerWho = one.ok ? "ada" : "bev";
+const repeat = await L.claimTake(winnerBox, winnerWho, null, (path, value) => (one.ok ? ada : bev).claim(path, value));
+check("race.idempotent", repeat.ok === false && repeat.reason === "Already taken." && sheetA.items.length + sheetB.items.length === 2, repeat.reason);
+
+const rowBoxA = freshBox();
+const rowBoxB = freshBox();
+rowBoxA.id = "chest-row";
+rowBoxB.id = "chest-row";
+const rowSheetA = { items: [], ammo: [], guns: [], es: 0 };
+const rowSheetB = { items: [], ammo: [], guns: [], es: 0 };
+const [rowOne, rowTwo] = await Promise.all([
+  L.claimTake(rowBoxA, "ada", [rowBoxA.contents[0]], (path, value) => ada.claim(path, value)),
+  L.claimTake(rowBoxB, "bev", [rowBoxB.contents[0]], (path, value) => bev.claim(path, value))
+]);
+const rowWinner = rowOne.ok ? rowOne : rowTwo;
+if (rowWinner.ok) L.applyTake(rowOne.ok ? rowSheetA : rowSheetB, rowWinner);
+const rowLoser = rowOne.ok ? rowTwo : rowOne;
+const rowLoserBox = rowOne.ok ? rowBoxB : rowBoxA;
+check("race.row", rowOne.ok !== rowTwo.ok && rowLoser.reason === "Gone." && (rowOne.ok ? rowSheetA : rowSheetB).items.length === 1 && (rowOne.ok ? rowSheetB : rowSheetA).items.length === 0 && rowLoserBox.contents[0].taken === true);
+
+function fakeFirebase() {
+  const tree = {};
+  function clone(v) { return v == null ? v : JSON.parse(JSON.stringify(v)); }
+  function get(p) {
+    return String(p).split("/").filter(Boolean).reduce((cur, part) => (cur && typeof cur === "object" ? cur[part] : null), tree) || null;
+  }
+  function setPath(p, value) {
+    const parts = String(p).split("/").filter(Boolean);
+    let cur = tree;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!cur[parts[i]] || typeof cur[parts[i]] !== "object") cur[parts[i]] = {};
+      cur = cur[parts[i]];
+    }
+    cur[parts[parts.length - 1]] = clone(value);
+  }
+  const queued = [];
+  let flushing = false;
+  const fb = {
+    ref(_db, p) { return { path: p }; },
+    runTransaction(r, fn) {
+      return new Promise((resolve) => {
+        queued.push({ r, fn, resolve });
+        if (flushing) return;
+        flushing = true;
+        Promise.resolve().then(() => {
+          const batch = queued.splice(0);
+          flushing = false;
+          const snap = clone(get(batch[0].r.path));
+          let committed = false;
+          batch.forEach((job) => {
+            let next = job.fn(committed ? clone(get(job.r.path)) : snap);
+            if (committed && next !== undefined) next = job.fn(clone(get(job.r.path)));
+            if (next === undefined) job.resolve({ committed: false });
+            else {
+              setPath(job.r.path, next);
+              committed = true;
+              job.resolve({ committed: true });
+            }
+          });
+        });
+      });
+    }
+  };
+  return { fb, get };
+}
+const live = fakeFirebase();
+const adaLive = mem.SSDNSMapFirebase.create({ db: {}, fb: live.fb, roomCode: "ROOM", uid: "ada", role: "player" });
+const bevLive = mem.SSDNSMapFirebase.create({ db: {}, fb: live.fb, roomCode: "ROOM", uid: "bev", role: "player" });
+const liveA = freshBox();
+const liveB = freshBox();
+liveA.id = "chest-live";
+liveB.id = "chest-live";
+const [liveOne, liveTwo] = await Promise.all([
+  L.claimTake(liveA, "ada", [liveA.contents[0]], (path, value) => adaLive.claim(path, value)),
+  L.claimTake(liveB, "bev", [liveB.contents[0]], (path, value) => bevLive.claim(path, value))
+]);
+check("race.transaction", liveOne.ok !== liveTwo.ok && (liveOne.ok ? liveTwo : liveOne).reason === "Gone.", JSON.stringify({ one: liveOne.ok, two: liveTwo.ok, a: liveOne.reason, b: liveTwo.reason }));
+
 function makeWindow() {
   const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/dm/", pretendToBeVisual: true, runScripts: "dangerously" });
   const w = dom.window;
@@ -87,8 +200,8 @@ const w = makeWindow();
   w.document.body.appendChild(s);
 });
 const scene = JSON.parse(read("map/scene-dusty-spur.json"));
-const store = { pub: {}, dm: {} }, bus = [];
-const ad = w.SSDNSMapFirebase.memory({ role: "dm", store, bus });
+const mapStore = { pub: {}, dm: {} }, mapBus = [];
+const ad = w.SSDNSMapFirebase.memory({ role: "dm", store: mapStore, bus: mapBus });
 const el = w.document.createElement("div");
 w.document.body.appendChild(el);
 w.SSDNSMap.create({
@@ -99,7 +212,7 @@ await flush(60);
 el.querySelector('[data-act="doorLockDc"]').value = "15";
 el.querySelector('[data-act="placeChestBtn"]').click();
 await flush(20);
-const chests = Object.keys(store.pub).filter((k) => k.indexOf("map/public/tokens/") === 0).map((k) => store.pub[k].value).filter((t) => t && t.kind === "chest");
+const chests = Object.keys(mapStore.pub).filter((k) => k.indexOf("map/public/tokens/") === 0).map((k) => mapStore.pub[k].value).filter((t) => t && t.kind === "chest");
 const lock = chests[0] && chests[0].lootLock && chests[0].lootLock.lock;
 check("chest.placed", chests.length === 1 && lock && lock.dc === 15 && lock.unlocked === false, JSON.stringify(chests[0] && chests[0].lootLock));
 
