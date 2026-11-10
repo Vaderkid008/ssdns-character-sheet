@@ -2200,11 +2200,15 @@ function endRemovedZones(removed) {
     row.spellMarks.zones = row.spellMarks.zones.filter((z) => !(z && ids[z.id]));
   });
 }
-function expireSpellZones() {
+/* Same clock as a round wrap. steps is how many rounds to count off.
+   Damage, saves, and start/end ticks are not rolled for the skipped rounds. */
+function tickZoneClock(steps) {
   const Z = window.SSDNSSpellZones;
   if (!Z || !Z.tickRounds) return;
+  const n = Number(steps);
+  if (!(n > 0)) return;
   const before = zoneListNow();
-  const ticked = Z.tickRounds(before, 1);
+  const ticked = Z.tickRounds(before, n);
   const changed = ticked.removed.length > 0 || ticked.zones.some((z) => {
     const prev = before.find((b) => b && z && b.id === z.id);
     return prev && Number(prev.roundsLeft) !== Number(z.roundsLeft);
@@ -2217,6 +2221,14 @@ function expireSpellZones() {
     DM.toast(line);
     DM.pushLedger({ who: "DM", playerId: "all", type: "combat", what: line, oldVal: null, newVal: "expired", flag: false });
   });
+}
+function expireSpellZones() {
+  tickZoneClock(1);
+}
+/* Outside initiative only. A live fight already expires zones when the round wraps. */
+function advanceSpellZones(steps) {
+  if (fight.started) return;
+  tickZoneClock(steps);
 }
 function zonePhase(who, when) {
   const Z = window.SSDNSSpellZones;
@@ -2258,6 +2270,10 @@ function adoptCastZone(row, name, placed, slot, dc, extra) {
   }
   return put.log || "";
 }
+window.addEventListener("ssdns-advance-time", (ev) => {
+  const steps = ev && ev.detail && ev.detail.steps;
+  advanceSpellZones(steps);
+});
 window.addEventListener("ssdns-zone-clear", (ev) => {
   const detail = ev && ev.detail;
   const removed = (detail && detail.removed) || [];
