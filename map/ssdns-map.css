@@ -226,6 +226,14 @@
 }
 .ssdns-map .ssdns-chatdock [data-act="chatlog"] { max-height: 140px; overflow: auto; }
 .ssdns-map .ssm-chatline { white-space: pre-line; }
+.ssdns-map .ssm-chatline.noise-alert,
+.ssdns-chat-overlay .dock-item.noise-alert,
+body.ssdns-chat-pop .dock-item.noise-alert {
+  background: rgba(210, 59, 47, .28);
+  box-shadow: inset 4px 0 0 #d23b2f;
+  color: #ffd0c8;
+  font-weight: 700;
+}
 .ssdns-chat-overlay,
 body.ssdns-chat-pop {
   position: fixed;

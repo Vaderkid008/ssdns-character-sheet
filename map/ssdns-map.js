@@ -232,6 +232,7 @@ window.SSDNSMap = { create(opts) {
         id: t.loot.id || t.lootBoxId || t.id,
         name: t.loot.name || t.name || '',
         boxType: t.loot.boxType || '',
+        container: t.loot.container || '',
         opened: !!t.loot.opened,
         taken: !!t.loot.taken,
         contents: (t.loot.contents || []).map(r => r ? { id: r.id, name: r.name || '', qty: r.qty || 1, taken: !!r.taken, dirty: !!r.dirty } : null).filter(Boolean),
@@ -245,7 +246,9 @@ window.SSDNSMap = { create(opts) {
           dc: Number(t.loot.lock.dc) || 0,
           unlocked: !!t.loot.lock.unlocked,
           allowRetries: !!t.loot.lock.allowRetries,
-          attempts: t.loot.lock.attempts || {}
+          attempts: t.loot.lock.attempts || {},
+          forceDc: t.loot.lock.forceDc != null && t.loot.lock.forceDc !== "" ? Number(t.loot.lock.forceDc) : null,
+          forceAttempts: t.loot.lock.forceAttempts || {}
         } : null
       } : null
     };
@@ -890,7 +893,7 @@ function renderChat() {
     if (state.chatFilter === 'talk') return bucket === 'talk';
     return true;
   });
-  log.innerHTML = rows.map(row => '<div class="ssm-chatline">' + chatLineHtml(row) + '</div>').join('');
+  log.innerHTML = rows.map(row => '<div class="ssm-chatline' + (row.noise ? ' noise-alert' : '') + '">' + chatLineHtml(row) + '</div>').join('');
   log.scrollTop = log.scrollHeight;
   chatdock.classList.toggle('ssm-chat-shut', !state.chatOpen);
   const toggle = q('chatToggle');
@@ -927,6 +930,7 @@ paintRoleBadge();
 function pushFeed(row) {
   if (row && row.boxId && row.rowId && String(row.id || "").indexOf("lootclaim_") === 0) noteLootClaim(row);
   if (row && row.lockBox && role === "dm") applyLockFeed(row);
+  if (row && row.noise && role === "dm") noteForceNoise(row);
   if (row && row.event === 'zone') { applyZoneFeed(row); return; }
   if (row && row.event === 'zone-tick') { applyZoneTickFeed(row); return; }
   if (row && row.event === 'spell-light') { applyLightFeed(row); return; }
@@ -1092,9 +1096,11 @@ if (role === 'dm') {
       <button type="button" data-lock-preset="medium" class="is-on" title="Medium, DC 15">Medium</button>
       <button type="button" data-lock-preset="hard" title="Hard, DC 20">Hard</button>
       <label>Lock DC <input data-act="chestLockDc" type="number" min="0" value="15" aria-label="Lock DC" title="Easy 10, Medium 15, Hard 20. Any other number is a custom DC. 0 is unlocked."></label>
+      <label>Force DC <input data-act="forceDc" type="number" min="0" value="25" aria-label="Force DC" title="Strength (Athletics) to force a strongbox. Players do not see this before they roll. Chests cannot be forced."></label>
     </div>
-    <button type="button" data-act="placeChestBtn" title="Drop a chest on the map. New locks start at Medium, DC 15, unless another preset or number is selected.">Place chest</button>
-    <label title="When on, the same character may pick this lock again."><input data-act="lockAllowRetries" type="checkbox"> Allow retries</label>
+    <label>Container <select data-act="chestKind" aria-label="Container type"><option value="chest">Chest</option><option value="strongbox">Strongbox</option></select></label>
+    <button type="button" data-act="placeChestBtn" title="Drop the selected container. New locks start at Medium, DC 15, unless another preset or number is selected.">Place</button>
+    <label title="When on, the same character may pick this lock again, and may try to force a strongbox again."><input data-act="lockAllowRetries" type="checkbox"> Allow retries</label>
     <button type="button" data-act="resetLockBtn" title="Clear every character's attempt on the selected door or chest.">Reset attempts</button>
     <button data-act="revealFogBtn" type="button">Reveal: Box</button>
     <select data-act="revealShape" aria-label="Reveal shape">
@@ -5366,6 +5372,11 @@ function draw() {
     if (portraitGrey < 1 && tokenIsEnfeebled(t)) portraitGrey = 1;
     if (nudge && (nudge.dx || nudge.dy)) ctx.translate(nudge.dx || 0, nudge.dy || 0);
     if (isHidden && role === 'dm') ctx.globalAlpha = 0.4;
+    if (isChestProp(t)) {
+      paintChestProp(ctx, t, px);
+      ctx.restore();
+      continue;
+    }
     if (t.veil && (role === 'dm' || t.ownerUid === uid)) ctx.globalAlpha = 0.45;
     /* fog-aware targeting: seen but past the picked weapon's long range -> grey wash on this player's map */
     let outOfReach = false;
@@ -5686,6 +5697,20 @@ function draw() {
     ctx.lineWidth = 3;
     ctx.stroke();
     ctx.restore();
+  }
+  if (role === "dm") {
+    for (const p of state.noisePulses || []) {
+      const age = (Date.now() - p.ts) / 7000;
+      if (age >= 1) continue;
+      const sc = worldToScreen(p.x, p.y);
+      const side = (p.side || px) * (0.9 + age * 0.35);
+      ctx.save();
+      ctx.strokeStyle = "#e23b2f";
+      ctx.globalAlpha = 0.95 * (1 - age);
+      ctx.lineWidth = 4;
+      ctx.strokeRect(sc.x - side / 2, sc.y - side / 2, side, side);
+      ctx.restore();
+    }
   }
   paintMoveHover();
   paintMoveReadout();
@@ -6104,6 +6129,73 @@ function fillColorSelect(sel) {
 function paintSwatch(el, color) {
   if (!el) return;
   el.style.background = color && color !== 'custom' ? color : 'transparent';
+}
+const PROP_ART = {
+  chest: {
+    closed: "props/chest-closed.webp", closedPng: "props/chest-closed.png",
+    open: "props/chest-open.webp", openPng: "props/chest-open.png"
+  },
+  strongbox: {
+    closed: "props/strongbox-closed.webp", closedPng: "props/strongbox-closed.png",
+    open: "props/strongbox-open.webp", openPng: "props/strongbox-open.png"
+  }
+};
+const propImgs = { chest: { closed: null, open: null }, strongbox: { closed: null, open: null } };
+let chestArtStarted = false;
+function ensureChestArt() {
+  if (chestArtStarted) return;
+  chestArtStarted = true;
+  function load(webp, png, kind, stateName) {
+    const im = new Image();
+    im.onload = () => { propImgs[kind][stateName] = im; draw(); };
+    im.onerror = () => {
+      const fb = new Image();
+      fb.onload = () => { propImgs[kind][stateName] = fb; draw(); };
+      fb.onerror = () => {};
+      fb.src = asset(png);
+    };
+    im.src = asset(webp);
+  }
+  Object.keys(PROP_ART).forEach(kind => {
+    const row = PROP_ART[kind];
+    load(row.closed, row.closedPng, kind, "closed");
+    load(row.open, row.openPng, kind, "open");
+  });
+}
+function containerKind(t) {
+  const box = t && t.loot;
+  if (box && (box.container === "strongbox" || box.container === "chest")) return box.container;
+  return "chest";
+}
+/* A container sits on the square. Players, creatures, and dropped weapons stay round. */
+function isChestProp(t) {
+  if (!t || t.weaponDrop || t.kind === "drop" || t.kind === "player" || t.kind === "enemy" || t.kind === "friendly" || t.kind === "npc" || t.kind === "party") return false;
+  if (typeof isPartyToken === "function" && isPartyToken(t)) return false;
+  return t.kind === "chest" || !!t.lootBoxId;
+}
+function chestShowsOpen(t) {
+  const box = t && t.loot;
+  if (!box || !box.opened) return false;
+  const locked = box.lock && Number(box.lock.dc) > 0 && !box.lock.unlocked;
+  return !locked;
+}
+function paintChestProp(ctx, t, px) {
+  ensureChestArt();
+  const size = t.size || 1;
+  const origin = worldToScreen(t.pos.x * px, t.pos.y * px);
+  const side = size * px * (state.view.zoom || 1);
+  const set = propImgs[containerKind(t)] || propImgs.chest;
+  const img = set[chestShowsOpen(t) ? "open" : "closed"];
+  if (img) ctx.drawImage(img, origin.x, origin.y, side, side);
+  if (role === "dm" && state.selectedIds && state.selectedIds.includes(t.id)) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,255,255,0.8)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.strokeRect(origin.x + 1, origin.y + 1, Math.max(0, side - 2), Math.max(0, side - 2));
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
 }
 function loadTokenImage(t) {
   if (!t || !t.image || t._img) return;
@@ -6753,12 +6845,101 @@ function hideChestMenu() {
   const menu = el.querySelector('[data-act="chestMenu"]');
   if (menu) menu.hidden = true;
 }
+function gridLabel(pos) {
+  if (!pos || !isFinite(Number(pos.x)) || !isFinite(Number(pos.y))) return "the map";
+  let n = Math.max(0, Math.floor(Number(pos.x)));
+  let col = "";
+  do {
+    col = String.fromCharCode(65 + (n % 26)) + col;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return col + (Math.floor(Number(pos.y)) + 1);
+}
+function isStrongbox(box) {
+  const Loot = window.SSDNSLoot;
+  if (Loot && Loot.strongboxBox) return !!Loot.strongboxBox(box);
+  return !!(box && box.container === "strongbox");
+}
+function whenDieLands(job) {
+  return new Promise(resolve => {
+    let done = false;
+    const finish = () => { if (!done) { done = true; resolve(); } };
+    Promise.resolve(job).then(() => {
+      const landed = document.querySelector(".d20-zoom.is-land, .d20-zoom.is-hold, .d20-plain.is-land, .d20-plain.is-hold");
+      if (!landed) finish();
+    }, finish);
+    const start = Date.now();
+    const tick = () => {
+      if (done) return;
+      const landed = document.querySelector(".d20-zoom.is-land, .d20-zoom.is-hold, .d20-plain.is-land, .d20-plain.is-hold, .d20-plain.is-normal");
+      if (landed || Date.now() - start > 8000) { finish(); return; }
+      setTimeout(tick, 40);
+    };
+    setTimeout(tick, 40);
+  });
+}
+/* Challenge d20, same family as a lock pick, with no lockpick sound. */
+function showForceDie(res, sheet) {
+  const Zoom = window.SSDNSD20Zoom;
+  const id = "forcedie_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  const ev = {
+    id: id,
+    nat: res && res.nat,
+    fancy: true,
+    challenge: true,
+    label: "Force open",
+    characterName: (sheet && sheet.name) || "",
+    who: (sheet && sheet.name) || ""
+  };
+  let job = Promise.resolve();
+  if (Zoom && Zoom.play) job = Promise.resolve(Zoom.play(ev));
+  const zoom = Zoom && Zoom.pack ? Zoom.pack({ id: id }) : null;
+  const die = !zoom && Zoom && Zoom.pose ? Zoom.pose({ id: id }) : null;
+  return whenDieLands(job).then(() => ({ zoom: zoom, die: die }));
+}
+function noteForceNoise(row) {
+  if (role !== "dm" || !row) return;
+  state.noisePulses = state.noisePulses || [];
+  if (row.id && state.noisePulses.some(p => p.id === row.id)) return;
+  const t = (state.tokens || []).find(tok => tok && tok.loot && (tok.loot.id === row.lockBox || tok.lootBoxId === row.lockBox));
+  const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
+  const pos = t && t.pos;
+  const x = isFinite(Number(row.noiseX)) ? Number(row.noiseX) : (pos ? (Number(pos.x) + 0.5) * px : null);
+  const y = isFinite(Number(row.noiseY)) ? Number(row.noiseY) : (pos ? (Number(pos.y) + 0.5) * px : null);
+  if (x == null || y == null) return;
+  state.noisePulses.push({ id: row.id || "", ts: Date.now(), x: x, y: y, side: px });
+  if (el) el.dataset.noisePulses = String(state.noisePulses.length);
+  ensureAnim();
+  requestDraw();
+}
+function commitLoot(token) {
+  if (!token || role !== "dm") return;
+  const live = (state.tokens || []).find(t => t && t.id === token.id) || token;
+  const copy = shared.tokens && shared.tokens[live.id];
+  if (copy) {
+    copy.loot = live.loot;
+    copy.lootBoxId = live.lootBoxId || (live.loot && live.loot.id) || copy.lootBoxId || "";
+    if (live.kind) copy.kind = live.kind;
+    if (live.weaponDrop) copy.weaponDrop = live.weaponDrop;
+  }
+  saveToken(live.id);
+}
 function applyLockFeed(row) {
   const t = (state.tokens || []).find(tok => tok && tok.loot && (tok.loot.id === row.lockBox || tok.lootBoxId === row.lockBox));
   if (!t || !t.loot || !t.loot.lock) return;
   if (row.lockAttempts) t.loot.lock.attempts = row.lockAttempts;
-  if (row.lockOk) t.loot.lock.unlocked = true;
-  saveToken(t.id);
+  if (row.forceAttempts) t.loot.lock.forceAttempts = row.forceAttempts;
+  if (row.forceDc != null && row.forceDc !== "") t.loot.lock.forceDc = Number(row.forceDc);
+  if (row.lockOk || row.lockOpen) {
+    t.loot.opened = true;
+    if (row.lockOk && t.loot.lock) t.loot.lock.unlocked = true;
+  }
+  if (row.lockRelock) {
+    t.loot.opened = false;
+    if (t.loot.lock) t.loot.lock.unlocked = false;
+  }
+  commitLoot(t);
+  requestDraw();
 }
 function noteLootClaim(row) {
   if (!row || !row.boxId) return;
@@ -6770,6 +6951,7 @@ function noteLootClaim(row) {
     });
     if ((box.contents || []).length && (box.contents || []).every(item => !item || item.taken)) box.taken = true;
     if (t.weaponDrop && box.taken) t.weaponDrop.taken = true;
+    commitLoot(t);
     const menu = el.querySelector('[data-act="chestMenu"]');
     if (menu && !menu.hidden && menu.getAttribute('data-box') === (t.lootBoxId || box.id)) menu.innerHTML = chestMenuHtml(box);
   });
@@ -6778,13 +6960,16 @@ function noteLootClaim(row) {
 function adoptLootState(box, state) {
   if (!box || !state) return box;
   if (state.taken) box.taken = true;
-  if (state.opened) box.opened = true;
+  if (state.opened === true) box.opened = true;
+  else if (state.opened === false) box.opened = false;
   if (state.lock) {
     box.lock = box.lock || {};
     if (state.lock.unlocked) box.lock.unlocked = true;
     box.lock.allowRetries = !!state.lock.allowRetries;
     box.lock.attempts = Object.assign({}, box.lock.attempts || {}, state.lock.attempts || {});
     if (state.lock.dc) box.lock.dc = state.lock.dc;
+    if (state.lock.forceDc != null && state.lock.forceDc !== "") box.lock.forceDc = Number(state.lock.forceDc);
+    if (state.lock.forceAttempts) box.lock.forceAttempts = Object.assign({}, box.lock.forceAttempts || {}, state.lock.forceAttempts);
   }
   const rows = state.rows || [];
   (box.contents || []).forEach((row, i) => {
@@ -6839,21 +7024,6 @@ function dropBox(token) {
   token.loot = box;
   return box;
 }
-function whenDieLands(job) {
-  return new Promise(resolve => {
-    let done = false;
-    const finish = () => { if (!done) { done = true; resolve(); } };
-    Promise.resolve(job).then(finish, finish);
-    const start = Date.now();
-    const tick = () => {
-      if (done) return;
-      const landed = document.querySelector(".d20-zoom.is-land, .d20-zoom.is-hold, .d20-plain.is-land, .d20-plain.is-hold, .d20-plain.is-normal");
-      if (landed || Date.now() - start > 8000) { finish(); return; }
-      setTimeout(tick, 40);
-    };
-    setTimeout(tick, 40);
-  });
-}
 /* Challenge d20 for a real attempt. No tools and a spent attempt do not throw. */
 function showLockDie(res, sheet) {
   const Zoom = window.SSDNSD20Zoom;
@@ -6907,7 +7077,8 @@ function showChestMenu(token) {
         const threw = res && res.nat != null && !res.noTools && !res.already;
         const finish = (shown) => {
           if (box) box._rollLine = (res && (res.line || res.reason)) || "";
-          if (live) { live.loot = box; saveToken(live.id); }
+          if (res && res.success && box) { box._showLoot = true; box.opened = true; }
+          if (live) { live.loot = box; commitLoot(live); }
           if (threw) {
             const line = (sheet.name || "Someone") + " " + (res.line || res.reason || "tries the lock");
             postLockFeed(line, {
@@ -6915,18 +7086,64 @@ function showChestMenu(token) {
               lockBox: box && box.id,
               lockOk: !!(res && res.success),
               lockAttempts: box && box.lock && box.lock.attempts || {},
+              lockOpen: !!(res && res.success),
               zoom: shown && shown.zoom || null,
               die: shown && shown.die || null,
               nat: res.nat
             });
           }
           toast((res && (res.line || res.reason)) || "Pick lock");
-          if (res && res.success && box) { box._showLoot = true; box.opened = true; }
           menu.innerHTML = chestMenuHtml(box);
           requestDraw();
         };
         if (!threw) { finish(null); return; }
         showLockDie(res, sheet).then(finish);
+        return;
+      }
+      if (act === 'force' && !(Give && Give.chestAct)) {
+        const live = state.tokens.find(t => t && (t.lootBoxId === boxId || t.id === boxId)) || token;
+        const box = dropBox(live);
+        const Loot = window.SSDNSLoot;
+        const sheet = playerCharacter() || {};
+        if (!isStrongbox(box)) { toast("Chests don't force open."); return; }
+        const res = Loot && Loot.forceOpen ? Loot.forceOpen(box, sheet, uid) : { ok: false, reason: "Can't force that" };
+        const threw = !!(res && res.nat != null && !res.already && !res.notStrongbox);
+        const finish = (shown) => {
+          if (box) box._rollLine = (res && (res.line || res.reason)) || "";
+          if (res && res.success && box) { box._showLoot = true; box.opened = true; }
+          if (live) { live.loot = box; commitLoot(live); }
+          if (threw && adapter && adapter.write && box) {
+            const id = "force_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+            const who = sheet.name || "Someone";
+            const where = gridLabel(live && live.pos);
+            const noise = !res.success;
+            const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
+            adapter.write("tableFeed/" + id, {
+              id: id, ts: new Date().toISOString(), from: uid, fromName: who,
+              text: noise ? ("Loud noise: " + who + " tried to force the strongbox at " + where) : (who + " " + (res.line || "forces the strongbox")),
+              kind: "note",
+              to: noise ? "dm" : "all",
+              noise: noise,
+              cls: noise ? "noise-alert" : "",
+              tag: noise ? "NOISE" : "",
+              lockBox: box.id,
+              lockOk: !!res.success,
+              lockOpen: !!res.success,
+              forceAttempts: box.lock && box.lock.forceAttempts || {},
+              forceDc: box.lock && box.lock.forceDc,
+              noiseX: live && live.pos ? (Number(live.pos.x) + 0.5) * px : null,
+              noiseY: live && live.pos ? (Number(live.pos.y) + 0.5) * px : null,
+              zoom: shown && shown.zoom || null,
+              die: shown && shown.die || null,
+              nat: res.nat
+            }, { by: uid });
+          }
+          toast((res && (res.line || res.reason)) || "Force open");
+          menu.innerHTML = chestMenuHtml(box);
+          requestDraw();
+        };
+        if (!threw) { finish(null); return; }
+        showForceDie(res, sheet).then(finish);
         return;
       }
       if (act === 'open' && !(Give && Give.chestAct)) {
@@ -6935,8 +7152,17 @@ function showChestMenu(token) {
         const locked = box && box.lock && Number(box.lock.dc) > 0 && !box.lock.unlocked;
         if (locked) { toast("Locked"); return; }
         if (box) { box.opened = true; box._showLoot = true; }
-        if (live) { live.loot = box; saveToken(live.id); }
+        if (live) { live.loot = box; commitLoot(live); }
+        if (adapter && adapter.write && box) {
+          const id = "lockopen_" + Date.now().toString(36);
+          adapter.write("tableFeed/" + id, {
+            id: id, ts: new Date().toISOString(), from: uid, fromName: "Table",
+            text: (box.name || "Chest") + " opened", kind: "note",
+            lockBox: box.id, lockOpen: true
+          }, { by: uid });
+        }
         menu.innerHTML = chestMenuHtml(box);
+        requestDraw();
         return;
       }
       if (act === 'loot' && !(Give && Give.chestAct)) {
@@ -6958,7 +7184,7 @@ function showChestMenu(token) {
           if (live) {
             live.loot = box;
             if (live.weaponDrop) live.weaponDrop.taken = !!box.taken;
-            saveToken(live.id);
+            commitLoot(live);
           }
           toast(result && result.toast ? result.toast : (result && result.reason) || "Gone.");
           menu.innerHTML = chestMenuHtml(box);
@@ -7050,6 +7276,21 @@ function lockPreset(dc) {
   if (n === 20) return "hard";
   return "custom";
 }
+function paintForceDc(dc) {
+  const n = dc == null || dc === "" ? 25 : Math.max(0, parseInt(dc, 10) || 0);
+  const field = q("forceDc");
+  if (field && document.activeElement !== field) field.value = String(n);
+}
+function setLiveForceDc(dc) {
+  const n = Math.max(0, parseInt(dc, 10) || 0);
+  paintForceDc(n);
+  const live = liveLock();
+  if (!live || live.kind !== "chest" || !isStrongbox(live.token && live.token.loot)) return n;
+  live.lock.forceDc = n;
+  commitLoot(live.token);
+  toast("Force DC " + n);
+  return n;
+}
 function paintLockDc(dc) {
   const n = dc == null || dc === "" ? 15 : Math.max(0, parseInt(dc, 10) || 0);
   const field = q("chestLockDc");
@@ -7078,7 +7319,7 @@ function setLiveLockDc(dc, preset) {
   if (live.kind === "chest") {
     live.lock.dc = n;
     live.lock.difficulty = name;
-    saveToken(live.token.id);
+    commitLoot(live.token);
     const menu = el.querySelector('[data-act="chestMenu"]');
     const boxId = live.token.lootBoxId || (live.token.loot && live.token.loot.id) || "";
     if (menu && !menu.hidden && menu.getAttribute("data-box") === boxId) menu.innerHTML = chestMenuHtml(live.token.loot);
@@ -7097,7 +7338,8 @@ function resetSelectedLock() {
   const chest = state.selected && state.selected.loot && state.selected.loot.lock ? state.selected : null;
   if (chest) {
     chest.loot.lock.attempts = {};
-    saveToken(chest.id);
+    chest.loot.lock.forceAttempts = {};
+    commitLoot(chest);
     toast("Lock attempts reset");
     return;
   }
@@ -7115,11 +7357,16 @@ function placeLockedChest() {
   const field = q("chestLockDc") || q("doorLockDc");
   const raw = field && field.value;
   const dc = Math.max(0, parseInt(raw, 10) || 0);
-  const id = "chest_" + Date.now().toString(36);
+  const kind = q("chestKind") && q("chestKind").value === "strongbox" ? "strongbox" : "chest";
+  const title = kind === "strongbox" ? "Strongbox" : "Chest";
+  const forceField = q("forceDc");
+  const forceDc = Math.max(0, parseInt(forceField && forceField.value, 10) || 25);
+  const id = kind + "_" + Date.now().toString(36);
   const box = {
     id: id,
-    name: "Chest",
-    boxType: "strongbox",
+    name: title,
+    boxType: kind,
+    container: kind,
     rolled: true,
     opened: false,
     taken: false,
@@ -7130,14 +7377,15 @@ function placeLockedChest() {
     cash: { es: 0, black: 0, blackId: "", branch: "none" },
     lock: {
       dc: dc, difficulty: lockPreset(dc), unlocked: !(dc > 0), method: dc > 0 ? ["tools"] : [], jammed: false, jamOnFail: false,
-      allowRetries: !!(q("lockAllowRetries") && q("lockAllowRetries").checked), attempts: {}
+      allowRetries: !!(q("lockAllowRetries") && q("lockAllowRetries").checked), attempts: {},
+      forceDc: kind === "strongbox" ? forceDc : null, forceAttempts: {}
     },
-    log: ["DM placed a chest"]
+    log: ["DM placed a " + title.toLowerCase()]
   };
   const sel = state.selected;
   const at = sel && sel.pos ? { x: sel.pos.x + 1, y: sel.pos.y } : null;
   const token = pinLootChest(box, at);
-  toast(token ? ("Chest placed" + (dc > 0 ? " · lock DC " + dc : "")) : "Couldn't place a chest");
+  toast(token ? (title + " placed" + (dc > 0 ? " · lock DC " + dc : "")) : "Couldn't place a container");
   return token;
 }
 function dropCarriedItem(itemId) {
@@ -7164,13 +7412,19 @@ function chestMenuHtml(box) {
   if (!box) return '<p>Chest</p>';
   const locked = !!(box.lock && Number(box.lock.dc) > 0 && !box.lock.unlocked);
   const prior = box.lock && box.lock.attempts && box.lock.attempts[uid];
+  const forced = box.lock && box.lock.forceAttempts && box.lock.forceAttempts[uid];
   const parts = ['<p><b>' + (box.name || 'Chest') + '</b>' + (locked ? ' <span>Locked</span>' : '') + '</p>'];
   if (box._rollLine) parts.push('<p class="ssm-roll">' + box._rollLine + '</p>');
   else if (prior && prior.line) parts.push('<p class="ssm-roll">' + prior.line + '</p>');
+  else if (forced && forced.line) parts.push('<p class="ssm-roll">' + forced.line + '</p>');
   parts.push('<button type="button" data-chest="open">Open</button>');
   if (locked) {
     if (prior && !box.lock.allowRetries && !prior.success) parts.push('<p>Pick failed</p>');
     else parts.push('<button type="button" data-chest="pick">Pick lock</button>');
+    if (isStrongbox(box)) {
+      if (forced && !box.lock.allowRetries && !forced.success) parts.push('<p>It holds</p>');
+      else parts.push('<button type="button" data-chest="force">Force open</button>');
+    }
   }
   parts.push('<button type="button" data-chest="loot"' + (locked ? ' disabled' : '') + '>Loot</button>');
   if (!locked && (box._showLoot || box.opened)) {
@@ -8008,7 +8262,12 @@ function selectToken(token) {
   if (token && (token.kind === 'chest' || token.lootBoxId)) {
     hideDoorMenu();
     showChestMenu(token);
-    if (token.loot && token.loot.lock) paintLockDc(token.loot.lock.dc);
+    if (token.loot && token.loot.lock) {
+      paintLockDc(token.loot.lock.dc);
+      paintForceDc(token.loot.lock.forceDc);
+      const retry = q("lockAllowRetries");
+      if (retry) retry.checked = !!token.loot.lock.allowRetries;
+    }
     hideAssetMenu();
     const Give = window.SSDNSLootGive;
     if (Give && Give.selectBox && token.lootBoxId) Give.selectBox(token.lootBoxId);
@@ -12932,6 +13191,22 @@ if (role === 'dm') {
     });
   });
   if (q("chestLockDc")) q("chestLockDc").addEventListener("change", () => setLiveLockDc(q("chestLockDc").value));
+  if (q("forceDc")) q("forceDc").addEventListener("change", () => setLiveForceDc(q("forceDc").value));
+  if (q("lockAllowRetries")) q("lockAllowRetries").addEventListener("change", () => {
+    const on = !!q("lockAllowRetries").checked;
+    const live = liveLock();
+    if (!live) return;
+    if (live.kind === "chest") {
+      live.lock.allowRetries = on;
+      commitLoot(live.token);
+      const menu = el.querySelector('[data-act="chestMenu"]');
+      const boxId = live.token.lootBoxId || (live.token.loot && live.token.loot.id) || "";
+      if (menu && !menu.hidden && menu.getAttribute("data-box") === boxId) menu.innerHTML = chestMenuHtml(live.token.loot);
+    } else {
+      live.wall.allowRetries = on;
+      saveScene();
+    }
+  });
   q('secretDoorBtn').addEventListener('click', () => armSecretDoor());
   ['doorLocked', 'doorLockDc', 'doorAjar', 'doorTrapOnFail'].forEach(name => {
     const node = q(name);
@@ -13737,10 +14012,11 @@ async function loadSceneImage(sceneId, opts) {
         return true;
       });
       state.pings = (state.pings || []).filter(p => now - p.ts < 2500);
+      state.noisePulses = (state.noisePulses || []).filter(p => now - p.ts < 7000);
       if (state.currentTurnId) live = true;
       if (zoneLoopLive()) live = true;
       if (state.zonePulse) live = true;
-      if (live || (state.slides && state.slides.length) || (state.pings && state.pings.length)) {
+      if (live || (state.slides && state.slides.length) || (state.pings && state.pings.length) || (state.noisePulses && state.noisePulses.length)) {
         draw();
         animRaf = requestAnimationFrame(step);
       } else animRaf = 0;

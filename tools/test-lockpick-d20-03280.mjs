@@ -1,6 +1,6 @@
 /**
  * Pick lock throws the Challenge d20 and plays the lockpick sound once.
- * Sheet 0.3.280 / DMCC 0.2.293.
+ * Sheet 0.3.281 / DMCC 0.2.294.
  *   node tools/test-lockpick-d20-03280.mjs
  */
 import fs from "node:fs";
@@ -30,8 +30,8 @@ check("die.mapPath", dieImg && dieImg.getAttribute("src") === "../assets/img/dic
 played.then(() => {}).catch(() => {});
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.280" && ver.dmcc === "0.2.293");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.280") && !read("database.rules.json").includes("0.3.280"));
+check("ver", ver.sheet === "0.3.281" && ver.dmcc === "0.2.294" && ver.sheetBuild === "sheet-playtest-v03281" && ver.dmccBuild === "dmcc-playtest-v02294");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.281") && !read("database.rules.json").includes("0.3.281"));
 check("sound.file", fs.existsSync(path.join(root, "assets/sfx/lockpick-attempt.mp3")));
 const sfxMap = JSON.parse(read("assets/sfx/sfx.json"));
 check("sound.mapped", sfxMap.events["lockpick-attempt"] === "lockpick-attempt.mp3");
@@ -44,7 +44,7 @@ function makeWindow() {
   Object.defineProperty(proto, "clientHeight", { configurable: true, get() { return 600; } });
   proto.getBoundingClientRect = function () { return { x: 0, y: 0, left: 0, top: 0, right: 800, bottom: 600, width: 800, height: 600, toJSON() { return {}; } }; };
   w.HTMLCanvasElement.prototype.getContext = function () {
-    const bag = {};
+    const bag = { addColorStop() {} };
     return new Proxy(bag, { get(t, p) { if (p in t) return t[p]; if (typeof p !== "string") return undefined; return function () { return bag; }; }, set(t, p, v) { t[p] = v; return true; } });
   };
   w.HTMLImageElement.prototype.decode = function () { return Promise.resolve(); };
@@ -108,7 +108,8 @@ check("die.packed", packed && packed.lockpick === true && packed.fancy === true 
 });
 w.SSDNSApp = { doc() { return { character: { name: "Jolene", abilities: { DEX: 16 }, prof: 3, thievesTools: true, items: [] } }; } };
 const scene = JSON.parse(read("map/scene-dusty-spur.json"));
-const ad = w.SSDNSMapFirebase.memory({ role: "dm", store: { pub: {}, dm: {} }, bus: [] });
+const store = { pub: {}, dm: {} };
+const ad = w.SSDNSMapFirebase.memory({ role: "dm", store, bus: [] });
 const el = w.document.createElement("div");
 w.document.body.appendChild(el);
 w.SSDNSMap.create({
@@ -135,6 +136,8 @@ const again = lockpickPlays(w);
 menu().querySelector('[data-chest="pick"]').click();
 await flush(120);
 check("map.success", lockpickPlays(w) === again + 1 && /Unlocked/.test(menuText()) && /Take all/.test(menuText()), menuText());
+const published = Object.keys(store.pub).filter((k) => k.indexOf("map/public/tokens/") === 0).map((k) => store.pub[k].value).filter((t) => t && t.kind === "chest");
+check("map.opened", published.some((t) => t.loot && t.loot.opened === true && t.lootState && t.lootState.opened === true), JSON.stringify(published.map((t) => t.loot && { opened: t.loot.opened, state: t.lootState && t.lootState.opened })));
 const openPlays = lockpickPlays(w);
 const openBtn = menu().querySelector('[data-chest="open"]');
 if (openBtn) openBtn.click();
