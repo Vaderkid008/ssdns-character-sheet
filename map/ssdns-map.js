@@ -227,6 +227,17 @@ window.SSDNSMap = { create(opts) {
         lock: t.loot.lock || null, barrier: t.loot.barrier || null,
         hidden: !!t.loot.hidden, found: t.loot.found !== false, hideDc: t.loot.hideDc || 0,
         trap: t.loot.trap || null
+      } : null,
+      lootState: t.loot ? {
+        taken: !!t.loot.taken,
+        opened: !!t.loot.opened,
+        rows: (t.loot.contents || []).map(r => ({ id: r && r.id, taken: !!(r && r.taken) })),
+        lock: t.loot.lock ? {
+          dc: Number(t.loot.lock.dc) || 0,
+          unlocked: !!t.loot.lock.unlocked,
+          allowRetries: !!t.loot.lock.allowRetries,
+          attempts: t.loot.lock.attempts || {}
+        } : null
       } : null
     };
   }
@@ -438,6 +449,12 @@ function applySharedToTokens() {
       if (s.weaponDrop && typeof s.weaponDrop === 'object') t.weaponDrop = Object.assign({}, s.weaponDrop);
       if (s.lootLock && (!t.loot || !t.loot.id)) t.loot = Object.assign({ id: s.lootBoxId || t.lootBoxId || '' }, s.lootLock);
       else if (s.loot && s.loot.id && (!t.loot || !t.loot.id)) t.loot = s.loot;
+      if (s.lootState && t.loot) {
+        adoptLootState(t.loot, s.lootState);
+        const menu = el.querySelector('[data-act="chestMenu"]');
+        const boxId = t.lootBoxId || (t.loot && t.loot.id) || '';
+        if (menu && !menu.hidden && menu.getAttribute('data-box') === boxId) menu.innerHTML = chestMenuHtml(t.loot);
+      }
       if (t.image && !t._img) loadTokenImage(t);
     }
   }
@@ -1083,7 +1100,9 @@ if (role === 'dm') {
       <label><input data-act="doorAjar" type="checkbox"> Ajar</label>
       <label title="Stub only. A failed lockpick stays locked and does not spring a trap."><input data-act="doorTrapOnFail" type="checkbox"> Trap on fail (stub)</label>
     </div>
-    <button type="button" data-act="placeChestBtn" title="Drop a chest on the map. Lock DC is the number above, once a door is selected. Before that, the field defaults to 15. 0 is unlocked.">Place chest</button>
+    <button type="button" data-act="placeChestBtn" title="Drop a chest on the map. Lock DC is the number above, once a door is selected. Before that, the field defaults to 15. 0 is unlocked. Guide: 10, 15, 20, 25.">Place chest</button>
+    <label title="When on, the same character may pick this lock again."><input data-act="lockAllowRetries" type="checkbox"> Allow retries</label>
+    <button type="button" data-act="resetLockBtn" title="Clear every character's attempt on the selected door or chest.">Reset attempts</button>
     <button data-act="windowBtn">Window</button>
     <button data-act="delWallBtn">Del Wall</button>
     <button data-act="undoWallBtn">Undo Wall</button>
@@ -6459,6 +6478,24 @@ function hideChestMenu() {
   const menu = el.querySelector('[data-act="chestMenu"]');
   if (menu) menu.hidden = true;
 }
+function adoptLootState(box, state) {
+  if (!box || !state) return box;
+  if (state.taken) box.taken = true;
+  if (state.opened) box.opened = true;
+  if (state.lock) {
+    box.lock = box.lock || {};
+    if (state.lock.unlocked) box.lock.unlocked = true;
+    box.lock.allowRetries = !!state.lock.allowRetries;
+    box.lock.attempts = Object.assign({}, box.lock.attempts || {}, state.lock.attempts || {});
+    if (state.lock.dc) box.lock.dc = state.lock.dc;
+  }
+  const rows = state.rows || [];
+  (box.contents || []).forEach((row, i) => {
+    const mark = rows.filter(r => r && row && r.id && r.id === row.id)[0] || rows[i];
+    if (mark && mark.taken) row.taken = true;
+  });
+  return box;
+}
 function lootStub(token) {
   if (!token) return null;
   if (token.loot && token.loot.lock) return token.loot;
@@ -6519,6 +6556,57 @@ function showChestMenu(token) {
       ev.stopPropagation();
       const boxId = menu.getAttribute('data-box') || '';
       const Give = window.SSDNSLootGive;
+      if (act === 'pick' && !(Give && Give.chestAct)) {
+        const live = state.tokens.find(t => t && (t.lootBoxId === boxId || t.id === boxId)) || token;
+        const box = dropBox(live);
+        const Loot = window.SSDNSLoot;
+        const sheet = playerCharacter() || {};
+        const res = Loot && Loot.pickLock ? Loot.pickLock(box, sheet, uid) : { ok: false, reason: "Can't pick that" };
+        if (box) box._rollLine = res.line || res.reason || "";
+        if (live) { live.loot = box; saveToken(live.id); }
+        postAssetLog((sheet.name || "Someone") + " " + (res.line || res.reason || "tries the lock"));
+        toast(res.line || res.reason || "Pick lock");
+        if (res.success) box._showLoot = true;
+        menu.innerHTML = chestMenuHtml(box);
+        requestDraw();
+        return;
+      }
+      if (act === 'open' && !(Give && Give.chestAct)) {
+        const live = state.tokens.find(t => t && (t.lootBoxId === boxId || t.id === boxId)) || token;
+        const box = dropBox(live);
+        const locked = box && box.lock && Number(box.lock.dc) > 0 && !box.lock.unlocked;
+        if (locked) { toast("Locked"); return; }
+        if (box) { box.opened = true; box._showLoot = true; }
+        if (live) { live.loot = box; saveToken(live.id); }
+        menu.innerHTML = chestMenuHtml(box);
+        return;
+      }
+      if (act === 'loot' && !(Give && Give.chestAct)) {
+        const live = state.tokens.find(t => t && (t.lootBoxId === boxId || t.id === boxId)) || token;
+        const box = dropBox(live);
+        const locked = box && box.lock && Number(box.lock.dc) > 0 && !box.lock.unlocked;
+        if (locked) { toast("Still locked."); return; }
+        if (box) box._showLoot = true;
+        menu.innerHTML = chestMenuHtml(box);
+        return;
+      }
+      if (act === 'take-one' && !(Give && Give.chestAct)) {
+        const live = state.tokens.find(t => t && (t.lootBoxId === boxId || t.id === boxId)) || token;
+        const box = dropBox(live);
+        const index = Number(ev.target.getAttribute('data-index'));
+        const row = box && (box.contents || [])[index];
+        if (!row || row.taken) { toast("Gone."); if (box) menu.innerHTML = chestMenuHtml(box); return; }
+        const Loot = window.SSDNSLoot;
+        const result = Loot && Loot.takeRows ? Loot.takeRows(box, uid, [row], playerCharacter() || {}) : null;
+        if (live) { live.loot = box; saveToken(live.id); }
+        if (!result || !result.ok) { toast((result && result.reason) || "Gone."); menu.innerHTML = chestMenuHtml(box); return; }
+        if (Loot.applyTake && playerCharacter()) Loot.applyTake(playerCharacter(), result);
+        toast("Collected " + (row.name || "item"));
+        postAssetLog((row.name || "An item") + " taken");
+        menu.innerHTML = chestMenuHtml(box);
+        requestDraw();
+        return;
+      }
       if (act === 'take-all' && !(Give && Give.chestAct)) {
         const live = state.tokens.find(t => t && (t.lootBoxId === boxId || t.id === boxId)) || token;
         const box = dropBox(live);
@@ -6593,6 +6681,24 @@ function collectMapLoot(box, who) {
   if (result.warning) toastText += " · " + result.warning;
   return { ok: true, toast: toastText, result: result };
 }
+function resetSelectedLock() {
+  if (role !== "dm") return;
+  const chest = state.selected && state.selected.loot && state.selected.loot.lock ? state.selected : null;
+  if (chest) {
+    chest.loot.lock.attempts = {};
+    saveToken(chest.id);
+    toast("Lock attempts reset");
+    return;
+  }
+  const wall = state.doorPick;
+  if (wall && wall.door) {
+    wall.pickAttempts = {};
+    saveScene();
+    toast("Lock attempts reset");
+    return;
+  }
+  toast("Select a chest or a door first");
+}
 function placeLockedChest() {
   if (role !== "dm") return null;
   const raw = q("doorLockDc") && q("doorLockDc").value;
@@ -6607,7 +6713,10 @@ function placeLockedChest() {
     taken: false,
     contents: [{ id: "trail-rations", qty: 1, name: "Trail rations" }],
     cash: { es: 0, black: 0, blackId: "", branch: "none" },
-    lock: { dc: dc, unlocked: !(dc > 0), method: dc > 0 ? ["tools"] : [], jammed: false, jamOnFail: false },
+    lock: {
+      dc: dc, unlocked: !(dc > 0), method: dc > 0 ? ["tools"] : [], jammed: false, jamOnFail: false,
+      allowRetries: !!(q("lockAllowRetries") && q("lockAllowRetries").checked), attempts: {}
+    },
     log: ["DM placed a chest"]
   };
   const sel = state.selected;
@@ -6637,17 +6746,27 @@ function dropCarriedItem(itemId) {
   return token;
 }
 function chestMenuHtml(box) {
-  const Loot = window.SSDNSLoot;
-  if (!Loot || !Loot.menu || !box) return '<p>Chest</p>';
-  let sheet = {};
-  try { sheet = (window.SSDNSApp && window.SSDNSApp.doc && window.SSDNSApp.doc().character) || {}; } catch (e) { sheet = {}; }
-  const opts = Loot.menu(box, sheet);
-  const open = box.boxType === 'enemy-drop' && Loot.blocked && !Loot.blocked(box);
-  const take = open ? '<button type="button" data-chest="take-all">Take all</button> ' : '';
-  return '<p><b>' + (box.name || 'Chest') + '</b></p>' + take + opts.map(o => {
-    if (o.disabled) return '<p>' + o.label + '</p>';
-    return '<button type="button" data-chest="' + o.id + '">' + o.label + '</button> ';
-  }).join('');
+  if (!box) return '<p>Chest</p>';
+  const locked = !!(box.lock && Number(box.lock.dc) > 0 && !box.lock.unlocked);
+  const prior = box.lock && box.lock.attempts && box.lock.attempts[uid];
+  const parts = ['<p><b>' + (box.name || 'Chest') + '</b>' + (locked ? ' <span>Locked</span>' : '') + '</p>'];
+  if (box._rollLine) parts.push('<p class="ssm-roll">' + box._rollLine + '</p>');
+  else if (prior && prior.line) parts.push('<p class="ssm-roll">' + prior.line + '</p>');
+  parts.push('<button type="button" data-chest="open">Open</button>');
+  if (locked) {
+    if (prior && !box.lock.allowRetries && !prior.success) parts.push('<p>Pick failed</p>');
+    else parts.push('<button type="button" data-chest="pick">Pick lock</button>');
+  }
+  parts.push('<button type="button" data-chest="loot"' + (locked ? ' disabled' : '') + '>Loot</button>');
+  if (!locked && box._showLoot) {
+    (box.contents || []).forEach((row, i) => {
+      if (!row) return;
+      if (row.taken) parts.push('<p>' + (row.name || 'Item') + ' — gone</p>');
+      else parts.push('<button type="button" data-chest="take-one" data-index="' + i + '">Take ' + (row.name || 'item') + '</button>');
+    });
+    if ((box.contents || []).some(row => row && !row.taken)) parts.push('<button type="button" data-chest="take-all">Take all</button>');
+  }
+  return parts.join('');
 }
 function tokenPos(id) {
   if (!id) return null;
@@ -6873,6 +6992,10 @@ function performDoor(target, action, by) {
   if (action === "lockpick") {
     const dc = Number(wall.lockDc) || 0;
     let ok = false;
+    if (by && target && target.attempt) {
+      wall.pickAttempts = wall.pickAttempts || {};
+      wall.pickAttempts[by] = target.attempt;
+    }
     if (target && target.total != null && target.total !== "") ok = Number(target.total) >= dc;
     else if (target && target.success != null) ok = !!target.success;
     else {
@@ -6927,6 +7050,7 @@ function commitDoorEdit() {
   wall.locked = !!box.querySelector('[data-act="doorLocked"]').checked;
   wall.lockDc = Math.max(0, parseInt(box.querySelector('[data-act="doorLockDc"]').value, 10) || 0);
   wall.trapOnFail = !!box.querySelector('[data-act="doorTrapOnFail"]').checked;
+  wall.allowRetries = !!(q("lockAllowRetries") && q("lockAllowRetries").checked);
   if (box.querySelector('[data-act="doorAjar"]').checked) { wall.ajar = true; wall.open = false; }
   else wall.ajar = false;
   saveScene();
@@ -6971,7 +7095,7 @@ function showDoorMenu(wall) {
   }
   menu._wallRef = I.wallRef(wall);
   const mine = role === "dm" ? null : myMapToken();
-  const pack = I.doorMenu(wall, { token: mine, dm: role === "dm" });
+  const pack = I.doorMenu(wall, { token: mine, dm: role === "dm", who: uid });
   if (!pack.reach) {
     menu.hidden = true;
     if (pack.toast && !pack.hidden) toast(pack.toast);
@@ -6979,7 +7103,10 @@ function showDoorMenu(wall) {
   }
   menu.hidden = false;
   const lockNote = wall.locked ? " <span>Locked" + (role === "dm" && wall.lockDc ? " DC " + wall.lockDc : "") + "</span>" : "";
-  menu.innerHTML = "<p><b>Door</b>" + lockNote + "</p>" + (pack.actions || []).map(o => {
+  const prior = wall.pickAttempts && wall.pickAttempts[uid];
+  const roll = prior && prior.line ? '<p class="ssm-roll">' + prior.line + "</p>" : "";
+  menu.innerHTML = "<p><b>Door</b>" + lockNote + "</p>" + roll + (pack.actions || []).map(o => {
+    if (o.disabled) return "<p>" + o.label + "</p>";
     return '<button type="button" data-door="' + o.id + '">' + o.label + "</button> ";
   }).join("");
 }
@@ -6995,13 +7122,19 @@ function runDoorAction(wall, action) {
     if (action === "lockpick") {
       const Loot = window.SSDNSLoot;
       const box = I.doorLockBox(wall);
+      if (wall.pickAttempts) box.lock.attempts = wall.pickAttempts;
+      box.lock.allowRetries = !!wall.allowRetries;
       const sheet = playerSheet();
-      const res = Loot && Loot.playCheck ? Loot.playCheck(box, "lockpick-yes", sheet) : I.lockpick(wall, sheet);
+      const res = Loot && Loot.pickLock ? Loot.pickLock(box, sheet, uid) : (I.lockpick(wall, sheet));
       nat = res && res.nat; total = res && res.total; success = !!(res && res.success);
-      toast(success ? "Lockpick sent" : "Still locked");
+      wall.pickAttempts = (box.lock && box.lock.attempts) || wall.pickAttempts || {};
+      if (res && res.line) wall.pickAttempts[uid] = Object.assign({}, wall.pickAttempts[uid], { line: res.line });
+      toast(res && (res.line || res.reason) || (success ? "Unlocked" : "Still locked"));
+      postAssetLog(res && (res.line || res.reason) || "Pick lock");
     } else if (action === "open" && wall.locked) toast("Locked");
     else toast(action === "peek" ? "Peek sent" : "Sent");
-    postDoorReq({ door: I.wallRef(wall), action: action, by: uid, nat: nat, total: total, success: success }, action);
+    const attempt = wall.pickAttempts && wall.pickAttempts[uid];
+    postDoorReq({ door: I.wallRef(wall), action: action, by: uid, nat: nat, total: total, success: success, attempt: attempt || null }, action);
     return;
   }
   const target = { door: true, wall: I.wallRef(wall), action: action };
@@ -7147,7 +7280,7 @@ function applyAssetRequest(row) {
   if (req.door && Assets && Assets.onInteract) {
     Assets.onInteract({
       door: true, wall: req.door, action: req.action,
-      nat: req.nat, total: req.total, success: req.success
+      nat: req.nat, total: req.total, success: req.success, attempt: req.attempt || null
     }, req.action, req.by || row.from);
     return;
   }
@@ -12335,6 +12468,7 @@ if (role === 'dm') {
   q('roomBtn').addEventListener('click', () => setTool('room'));
   q('doorBtn').addEventListener('click', () => setTool('door'));
   if (q('placeChestBtn')) q('placeChestBtn').addEventListener('click', () => placeLockedChest());
+  if (q('resetLockBtn')) q('resetLockBtn').addEventListener('click', () => resetSelectedLock());
   q('secretDoorBtn').addEventListener('click', () => armSecretDoor());
   ['doorLocked', 'doorLockDc', 'doorAjar', 'doorTrapOnFail'].forEach(name => {
     const node = q(name);

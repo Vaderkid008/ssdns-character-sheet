@@ -217,7 +217,12 @@
     if (!gate.ok) return { reach: false, feet: gate.feet, actions: [], toast: reachToast(gate.feet) };
     var actions = [];
     actions.push(wall.open ? { id: "close", label: "Close" } : { id: "open", label: "Open" });
-    if (wall.locked && !wall.open) actions.push({ id: "lockpick", label: "Lockpick" });
+    if (wall.locked && !wall.open) {
+      var who = String((ctx && ctx.who) || "");
+      var prior = who && wall.pickAttempts && wall.pickAttempts[who];
+      if (prior && !wall.allowRetries && !prior.success) actions.push({ id: "lockpick", label: "Pick failed", disabled: true });
+      else actions.push({ id: "lockpick", label: "Pick lock" });
+    }
     if (!wall.open) actions.push({ id: "peek", label: wall.ajar ? "Shut peek" : "Peek" });
     return { reach: true, feet: gate.feet, actions: actions };
   }

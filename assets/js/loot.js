@@ -428,6 +428,69 @@
     if (/thieves' tools|thieves tools|lockpick/i.test(sheetBlob(sheet))) return prof;
     return 0;
   }
+  function hasThievesTools(sheet) {
+    sheet = sheet || {};
+    if (sheet.thievesTools) return true;
+    if (/thieves' tools|thieves tools|lockpick/i.test(sheetBlob(sheet))) return true;
+    return (sheet.items || []).some(function (it) {
+      var id = String((it && (it.catalogId || it.id || it.name)) || "").toLowerCase();
+      return id.indexOf("thieves") >= 0 || id.indexOf("lockpick") >= 0 || id.indexOf("lock-pick") >= 0;
+    });
+  }
+  function proficientThieves(sheet) {
+    sheet = sheet || {};
+    if (sheet.thievesTools) return true;
+    var lists = [sheet.toolProf, sheet.toolsProf, sheet.toolProficiencies];
+    var i, j;
+    for (i = 0; i < lists.length; i++) {
+      var list = lists[i];
+      if (!Array.isArray(list)) continue;
+      for (j = 0; j < list.length; j++) {
+        if (/thieves/i.test(String(list[j] || ""))) return true;
+      }
+    }
+    return false;
+  }
+  /* Proficiency bonus only. Holding the tools is not the same as being proficient. */
+  function thievesBonus(sheet) {
+    if (!proficientThieves(sheet)) return 0;
+    if (isFinite(Number(sheet.toolBonus))) return Number(sheet.toolBonus);
+    return isFinite(Number(sheet.prof)) ? Number(sheet.prof) : 0;
+  }
+  function pickLock(box, sheet, who, rng, forced) {
+    forced = forced || {};
+    rng = rngOf(rng);
+    sheet = sheet || {};
+    if (!box) return { ok: false, success: false, reason: "No lock." };
+    if (!box.lock) box.lock = freshLock(0, ["tools"], "", false);
+    box.lock.attempts = box.lock.attempts || {};
+    box.log = box.log || [];
+    var whoId = String(who || "");
+    var prior = whoId && box.lock.attempts[whoId];
+    if (prior && !box.lock.allowRetries) {
+      return {
+        ok: false, success: !!prior.success, already: true,
+        reason: prior.success ? "Already unlocked." : "You already failed this lock.",
+        prior: prior, nat: prior.nat, total: prior.total, dc: box.lock.dc, line: prior.line || ""
+      };
+    }
+    if (!hasThievesTools(sheet)) return { ok: false, success: false, noTools: true, reason: "No thieves' tools." };
+    if (!(box.lock.dc > 0) || box.lock.unlocked) return { ok: true, success: true, box: box, line: "The lock is open." };
+    var dex = abilityModFrom(sheet, "DEX");
+    var tools = thievesBonus(sheet);
+    var dnat = forced.nat != null ? Number(forced.nat) : die(20, rng);
+    var dtotal = forced.total != null ? Number(forced.total) : dnat + dex + tools;
+    var dok = dtotal >= box.lock.dc;
+    var line = "d20 " + dnat + " " + signNum(dex) + " Dex" + (tools ? " " + signNum(tools) + " tools" : "") + " = " + dtotal + " vs DC " + box.lock.dc + (dok ? ". Unlocked." : ". Failed. Still locked.");
+    if (dok) box.lock.unlocked = true;
+    box.log.push(line);
+    if (whoId) box.lock.attempts[whoId] = { nat: dnat, total: dtotal, success: dok, dc: box.lock.dc, line: line };
+    return { ok: true, success: dok, box: box, nat: dnat, total: dtotal, dc: box.lock.dc, line: line };
+  }
+  function resetLockAttempts(box) {
+    if (box && box.lock) box.lock.attempts = {};
+    return box;
+  }
   function perceptionMod(sheet) {
     sheet = sheet || {};
     var skills = sheet.skills || {};
@@ -849,6 +912,7 @@
     applyTake: applyTake, budget: budget, tagOf: tagOf, illegalReason: illegalReason, nameOf: nameOf,
     register: register, tableFor: tableFor, tables: allTables, load: load, magicRare: magicRare, isGun: isGun,
     seedAccess: seedAccess, blocked: blocked, menu: menu, resolve: resolve, playCheck: playCheck,
-    preUnlock: preUnlock, clearJam: clearJam, hasItem: hasItem, hasPry: hasPry, checkMod: checkMod
+    preUnlock: preUnlock, clearJam: clearJam, hasItem: hasItem, hasPry: hasPry, checkMod: checkMod,
+    hasThievesTools: hasThievesTools, thievesBonus: thievesBonus, pickLock: pickLock, resetLockAttempts: resetLockAttempts
   };
 })(typeof window !== "undefined" ? window : globalThis);
