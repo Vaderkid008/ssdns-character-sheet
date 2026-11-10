@@ -1957,12 +1957,69 @@ function syncBacking() {
   sizeFxCanvas(dpr, live);
   return true;
 }
+function isBackdropScene() {
+  return !!(state.scene && state.scene.grid && state.scene.grid.show === false);
+}
+/* Clear rectangle of the map stage. Grid chrome that does not cover the canvas is ignored.
+   Absolute bars (the standalone demo) are inset so the picture is not hidden under them. */
+function stageClearBox() {
+  const box = viewBox();
+  if (!(box.w > 2 && box.h > 2) || !canvas.getBoundingClientRect) return box;
+  let rect;
+  try { rect = canvas.getBoundingClientRect(); } catch (e) { return box; }
+  if (!rect || !(rect.width > 2)) return box;
+  let L = 0, T = 0, R = box.w, B = box.h;
+  const nodes = el.querySelectorAll('.ssdns-toolbar, .ssdns-leftbar, .ssdns-rightbar, .ssdns-chatdock, .ssm-turnstrip');
+  nodes.forEach(node => {
+    if (!node || node.hidden) return;
+    let pos = '';
+    try { pos = window.getComputedStyle(node).position; } catch (e) { pos = ''; }
+    if (pos !== 'absolute' && pos !== 'fixed') return;
+    let r;
+    try { r = node.getBoundingClientRect(); } catch (e2) { return; }
+    if (!r || r.width < 8 || r.height < 8) return;
+    const x1 = r.left - rect.left, y1 = r.top - rect.top;
+    const x2 = r.right - rect.left, y2 = r.bottom - rect.top;
+    if (x2 <= L || y2 <= T || x1 >= R || y1 >= B) return;
+    const overlapH = Math.min(y2, B) - Math.max(y1, T);
+    const overlapW = Math.min(x2, R) - Math.max(x1, L);
+    if (x1 <= L + 4 && overlapH > (B - T) * 0.35) L = Math.max(L, x2);
+    else if (x2 >= R - 4 && overlapH > (B - T) * 0.35) R = Math.min(R, x1);
+    else if (y1 <= T + 4 && overlapW > (R - L) * 0.35) T = Math.max(T, y2);
+    else if (y2 >= B - 4 && overlapW > (R - L) * 0.35) B = Math.min(B, y1);
+  });
+  if (R - L < 40 || B - T < 40) return { w: box.w, h: box.h, ox: 0, oy: 0 };
+  return { w: R - L, h: B - T, ox: L, oy: T };
+}
+/* Contain the backdrop in the clear stage and center it there. */
+function fitBackdrop() {
+  if (!isBackdropScene()) return false;
+  const g = state.scene.grid;
+  const worldW = g.cols * g.px;
+  const worldH = g.rows * g.px;
+  const vis = stageClearBox();
+  if (!(vis.w > 2 && vis.h > 2 && worldW > 0 && worldH > 0)) return false;
+  const pad = 8;
+  const fitW = Math.max(1, vis.w - pad * 2);
+  const fitH = Math.max(1, vis.h - pad * 2);
+  const zoom = Math.min(fitW / worldW, fitH / worldH);
+  if (!(zoom > 0)) return false;
+  const canvasBox = viewBox();
+  const visCx = (vis.ox || 0) + vis.w / 2;
+  const visCy = (vis.oy || 0) + vis.h / 2;
+  state.view.zoom = zoom;
+  state.view.x = worldW / 2 - (visCx - canvasBox.w / 2) / zoom;
+  state.view.y = worldH / 2 - (visCy - canvasBox.h / 2) / zoom;
+  paintZoom();
+  return true;
+}
 function resize() {
   if (!syncBacking()) {
     scheduleLayout();
     return;
   }
   layoutTries = 0;
+  if (isBackdropScene()) fitBackdrop();
   draw();
 }
 function noteLootForce(on) {
@@ -7880,6 +7937,8 @@ function seatPlayers(id, moveTokens) {
     if (!u) return;
     if (moveTokens || !shared.playerScenes[u]) shared.playerScenes[u] = id;
   });
+  /* Player tokens keep the square they already occupy. On the title cover those
+     squares sit on the painted title. Moving them would be a made-up layout. */
   (state.tokens || []).forEach(t => {
     if (!t || !t.ownerUid || isPartyToken(t)) return;
     if (!moveTokens && t.sceneId && t.sceneId !== id) return;
@@ -11928,6 +11987,7 @@ on(window, 'ssdns-show-downed', () => {
   requestDraw();
 });
 q('reset').addEventListener('click', () => {
+  if (fitBackdrop()) { draw(); return; }
   const { cols, rows, px } = state.scene.grid;
   state.view.x = (cols * px) / 2;
   state.view.y = (rows * px) / 2;
@@ -12837,17 +12897,7 @@ async function loadSceneImage(sceneId, opts) {
       state.view.x = (g.cols * g.px) / 2;
       state.view.y = (g.rows * g.px) / 2;
     }
-    if (g.show === false) {
-      const box = viewBox();
-      const worldW = g.cols * g.px;
-      const worldH = g.rows * g.px;
-      if (box.w > 2 && box.h > 2 && worldW > 0 && worldH > 0) {
-        state.view.zoom = Math.max(0.05, Math.min(box.w / worldW, box.h / worldH) * 0.98);
-        state.view.x = worldW / 2;
-        state.view.y = worldH / 2;
-        paintZoom();
-      }
-    }
+    if (g.show === false) fitBackdrop();
   }
   const img = new Image();
   img.src = scene.src || asset(scene.img);
@@ -16324,10 +16374,11 @@ async function boot() {
       if (slider) slider.value = savedGrid;
     }
     const me = role === 'player' ? state.tokens.find(t => t.ownerUid === uid) : null;
-    if (me) {
+    /* A backdrop stays contained. Centering on the token would slide the title off the stage. */
+    if (!isBackdropScene() && me) {
       state.view.x = (me.pos.x + 0.5) * px;
       state.view.y = (me.pos.y + 0.5) * px;
-    } else {
+    } else if (!isBackdropScene()) {
       state.view.x = (cols * px) / 2;
       state.view.y = (rows * px) / 2;
     }

@@ -156,6 +156,10 @@ const heroNow = store.pub["map/public/tokens/ply_hero"] || store.pub["map/public
 check("between.players", heroNow && heroNow.value.sceneId === "scn_between" && store.pub["map/public/playerScenes"].value.hero === "scn_between");
 check("between.leavesOthers", store.pub["map/public/tokens/tok_bandit"].value.sceneId === "scn_dustyspur01" && store.pub["map/public/tokens/pty_scn_dustyspur01"].value.sceneId === "scn_dustyspur01");
 check("between.gridHidden", !w.__strokes.some((s) => s.indexOf("232,220,200") >= 0));
+const zoomDm = parseFloat((dm.el.querySelector('[data-act="zoomLabel"]') || {}).textContent);
+const worldW = 37 * 70, worldH = 21 * 70;
+const expectZoom = Math.min((800 - 16) / worldW, (600 - 16) / worldH);
+check("between.contain", Math.abs(zoomDm - expectZoom) < 0.02, zoomDm + " vs " + expectZoom);
 check("between.drewCover", w.__images.some((src) => /between-encounters\.webp/.test(String(src))) || w.__srcs.some((src) => /between-encounters\.webp/.test(src)));
 
 const wP = makeWindow();
@@ -167,6 +171,8 @@ check("player.image", wP.__srcs.some((src) => /between-encounters\.webp/.test(sr
 check("player.noFogFill", !wP.__fills.some((f) => f === "#0a0806" || f === "rgba(16, 16, 20, 0.72)"));
 check("player.drewImage", wP.__images.some((src) => /between-encounters\.webp/.test(String(src))));
 check("player.noButton", !player.el.querySelector('[data-act="betweenBtn"]'));
+const zoomPl = parseFloat((player.el.querySelector('[data-act="zoomLabel"]') || {}).textContent);
+check("player.contain", Math.abs(zoomPl - expectZoom) < 0.02, zoomPl + " vs " + expectZoom);
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");
