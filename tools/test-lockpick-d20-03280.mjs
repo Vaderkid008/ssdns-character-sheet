@@ -17,6 +17,18 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
+const mapDom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/map/demo.html", runScripts: "dangerously" });
+const mapWin = mapDom.window;
+for (const rel of ["assets/js/dice-art.js", "assets/js/d20-plain.js"]) {
+  const s = mapWin.document.createElement("script");
+  s.textContent = read(rel);
+  mapWin.document.body.appendChild(s);
+}
+const played = mapWin.SSDNSPlainRoll.play({ nat: 12, fancy: true, challenge: true, label: "Pick lock", id: "path" });
+const dieImg = mapWin.document.querySelector(".d20-plain-spin img");
+check("die.mapPath", dieImg && dieImg.getAttribute("src") === "../assets/img/dice/d20.webp", dieImg && dieImg.getAttribute("src"));
+played.then(() => {}).catch(() => {});
+
 const ver = JSON.parse(read("version.json"));
 check("ver", ver.sheet === "0.3.280" && ver.dmcc === "0.2.293");
 check("rules.clean", !read("assets/data/rules.js").includes("0.3.280") && !read("database.rules.json").includes("0.3.280"));

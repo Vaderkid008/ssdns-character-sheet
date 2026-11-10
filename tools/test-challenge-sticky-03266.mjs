@@ -29,8 +29,8 @@ const sheet = read("index.html");
 const dm = read("dm/index.html");
 check("src.hold", zoom.includes('layer.classList.add("is-hold")') && zoom.includes("click to close") && zoom.includes("stopChallengeSting") && !zoom.includes("later(finish"));
 check("src.plain", plain.includes('layer.classList.add("is-hold")') && plain.includes("click to close"));
-check("cache.sheet", sheet.includes("d20-zoom.js?v=0.3.280-challenge") && sheet.includes("dice-art.js?v=0.3.280-challenge") && sheet.includes("sfx.js?v=0.3.280-challenge") && sheet.includes("challenge-sfx.js?v=0.3.280-challsfx"));
-check("cache.dm", dm.includes("d20-zoom.js?v=0.2.293-challenge") && dm.includes("dice-art.js?v=0.2.293-challenge") && dm.includes("sfx.js?v=0.2.293-challenge") && dm.includes("challenge-sfx.js?v=0.2.293-challsfx"));
+check("cache.sheet", sheet.includes("d20-zoom.js?v=0.3.280-lockdie") && sheet.includes("dice-art.js?v=0.3.280-lockdie") && sheet.includes("sfx.js?v=0.3.280-challenge") && sheet.includes("challenge-sfx.js?v=0.3.280-challsfx"));
+check("cache.dm", dm.includes("d20-zoom.js?v=0.2.293-lockdie") && dm.includes("dice-art.js?v=0.2.293-lockdie") && dm.includes("sfx.js?v=0.2.293-challenge") && dm.includes("challenge-sfx.js?v=0.2.293-challsfx"));
 
 const join = read("assets/js/dm-join.js");
 const clickAt = join.indexOf('dieBtn.addEventListener("click"');
