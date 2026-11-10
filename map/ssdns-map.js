@@ -516,6 +516,9 @@ const state = {
   showDowned: false,
   /* Yellow bright / blue dim / gray darkvision measurement strokes. Off: lighting wash and FOV stay, the rings do not. DM only. */
   showLightRings: false,
+  /* DM manual zone place or move. Null when the click should not drop a grid. */
+  zoneArm: null,
+  zoneFace: 0,
   /* B13: in a fight, green reach and click-to-walk are off until the strip Move chip is on.
      Outside a fight this flag is ignored and click-to-move stays free. Edit tokens bypasses it. */
   moveMode: false,
@@ -1215,6 +1218,30 @@ if (role === 'dm') {
     </div>
     <div class="ssm-spell-grids" data-act="spellGrids">
       <div class="panel-title">Spell grids</div>
+      <div class="ssm-zone-place" data-act="zonePlace">
+        <div class="panel-title">Place zone</div>
+        <select data-act="zoneSpell" aria-label="Zone spell"></select>
+        <label>Duration
+          <select data-act="zoneDur" aria-label="Zone duration">
+            <option value="spell">Spell duration</option>
+            <option value="0">Untimed</option>
+            <option value="1">1 round</option>
+            <option value="10">1 minute</option>
+            <option value="100">10 minutes</option>
+            <option value="600">1 hour</option>
+          </select>
+        </label>
+        <label>Caster
+          <select data-act="zoneCaster" aria-label="Zone caster"><option value="">None</option></select>
+        </label>
+        <label class="ssm-range" title="Tie this zone to that caster's concentration. Off, and no caster, leaves it on the map by itself."><input type="checkbox" data-act="zoneConc"> Concentration</label>
+        <div data-act="zoneFacing" hidden>
+          <button type="button" data-act="zoneTurn" data-dir="-1" title="Turn the wall, line, or cone left">Turn left</button>
+          <span data-act="zoneFaceLabel">East</span>
+          <button type="button" data-act="zoneTurn" data-dir="1" title="Turn the wall, line, or cone right">Turn right</button>
+        </div>
+        <button type="button" data-act="zoneArmBtn" title="Then click a square. Right-click cancels.">Place on map</button>
+      </div>
       <div data-act="zoneList" class="panel-list">None</div>
       <div class="ssm-time-skip" data-act="timeSkip">
         <div class="panel-title">Advance time</div>
@@ -3622,11 +3649,21 @@ function renderZoneClear() {
     b.appendChild(label);
     b.title = "Remove this " + (mark.spell || "spell") + " grid";
     b.addEventListener("click", () => clearSpellGrid({ id: mark.id }));
+    const move = document.createElement("button");
+    move.type = "button";
+    move.className = "ssm-zone-move";
+    move.textContent = "Move";
+    move.title = "Click a square to move this grid. Right-click cancels.";
+    move.addEventListener("click", () => armZoneMove(mark.id));
     b.addEventListener("mouseenter", () => armZonePulse(mark.id));
     b.addEventListener("mouseleave", () => disarmZonePulse(mark.id));
     b.addEventListener("focus", () => armZonePulse(mark.id));
     b.addEventListener("blur", () => disarmZonePulse(mark.id));
-    box.appendChild(b);
+    const row = document.createElement("div");
+    row.className = "ssm-zone-row";
+    row.appendChild(move);
+    row.appendChild(b);
+    box.appendChild(row);
   });
   if (state.zonePulse && !marks.some(m => String(m.id) === String(state.zonePulse))) state.zonePulse = "";
 }
@@ -3750,6 +3787,221 @@ function setSpellZones(zones, opts) {
   persistSpellZones();
 }
 /* One Clear tool. DM only: one grid instance, or every grid in the scene. */
+function zoneShapeOf(name) {
+  const Z = window.SSDNSSpellZones;
+  const spec = Z && Z.specOf ? Z.specOf(name) : null;
+  return (spec && spec.shape) || "";
+}
+function zoneFacingMatters(shape) {
+  return shape === "wall" || shape === "line" || shape === "cone";
+}
+function zoneFaceName(rad) {
+  const dirs = ["East", "Southeast", "South", "Southwest", "West", "Northwest", "North", "Northeast"];
+  let a = Number(rad) || 0;
+  a = ((a % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+  return dirs[Math.round(a / (Math.PI / 4)) % 8];
+}
+function zoneCellUnder(e) {
+  const w = pointerWorld(e);
+  const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
+  return { x: Math.floor(w.x / px) + 0.5, y: Math.floor(w.y / px) + 0.5 };
+}
+function fillZoneSpellSelect() {
+  const sel = q("zoneSpell");
+  if (!sel || sel.options.length) return;
+  const Z = window.SSDNSSpellZones;
+  const book = Z && Z.book;
+  if (!book) return;
+  Object.keys(book).map(key => book[key]).filter(spec => spec && spec.name).sort((a, b) => String(a.name).localeCompare(String(b.name))).forEach(spec => {
+    const o = document.createElement("option");
+    o.value = spec.key || String(spec.name).toLowerCase();
+    o.textContent = spec.name;
+    sel.appendChild(o);
+  });
+}
+function fillZoneCasters() {
+  const sel = q("zoneCaster");
+  if (!sel) return;
+  const keep = sel.value || "";
+  sel.innerHTML = "";
+  const none = document.createElement("option");
+  none.value = "";
+  none.textContent = "None";
+  sel.appendChild(none);
+  const seen = {};
+  (state.tokens || []).forEach(t => {
+    if (!t) return;
+    const id = t.combatantId || t.ownerUid || t.id;
+    if (!id || seen[id]) return;
+    seen[id] = 1;
+    const o = document.createElement("option");
+    o.value = id;
+    o.textContent = t.name || t.label || id;
+    sel.appendChild(o);
+  });
+  if (keep && seen[keep]) sel.value = keep;
+}
+function readZonePlace() {
+  const spell = (q("zoneSpell") && q("zoneSpell").value) || "";
+  const dur = (q("zoneDur") && q("zoneDur").value) || "spell";
+  const casterId = (q("zoneCaster") && q("zoneCaster").value) || "";
+  const concBox = q("zoneConc");
+  const conc = !!(concBox && concBox.checked && casterId);
+  const caster = (state.tokens || []).find(t => t && (t.combatantId === casterId || t.ownerUid === casterId || t.id === casterId));
+  return {
+    spell: spell,
+    dur: dur,
+    casterId: casterId,
+    casterName: caster ? (caster.name || caster.label || "") : "",
+    conc: conc,
+    facing: state.zoneFace || 0
+  };
+}
+function paintZoneFacing() {
+  const spell = (q("zoneSpell") && q("zoneSpell").value) || "";
+  const wrap = q("zoneFacing");
+  const label = q("zoneFaceLabel");
+  const show = zoneFacingMatters(zoneShapeOf(spell));
+  if (wrap) wrap.hidden = !show;
+  const face = state.zoneFace || 0;
+  if (label) label.textContent = zoneFaceName(face);
+  const conc = q("zoneConc");
+  const caster = (q("zoneCaster") && q("zoneCaster").value) || "";
+  if (conc) conc.disabled = !caster;
+  if (conc && !caster) conc.checked = false;
+  const arm = q("zoneArmBtn");
+  if (arm) {
+    arm.classList.toggle("active", !!(state.zoneArm && state.zoneArm.mode === "place"));
+    arm.textContent = state.zoneArm && state.zoneArm.mode === "place" ? "Click a square…" : "Place on map";
+  }
+}
+function paintZoneAim() {
+  if (role !== "dm" || !state.zoneArm || !state.zoneArm.hover || !state.scene) return;
+  const Z = window.SSDNSSpellZones;
+  if (!Z || !Z.buildZone) return;
+  const arm = state.zoneArm;
+  const name = arm.spell;
+  if (!name) return;
+  const ghost = Z.buildZone(name, { origin: arm.hover, facing: arm.facing || 0 }, { casterId: arm.casterId || "" });
+  if (!ghost) return;
+  const px = state.scene.grid.px;
+  ctx.save();
+  ctx.globalAlpha = 0.5;
+  ctx.fillStyle = "rgba(201,162,39,0.35)";
+  ctx.strokeStyle = "rgba(255,220,120,0.95)";
+  ctx.lineWidth = 2;
+  if (traceZone(ghost, px)) { ctx.fill(); ctx.stroke(); }
+  ctx.restore();
+}
+function applyZoneClock(zone, dur) {
+  if (!zone) return zone;
+  if (dur === "0") {
+    zone.rounds = 0;
+    zone.roundsLeft = 0;
+    zone.dur = "";
+    return zone;
+  }
+  if (dur && dur !== "spell") {
+    const n = Number(dur);
+    if (n > 0) {
+      zone.rounds = n;
+      zone.roundsLeft = n;
+      zone.dur = n === 1 ? "1 round" : (n + " rounds");
+    }
+  }
+  return zone;
+}
+function commitZoneList(list) {
+  setSpellZones(list || []);
+  renderZoneClear();
+}
+function placeManualZone(cell, form) {
+  const Z = window.SSDNSSpellZones;
+  if (!Z || !Z.buildZone) { toast("Spell grids are not loaded"); return null; }
+  form = form || readZonePlace();
+  const zone = Z.buildZone(form.spell, { origin: { x: cell.x, y: cell.y }, facing: form.facing || 0 }, {
+    casterId: form.casterId || "",
+    casterName: form.casterName || ""
+  });
+  if (!zone) { toast("That spell is not a lasting zone"); return null; }
+  applyZoneClock(zone, form.dur);
+  zone.conc = !!(form.conc && form.casterId);
+  if (!form.casterId) { zone.casterId = ""; zone.conc = false; }
+  zone.manual = true;
+  let list = spellZoneList().slice();
+  if (zone.conc && zone.casterId) {
+    list = list.filter(z => !(z && z.casterId === zone.casterId && String(z.key || z.spell || "").toLowerCase() === String(zone.key || "").toLowerCase()));
+  }
+  list.push(zone);
+  commitZoneList(list);
+  if (zone.conc && zone.casterId) {
+    try { window.dispatchEvent(new CustomEvent("ssdns-zone-link", { detail: { zone: zone } })); } catch (e) {}
+  }
+  toast(zone.spell + " placed");
+  return zone;
+}
+function moveZoneTo(id, cell) {
+  const list = spellZoneList().map(z => {
+    if (!z || String(z.id) !== String(id)) return z;
+    return Object.assign({}, z, { origin: { x: cell.x, y: cell.y } });
+  });
+  commitZoneList(list);
+  toast("Zone moved");
+}
+function turnArmedZone(dir) {
+  if (!state.zoneArm) state.zoneArm = { mode: "place", facing: state.zoneFace || 0, spell: (q("zoneSpell") && q("zoneSpell").value) || "" };
+  state.zoneFace = (Number(state.zoneFace) || 0) + (dir < 0 ? -1 : 1) * (Math.PI / 4);
+  state.zoneArm.facing = state.zoneFace;
+  if (state.zoneArm.mode === "move" && state.zoneArm.id) {
+    const face = state.zoneArm.facing;
+    commitZoneList(spellZoneList().map(z => (z && String(z.id) === String(state.zoneArm.id)) ? Object.assign({}, z, { facing: face }) : z));
+  }
+  paintZoneFacing();
+  requestDraw();
+}
+function armZonePlace() {
+  const form = readZonePlace();
+  if (!form.spell) { toast("Pick a zone"); return; }
+  state.zoneArm = { mode: "place", spell: form.spell, facing: state.zoneFace || 0, hover: null, casterId: form.casterId };
+  state.tool = null;
+  canvas.style.cursor = "crosshair";
+  paintZoneFacing();
+  toast("Click a square to place " + form.spell + ". Right-click cancels.");
+}
+function armZoneMove(id) {
+  const zone = spellZoneList().find(z => z && String(z.id) === String(id));
+  if (!zone) return;
+  state.zoneArm = { mode: "move", id: zone.id, spell: zone.key || zone.spell, facing: Number(zone.facing) || 0, hover: null };
+  state.tool = null;
+  canvas.style.cursor = "crosshair";
+  paintZoneFacing();
+  toast("Click a square to move " + (zone.spell || "the zone") + ". Right-click cancels.");
+}
+function cancelZoneArm() {
+  if (!state.zoneArm) return;
+  state.zoneArm = null;
+  applyCursor();
+  paintZoneFacing();
+  requestDraw();
+}
+function zoneClick(e) {
+  if (role !== "dm" || !state.zoneArm) return false;
+  if (e.button === 2) {
+    e.preventDefault();
+    cancelZoneArm();
+    toast("Zone place cancelled");
+    return true;
+  }
+  if (e.button !== 0) return false;
+  e.preventDefault();
+  const cell = zoneCellUnder(e);
+  if (state.zoneArm.mode === "move") moveZoneTo(state.zoneArm.id, cell);
+  else placeManualZone(cell, Object.assign(readZonePlace(), { facing: state.zoneArm.facing || 0 }));
+  state.zoneArm = null;
+  applyCursor();
+  paintZoneFacing();
+  return true;
+}
 function clearSpellGrid(opts) {
   if (role !== "dm") return { zones: spellZoneList(), removed: [], logs: [] };
   opts = opts || {};
@@ -5081,6 +5333,7 @@ function draw() {
   stampDispelledLights();
   stampDispelledDarkness();
   paintSpellZones();
+  paintZoneAim();
 
   // tokens — this floor only. Players already skipped other scenes; the DM does too.
   for (const t of state.tokens) {
@@ -12244,6 +12497,7 @@ function swallowMiddle(e) {
 on(canvas, 'pointerdown', (e) => {
   if (pointers.size === 0 && beastClick(e)) return;
   if (pointers.size === 0 && assetClick(e)) return;
+  if (pointers.size === 0 && zoneClick(e)) return;
   onPointerDown(e);
 });
 on(el, 'pointerdown', e => { if (e.button === 1 && e.target !== canvas) swallowMiddle(e); });
@@ -12252,7 +12506,17 @@ on(el, 'mousedown', swallowMiddle);
 on(canvas, 'contextmenu', e => e.preventDefault());
 on(canvas, 'auxclick', swallowMiddle);
 on(el, 'auxclick', swallowMiddle);
-on(canvas, 'pointermove', onPointerMove);
+on(canvas, 'pointermove', (e) => {
+  if (role === 'dm' && state.zoneArm) {
+    const cell = zoneCellUnder(e);
+    const prev = state.zoneArm.hover;
+    if (!prev || prev.x !== cell.x || prev.y !== cell.y) {
+      state.zoneArm.hover = cell;
+      requestDraw();
+    }
+  }
+  onPointerMove(e);
+});
 on(canvas, 'pointerup', onPointerUp);
 on(canvas, 'pointercancel', onPointerUp);
 on(canvas, 'wheel', e => {
@@ -12479,6 +12743,18 @@ if (role === 'dm') {
     draw();
   });
   q('clearAllZonesBtn').addEventListener('click', () => clearSpellGrid({ all: true }));
+  fillZoneSpellSelect();
+  fillZoneCasters();
+  paintZoneFacing();
+  if (q('zoneSpell')) q('zoneSpell').addEventListener('change', () => paintZoneFacing());
+  if (q('zoneCaster')) {
+    q('zoneCaster').addEventListener('pointerdown', () => fillZoneCasters());
+    q('zoneCaster').addEventListener('change', () => paintZoneFacing());
+  }
+  if (q('zoneArmBtn')) q('zoneArmBtn').addEventListener('click', () => armZonePlace());
+  el.querySelectorAll('[data-act="zoneTurn"]').forEach(btn => {
+    btn.addEventListener('click', () => turnArmedZone(Number(btn.getAttribute('data-dir')) || 1));
+  });
   el.querySelectorAll('[data-act="timeSkipBtn"]').forEach(btn => {
     btn.title = btn.getAttribute('data-tip') || '';
     btn.addEventListener('click', () => {
