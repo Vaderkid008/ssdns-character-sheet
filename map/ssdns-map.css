@@ -1298,6 +1298,21 @@ body.map-fullscreen #mapMount .ssm-cropper canvas {
 }
 .ssm-chest-menu[hidden] { display: none; }
 .ssm-chest-menu button { margin: 0 6px 6px 0; }
+.ssm-card-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: grab; margin: -8px -10px 8px; padding: 6px 8px 6px 10px; background: #3a2a14; border-bottom: 1px solid #c4a35a; border-radius: 5px 5px 0 0; user-select: none; flex: 0 0 auto; }
+.ssm-card-bar b { flex: 1 1 auto; min-width: 0; font: 700 14px/1.2 system-ui, sans-serif; color: #f6e7c4; background: transparent; border: 0; }
+.ssm-chest-menu .ssm-card-bar button,
+.ssm-token-cmd .ssm-card-bar button,
+.ssm-choose .ssm-card-bar button,
+.ssm-dm-chest .ssm-card-bar button { display: inline-flex; align-items: center; justify-content: center; width: 28px; min-width: 28px; max-width: 28px; height: 28px; margin: 0; padding: 0; flex: 0 0 28px; background: transparent; border: 0; color: #f6e7c4; font-size: 18px; line-height: 1; text-align: center; }
+.ssm-chest-menu button:disabled { opacity: .45; cursor: not-allowed; }
+.ssm-note { margin: 2px 0 6px; color: #e7c27a; font-size: 12px; }
+.ssm-choose .ssm-card-body button, .ssm-dm-chest .ssm-card-body button { display: block; width: 100%; text-align: left; }
+.ssm-chest-menu, .ssm-choose, .ssm-dm-chest { display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; }
+.ssm-chest-menu .ssm-card-body, .ssm-choose .ssm-card-body, .ssm-dm-chest .ssm-card-body, .ssm-token-cmd .ssm-card-body { overflow: auto; min-height: 0; }
+.ssm-dm-chest label { display: block; margin: 4px 0; font-size: 12px; }
+.ssm-dm-chest input[type="text"], .ssm-dm-chest input[type="search"], .ssm-dm-chest input[type="number"] { width: 100%; box-sizing: border-box; }
+.ssm-loot-row { margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(226, 197, 106, 0.35); }
+.ssm-token-cmd .ssm-card-bar { margin-bottom: 4px; }
 .ssm-chest-menu .ssm-roll { margin: 4px 0 6px; color: #ffe0a3; }
 .ssdns-map .ssdns-leftbar .ssm-lock-dc { display: flex; flex-wrap: wrap; gap: 4px; }
 .ssdns-map .ssdns-leftbar .ssm-lock-dc button { width: auto; flex: 1 1 30%; }

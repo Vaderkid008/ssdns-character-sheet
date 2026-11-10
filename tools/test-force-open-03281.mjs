@@ -1,5 +1,5 @@
 /**
- * Strongbox Force open. Chests have no button. Sheet 0.3.281 / DMCC 0.2.294.
+ * Strongbox Force open. Chests have no button. Sheet 0.3.282 / DMCC 0.2.295.
  *   node tools/test-force-open-03281.mjs
  */
 import fs from "node:fs";
@@ -19,7 +19,7 @@ function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 const mapSrc = read("map/ssdns-map.js");
 const forceFn = mapSrc.split("function showForceDie")[1].split("function noteForceNoise")[0];
 check("src.noLockpickSound", forceFn.includes("challenge: true") && !forceFn.includes("lockpick"));
-check("src.chestGate", mapSrc.includes('data-chest="force"') && mapSrc.includes("isStrongbox(box)"));
+check("src.chestGate", mapSrc.includes('data-chest="force"') && mapSrc.includes("Force open"));
 
 function makeWindow() {
   const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/dm/", pretendToBeVisual: true, runScripts: "dangerously" });
@@ -51,9 +51,9 @@ check("math.athletics", skilled.nat === 11 && skilled.total === 17 && /Athletics
 const plain = { id: "sb2", name: "Strongbox", container: "strongbox", lock: { dc: 15, unlocked: false, allowRetries: false, forceDc: 25, forceAttempts: {} } };
 const bare = Loot.forceOpen(plain, { abilities: { STR: 16 }, prof: 3 }, "p1", () => 0.5);
 check("math.noProf", bare.total === 14 && !/Athletics/.test(bare.line), bare.line);
-const wood = { id: "ch", name: "Chest", container: "chest", boxType: "strongbox", lock: { dc: 15, unlocked: false, forceDc: 25, forceAttempts: {} } };
-const denied = Loot.forceOpen(wood, { abilities: { STR: 18 }, prof: 3, skillProf: { Athletics: 1 } }, "p1", () => 0.99);
-check("chest.api", denied.notStrongbox === true && denied.success === false);
+const wood = { id: "ch", name: "Chest", container: "chest", boxType: "chest", lock: { dc: 15, unlocked: false, forceAttempts: {} } };
+const chestForce = Loot.forceOpen(wood, { abilities: { STR: 10 }, prof: 2 }, "p1", () => 0.99);
+check("chest.api", chestForce.notStrongbox !== true && chestForce.dc === 15 && chestForce.nat === 20, chestForce.line);
 
 const scene = JSON.parse(read("map/scene-dusty-spur.json"));
 const store = { pub: {}, dm: {} };
@@ -69,13 +69,13 @@ function boxes() {
   return Object.keys(store.pub).filter((k) => k.indexOf("map/public/tokens/") === 0).map((k) => store.pub[k].value).filter((t) => t && t.kind === "chest");
 }
 function menuText() {
-  const menu = el.querySelector('[data-act="chestMenu"]');
+  const menu = el.querySelector('[data-act="dmChest"]') || el.querySelector('[data-act="chestMenu"]');
   return menu ? (menu.textContent || "").replace(/\s+/g, " ") : "";
 }
 el.querySelector('[data-act="chestKind"]').value = "chest";
 el.querySelector('[data-act="placeChestBtn"]').click();
 await flush(30);
-check("chest.noButton", menuText().indexOf("Force open") < 0, menuText());
+check("chest.forceButton", menuText().indexOf("Force open") >= 0, menuText());
 
 el.querySelector('[data-act="chestKind"]').value = "strongbox";
 el.querySelector('[data-act="forceDc"]').value = "25";

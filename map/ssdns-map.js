@@ -235,7 +235,8 @@ window.SSDNSMap = { create(opts) {
         container: t.loot.container || '',
         opened: !!t.loot.opened,
         taken: !!t.loot.taken,
-        contents: (t.loot.contents || []).map(r => r ? { id: r.id, name: r.name || '', qty: r.qty || 1, taken: !!r.taken, dirty: !!r.dirty } : null).filter(Boolean),
+        contents: (t.loot.contents || []).map(r => r ? { id: r.id, name: r.name || '', qty: r.qty || 1, weight: Number(r.weight) || 0, notes: r.notes || '', taken: !!r.taken, dirty: !!r.dirty } : null).filter(Boolean),
+        cash: t.loot.cash ? { es: Number(t.loot.cash.es) || 0, black: Number(t.loot.cash.black) || 0 } : null,
         lock: t.loot.lock || null
       } : null,
       lootState: t.loot ? {
@@ -716,6 +717,8 @@ on(document, 'keydown', e => {
       clearMovePreview();
       return;
     }
+    const tag = e.target && e.target.tagName;
+    if (tag !== "INPUT" && tag !== "SELECT" && tag !== "TEXTAREA") closeMapMenus();
   }
   if (e.key === 'Shift' && state.drag && state.drag.token && state.ghostPlan) { dropPin(); return; }
   if (e.key === 'Backspace' && state.drag && state.drag.pins && state.ghostPlan) { e.preventDefault(); popPin(); return; }
@@ -929,6 +932,7 @@ if (!el._nameMode) {
 paintRoleBadge();
 function pushFeed(row) {
   if (row && row.boxId && row.rowId && String(row.id || "").indexOf("lootclaim_") === 0) noteLootClaim(row);
+  if (row && row.event === "drop-place" && role === "dm" && row.drop) placeDropFromFeed(row.drop);
   if (row && row.lockBox && role === "dm") applyLockFeed(row);
   if (row && row.noise && role === "dm") noteForceNoise(row);
   if (row && row.event === 'zone') { applyZoneFeed(row); return; }
@@ -1096,11 +1100,12 @@ if (role === 'dm') {
       <button type="button" data-lock-preset="medium" class="is-on" title="Medium, DC 15">Medium</button>
       <button type="button" data-lock-preset="hard" title="Hard, DC 20">Hard</button>
       <label>Lock DC <input data-act="chestLockDc" type="number" min="0" value="15" aria-label="Lock DC" title="Easy 10, Medium 15, Hard 20. Any other number is a custom DC. 0 is unlocked."></label>
-      <label>Force DC <input data-act="forceDc" type="number" min="0" value="25" aria-label="Force DC" title="Strength (Athletics) to force a strongbox. Players do not see this before they roll. Chests cannot be forced."></label>
+      <label>Force DC <input data-act="forceDc" type="number" min="0" value="25" aria-label="Force DC" title="Strength (Athletics) to force a container. Strongboxes start at 25, chests at 15. Players do not see this before they roll."></label>
     </div>
     <label>Container <select data-act="chestKind" aria-label="Container type"><option value="chest">Chest</option><option value="strongbox">Strongbox</option></select></label>
     <button type="button" data-act="placeChestBtn" title="Drop the selected container. New locks start at Medium, DC 15, unless another preset or number is selected.">Place</button>
-    <label title="When on, the same character may pick this lock again, and may try to force a strongbox again."><input data-act="lockAllowRetries" type="checkbox"> Allow retries</label>
+    <label title="When on, the same character may pick this lock again, and may try to force a container again."><input data-act="lockAllowRetries" type="checkbox"> Allow retries</label>
+    <label title="When on, a player without thieves' tools may improvise a Dex check at disadvantage. Default off."><input data-act="improviseLocks" type="checkbox"> Allow improvised lockpicking</label>
     <button type="button" data-act="resetLockBtn" title="Clear every character's attempt on the selected door or chest.">Reset attempts</button>
     <button data-act="revealFogBtn" type="button">Reveal: Box</button>
     <select data-act="revealShape" aria-label="Reveal shape">
@@ -5377,6 +5382,11 @@ function draw() {
       ctx.restore();
       continue;
     }
+    if (t.kind === "drop" || t.weaponDrop) {
+      paintDropGlyph(ctx, t, px);
+      ctx.restore();
+      continue;
+    }
     if (t.veil && (role === 'dm' || t.ownerUid === uid)) ctx.globalAlpha = 0.45;
     /* fog-aware targeting: seen but past the picked weapon's long range -> grey wash on this player's map */
     let outOfReach = false;
@@ -6179,6 +6189,24 @@ function chestShowsOpen(t) {
   const locked = box.lock && Number(box.lock.dc) > 0 && !box.lock.unlocked;
   return !locked;
 }
+function paintDropGlyph(ctx, t, px) {
+  const s = worldToScreen((t.pos.x + 0.5) * px, (t.pos.y + 0.5) * px);
+  const side = 16 * (state.view.zoom || 1);
+  ctx.save();
+  ctx.translate(s.x, s.y);
+  ctx.fillStyle = "#e2c56a";
+  ctx.strokeStyle = "#2a2114";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, -side * 0.7);
+  ctx.lineTo(side * 0.7, 0);
+  ctx.lineTo(0, side * 0.7);
+  ctx.lineTo(-side * 0.7, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
 function paintChestProp(ctx, t, px) {
   ensureChestArt();
   const size = t.size || 1;
@@ -6521,9 +6549,11 @@ function paintPendingBanner() {
     bar = document.createElement('div');
     bar.className = 'ssm-pending-map';
     bar.setAttribute('role', 'status');
-    bar.innerHTML = '<span class="ssm-pending-text"></span><button type="button" data-act="pendingCancelMap">Cancel</button>';
+    bar.innerHTML = '<span class="ssm-pending-text"></span><button type="button" data-act="pendingCancelMap">Cancel</button><button type="button" data-menu-close="1" aria-label="Close">×</button>';
     bar.addEventListener('pointerdown', ev => ev.stopPropagation());
     bar.querySelector('[data-act="pendingCancelMap"]').addEventListener('click', ev => { ev.stopPropagation(); cancelPendingTarget(); });
+    const pendX = bar.querySelector('[data-menu-close]');
+    if (pendX) pendX.addEventListener('click', ev => { ev.stopPropagation(); cancelPendingTarget(); });
     el.appendChild(bar);
   }
   const what = pendingLabel();
@@ -6650,10 +6680,12 @@ function paintBlastBanner() {
     bar = document.createElement("div");
     bar.className = "ssm-blast-map";
     bar.setAttribute("role", "status");
-    bar.innerHTML = '<span class="ssm-pending-text"></span><button type="button" data-act="blastCast">Cast</button><button type="button" data-act="blastCancel">Cancel</button>';
+    bar.innerHTML = '<span class="ssm-pending-text"></span><button type="button" data-act="blastCast">Cast</button><button type="button" data-act="blastCancel">Cancel</button><button type="button" data-menu-close="1" aria-label="Close">×</button>';
     bar.addEventListener("pointerdown", ev => ev.stopPropagation());
     bar.querySelector("[data-act=blastCast]").addEventListener("click", ev => { ev.preventDefault(); ev.stopPropagation(); confirmBlast(); });
     bar.querySelector("[data-act=blastCancel]").addEventListener("click", ev => { ev.preventDefault(); ev.stopPropagation(); cancelBlast(); });
+    const blastX = bar.querySelector("[data-menu-close]");
+    if (blastX) blastX.addEventListener("click", ev => { ev.preventDefault(); ev.stopPropagation(); cancelBlast(); });
     el.appendChild(bar);
   }
   const b = state.blast;
@@ -6845,6 +6877,81 @@ function hideChestMenu() {
   const menu = el.querySelector('[data-act="chestMenu"]');
   if (menu) menu.hidden = true;
 }
+function hideDmChest() {
+  const menu = el.querySelector('[data-act="dmChest"]');
+  if (menu) menu.hidden = true;
+}
+function hideChooser() {
+  const menu = el.querySelector('[data-act="chooseMenu"]');
+  if (menu) menu.hidden = true;
+}
+function closeMapMenus(keep) {
+  if (keep !== "chest") hideChestMenu();
+  if (keep !== "dm") hideDmChest();
+  if (keep !== "door") hideDoorMenu();
+  if (keep !== "asset") hideAssetMenu();
+  if (keep !== "cmd") hideCommandMenu();
+  if (keep !== "choose") hideChooser();
+  if (keep !== "bestiary") {
+    const panel = el.querySelector('[data-act="bestiaryPanel"]');
+    if (panel && !panel.hidden && typeof toggleBestiary === "function") toggleBestiary(false);
+  }
+}
+function floatBar(title) {
+  return '<div class="ssm-card-bar" data-float-drag><b>' + title + '</b><button type="button" data-menu-close="1" aria-label="Close">×</button></div>';
+}
+function clampMenu(menu, left, top) {
+  if (!menu || !el) return;
+  const frameW = el.clientWidth || 0;
+  const frameH = el.clientHeight || 0;
+  if (frameH > 0) menu.style.maxHeight = Math.max(96, frameH - 8) + "px";
+  const w = menu.offsetWidth || 220;
+  const h = Math.min(menu.offsetHeight || 64, frameH > 0 ? frameH - 8 : 64);
+  const maxL = Math.max(4, frameW - w - 4);
+  const maxT = Math.max(4, frameH - h - 4);
+  menu.style.left = Math.round(Math.max(4, Math.min(maxL, left))) + "px";
+  menu.style.top = Math.round(Math.max(4, Math.min(maxT, top))) + "px";
+  menu.style.bottom = "auto";
+  menu.style.right = "auto";
+}
+function bindFloatingMenu(menu, hide) {
+  if (!menu || menu._floatBound) return;
+  menu._floatBound = true;
+  menu.addEventListener("click", ev => {
+    if (!(ev.target && ev.target.closest && ev.target.closest("[data-menu-close]"))) return;
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+    hide();
+  }, true);
+  menu.addEventListener("pointerdown", ev => {
+    const bar = ev.target && ev.target.closest && ev.target.closest("[data-float-drag]");
+    if (!bar || (ev.target.closest && ev.target.closest("[data-menu-close]"))) return;
+    ev.preventDefault();
+    const sx = ev.clientX;
+    const sy = ev.clientY;
+    const left0 = parseFloat(menu.style.left) || menu.offsetLeft || 0;
+    const top0 = parseFloat(menu.style.top) || menu.offsetTop || 0;
+    const move = (e) => clampMenu(menu, left0 + e.clientX - sx, top0 + e.clientY - sy);
+    const up = () => {
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", up);
+    };
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", up);
+  });
+}
+function improviseOn() {
+  try { return !!sceneData().improviseLocks; } catch (e) { return false; }
+}
+function setImprovise(on) {
+  if (role !== "dm") return;
+  sceneData().improviseLocks = !!on;
+  saveScene();
+  const box = q("improviseLocks");
+  if (box) box.checked = !!on;
+  const pop = el.querySelector('[data-act="dmChest"] [data-dm="improv"]');
+  if (pop) pop.checked = !!on;
+}
 function gridLabel(pos) {
   if (!pos || !isFinite(Number(pos.x)) || !isFinite(Number(pos.y))) return "the map";
   let n = Math.max(0, Math.floor(Number(pos.x)));
@@ -6952,6 +7059,7 @@ function noteLootClaim(row) {
     if ((box.contents || []).length && (box.contents || []).every(item => !item || item.taken)) box.taken = true;
     if (t.weaponDrop && box.taken) t.weaponDrop.taken = true;
     commitLoot(t);
+    if ((t.kind === "drop" || t.weaponDrop) && box.taken) finishDropTake(t);
     const menu = el.querySelector('[data-act="chestMenu"]');
     if (menu && !menu.hidden && menu.getAttribute('data-box') === (t.lootBoxId || box.id)) menu.innerHTML = chestMenuHtml(box);
   });
@@ -7054,7 +7162,245 @@ function postLockFeed(line, extra) {
   }, extra || {});
   adapter.write("tableFeed/" + id, row, { by: uid });
 }
+function isContainerTok(t) {
+  return !!(t && (t.kind === "chest" || t.kind === "drop" || t.lootBoxId) && t.kind !== "player" && t.kind !== "enemy");
+}
+function tokensSharingSquare(hit) {
+  if (!hit || !hit.pos) return [];
+  const x = Math.floor(Number(hit.pos.x));
+  const y = Math.floor(Number(hit.pos.y));
+  return (state.tokens || []).filter(t => {
+    if (!t || !t.pos) return false;
+    if (t.hidden && role !== "dm") return false;
+    return Math.floor(Number(t.pos.x)) === x && Math.floor(Number(t.pos.y)) === y;
+  });
+}
+function showChooser(tokens) {
+  closeMapMenus("choose");
+  let menu = el.querySelector('[data-act="chooseMenu"]');
+  if (!menu) {
+    menu = document.createElement("div");
+    menu.className = "ssm-chest-menu ssm-choose";
+    menu.setAttribute("data-act", "chooseMenu");
+    menu.addEventListener("pointerdown", ev => ev.stopPropagation());
+    menu.addEventListener("click", ev => {
+      const id = ev.target && ev.target.getAttribute && ev.target.getAttribute("data-choose");
+      if (!id || id === "x") return;
+      const t = state.tokens.find(tok => tok && tok.id === id);
+      hideChooser();
+      if (!t) return;
+      selectToken(t);
+      if (!isContainerTok(t)) showCommandMenu(t);
+    });
+    el.appendChild(menu);
+    bindFloatingMenu(menu, hideChooser);
+  }
+  menu.hidden = false;
+  const first = tokens[0];
+  menu.innerHTML = floatBar("Which one?") + '<div class="ssm-card-body">' + tokens.map(t =>
+    '<button type="button" data-choose="' + t.id + '">' + (t.name || t.label || t.kind || "Token") + "</button>"
+  ).join("") + "</div>";
+  if (first) anchorChestMenu(menu, first);
+}
+function escHtml(s) {
+  return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+function catalogHits(query) {
+  const Items = window.SSDNSItems;
+  if (!Items || !Items.catalog) return [];
+  const q = String(query || "").trim().toLowerCase();
+  if (q.length < 2) return [];
+  return Items.catalog({ dm: true }).filter(row => row && ((row.name || "").toLowerCase().indexOf(q) >= 0 || String(row.id || "").toLowerCase().indexOf(q) >= 0)).slice(0, 6);
+}
+function dmChestHtml(token) {
+  const box = token && token.loot;
+  if (!box) return floatBar("Container") + '<div class="ssm-card-body"><p>Empty</p></div>';
+  const title = box.name || "Container";
+  const strong = isStrongbox(box);
+  const dc = box.lock ? box.lock.dc : 0;
+  const force = box.lock && box.lock.forceDc != null ? box.lock.forceDc : (strong ? 25 : 15);
+  const preset = lockPreset(dc);
+  const rows = (box.contents || []).map((r, i) => {
+    if (!r) return "";
+    return '<div class="ssm-loot-row"><b>' + escHtml(r.name || "Item") + '</b>' +
+      (r.taken ? " — gone" : "") +
+      '<label>Qty <input data-dm="qty" data-index="' + i + '" type="number" min="1" value="' + (Number(r.qty) || 1) + '"></label>' +
+      '<label>Wt <input data-dm="weight" data-index="' + i + '" type="number" min="0" step="0.1" value="' + (Number(r.weight) || 0) + '"></label>' +
+      '<label>Notes <input data-dm="notes" data-index="' + i + '" type="text" value="' + escHtml(r.notes || "") + '"></label>' +
+      '<button type="button" data-dm="remove" data-index="' + i + '">Remove</button></div>';
+  }).join("");
+  const coin = box.cash && Number(box.cash.es) || 0;
+  const noise = (box.noiseLog || box.log || []).filter(line => /loud|holds|noise/i.test(String(line || ""))).map(line => "<p>" + line + "</p>").join("");
+  return floatBar(title) + '<div class="ssm-card-body">' +
+    '<div class="ssm-lock-dc">' +
+    '<button type="button" data-dm="easy"' + (preset === "easy" ? ' class="is-on"' : "") + ">Easy</button>" +
+    '<button type="button" data-dm="medium"' + (preset === "medium" ? ' class="is-on"' : "") + ">Medium</button>" +
+    '<button type="button" data-dm="hard"' + (preset === "hard" ? ' class="is-on"' : "") + ">Hard</button>" +
+    "</div>" +
+    '<label>Lock DC <input data-dm="lock" type="number" min="0" value="' + dc + '"></label>' +
+    '<label>Force DC <input data-dm="force" type="number" min="0" value="' + force + '"></label>' +
+    '<label><input data-dm="retry" type="checkbox"' + (box.lock && box.lock.allowRetries ? " checked" : "") + "> Allow retries</label>" +
+    '<label><input data-dm="improv" type="checkbox"' + (improviseOn() ? " checked" : "") + "> Allow improvised lockpicking</label>" +
+    (box._rollLine ? '<p class="ssm-roll">' + box._rollLine + "</p>" : "") +
+    "<p><b>Contents</b></p>" + (rows || "<p>Empty</p>") +
+    '<label>Find gear <input data-dm="search" type="search" placeholder="Search the catalog"></label>' +
+    '<div data-act="catalogHits"></div>' +
+    '<p><b>Custom item</b></p>' +
+    '<label>Name <input data-dm="custom-name" type="text"></label>' +
+    '<label>Qty <input data-dm="custom-qty" type="number" min="1" value="1"></label>' +
+    '<label>Weight <input data-dm="custom-weight" type="number" min="0" step="0.1" value="0"></label>' +
+    '<label>Notes <input data-dm="custom-notes" type="text"></label>' +
+    '<button type="button" data-dm="add-custom">Add custom item</button>' +
+    '<label>Coin (ES) <input data-dm="coin" type="number" min="0" value="' + coin + '"></label>' +
+    ((box.opened || (box.lock && box.lock.unlocked)) ? '<button type="button" data-chest="take-all">Take all</button>' : "") +
+    "<p><b>Noise</b></p>" + (noise || "<p>Quiet</p>") +
+    '<button type="button" data-dm="unlock">Unlock</button>' +
+    '<button type="button" data-dm="open">Open</button>' +
+    (box.lock && Number(box.lock.dc) > 0 && !box.lock.unlocked && !(box.lock.attempts && box.lock.attempts[uid] && !box.lock.allowRetries && !box.lock.attempts[uid].success) ? '<button type="button" data-chest="pick">Pick lock</button>' : '') +
+    ((box.lock && Number(box.lock.dc) > 0 && !box.lock.unlocked && !(box.lock.forceAttempts && box.lock.forceAttempts[uid] && !box.lock.allowRetries && !box.lock.forceAttempts[uid].success)) ? '<button type="button" data-chest="force">Force open</button>' : (box.lock && box.lock.forceAttempts && box.lock.forceAttempts[uid] && !box.lock.forceAttempts[uid].success ? '<p>It holds</p>' : '')) +
+    "</div>";
+}
+function showDmChest(token) {
+  if (!token) return;
+  closeMapMenus("dm");
+  let menu = el.querySelector('[data-act="dmChest"]');
+  if (!menu) {
+    menu = document.createElement("div");
+    menu.className = "ssm-chest-menu ssm-dm-chest";
+    menu.setAttribute("data-act", "dmChest");
+    menu.addEventListener("pointerdown", ev => ev.stopPropagation());
+    menu.addEventListener("input", ev => {
+      if (!ev.target || ev.target.getAttribute("data-dm") !== "search") return;
+      const hits = menu.querySelector('[data-act="catalogHits"]');
+      if (!hits) return;
+      hits.innerHTML = catalogHits(ev.target.value).map(row =>
+        '<button type="button" data-dm="add-cat" data-id="' + escHtml(row.id) + '">' + escHtml(row.name || row.id) + "</button>"
+      ).join("");
+    });
+    menu.addEventListener("change", ev => {
+      const live = state.tokens.find(t => t && t.id === menu.getAttribute("data-token"));
+      if (!live || !live.loot) return;
+      const name = ev.target && ev.target.getAttribute && ev.target.getAttribute("data-dm");
+      if (name === "lock") setLiveLockDc(ev.target.value);
+      if (name === "force") setLiveForceDc(ev.target.value);
+      if (name === "retry") {
+        live.loot.lock = live.loot.lock || {};
+        live.loot.lock.allowRetries = !!ev.target.checked;
+        const box = q("lockAllowRetries");
+        if (box) box.checked = !!ev.target.checked;
+        commitLoot(live);
+      }
+      if (name === "improv") setImprovise(!!ev.target.checked);
+      if (name === "qty" || name === "weight" || name === "notes") {
+        const row = (live.loot.contents || [])[Number(ev.target.getAttribute("data-index"))];
+        if (row) {
+          if (name === "qty") row.qty = Math.max(1, parseInt(ev.target.value, 10) || 1);
+          if (name === "weight") row.weight = Math.max(0, Number(ev.target.value) || 0);
+          if (name === "notes") row.notes = String(ev.target.value || "").slice(0, 240);
+          commitLoot(live);
+        }
+      }
+      if (name === "coin") {
+        live.loot.cash = live.loot.cash || { es: 0, black: 0, blackId: "", branch: "none" };
+        live.loot.cash.es = Math.max(0, parseInt(ev.target.value, 10) || 0);
+        commitLoot(live);
+      }
+      if (name !== "search") menu.innerHTML = dmChestHtml(live);
+    });
+    menu.addEventListener("click", ev => {
+      const name = ev.target && ev.target.getAttribute && ev.target.getAttribute("data-dm");
+      if (!name) return;
+      ev.preventDefault();
+      const live = state.tokens.find(t => t && t.id === menu.getAttribute("data-token"));
+      if (!live || !live.loot) return;
+      if (name === "easy" || name === "medium" || name === "hard") setLiveLockDc(LOCK_DC[name], name);
+      if (name === "unlock") {
+        live.loot.lock = live.loot.lock || { dc: 15, attempts: {}, forceAttempts: {} };
+        live.loot.lock.unlocked = true;
+        live.loot._rollLine = "The DM unlocked it.";
+        commitLoot(live);
+        toast("Unlocked");
+      }
+      if (name === "remove") {
+        const i = Number(ev.target.getAttribute("data-index"));
+        if (live.loot.contents) live.loot.contents.splice(i, 1);
+        commitLoot(live);
+      }
+      if (name === "add-cat") {
+        const Items = window.SSDNSItems;
+        const row = Items && Items.byId ? Items.byId(ev.target.getAttribute("data-id")) : null;
+        live.loot.contents = live.loot.contents || [];
+        live.loot.contents.push({ id: (row && row.id) || ev.target.getAttribute("data-id"), name: (row && row.name) || "Item", qty: 1, weight: Number(row && row.weight) || 0, notes: "", taken: false });
+        commitLoot(live);
+      }
+      if (name === "add-custom") {
+        const read = (key) => { const n = menu.querySelector('[data-dm="' + key + '"]'); return n ? n.value : ""; };
+        const itemName = String(read("custom-name") || "").trim();
+        if (itemName) {
+          live.loot.contents = live.loot.contents || [];
+          live.loot.contents.push({
+            id: "custom-" + Date.now().toString(36),
+            name: itemName.slice(0, 80),
+            qty: Math.max(1, parseInt(read("custom-qty"), 10) || 1),
+            weight: Math.max(0, Number(read("custom-weight")) || 0),
+            notes: String(read("custom-notes") || "").slice(0, 240),
+            taken: false,
+            custom: true
+          });
+          commitLoot(live);
+        }
+      }
+      if (name === "open") {
+        live.loot.opened = true;
+        live.loot._showLoot = true;
+        if (live.loot.lock) live.loot.lock.unlocked = true;
+        commitLoot(live);
+        toast("Opened");
+      }
+      menu.innerHTML = dmChestHtml(live);
+    });
+    menu.addEventListener("click", ev => {
+      const act = ev.target && ev.target.getAttribute && ev.target.getAttribute("data-chest");
+      if (act !== "force" && act !== "pick") return;
+      const live = state.tokens.find(t => t && t.id === menu.getAttribute("data-token"));
+      const box = live && live.loot;
+      const Loot = window.SSDNSLoot;
+      const sheet = playerCharacter() || {};
+      const res = act === "pick"
+        ? (Loot && Loot.pickLock ? Loot.pickLock(box, sheet, uid) : { ok: false })
+        : (Loot && Loot.forceOpen ? Loot.forceOpen(box, sheet, uid) : { ok: false });
+      const threw = !!(res && res.nat != null && !res.already);
+      const finish = () => {
+        if (box) box._rollLine = res.line || res.reason || "";
+        if (res && res.success && box) { box.opened = true; box._showLoot = true; }
+        if (live) commitLoot(live);
+        if (res && res.noise && adapter && adapter.write) {
+          const id = "force_" + Date.now().toString(36);
+          const who = sheet.name || "Someone";
+          const where = gridLabel(live && live.pos);
+          adapter.write("tableFeed/" + id, {
+            id: id, ts: new Date().toISOString(), from: uid, fromName: who,
+            text: "Loud noise: " + who + " tried to force the " + (isStrongbox(box) ? "strongbox" : "chest") + " at " + where,
+            kind: "note", to: "dm", noise: true, cls: "noise-alert", tag: "NOISE",
+            noiseX: live && live.pos ? (Number(live.pos.x) + 0.5) * ((state.scene.grid && state.scene.grid.px) || 70) : 0,
+            noiseY: live && live.pos ? (Number(live.pos.y) + 0.5) * ((state.scene.grid && state.scene.grid.px) || 70) : 0
+          }, { by: uid });
+        }
+        menu.innerHTML = dmChestHtml(live);
+      };
+      if (!threw) { finish(); return; }
+      (act === "pick" ? showLockDie(res, sheet) : showForceDie(res, sheet)).then(finish);
+    });
+    el.appendChild(menu);
+    bindFloatingMenu(menu, hideDmChest);
+  }
+  menu.setAttribute("data-token", token.id);
+  menu.hidden = false;
+  menu.innerHTML = dmChestHtml(token);
+  anchorChestMenu(menu, token);
+}
 function showChestMenu(token) {
+  closeMapMenus("chest");
   let menu = el.querySelector('[data-act="chestMenu"]');
   if (!menu) {
     menu = document.createElement('div');
@@ -7066,6 +7412,13 @@ function showChestMenu(token) {
       if (!act) return;
       ev.preventDefault();
       ev.stopPropagation();
+      if (act === "pickup" || act === "pickup-all") {
+        const ids = act === "pickup"
+          ? [ev.target.getAttribute("data-token")]
+          : Array.from(menu.querySelectorAll('[data-chest="pickup"]')).map(b => b.getAttribute("data-token"));
+        Promise.all(ids.filter(Boolean).map(pickupDrop));
+        return;
+      }
       const boxId = menu.getAttribute('data-box') || '';
       const Give = window.SSDNSLootGive;
       if (act === 'pick' && !(Give && Give.chestAct)) {
@@ -7100,14 +7453,45 @@ function showChestMenu(token) {
         showLockDie(res, sheet).then(finish);
         return;
       }
+      if (act === 'improv' && !(Give && Give.chestAct)) {
+        const live = state.tokens.find(t => t && (t.lootBoxId === boxId || t.id === boxId)) || token;
+        const box = dropBox(live);
+        const Loot = window.SSDNSLoot;
+        const sheet = playerCharacter() || {};
+        const res = Loot && Loot.pickLock ? Loot.pickLock(box, sheet, uid, null, { improvise: true }) : { ok: false, reason: "Can't pick that" };
+        const threw = res && res.nat != null && !res.noTools && !res.already;
+        const finish = (shown) => {
+          if (box) box._rollLine = (res && (res.line || res.reason)) || "";
+          if (res && res.success && box) { box._showLoot = true; box.opened = true; }
+          if (live) { live.loot = box; commitLoot(live); }
+          if (threw) {
+            const line = (sheet.name || "Someone") + " " + (res.line || res.reason || "improvises");
+            postLockFeed(line, {
+              fromName: sheet.name || "Table",
+              lockBox: box && box.id,
+              lockOk: !!(res && res.success),
+              lockAttempts: box && box.lock && box.lock.attempts || {},
+              lockOpen: !!(res && res.success),
+              zoom: shown && shown.zoom || null,
+              die: shown && shown.die || null,
+              nat: res.nat
+            });
+          }
+          toast((res && (res.line || res.reason)) || "Improvise");
+          menu.innerHTML = chestMenuHtml(box);
+          requestDraw();
+        };
+        if (!threw) { finish(null); return; }
+        showLockDie(res, sheet).then(finish);
+        return;
+      }
       if (act === 'force' && !(Give && Give.chestAct)) {
         const live = state.tokens.find(t => t && (t.lootBoxId === boxId || t.id === boxId)) || token;
         const box = dropBox(live);
         const Loot = window.SSDNSLoot;
         const sheet = playerCharacter() || {};
-        if (!isStrongbox(box)) { toast("Chests don't force open."); return; }
         const res = Loot && Loot.forceOpen ? Loot.forceOpen(box, sheet, uid) : { ok: false, reason: "Can't force that" };
-        const threw = !!(res && res.nat != null && !res.already && !res.notStrongbox);
+        const threw = !!(res && res.nat != null && !res.already);
         const finish = (shown) => {
           if (box) box._rollLine = (res && (res.line || res.reason)) || "";
           if (res && res.success && box) { box._showLoot = true; box.opened = true; }
@@ -7118,9 +7502,14 @@ function showChestMenu(token) {
             const where = gridLabel(live && live.pos);
             const noise = !res.success;
             const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
+            const kindName = isStrongbox(box) ? "strongbox" : "chest";
+            if (noise && box) {
+              box.noiseLog = box.noiseLog || [];
+              box.noiseLog.push("Loud noise: " + who + " tried to force the " + kindName + " at " + where);
+            }
             adapter.write("tableFeed/" + id, {
               id: id, ts: new Date().toISOString(), from: uid, fromName: who,
-              text: noise ? ("Loud noise: " + who + " tried to force the strongbox at " + where) : (who + " " + (res.line || "forces the strongbox")),
+              text: noise ? ("Loud noise: " + who + " tried to force the " + kindName + " at " + where) : (who + " " + (res.line || "forces the " + kindName)),
               kind: "note",
               to: noise ? "dm" : "all",
               noise: noise,
@@ -7150,7 +7539,12 @@ function showChestMenu(token) {
         const live = state.tokens.find(t => t && (t.lootBoxId === boxId || t.id === boxId)) || token;
         const box = dropBox(live);
         const locked = box && box.lock && Number(box.lock.dc) > 0 && !box.lock.unlocked;
-        if (locked) { toast("Locked"); return; }
+        if (locked) {
+          if (box) box._rollLine = "It's locked.";
+          menu.innerHTML = chestMenuHtml(box);
+          toast("It's locked.");
+          return;
+        }
         if (box) { box.opened = true; box._showLoot = true; }
         if (live) { live.loot = box; commitLoot(live); }
         if (adapter && adapter.write && box) {
@@ -7214,13 +7608,48 @@ function showChestMenu(token) {
       if (res && res.notice) toast(res.notice);
     });
     el.appendChild(menu);
+    bindFloatingMenu(menu, hideChestMenu);
   }
   menu.setAttribute('data-box', token.lootBoxId || (token.loot && token.loot.id) || '');
   menu.hidden = false;
   const Give = window.SSDNSLootGive;
   if (Give && Give.menuHtml && Give.box && Give.box(token.lootBoxId)) menu.innerHTML = Give.menuHtml(token.lootBoxId);
+  else if (token.kind === "drop" || token.weaponDrop) menu.innerHTML = dropPileHtml(dropsOnSquare(token));
   else menu.innerHTML = chestMenuHtml(dropBox(token) || lootStub(token));
   anchorChestMenu(menu, token);
+}
+function dropsOnSquare(token) {
+  return tokensSharingSquare(token).filter(t => t && (t.kind === "drop" || t.weaponDrop) && !(t.weaponDrop && t.weaponDrop.taken) && !(t.loot && t.loot.taken));
+}
+function dropPileHtml(pile) {
+  const list = pile && pile.length ? pile : [];
+  if (list.length <= 1) {
+    const t = list[0];
+    const name = (t && t.name) || "Dropped item";
+    return floatBar(escHtml(name)) + '<div class="ssm-card-body"><button type="button" data-chest="pickup" data-token="' + (t ? t.id : "") + '">Pick up</button></div>';
+  }
+  return floatBar("Dropped items") + '<div class="ssm-card-body">' + list.map(t =>
+    '<p>' + escHtml(t.name || "Item") + '</p><button type="button" data-chest="pickup" data-token="' + t.id + '">Pick up</button>'
+  ).join("") + '<button type="button" data-chest="pickup-all">Take all</button></div>';
+}
+function finishDropTake(t) {
+  if (!t) return;
+  if (t.loot) t.loot.taken = true;
+  if (t.weaponDrop) t.weaponDrop.taken = true;
+  hideChestMenu();
+  if (role === "dm") removeMapTokens([t.id], { silent: true, keepOwner: true });
+  else {
+    state.tokens = state.tokens.filter(tok => tok.id !== t.id);
+    requestDraw();
+  }
+}
+function pickupDrop(id) {
+  const live = state.tokens.find(t => t && t.id === id);
+  if (!live || !live.loot) return Promise.resolve();
+  return Promise.resolve(collectMapLoot(live.loot, uid, null)).then(result => {
+    toast(result && result.toast ? result.toast : (result && result.reason) || "Gone.");
+    if (result && result.ok) finishDropTake(live);
+  });
 }
 function anchorChestMenu(menu, token) {
   if (!menu || !token || !token.pos || !state.scene) return;
@@ -7228,9 +7657,11 @@ function anchorChestMenu(menu, token) {
   const s = worldToScreen((token.pos.x + (token.size || 1)) * px, token.pos.y * px);
   const ox = canvas ? canvas.offsetLeft || 0 : 0;
   const oy = canvas ? canvas.offsetTop || 0 : 0;
-  menu.style.left = Math.round(ox + s.x + 8) + "px";
-  menu.style.top = Math.round(oy + s.y) + "px";
-  menu.style.bottom = "auto";
+  let left = ox + s.x + 8;
+  let top = oy + s.y;
+  const cmd = el.querySelector('[data-act="tokenCmd"]');
+  if (cmd && cmd.isConnected) left = ox + worldToScreen(token.pos.x * px, token.pos.y * px).x - 240;
+  clampMenu(menu, left, top);
 }
 function playerCharacter() {
   try { return (window.SSDNSApp && window.SSDNSApp.doc && window.SSDNSApp.doc().character) || null; } catch (e) { return null; }
@@ -7285,7 +7716,7 @@ function setLiveForceDc(dc) {
   const n = Math.max(0, parseInt(dc, 10) || 0);
   paintForceDc(n);
   const live = liveLock();
-  if (!live || live.kind !== "chest" || !isStrongbox(live.token && live.token.loot)) return n;
+  if (!live || live.kind !== "chest" || !(live.token && live.token.loot && live.token.loot.lock)) return n;
   live.lock.forceDc = n;
   commitLoot(live.token);
   toast("Force DC " + n);
@@ -7359,8 +7790,6 @@ function placeLockedChest() {
   const dc = Math.max(0, parseInt(raw, 10) || 0);
   const kind = q("chestKind") && q("chestKind").value === "strongbox" ? "strongbox" : "chest";
   const title = kind === "strongbox" ? "Strongbox" : "Chest";
-  const forceField = q("forceDc");
-  const forceDc = Math.max(0, parseInt(forceField && forceField.value, 10) || 25);
   const id = kind + "_" + Date.now().toString(36);
   const box = {
     id: id,
@@ -7378,7 +7807,7 @@ function placeLockedChest() {
     lock: {
       dc: dc, difficulty: lockPreset(dc), unlocked: !(dc > 0), method: dc > 0 ? ["tools"] : [], jammed: false, jamOnFail: false,
       allowRetries: !!(q("lockAllowRetries") && q("lockAllowRetries").checked), attempts: {},
-      forceDc: kind === "strongbox" ? forceDc : null, forceAttempts: {}
+      forceDc: kind === "strongbox" ? 25 : 15, forceAttempts: {}
     },
     log: ["DM placed a " + title.toLowerCase()]
   };
@@ -7408,34 +7837,43 @@ function dropCarriedItem(itemId) {
   toast((item.name || "Item") + " is on the map");
   return token;
 }
+function sheetHasTools() {
+  const Loot = window.SSDNSLoot;
+  const sheet = playerCharacter() || {};
+  return !(Loot && Loot.hasThievesTools) || Loot.hasThievesTools(sheet);
+}
 function chestMenuHtml(box) {
-  if (!box) return '<p>Chest</p>';
+  if (!box) return floatBar("Chest") + '<div class="ssm-card-body"><p>Chest</p></div>';
   const locked = !!(box.lock && Number(box.lock.dc) > 0 && !box.lock.unlocked);
   const prior = box.lock && box.lock.attempts && box.lock.attempts[uid];
   const forced = box.lock && box.lock.forceAttempts && box.lock.forceAttempts[uid];
-  const parts = ['<p><b>' + (box.name || 'Chest') + '</b>' + (locked ? ' <span>Locked</span>' : '') + '</p>'];
+  const title = box.name || "Chest";
+  const parts = ['<p><b>' + title + '</b>' + (locked ? ' <span>Locked</span>' : '') + '</p>'];
   if (box._rollLine) parts.push('<p class="ssm-roll">' + box._rollLine + '</p>');
   else if (prior && prior.line) parts.push('<p class="ssm-roll">' + prior.line + '</p>');
   else if (forced && forced.line) parts.push('<p class="ssm-roll">' + forced.line + '</p>');
   parts.push('<button type="button" data-chest="open">Open</button>');
   if (locked) {
+    const tools = sheetHasTools();
+    const improvise = improviseOn() && !tools;
     if (prior && !box.lock.allowRetries && !prior.success) parts.push('<p>Pick failed</p>');
+    else if (improvise) parts.push('<button type="button" data-chest="improv">Improvise (disadv.)</button>');
+    else if (!tools) parts.push('<button type="button" data-chest="pick" disabled>Pick lock</button><p class="ssm-note">Needs thieves\' tools</p>');
     else parts.push('<button type="button" data-chest="pick">Pick lock</button>');
-    if (isStrongbox(box)) {
-      if (forced && !box.lock.allowRetries && !forced.success) parts.push('<p>It holds</p>');
-      else parts.push('<button type="button" data-chest="force">Force open</button>');
-    }
+    if (forced && !box.lock.allowRetries && !forced.success) parts.push('<p>It holds</p>');
+    else parts.push('<button type="button" data-chest="force">Force open</button>');
   }
   parts.push('<button type="button" data-chest="loot"' + (locked ? ' disabled' : '') + '>Loot</button>');
   if (!locked && (box._showLoot || box.opened)) {
     (box.contents || []).forEach((row, i) => {
       if (!row) return;
       if (row.taken) parts.push('<p>' + (row.name || 'Item') + ' — gone</p>');
-      else parts.push('<button type="button" data-chest="take-one" data-index="' + i + '">Take ' + (row.name || 'item') + '</button>');
+      else parts.push('<button type="button" data-chest="take-one" data-index="' + i + '">Take ' + (row.name || 'item') + ((Number(row.qty) || 1) > 1 ? ' ×' + row.qty : '') + '</button>' + (row.notes ? '<p class="ssm-note">' + escHtml(row.notes) + '</p>' : ''));
     });
     if ((box.contents || []).some(row => row && !row.taken)) parts.push('<button type="button" data-chest="take-all">Take all</button>');
+    if (box.cash && Number(box.cash.es) > 0) parts.push('<p>Coin: ' + Number(box.cash.es) + ' ES</p>');
   }
-  return parts.join('');
+  return floatBar(title) + '<div class="ssm-card-body">' + parts.join('') + '</div>';
 }
 function tokenPos(id) {
   if (!id) return null;
@@ -7477,6 +7915,7 @@ function pinWeaponDrop(spec) {
   const dirty = !!spec.dirty;
   const at = spec.at && isFinite(Number(spec.at.x)) && isFinite(Number(spec.at.y)) ? { x: Number(spec.at.x), y: Number(spec.at.y) } : null;
   const boxId = spec.boxId || ('drop_' + Date.now().toString(36) + Math.floor(Math.random() * 1000));
+  const tokenId = spec.tokenId || ('tok_' + boxId);
   const box = {
     id: boxId,
     name: name,
@@ -7493,6 +7932,7 @@ function pinWeaponDrop(spec) {
     log: [spec.reason || 'Dropped on the map']
   };
   const token = makeToken({
+    id: tokenId,
     kind: 'drop',
     name: name,
     label: 'Drop',
@@ -7510,13 +7950,43 @@ function pinWeaponDrop(spec) {
     shared.tokens[token.id].kind = 'drop';
     shared.tokens[token.id].lootBoxId = boxId;
     shared.tokens[token.id].weaponDrop = Object.assign({}, token.weaponDrop);
+    shared.tokens[token.id].loot = token.loot;
     shared.tokens[token.id].name = name;
     shared.tokens[token.id].label = 'Drop';
     shared.tokens[token.id].color = '#c9a227';
   }
   saveToken(token.id);
+  if (role !== "dm" && !spec.fromFeed && adapter && adapter.write) {
+    adapter.write("tableFeed/dropplace_" + token.id, {
+      id: "dropplace_" + token.id,
+      ts: new Date().toISOString(),
+      from: uid,
+      fromName: (playerCharacter() && playerCharacter().name) || "Table",
+      text: name + " dropped",
+      kind: "note",
+      event: "drop-place",
+      drop: { tokenId: token.id, boxId: boxId, name: name, itemId: itemId, dirty: dirty, x: token.pos.x, y: token.pos.y }
+    }, { by: uid });
+  }
   requestDraw();
   return token;
+}
+function placeDropFromFeed(drop) {
+  if (!drop || !drop.tokenId) return;
+  if ((state.tokens || []).some(t => t && t.id === drop.tokenId)) {
+    saveToken(drop.tokenId);
+    return;
+  }
+  pinWeaponDrop({
+    tokenId: drop.tokenId,
+    boxId: drop.boxId,
+    name: drop.name,
+    itemId: drop.itemId,
+    dirty: !!drop.dirty,
+    at: { x: Number(drop.x), y: Number(drop.y) },
+    fromFeed: true,
+    reason: "Dropped on the map"
+  });
 }
 function focusLootChest(boxId) {
   const token = state.tokens.find(t => t && (t.lootBoxId === boxId || (t.loot && t.loot.id === boxId)));
@@ -7744,8 +8214,7 @@ function tryDoorClick(e, world) {
 function showDoorMenu(wall) {
   const I = interactApi();
   if (!I || !wall) return;
-  hideChestMenu();
-  hideAssetMenu();
+  closeMapMenus("door");
   let menu = el.querySelector('[data-act="doorMenu"]');
   if (!menu) {
     menu = document.createElement("div");
@@ -7765,20 +8234,26 @@ function showDoorMenu(wall) {
   }
   menu._wallRef = I.wallRef(wall);
   const mine = role === "dm" ? null : myMapToken();
-  const pack = I.doorMenu(wall, { token: mine, dm: role === "dm", who: uid });
+  const pack = I.doorMenu(wall, { token: mine, dm: role === "dm", who: uid, sheet: playerSheet(), improvise: improviseOn() });
   if (!pack.reach) {
     menu.hidden = true;
     if (pack.toast && !pack.hidden) toast(pack.toast);
     return;
   }
   menu.hidden = false;
-  const lockNote = wall.locked ? " <span>Locked" + (role === "dm" && wall.lockDc ? " DC " + wall.lockDc : "") + "</span>" : "";
+  const lockNote = wall.locked ? " <span>Locked</span>" : (wall.open ? " <span>Open</span>" : "");
   const prior = wall.pickAttempts && wall.pickAttempts[uid];
-  const roll = prior && prior.line ? '<p class="ssm-roll">' + prior.line + "</p>" : "";
-  menu.innerHTML = "<p><b>Door</b>" + lockNote + "</p>" + roll + (pack.actions || []).map(o => {
-    if (o.disabled) return "<p>" + o.label + "</p>";
+  const roll = (wall._rollLine || (prior && prior.line) || "");
+  const actions = (pack.actions || []).map(o => {
+    if (o.disabled) return '<button type="button" data-door="' + o.id + '" disabled>' + o.label + "</button>" + (o.note ? '<p class="ssm-note">' + o.note + "</p>" : "");
     return '<button type="button" data-door="' + o.id + '">' + o.label + "</button> ";
   }).join("");
+  menu.innerHTML = floatBar("Door") + '<div class="ssm-card-body"><p><b>Door</b>' + lockNote + "</p>" +
+    (roll ? '<p class="ssm-roll">' + roll + "</p>" : "") +
+    (wall._lockedNote ? '<p class="ssm-note">' + wall._lockedNote + "</p>" : "") +
+    actions + "</div>";
+  bindFloatingMenu(menu, hideDoorMenu);
+  anchorChestMenu(menu, { pos: { x: (Number(wall.x1) + Number(wall.x2)) / 2 - 0.5, y: (Number(wall.y1) + Number(wall.y2)) / 2 - 0.5 }, size: 1 });
 }
 function runDoorAction(wall, action) {
   const I = interactApi();
@@ -7816,7 +8291,57 @@ function runDoorAction(wall, action) {
       if (!threw) finishDoor(null);
       else showLockDie(res, sheet).then(finishDoor);
       return;
-    } else if (action === "open" && wall.locked) toast("Locked");
+    } else if (action === "open" && wall.locked) {
+      wall._lockedNote = "It's locked.";
+      showDoorMenu(wall);
+      toast("It's locked.");
+      return;
+    } else if (action === "force" || action === "improvise") {
+      const Loot = window.SSDNSLoot;
+      const box = I.doorLockBox(wall);
+      const sheet = playerSheet();
+      const res = action === "force"
+        ? (Loot && Loot.forceOpen ? Loot.forceOpen(box, sheet, uid) : { ok: false, reason: "Can't force that" })
+        : (Loot && Loot.pickLock ? Loot.pickLock(box, sheet, uid, null, { improvise: true }) : { ok: false, reason: "Can't pick that" });
+      const threw = res && res.nat != null && !res.already && !res.noTools;
+      const finishDoor = (shown) => {
+        if (box.lock) {
+          wall.pickAttempts = box.lock.attempts || wall.pickAttempts || {};
+          wall.forceAttempts = box.lock.forceAttempts || wall.forceAttempts || {};
+          if (action === "force" ? res.success : res.success) wall.locked = !box.lock.unlocked ? wall.locked : false;
+          if (res.success) wall.locked = false;
+        }
+        wall._rollLine = (res && (res.line || res.reason)) || "";
+        wall._lockedNote = "";
+        if (res && res.noise) {
+          wall.noiseLog = wall.noiseLog || [];
+          const where = gridLabel({ x: (Number(wall.x1) + Number(wall.x2)) / 2, y: (Number(wall.y1) + Number(wall.y2)) / 2 });
+          const text = "Loud noise: " + (sheet.name || "Someone") + " tried to force the door at " + where;
+          wall.noiseLog.push(text);
+          const id = "force_" + Date.now().toString(36);
+          const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
+          if (adapter && adapter.write) adapter.write("tableFeed/" + id, {
+            id: id, ts: new Date().toISOString(), from: uid, fromName: sheet.name || "Someone",
+            text: text, kind: "note", to: "dm", noise: true, cls: "noise-alert", tag: "NOISE",
+            noiseX: ((Number(wall.x1) + Number(wall.x2)) / 2) * px,
+            noiseY: ((Number(wall.y1) + Number(wall.y2)) / 2) * px
+          }, { by: uid });
+        }
+        toast(wall._rollLine || "Door");
+        saveScene();
+        showDoorMenu(wall);
+        if (action === "improvise" && threw) {
+          const line = (sheet.name || "Someone") + " " + (res.line || "improvises");
+          postLockFeed(line, { fromName: sheet.name || "Table", zoom: shown && shown.zoom || null, die: shown && shown.die || null, nat: res.nat });
+        }
+      };
+      if (action === "force") {
+        if (!threw) finishDoor(null);
+        else showForceDie(res, sheet).then(finishDoor);
+      } else if (!threw) finishDoor(null);
+      else showLockDie(res, sheet).then(finishDoor);
+      return;
+    }
     else toast(action === "peek" ? "Peek sent" : "Sent");
     const attempt = wall.pickAttempts && wall.pickAttempts[uid];
     postDoorReq({ door: I.wallRef(wall), action: action, by: uid, nat: nat, total: total, success: success, attempt: attempt || null }, action);
@@ -8064,10 +8589,11 @@ function assetMenuHtml(token) {
     if (act.stub) return '<button type="button" data-asset="' + act.id + '" disabled>' + act.label + "</button> ";
     return '<button type="button" data-asset="' + act.id + '">' + act.label + "</button> ";
   }).join("");
-  return "<p><b>" + name.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])) + "</b></p>" + (rows || "<p>No actions</p>");
+  return floatBar(name.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]))) + '<div class="ssm-card-body">' + (rows || "<p>No actions</p>") + "</div>";
 }
 function showAssetMenu(token) {
   if (!token) return;
+  closeMapMenus("asset");
   let menu = el.querySelector('[data-act="assetMenu"]');
   if (!menu) {
     menu = document.createElement("div");
@@ -8084,6 +8610,7 @@ function showAssetMenu(token) {
       if (live) requestAssetAction(live, act);
     });
     el.appendChild(menu);
+    bindFloatingMenu(menu, hideAssetMenu);
   }
   menu.setAttribute("data-token", token.id);
   menu.hidden = false;
@@ -8156,7 +8683,8 @@ function placeCommandMenu() {
     menu = document.createElement('div');
     menu.className = 'ssm-token-cmd';
     menu.setAttribute('data-act', 'tokenCmd');
-    menu.innerHTML = '<button type="button" data-act="tokenCmdMove">Move</button><button type="button" data-act="tokenCmdInteract">Interact</button><button type="button" data-act="tokenCmdDrop">Drop</button>';
+    menu.innerHTML = floatBar("Token") + '<div class="ssm-card-body"><button type="button" data-act="tokenCmdMove">Move</button><button type="button" data-act="tokenCmdInteract">Interact</button><button type="button" data-act="tokenCmdDrop">Drop</button></div>';
+    bindFloatingMenu(menu, hideCommandMenu);
     menu.addEventListener('pointerdown', ev => ev.stopPropagation());
     menu.addEventListener('click', ev => {
       ev.stopPropagation();
@@ -8166,7 +8694,7 @@ function placeCommandMenu() {
       if (act === 'tokenCmdDrop') {
         const items = carriedItems();
         if (!items.length) { toast("Nothing to drop"); return; }
-        menu.innerHTML = items.slice(0, 6).map(it => '<button type="button" data-act="tokenCmdDropItem" data-item="' + String(it.catalogId || it.id).replace(/"/g, "") + '">' + (it.name || it.catalogId || "Item") + '</button>').join("") + '<button type="button" data-act="tokenCmdDropBack">Back</button>';
+        menu.innerHTML = floatBar("Drop") + '<div class="ssm-card-body">' + items.slice(0, 6).map(it => '<button type="button" data-act="tokenCmdDropItem" data-item="' + String(it.catalogId || it.id).replace(/"/g, "") + '">' + (it.name || it.catalogId || "Item") + '</button>').join("") + '<button type="button" data-act="tokenCmdDropBack">Back</button></div>';
         return;
       }
       if (act === 'tokenCmdDropItem') dropCarriedItem(ev.target.getAttribute('data-item'));
@@ -8188,12 +8716,12 @@ function placeCommandMenu() {
   const r = ((Number(token.size) || 1) * px * (state.view.zoom || 1)) / 2;
   const ox = canvas ? canvas.offsetLeft || 0 : 0;
   const oy = canvas ? canvas.offsetTop || 0 : 0;
-  menu.style.left = Math.round(ox + s.x + r + 8) + 'px';
-  menu.style.top = Math.round(oy + s.y - 8) + 'px';
+  clampMenu(menu, ox + s.x + r + 8, oy + s.y - 8);
   el.dataset.moveArmed = state.moveArmed ? '1' : '0';
 }
 function showCommandMenu(token) {
   if (!token || !token.id) return;
+  closeMapMenus("cmd");
   if (state.commandToken !== token.id) {
     state.moveArmed = false;
     state.moveHover = null;
@@ -8259,9 +8787,10 @@ function selectToken(token) {
   state.selected = token;
   state.selectedIds = [token.id];
   refreshSelectedPanel();
-  if (token && (token.kind === 'chest' || token.lootBoxId)) {
-    hideDoorMenu();
-    showChestMenu(token);
+  if (token && (token.kind === 'chest' || token.lootBoxId) && token.kind !== 'player' && token.kind !== 'enemy') {
+    closeMapMenus(role === "dm" && token.kind === "chest" ? "dm" : "chest");
+    if (role === "dm" && token.kind === "chest") showDmChest(token);
+    else showChestMenu(token);
     if (token.loot && token.loot.lock) {
       paintLockDc(token.loot.lock.dc);
       paintForceDc(token.loot.lock.forceDc);
@@ -10350,15 +10879,22 @@ function onPointerDown(e) {
       return;
     }
     const hit = hitTest(w.x, w.y);
+    if (!hit && e.button === 0 && !state.tool && !e.altKey) closeMapMenus();
+    if (hit && e.button === 0 && !e.shiftKey && !state.tool) {
+      const pile = tokensSharingSquare(hit);
+      if (pile.some(isContainerTok) && pile.some(t => !isContainerTok(t))) {
+        showChooser(pile);
+        return;
+      }
+    }
     if (hit && hit.kind === 'asset' && role === 'player' && !e.shiftKey) {
       if (!tokenSeenBy(hit, sightFor(uid, getPlayerScene()))) { toast("You can't see that."); return; }
       selectToken(hit);
       showCommandMenu(hit);
       return;
     }
-    if (hit && (hit.kind === 'chest' || hit.lootBoxId) && !e.shiftKey) {
+    if (hit && isContainerTok(hit) && !e.shiftKey) {
       selectToken(hit);
-      showCommandMenu(hit);
       return;
     }
     if (hit && state.pendingTarget && role === 'dm') {
@@ -11410,10 +11946,12 @@ function paintLightCastBanner() {
     bar = document.createElement("div");
     bar.className = "ssm-blast-map ssm-lightcast";
     bar.setAttribute("role", "status");
-    bar.innerHTML = '<span class="ssm-pending-text"></span><button type="button" data-act="lightPlace">Place</button><button type="button" data-act="lightCancel">Cancel</button>';
+    bar.innerHTML = '<span class="ssm-pending-text"></span><button type="button" data-act="lightPlace">Place</button><button type="button" data-act="lightCancel">Cancel</button><button type="button" data-menu-close="1" aria-label="Close">×</button>';
     bar.addEventListener("pointerdown", ev => ev.stopPropagation());
     bar.querySelector("[data-act=lightPlace]").addEventListener("click", ev => { ev.preventDefault(); ev.stopPropagation(); finishLightCast(); });
     bar.querySelector("[data-act=lightCancel]").addEventListener("click", ev => { ev.preventDefault(); ev.stopPropagation(); cancelLightCast(); });
+    const lightX = bar.querySelector("[data-menu-close]");
+    if (lightX) lightX.addEventListener("click", ev => { ev.preventDefault(); ev.stopPropagation(); cancelLightCast(); });
     el.appendChild(bar);
   }
   const cast = state.lightCast;
@@ -13202,11 +13740,14 @@ if (role === 'dm') {
       const menu = el.querySelector('[data-act="chestMenu"]');
       const boxId = live.token.lootBoxId || (live.token.loot && live.token.loot.id) || "";
       if (menu && !menu.hidden && menu.getAttribute("data-box") === boxId) menu.innerHTML = chestMenuHtml(live.token.loot);
+      const pop = el.querySelector('[data-act="dmChest"]');
+      if (pop && !pop.hidden && pop.getAttribute("data-token") === live.token.id) pop.innerHTML = dmChestHtml(live.token);
     } else {
       live.wall.allowRetries = on;
       saveScene();
     }
   });
+  if (q("improviseLocks")) q("improviseLocks").addEventListener("change", () => setImprovise(!!q("improviseLocks").checked));
   q('secretDoorBtn').addEventListener('click', () => armSecretDoor());
   ['doorLocked', 'doorLockDc', 'doorAjar', 'doorTrapOnFail'].forEach(name => {
     const node = q(name);
