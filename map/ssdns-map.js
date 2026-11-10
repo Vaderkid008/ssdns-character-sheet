@@ -1173,6 +1173,13 @@ if (role === 'dm') {
     <div class="ssm-spell-grids" data-act="spellGrids">
       <div class="panel-title">Spell grids</div>
       <div data-act="zoneList" class="panel-list">None</div>
+      <div class="ssm-time-skip" data-act="timeSkip">
+        <div class="panel-title">Advance time</div>
+        <button type="button" data-act="timeSkipBtn" data-steps="1" data-tip="Count zone timers down by 1 round. No damage or saves for the skipped round.">+1 round</button>
+        <button type="button" data-act="timeSkipBtn" data-steps="10" data-tip="Count zone timers down by 10 rounds (1 minute). No damage or saves for the skipped rounds.">+1 min</button>
+        <button type="button" data-act="timeSkipBtn" data-steps="100" data-tip="Count zone timers down by 100 rounds (10 minutes). No damage or saves for the skipped rounds.">+10 min</button>
+        <button type="button" data-act="timeSkipBtn" data-steps="600" data-tip="Count zone timers down by 600 rounds (1 hour). No damage or saves for the skipped rounds.">+1 hour</button>
+      </div>
       <button type="button" data-act="clearAllZonesBtn" title="Remove every spell grid in this scene">Clear all grids</button>
     </div>
   `;
@@ -11981,6 +11988,17 @@ if (role === 'dm') {
     draw();
   });
   q('clearAllZonesBtn').addEventListener('click', () => clearSpellGrid({ all: true }));
+  el.querySelectorAll('[data-act="timeSkipBtn"]').forEach(btn => {
+    btn.title = btn.getAttribute('data-tip') || '';
+    btn.addEventListener('click', () => {
+      if (btn.disabled) return;
+      if (state.initiative && state.initiative.started) return;
+      const steps = Number(btn.getAttribute('data-steps'));
+      if (!(steps > 0)) return;
+      window.dispatchEvent(new CustomEvent('ssdns-advance-time', { detail: { steps: steps } }));
+    });
+  });
+  paintTimeSkip();
   renderZoneClear();
   q('downBtn').addEventListener('click', () => {
     const targets = state.selectedIds.length ? state.tokens.filter(t => state.selectedIds.includes(t.id)) : (state.selected ? [state.selected] : []);
@@ -12930,7 +12948,15 @@ async function loadSceneImage(sceneId, opts) {
     if (!stingerSeen) { stingerSeen = true; return; }
     playStingers(planCombatStinger(prev, next));
   }
-  function syncCombatants(initiative) {
+  const TIME_SKIP_OFF = "Initiative is running. Zone timers advance when the round wraps, so Advance time is off.";
+function paintTimeSkip() {
+  const blocked = !!(state.initiative && state.initiative.started);
+  el.querySelectorAll('[data-act="timeSkipBtn"]').forEach(btn => {
+    btn.disabled = blocked;
+    btn.title = blocked ? TIME_SKIP_OFF : (btn.getAttribute("data-tip") || "");
+  });
+}
+function syncCombatants(initiative) {
     const prevId = state.currentTurnId;
     const prevStarted = !!(state.initiative && state.initiative.started);
     const prevInit = state.initiative;
@@ -12947,6 +12973,7 @@ async function loadSceneImage(sceneId, opts) {
     const order = state.initiative.order || [];
     const turn = state.initiative.turn || 0;
     state.currentTurnId = order[turn] ? order[turn].id : null;
+    paintTimeSkip();
     if (state.currentTurnId !== prevId || !!state.initiative.started !== prevStarted) {
       state.moveHover = null;
       if (state.moveConfirm) state.moveConfirm.pending = null;

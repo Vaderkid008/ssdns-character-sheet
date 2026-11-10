@@ -1,6 +1,6 @@
 /**
  * Animation clock: a late frame does not skip a bolt to its end,
- * and the same stamp is shared inside one turn (sheet 0.3.275 / DMCC 0.2.288).
+ * and the same stamp is shared inside one turn (sheet 0.3.276 / DMCC 0.2.289).
  *   node tools/test-anim-sync-03252.mjs
  * rules.js is not regenerated. No new projectile.
  */
@@ -48,8 +48,8 @@ check("wire.light", map.includes("projectileLight(e.spec, now - e.t0)") && map.i
 check("ball.kept", FX.lookOf({ type: "spell", spell: "Fireball", dmg: "fire" }) === "fireball" && map.includes("function fireballComet") === false && read("map/ssdns-map-fx.js").includes("function fireballComet"));
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.275" && ver.dmcc === "0.2.288" && ver.sheetBuild === "sheet-playtest-v03275" && ver.dmccBuild === "dmcc-playtest-v02288");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.275") && !read("database.rules.json").includes("0.3.275"));
+check("ver", ver.sheet === "0.3.276" && ver.dmcc === "0.2.289" && ver.sheetBuild === "sheet-playtest-v03276" && ver.dmccBuild === "dmcc-playtest-v02289");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.276") && !read("database.rules.json").includes("0.3.276"));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

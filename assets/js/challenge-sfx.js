@@ -1,4 +1,4 @@
-/* Gold Challenge sound pack (sheet 0.3.275).
+/* Gold Challenge sound pack (sheet 0.3.276).
    Jessey's exported v2 timings. Ordinary dice do not call this.
    A motion's roll cue starts with the animation. Its land cue fires when the
    die actually lands. ring=false fades the roll cue over 150ms at that moment.

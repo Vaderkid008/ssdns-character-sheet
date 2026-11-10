@@ -422,6 +422,22 @@ body.ssdns-chat-pop .ssm-who,
 }
 .ssdns-map .ssdns-rightbar .ssm-spell-grids [data-act="zoneList"] button,
 .ssdns-map .ssdns-rightbar .ssm-spell-grids [data-act="clearAllZonesBtn"] { margin: 0 0 4px; font-size: 11px; }
+.ssdns-map .ssdns-rightbar .ssm-time-skip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.ssdns-map .ssdns-rightbar .ssm-time-skip .panel-title { flex: 1 1 100%; }
+.ssdns-map .ssdns-rightbar .ssm-time-skip button {
+  flex: 1 1 calc(50% - 4px);
+  margin: 0;
+  font-size: 11px;
+}
+.ssdns-map .ssdns-rightbar .ssm-time-skip button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 .ssdns-map .ssdns-rightbar .ssm-spell-grids [data-act="clearAllZonesBtn"] {
   flex: 0 0 auto;
   margin: 0;
