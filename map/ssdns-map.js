@@ -232,6 +232,7 @@ window.SSDNSMap = { create(opts) {
         id: t.loot.id || t.lootBoxId || t.id,
         name: t.loot.name || t.name || '',
         boxType: t.loot.boxType || '',
+        container: t.loot.container || '',
         opened: !!t.loot.opened,
         taken: !!t.loot.taken,
         contents: (t.loot.contents || []).map(r => r ? { id: r.id, name: r.name || '', qty: r.qty || 1, taken: !!r.taken, dirty: !!r.dirty } : null).filter(Boolean),
@@ -1093,7 +1094,8 @@ if (role === 'dm') {
       <button type="button" data-lock-preset="hard" title="Hard, DC 20">Hard</button>
       <label>Lock DC <input data-act="chestLockDc" type="number" min="0" value="15" aria-label="Lock DC" title="Easy 10, Medium 15, Hard 20. Any other number is a custom DC. 0 is unlocked."></label>
     </div>
-    <button type="button" data-act="placeChestBtn" title="Drop a chest on the map. New locks start at Medium, DC 15, unless another preset or number is selected.">Place chest</button>
+    <label>Container <select data-act="chestKind" aria-label="Container type"><option value="chest">Chest</option><option value="strongbox">Strongbox</option></select></label>
+    <button type="button" data-act="placeChestBtn" title="Drop the selected container. New locks start at Medium, DC 15, unless another preset or number is selected.">Place</button>
     <label title="When on, the same character may pick this lock again."><input data-act="lockAllowRetries" type="checkbox"> Allow retries</label>
     <button type="button" data-act="resetLockBtn" title="Clear every character's attempt on the selected door or chest.">Reset attempts</button>
     <button data-act="revealFogBtn" type="button">Reveal: Box</button>
@@ -5366,6 +5368,11 @@ function draw() {
     if (portraitGrey < 1 && tokenIsEnfeebled(t)) portraitGrey = 1;
     if (nudge && (nudge.dx || nudge.dy)) ctx.translate(nudge.dx || 0, nudge.dy || 0);
     if (isHidden && role === 'dm') ctx.globalAlpha = 0.4;
+    if (isChestProp(t)) {
+      paintChestProp(ctx, t, px);
+      ctx.restore();
+      continue;
+    }
     if (t.veil && (role === 'dm' || t.ownerUid === uid)) ctx.globalAlpha = 0.45;
     /* fog-aware targeting: seen but past the picked weapon's long range -> grey wash on this player's map */
     let outOfReach = false;
@@ -6105,6 +6112,73 @@ function paintSwatch(el, color) {
   if (!el) return;
   el.style.background = color && color !== 'custom' ? color : 'transparent';
 }
+const PROP_ART = {
+  chest: {
+    closed: "props/chest-closed.webp", closedPng: "props/chest-closed.png",
+    open: "props/chest-open.webp", openPng: "props/chest-open.png"
+  },
+  strongbox: {
+    closed: "props/strongbox-closed.webp", closedPng: "props/strongbox-closed.png",
+    open: "props/strongbox-open.webp", openPng: "props/strongbox-open.png"
+  }
+};
+const propImgs = { chest: { closed: null, open: null }, strongbox: { closed: null, open: null } };
+let chestArtStarted = false;
+function ensureChestArt() {
+  if (chestArtStarted) return;
+  chestArtStarted = true;
+  function load(webp, png, kind, stateName) {
+    const im = new Image();
+    im.onload = () => { propImgs[kind][stateName] = im; draw(); };
+    im.onerror = () => {
+      const fb = new Image();
+      fb.onload = () => { propImgs[kind][stateName] = fb; draw(); };
+      fb.onerror = () => {};
+      fb.src = asset(png);
+    };
+    im.src = asset(webp);
+  }
+  Object.keys(PROP_ART).forEach(kind => {
+    const row = PROP_ART[kind];
+    load(row.closed, row.closedPng, kind, "closed");
+    load(row.open, row.openPng, kind, "open");
+  });
+}
+function containerKind(t) {
+  const box = t && t.loot;
+  if (box && (box.container === "strongbox" || box.container === "chest")) return box.container;
+  return "chest";
+}
+/* A container sits on the square. Players, creatures, and dropped weapons stay round. */
+function isChestProp(t) {
+  if (!t || t.weaponDrop || t.kind === "drop" || t.kind === "player" || t.kind === "enemy" || t.kind === "friendly" || t.kind === "npc" || t.kind === "party") return false;
+  if (typeof isPartyToken === "function" && isPartyToken(t)) return false;
+  return t.kind === "chest" || !!t.lootBoxId;
+}
+function chestShowsOpen(t) {
+  const box = t && t.loot;
+  if (!box || !box.opened) return false;
+  const locked = box.lock && Number(box.lock.dc) > 0 && !box.lock.unlocked;
+  return !locked;
+}
+function paintChestProp(ctx, t, px) {
+  ensureChestArt();
+  const size = t.size || 1;
+  const origin = worldToScreen(t.pos.x * px, t.pos.y * px);
+  const side = size * px * (state.view.zoom || 1);
+  const set = propImgs[containerKind(t)] || propImgs.chest;
+  const img = set[chestShowsOpen(t) ? "open" : "closed"];
+  if (img) ctx.drawImage(img, origin.x, origin.y, side, side);
+  if (role === "dm" && state.selectedIds && state.selectedIds.includes(t.id)) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,255,255,0.8)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.strokeRect(origin.x + 1, origin.y + 1, Math.max(0, side - 2), Math.max(0, side - 2));
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+}
 function loadTokenImage(t) {
   if (!t || !t.image || t._img) return;
   const im = new Image();
@@ -6753,12 +6827,32 @@ function hideChestMenu() {
   const menu = el.querySelector('[data-act="chestMenu"]');
   if (menu) menu.hidden = true;
 }
+function commitLoot(token) {
+  if (!token || role !== "dm") return;
+  const live = (state.tokens || []).find(t => t && t.id === token.id) || token;
+  const copy = shared.tokens && shared.tokens[live.id];
+  if (copy) {
+    copy.loot = live.loot;
+    copy.lootBoxId = live.lootBoxId || (live.loot && live.loot.id) || copy.lootBoxId || "";
+    if (live.kind) copy.kind = live.kind;
+    if (live.weaponDrop) copy.weaponDrop = live.weaponDrop;
+  }
+  saveToken(live.id);
+}
 function applyLockFeed(row) {
   const t = (state.tokens || []).find(tok => tok && tok.loot && (tok.loot.id === row.lockBox || tok.lootBoxId === row.lockBox));
   if (!t || !t.loot || !t.loot.lock) return;
   if (row.lockAttempts) t.loot.lock.attempts = row.lockAttempts;
-  if (row.lockOk) t.loot.lock.unlocked = true;
-  saveToken(t.id);
+  if (row.lockOk || row.lockOpen) {
+    t.loot.opened = true;
+    if (row.lockOk && t.loot.lock) t.loot.lock.unlocked = true;
+  }
+  if (row.lockRelock) {
+    t.loot.opened = false;
+    if (t.loot.lock) t.loot.lock.unlocked = false;
+  }
+  commitLoot(t);
+  requestDraw();
 }
 function noteLootClaim(row) {
   if (!row || !row.boxId) return;
@@ -6770,6 +6864,7 @@ function noteLootClaim(row) {
     });
     if ((box.contents || []).length && (box.contents || []).every(item => !item || item.taken)) box.taken = true;
     if (t.weaponDrop && box.taken) t.weaponDrop.taken = true;
+    commitLoot(t);
     const menu = el.querySelector('[data-act="chestMenu"]');
     if (menu && !menu.hidden && menu.getAttribute('data-box') === (t.lootBoxId || box.id)) menu.innerHTML = chestMenuHtml(box);
   });
@@ -6778,7 +6873,8 @@ function noteLootClaim(row) {
 function adoptLootState(box, state) {
   if (!box || !state) return box;
   if (state.taken) box.taken = true;
-  if (state.opened) box.opened = true;
+  if (state.opened === true) box.opened = true;
+  else if (state.opened === false) box.opened = false;
   if (state.lock) {
     box.lock = box.lock || {};
     if (state.lock.unlocked) box.lock.unlocked = true;
@@ -6860,18 +6956,19 @@ function showChestMenu(token) {
         const sheet = playerCharacter() || {};
         const res = Loot && Loot.pickLock ? Loot.pickLock(box, sheet, uid) : { ok: false, reason: "Can't pick that" };
         if (box) box._rollLine = res.line || res.reason || "";
-        if (live) { live.loot = box; saveToken(live.id); }
+        if (res.success && box) { box._showLoot = true; box.opened = true; }
+        if (live) { live.loot = box; commitLoot(live); }
         const line = (sheet.name || "Someone") + " " + (res.line || res.reason || "tries the lock");
         if (adapter && adapter.write) {
           const id = "lock_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
           adapter.write("tableFeed/" + id, {
             id: id, ts: new Date().toISOString(), from: uid, fromName: sheet.name || "Table",
             text: line, kind: "note", lockBox: box && box.id, lockOk: !!(res && res.success),
-            lockAttempts: box && box.lock && box.lock.attempts || {}
+            lockAttempts: box && box.lock && box.lock.attempts || {},
+            lockOpen: !!(res && res.success)
           }, { by: uid });
         }
         toast(res.line || res.reason || "Pick lock");
-        if (res.success && box) { box._showLoot = true; box.opened = true; }
         menu.innerHTML = chestMenuHtml(box);
         requestDraw();
         return;
@@ -6882,8 +6979,17 @@ function showChestMenu(token) {
         const locked = box && box.lock && Number(box.lock.dc) > 0 && !box.lock.unlocked;
         if (locked) { toast("Locked"); return; }
         if (box) { box.opened = true; box._showLoot = true; }
-        if (live) { live.loot = box; saveToken(live.id); }
+        if (live) { live.loot = box; commitLoot(live); }
+        if (adapter && adapter.write && box) {
+          const id = "lockopen_" + Date.now().toString(36);
+          adapter.write("tableFeed/" + id, {
+            id: id, ts: new Date().toISOString(), from: uid, fromName: "Table",
+            text: (box.name || "Chest") + " opened", kind: "note",
+            lockBox: box.id, lockOpen: true
+          }, { by: uid });
+        }
         menu.innerHTML = chestMenuHtml(box);
+        requestDraw();
         return;
       }
       if (act === 'loot' && !(Give && Give.chestAct)) {
@@ -6905,7 +7011,7 @@ function showChestMenu(token) {
           if (live) {
             live.loot = box;
             if (live.weaponDrop) live.weaponDrop.taken = !!box.taken;
-            saveToken(live.id);
+            commitLoot(live);
           }
           toast(result && result.toast ? result.toast : (result && result.reason) || "Gone.");
           menu.innerHTML = chestMenuHtml(box);
@@ -7025,7 +7131,7 @@ function setLiveLockDc(dc, preset) {
   if (live.kind === "chest") {
     live.lock.dc = n;
     live.lock.difficulty = name;
-    saveToken(live.token.id);
+    commitLoot(live.token);
     const menu = el.querySelector('[data-act="chestMenu"]');
     const boxId = live.token.lootBoxId || (live.token.loot && live.token.loot.id) || "";
     if (menu && !menu.hidden && menu.getAttribute("data-box") === boxId) menu.innerHTML = chestMenuHtml(live.token.loot);
@@ -7044,7 +7150,7 @@ function resetSelectedLock() {
   const chest = state.selected && state.selected.loot && state.selected.loot.lock ? state.selected : null;
   if (chest) {
     chest.loot.lock.attempts = {};
-    saveToken(chest.id);
+    commitLoot(chest);
     toast("Lock attempts reset");
     return;
   }
@@ -7062,11 +7168,14 @@ function placeLockedChest() {
   const field = q("chestLockDc") || q("doorLockDc");
   const raw = field && field.value;
   const dc = Math.max(0, parseInt(raw, 10) || 0);
-  const id = "chest_" + Date.now().toString(36);
+  const kind = q("chestKind") && q("chestKind").value === "strongbox" ? "strongbox" : "chest";
+  const title = kind === "strongbox" ? "Strongbox" : "Chest";
+  const id = kind + "_" + Date.now().toString(36);
   const box = {
     id: id,
-    name: "Chest",
-    boxType: "strongbox",
+    name: title,
+    boxType: kind,
+    container: kind,
     rolled: true,
     opened: false,
     taken: false,
@@ -7079,12 +7188,12 @@ function placeLockedChest() {
       dc: dc, difficulty: lockPreset(dc), unlocked: !(dc > 0), method: dc > 0 ? ["tools"] : [], jammed: false, jamOnFail: false,
       allowRetries: !!(q("lockAllowRetries") && q("lockAllowRetries").checked), attempts: {}
     },
-    log: ["DM placed a chest"]
+    log: ["DM placed a " + title.toLowerCase()]
   };
   const sel = state.selected;
   const at = sel && sel.pos ? { x: sel.pos.x + 1, y: sel.pos.y } : null;
   const token = pinLootChest(box, at);
-  toast(token ? ("Chest placed" + (dc > 0 ? " · lock DC " + dc : "")) : "Couldn't place a chest");
+  toast(token ? (title + " placed" + (dc > 0 ? " · lock DC " + dc : "")) : "Couldn't place a container");
   return token;
 }
 function dropCarriedItem(itemId) {
