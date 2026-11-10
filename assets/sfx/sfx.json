@@ -66,6 +66,7 @@
   "nat1": "nat1.mp3",
   "challenge-nat20-crit": "challenge-nat20-crit.wav",
   "challenge-fail": "challenge-fail.wav",
+  "lockpick-attempt": "lockpick-attempt.mp3",
   "sting-tension": "sting-tension.mp3",
   "sting-reveal": "sting-reveal.mp3",
   "reward": "reward.mp3",
@@ -297,6 +298,9 @@
   ],
   "challenge-fail": [
    "challenge-fail.wav"
+  ],
+  "lockpick-attempt": [
+   "lockpick-attempt.mp3"
   ],
   "sting-tension": [
    "sting-tension.mp3"

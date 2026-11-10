@@ -6839,6 +6839,51 @@ function dropBox(token) {
   token.loot = box;
   return box;
 }
+function whenDieLands(job) {
+  return new Promise(resolve => {
+    let done = false;
+    const finish = () => { if (!done) { done = true; resolve(); } };
+    Promise.resolve(job).then(finish, finish);
+    const start = Date.now();
+    const tick = () => {
+      if (done) return;
+      const landed = document.querySelector(".d20-zoom.is-land, .d20-zoom.is-hold, .d20-plain.is-land, .d20-plain.is-hold, .d20-plain.is-normal");
+      if (landed || Date.now() - start > 8000) { finish(); return; }
+      setTimeout(tick, 40);
+    };
+    setTimeout(tick, 40);
+  });
+}
+/* Challenge d20 for a real attempt. No tools and a spent attempt do not throw. */
+function showLockDie(res, sheet) {
+  const Zoom = window.SSDNSD20Zoom;
+  const id = "lockdie_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  const ev = {
+    id: id,
+    nat: res && res.nat,
+    fancy: true,
+    challenge: true,
+    lockpick: true,
+    label: "Pick lock",
+    characterName: (sheet && sheet.name) || "",
+    who: (sheet && sheet.name) || ""
+  };
+  let job = Promise.resolve();
+  if (Zoom && Zoom.play) job = Promise.resolve(Zoom.play(ev));
+  else if (window.SSDNSChallengeSfx && window.SSDNSChallengeSfx.lockpick) window.SSDNSChallengeSfx.lockpick();
+  const zoom = Zoom && Zoom.pack ? Zoom.pack({ id: id }) : null;
+  const die = !zoom && Zoom && Zoom.pose ? Zoom.pose({ id: id }) : null;
+  return whenDieLands(job).then(() => ({ zoom: zoom, die: die }));
+}
+function postLockFeed(line, extra) {
+  if (!adapter || !adapter.write || !line) return;
+  const id = "lock_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  const row = Object.assign({
+    id: id, ts: new Date().toISOString(), from: uid, fromName: (extra && extra.fromName) || "Table",
+    text: line, kind: "roll"
+  }, extra || {});
+  adapter.write("tableFeed/" + id, row, { by: uid });
+}
 function showChestMenu(token) {
   let menu = el.querySelector('[data-act="chestMenu"]');
   if (!menu) {
@@ -6859,21 +6904,29 @@ function showChestMenu(token) {
         const Loot = window.SSDNSLoot;
         const sheet = playerCharacter() || {};
         const res = Loot && Loot.pickLock ? Loot.pickLock(box, sheet, uid) : { ok: false, reason: "Can't pick that" };
-        if (box) box._rollLine = res.line || res.reason || "";
-        if (live) { live.loot = box; saveToken(live.id); }
-        const line = (sheet.name || "Someone") + " " + (res.line || res.reason || "tries the lock");
-        if (adapter && adapter.write) {
-          const id = "lock_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-          adapter.write("tableFeed/" + id, {
-            id: id, ts: new Date().toISOString(), from: uid, fromName: sheet.name || "Table",
-            text: line, kind: "note", lockBox: box && box.id, lockOk: !!(res && res.success),
-            lockAttempts: box && box.lock && box.lock.attempts || {}
-          }, { by: uid });
-        }
-        toast(res.line || res.reason || "Pick lock");
-        if (res.success && box) { box._showLoot = true; box.opened = true; }
-        menu.innerHTML = chestMenuHtml(box);
-        requestDraw();
+        const threw = res && res.nat != null && !res.noTools && !res.already;
+        const finish = (shown) => {
+          if (box) box._rollLine = (res && (res.line || res.reason)) || "";
+          if (live) { live.loot = box; saveToken(live.id); }
+          if (threw) {
+            const line = (sheet.name || "Someone") + " " + (res.line || res.reason || "tries the lock");
+            postLockFeed(line, {
+              fromName: sheet.name || "Table",
+              lockBox: box && box.id,
+              lockOk: !!(res && res.success),
+              lockAttempts: box && box.lock && box.lock.attempts || {},
+              zoom: shown && shown.zoom || null,
+              die: shown && shown.die || null,
+              nat: res.nat
+            });
+          }
+          toast((res && (res.line || res.reason)) || "Pick lock");
+          if (res && res.success && box) { box._showLoot = true; box.opened = true; }
+          menu.innerHTML = chestMenuHtml(box);
+          requestDraw();
+        };
+        if (!threw) { finish(null); return; }
+        showLockDie(res, sheet).then(finish);
         return;
       }
       if (act === 'open' && !(Give && Give.chestAct)) {
@@ -7492,8 +7545,23 @@ function runDoorAction(wall, action) {
       nat = res && res.nat; total = res && res.total; success = !!(res && res.success);
       wall.pickAttempts = (box.lock && box.lock.attempts) || wall.pickAttempts || {};
       if (res && res.line) wall.pickAttempts[uid] = Object.assign({}, wall.pickAttempts[uid], { line: res.line });
-      toast(res && (res.line || res.reason) || (success ? "Unlocked" : "Still locked"));
-      postAssetLog(res && (res.line || res.reason) || "Pick lock");
+      const threw = res && res.nat != null && !res.noTools && !res.already;
+      const finishDoor = (shown) => {
+        toast(res && (res.line || res.reason) || (success ? "Unlocked" : "Still locked"));
+        const line = (sheet.name || "Someone") + " " + (res && (res.line || res.reason) || "tries the lock");
+        if (threw) postLockFeed(line, {
+          fromName: sheet.name || "Table", nat: res.nat,
+          zoom: shown && shown.zoom || null,
+          die: shown && shown.die || null
+        });
+        else postAssetLog(res && (res.line || res.reason) || "Pick lock");
+        showDoorMenu(wall);
+        const attempt = wall.pickAttempts && wall.pickAttempts[uid];
+        postDoorReq({ door: I.wallRef(wall), action: action, by: uid, nat: nat, total: total, success: success, attempt: attempt || null }, action);
+      };
+      if (!threw) finishDoor(null);
+      else showLockDie(res, sheet).then(finishDoor);
+      return;
     } else if (action === "open" && wall.locked) toast("Locked");
     else toast(action === "peek" ? "Peek sent" : "Sent");
     const attempt = wall.pickAttempts && wall.pickAttempts[uid];
