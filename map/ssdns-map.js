@@ -932,6 +932,7 @@ if (!el._nameMode) {
 paintRoleBadge();
 function pushFeed(row) {
   if (row && row.boxId && row.rowId && String(row.id || "").indexOf("lootclaim_") === 0) noteLootClaim(row);
+  if (row && row.event === "drop-place" && role === "dm" && row.drop) placeDropFromFeed(row.drop);
   if (row && row.lockBox && role === "dm") applyLockFeed(row);
   if (row && row.noise && role === "dm") noteForceNoise(row);
   if (row && row.event === 'zone') { applyZoneFeed(row); return; }
@@ -6901,10 +6902,13 @@ function floatBar(title) {
 }
 function clampMenu(menu, left, top) {
   if (!menu || !el) return;
-  const w = menu.offsetWidth || 200;
-  const h = menu.offsetHeight || 64;
-  const maxL = Math.max(4, (el.clientWidth || 0) - w - 4);
-  const maxT = Math.max(4, (el.clientHeight || 0) - h - 4);
+  const frameW = el.clientWidth || 0;
+  const frameH = el.clientHeight || 0;
+  if (frameH > 0) menu.style.maxHeight = Math.max(96, frameH - 8) + "px";
+  const w = menu.offsetWidth || 220;
+  const h = Math.min(menu.offsetHeight || 64, frameH > 0 ? frameH - 8 : 64);
+  const maxL = Math.max(4, frameW - w - 4);
+  const maxT = Math.max(4, frameH - h - 4);
   menu.style.left = Math.round(Math.max(4, Math.min(maxL, left))) + "px";
   menu.style.top = Math.round(Math.max(4, Math.min(maxT, top))) + "px";
   menu.style.bottom = "auto";
@@ -7411,7 +7415,7 @@ function showChestMenu(token) {
       if (act === "pickup" || act === "pickup-all") {
         const ids = act === "pickup"
           ? [ev.target.getAttribute("data-token")]
-          : dropsOnSquare(state.tokens.find(t => t && t.id === ev.target.getAttribute("data-token")) || token).map(t => t.id);
+          : Array.from(menu.querySelectorAll('[data-chest="pickup"]')).map(b => b.getAttribute("data-token"));
         Promise.all(ids.filter(Boolean).map(pickupDrop));
         return;
       }
@@ -7911,6 +7915,7 @@ function pinWeaponDrop(spec) {
   const dirty = !!spec.dirty;
   const at = spec.at && isFinite(Number(spec.at.x)) && isFinite(Number(spec.at.y)) ? { x: Number(spec.at.x), y: Number(spec.at.y) } : null;
   const boxId = spec.boxId || ('drop_' + Date.now().toString(36) + Math.floor(Math.random() * 1000));
+  const tokenId = spec.tokenId || ('tok_' + boxId);
   const box = {
     id: boxId,
     name: name,
@@ -7927,6 +7932,7 @@ function pinWeaponDrop(spec) {
     log: [spec.reason || 'Dropped on the map']
   };
   const token = makeToken({
+    id: tokenId,
     kind: 'drop',
     name: name,
     label: 'Drop',
@@ -7944,13 +7950,43 @@ function pinWeaponDrop(spec) {
     shared.tokens[token.id].kind = 'drop';
     shared.tokens[token.id].lootBoxId = boxId;
     shared.tokens[token.id].weaponDrop = Object.assign({}, token.weaponDrop);
+    shared.tokens[token.id].loot = token.loot;
     shared.tokens[token.id].name = name;
     shared.tokens[token.id].label = 'Drop';
     shared.tokens[token.id].color = '#c9a227';
   }
   saveToken(token.id);
+  if (role !== "dm" && !spec.fromFeed && adapter && adapter.write) {
+    adapter.write("tableFeed/dropplace_" + token.id, {
+      id: "dropplace_" + token.id,
+      ts: new Date().toISOString(),
+      from: uid,
+      fromName: (playerCharacter() && playerCharacter().name) || "Table",
+      text: name + " dropped",
+      kind: "note",
+      event: "drop-place",
+      drop: { tokenId: token.id, boxId: boxId, name: name, itemId: itemId, dirty: dirty, x: token.pos.x, y: token.pos.y }
+    }, { by: uid });
+  }
   requestDraw();
   return token;
+}
+function placeDropFromFeed(drop) {
+  if (!drop || !drop.tokenId) return;
+  if ((state.tokens || []).some(t => t && t.id === drop.tokenId)) {
+    saveToken(drop.tokenId);
+    return;
+  }
+  pinWeaponDrop({
+    tokenId: drop.tokenId,
+    boxId: drop.boxId,
+    name: drop.name,
+    itemId: drop.itemId,
+    dirty: !!drop.dirty,
+    at: { x: Number(drop.x), y: Number(drop.y) },
+    fromFeed: true,
+    reason: "Dropped on the map"
+  });
 }
 function focusLootChest(boxId) {
   const token = state.tokens.find(t => t && (t.lootBoxId === boxId || (t.loot && t.loot.id === boxId)));
@@ -8680,8 +8716,7 @@ function placeCommandMenu() {
   const r = ((Number(token.size) || 1) * px * (state.view.zoom || 1)) / 2;
   const ox = canvas ? canvas.offsetLeft || 0 : 0;
   const oy = canvas ? canvas.offsetTop || 0 : 0;
-  menu.style.left = Math.round(ox + s.x + r + 8) + 'px';
-  menu.style.top = Math.round(oy + s.y - 8) + 'px';
+  clampMenu(menu, ox + s.x + r + 8, oy + s.y - 8);
   el.dataset.moveArmed = state.moveArmed ? '1' : '0';
 }
 function showCommandMenu(token) {
