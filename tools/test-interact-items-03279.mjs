@@ -214,7 +214,22 @@ el.querySelector('[data-act="placeChestBtn"]').click();
 await flush(20);
 const chests = Object.keys(mapStore.pub).filter((k) => k.indexOf("map/public/tokens/") === 0).map((k) => mapStore.pub[k].value).filter((t) => t && t.kind === "chest");
 const lock = chests[0] && chests[0].lootLock && chests[0].lootLock.lock;
-check("chest.placed", chests.length === 1 && lock && lock.dc === 15 && lock.unlocked === false, JSON.stringify(chests[0] && chests[0].lootLock));
+check("chest.placed", chests.length === 1 && lock && lock.dc === 15 && lock.difficulty === "medium" && lock.unlocked === false, JSON.stringify(chests[0] && chests[0].lootLock));
+const presets = ["easy", "medium", "hard"].map((id) => el.querySelector('[data-lock-preset="' + id + '"]'));
+check("dc.presets", presets.every(Boolean) && el.querySelector('[data-lock-preset="medium"]').classList.contains("is-on"));
+presets[2].click();
+await flush(20);
+const hard = Object.keys(mapStore.pub).filter((k) => k.indexOf("map/public/tokens/") === 0).map((k) => mapStore.pub[k].value).find((t) => t && t.kind === "chest");
+check("dc.hard", hard && hard.lootLock && hard.lootLock.lock && hard.lootLock.lock.dc === 20 && hard.lootLock.lock.difficulty === "hard" && el.querySelector('[data-act="chestLockDc"]').value === "20");
+const field = el.querySelector('[data-act="chestLockDc"]');
+field.value = "18";
+field.dispatchEvent(new w.Event("change", { bubbles: true }));
+await flush(20);
+const custom = Object.keys(mapStore.pub).filter((k) => k.indexOf("map/public/tokens/") === 0).map((k) => mapStore.pub[k].value).find((t) => t && t.kind === "chest");
+check("dc.custom", custom && custom.lootLock.lock.dc === 18 && custom.lootLock.lock.difficulty === "custom" && !el.querySelector('[data-lock-preset="hard"]').classList.contains("is-on"));
+const playerBox = { id: custom.loot.id || custom.lootBoxId, lock: { dc: custom.loot.lock.dc, unlocked: false, attempts: {} }, log: [] };
+const rolled = L.pickLock(playerBox, { abilities: { DEX: 16 }, prof: 3, thievesTools: true }, "ada", () => 0, { nat: 10 });
+check("dc.liveRoll", rolled.dc === 18 && rolled.total === 16 && rolled.success === false && /vs DC 18/.test(rolled.line), rolled.line);
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

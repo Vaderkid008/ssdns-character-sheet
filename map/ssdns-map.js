@@ -1084,8 +1084,13 @@ if (role === 'dm') {
     </div>
     <input data-act="colorCustom" type="color" value="#4a90d9" hidden aria-label="Custom token color">
     <div class="panel-title">Fog</div>
-    <label>Lock DC <input data-act="chestLockDc" type="number" min="0" value="15" aria-label="Lock DC" title="5e guide: 10, 15, 20, or 25. 0 is unlocked."></label>
-    <button type="button" data-act="placeChestBtn" title="Drop a chest on the map. Lock DC is the field above. Guide: 10, 15, 20, 25. 0 is unlocked.">Place chest</button>
+    <div class="ssm-lock-dc" data-act="lockDcPanel">
+      <button type="button" data-lock-preset="easy" title="Easy, DC 10">Easy</button>
+      <button type="button" data-lock-preset="medium" class="is-on" title="Medium, DC 15">Medium</button>
+      <button type="button" data-lock-preset="hard" title="Hard, DC 20">Hard</button>
+      <label>Lock DC <input data-act="chestLockDc" type="number" min="0" value="15" aria-label="Lock DC" title="Easy 10, Medium 15, Hard 20. Any other number is a custom DC. 0 is unlocked."></label>
+    </div>
+    <button type="button" data-act="placeChestBtn" title="Drop a chest on the map. New locks start at Medium, DC 15, unless another preset or number is selected.">Place chest</button>
     <label title="When on, the same character may pick this lock again."><input data-act="lockAllowRetries" type="checkbox"> Allow retries</label>
     <button type="button" data-act="resetLockBtn" title="Clear every character's attempt on the selected door or chest.">Reset attempts</button>
     <button data-act="revealFogBtn" type="button">Reveal: Box</button>
@@ -6731,6 +6736,56 @@ function collectMapLoot(box, who, rows) {
     return { ok: true, toast: toastText, result: result };
   });
 }
+const LOCK_DC = { easy: 10, medium: 15, hard: 20 };
+function lockPreset(dc) {
+  const n = Number(dc);
+  if (n === 10) return "easy";
+  if (n === 15) return "medium";
+  if (n === 20) return "hard";
+  return "custom";
+}
+function paintLockDc(dc) {
+  const n = dc == null || dc === "" ? 15 : Math.max(0, parseInt(dc, 10) || 0);
+  const field = q("chestLockDc");
+  if (field && document.activeElement !== field) field.value = String(n);
+  const doorDc = q("doorLockDc");
+  if (doorDc && document.activeElement !== doorDc) doorDc.value = String(n);
+  const name = lockPreset(n);
+  el.querySelectorAll("[data-lock-preset]").forEach(btn => {
+    btn.classList.toggle("is-on", btn.getAttribute("data-lock-preset") === name);
+  });
+}
+function liveLock() {
+  const chest = state.selected && state.selected.loot && state.selected.loot.lock ? state.selected : null;
+  if (chest) return { kind: "chest", token: chest, lock: chest.loot.lock };
+  const wall = state.doorPick;
+  if (wall && wall.door && (sceneData().walls || []).indexOf(wall) >= 0) return { kind: "door", wall: wall };
+  return null;
+}
+/* The number on the control is the lock's DC as soon as it is chosen. */
+function setLiveLockDc(dc, preset) {
+  const n = Math.max(0, parseInt(dc, 10) || 0);
+  const name = preset || lockPreset(n);
+  paintLockDc(n);
+  const live = liveLock();
+  if (!live) return n;
+  if (live.kind === "chest") {
+    live.lock.dc = n;
+    live.lock.difficulty = name;
+    saveToken(live.token.id);
+    const menu = el.querySelector('[data-act="chestMenu"]');
+    const boxId = live.token.lootBoxId || (live.token.loot && live.token.loot.id) || "";
+    if (menu && !menu.hidden && menu.getAttribute("data-box") === boxId) menu.innerHTML = chestMenuHtml(live.token.loot);
+  } else {
+    live.wall.lockDc = n;
+    live.wall.lockDifficulty = name;
+    saveScene();
+    const doorMenu = el.querySelector('[data-act="doorMenu"]');
+    if (doorMenu && !doorMenu.hidden) showDoorMenu(live.wall);
+  }
+  toast("Lock DC " + n);
+  return n;
+}
 function resetSelectedLock() {
   if (role !== "dm") return;
   const chest = state.selected && state.selected.loot && state.selected.loot.lock ? state.selected : null;
@@ -6768,7 +6823,7 @@ function placeLockedChest() {
     ],
     cash: { es: 0, black: 0, blackId: "", branch: "none" },
     lock: {
-      dc: dc, unlocked: !(dc > 0), method: dc > 0 ? ["tools"] : [], jammed: false, jamOnFail: false,
+      dc: dc, difficulty: lockPreset(dc), unlocked: !(dc > 0), method: dc > 0 ? ["tools"] : [], jammed: false, jamOnFail: false,
       allowRetries: !!(q("lockAllowRetries") && q("lockAllowRetries").checked), attempts: {}
     },
     log: ["DM placed a chest"]
@@ -7093,6 +7148,7 @@ function paintDoorEdit() {
   const trap = box.querySelector('[data-act="doorTrapOnFail"]');
   if (locked) locked.checked = !!wall.locked;
   if (dc && document.activeElement !== dc) dc.value = wall.lockDc != null ? wall.lockDc : 15;
+  if (!(state.selected && state.selected.loot && state.selected.loot.lock)) paintLockDc(wall.lockDc != null ? wall.lockDc : 15);
   if (ajar) ajar.checked = !!wall.ajar;
   if (trap) trap.checked = !!wall.trapOnFail;
 }
@@ -7631,6 +7687,7 @@ function selectToken(token) {
   if (token && (token.kind === 'chest' || token.lootBoxId)) {
     hideDoorMenu();
     showChestMenu(token);
+    if (token.loot && token.loot.lock) paintLockDc(token.loot.lock.dc);
     hideAssetMenu();
     const Give = window.SSDNSLootGive;
     if (Give && Give.selectBox && token.lootBoxId) Give.selectBox(token.lootBoxId);
@@ -12523,6 +12580,14 @@ if (role === 'dm') {
   q('doorBtn').addEventListener('click', () => setTool('door'));
   if (q('placeChestBtn')) q('placeChestBtn').addEventListener('click', () => placeLockedChest());
   if (q('resetLockBtn')) q('resetLockBtn').addEventListener('click', () => resetSelectedLock());
+  el.querySelectorAll("[data-lock-preset]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-lock-preset");
+      if (LOCK_DC[id] == null) return;
+      setLiveLockDc(LOCK_DC[id], id);
+    });
+  });
+  if (q("chestLockDc")) q("chestLockDc").addEventListener("change", () => setLiveLockDc(q("chestLockDc").value));
   q('secretDoorBtn').addEventListener('click', () => armSecretDoor());
   ['doorLocked', 'doorLockDc', 'doorAjar', 'doorTrapOnFail'].forEach(name => {
     const node = q(name);
