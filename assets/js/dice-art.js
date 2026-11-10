@@ -26,7 +26,7 @@
     try {
       var path = (root.location && root.location.pathname) || "";
       if (root.SSDNS_DICE_BASE != null) return String(root.SSDNS_DICE_BASE);
-      if (path.indexOf("/dm/") >= 0 || path.indexOf("/tools/") >= 0) return "../";
+      if (path.indexOf("/dm/") >= 0 || path.indexOf("/tools/") >= 0 || path.indexOf("/map/") >= 0) return "../";
     } catch (e) {}
     return "";
   }

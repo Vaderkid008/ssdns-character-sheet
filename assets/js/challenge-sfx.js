@@ -184,6 +184,10 @@
     if (!planRow.ring) fadeOut(rollAudio, 150);
     playCue(planRow, "land");
   }
+  function lockpick() {
+    note({ kind: "lockpick" });
+    return playFile(fileUrl("lockpick-attempt.mp3"), 0, 0);
+  }
   function stop() {
     clearTimers();
     live.forEach(function (a) { try { a.pause(); } catch (e) {} });
@@ -204,6 +208,7 @@
     plan: plan,
     begin: begin,
     land: land,
+    lockpick: lockpick,
     stop: stop,
     mid: mid,
     trace: function () { return trace.slice(); },

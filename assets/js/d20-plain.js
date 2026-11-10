@@ -299,7 +299,7 @@
     if (root.SSDNSDice && typeof root.SSDNSDice.src === "function") return root.SSDNSDice.src(20);
     var path = "";
     try { path = (root.location && root.location.pathname) || ""; } catch (e) {}
-    var pre = path.indexOf("/dm/") >= 0 || path.indexOf("/tools/") >= 0 ? "../" : "";
+    var pre = path.indexOf("/dm/") >= 0 || path.indexOf("/tools/") >= 0 || path.indexOf("/map/") >= 0 ? "../" : "";
     return pre + "assets/img/dice/d20.webp";
   }
 
