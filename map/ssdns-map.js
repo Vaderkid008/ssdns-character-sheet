@@ -528,9 +528,10 @@ const state = {
   initiative: null
 };
 if (window.SSDNSMoveMode && window.SSDNSMoveMode.isOn()) state.moveMode = true;
-/* DM-only. A player map never reads this key, even if the same browser stored it. */
+/* DM-only. A player map never reads these keys, even if the same browser stored them. */
 if (role === 'dm') {
   try { state.dmEdit = localStorage.getItem('ssdns.map.dmEdit') === '1'; } catch (e) {}
+  try { state.showLightRings = localStorage.getItem('ssdns.map.lightRings') === '1'; } catch (e2) {}
 }
 
 const canvas = document.createElement('canvas');
@@ -1138,7 +1139,7 @@ if (role === 'dm') {
       <span data-level="dark">Dark</span>
       <span data-level="mdark">Magic</span>
     </div>
-    <label class="ssm-range" title="Test overlay. Players never see these rings."><input type="checkbox" data-act="showLightRings"> Light rings</label>
+    <label class="ssm-range" title="DM guide only. Bright and dim rings for measuring light. Players never see them. The light itself is how it cuts through fog and darkness."><input type="checkbox" data-act="showLightRings"> Light rings (DM guide)</label>
     <label class="ssm-ambient" title="Own token is the default. Shared party sight is the live union of every party member. Squares close when nobody still sees them.">Sight
       <select data-act="visionSel" aria-label="Player sight">
         <option value="own">Own token</option>
@@ -2231,18 +2232,25 @@ function tokenLightList(t) {
   const c = fxCenter(t);
   const face = (Number(t.facing) || 0) * Math.PI / 180;
   const rows = Array.isArray(t.lights) ? t.lights.filter(l => l && !l.out) : [];
-  if (rows.length) {
-    return rows.map(l => {
-      const bright = Number(l.bright) || 0, dim = Number(l.dim) || 0;
-      const ZL = window.SSDNSSpellZones;
-      const spellLevel = ZL && ZL.spellLightLevel ? ZL.spellLightLevel(l) : null;
-      return {
-        x: c.x, y: c.y, bright: bright, dim: dim, radius: (bright + dim) / 5, cone: !!l.cone, facing: face, name: l.name || '',
-        id: l.id || '', magical: !!(l.magical || l.spell || l.feature || spellLevel != null), spell: !!l.spell,
-        spellLevel: spellLevel, feature: !!l.feature
-      };
+  const out = rows.map(l => {
+    const bright = Number(l.bright) || 0, dim = Number(l.dim) || 0;
+    const ZL = window.SSDNSSpellZones;
+    const spellLevel = ZL && ZL.spellLightLevel ? ZL.spellLightLevel(l) : null;
+    return {
+      x: c.x, y: c.y, bright: bright, dim: dim, radius: (bright + dim) / 5, cone: !!l.cone, facing: face, name: l.name || '',
+      id: l.id || '', magical: !!(l.magical || l.spell || l.feature || spellLevel != null), spell: !!l.spell,
+      spellLevel: spellLevel, feature: !!l.feature
+    };
+  });
+  /* The sphere's 20/20 light rides the token. The zone record stays at the cast
+     point for the damage tick and must not also emit a light. */
+  if (t.spellPiece === 'flaming sphere' && !out.some(l => /flaming sphere/i.test(l.name || ''))) {
+    out.push({
+      x: c.x, y: c.y, bright: 20, dim: 20, radius: 8, cone: false, facing: face,
+      name: 'Flaming Sphere', id: 'sphere:' + t.id, magical: true, spell: true, spellLevel: 2
     });
   }
+  if (out.length) return out;
   if (t.torch) return [{ x: c.x, y: c.y, bright: 20, dim: 20, radius: 8, cone: false, facing: face, name: 'Torch' }];
   return [];
 }
@@ -2742,8 +2750,15 @@ function paintTokenAura(zone, px) {
   const row = Tok && Tok.spec ? Tok.spec(zone.key || zone.spell) : null;
   const aura = row ? Number(row.aura) : 0;
   const squares = (row && row.squares) || Number(zone.footprint) || 1;
-  const wx = (Number(zone.origin.x) + squares / 2) * px;
-  const wy = (Number(zone.origin.y) + squares / 2) * px;
+  let ox = Number(zone.origin.x);
+  let oy = Number(zone.origin.y);
+  /* The 5-ft aura is the within-5-ft cue. It follows the sphere token, not the cast point. */
+  if (row && row.key === 'flaming sphere') {
+    const piece = sphereTokenForZone(zone);
+    if (piece && piece.pos) { ox = piece.pos.x; oy = piece.pos.y; }
+  }
+  const wx = (ox + squares / 2) * px;
+  const wy = (oy + squares / 2) * px;
   if (aura > 0) {
     if (row && row.key === "guardian of faith") paintGuardianAura(wx, wy, (aura / 5) * px);
     else strokeRing(wx, wy, (aura / 5) * px, "rgba(255,220,140,0.8)", "rgba(255,220,140,0.06)");
@@ -2887,6 +2902,9 @@ function zoneArtEnv() {
   };
 }
 function paintZoneLightRings(zone, px) {
+  /* Same DM guide as the torch and darkvision measurement strokes. Off by default.
+     Players never see them. The lighting wash and the zone plate stay. */
+  if (role !== 'dm' || !state.showLightRings) return;
   if (!zone || !zone.light || !zone.origin) return;
   const brightFt = Number(zone.light.bright) || 0;
   const dimFt = Number(zone.light.dim) || 0;
@@ -10061,11 +10079,17 @@ function paintTestLightBtn() {
   b.classList.toggle('active', on);
   b.setAttribute('aria-pressed', on ? 'true' : 'false');
 }
+function sphereTokenForZone(z) {
+  if (!z || String(z.key || z.spell || '').toLowerCase() !== 'flaming sphere') return null;
+  return (state.tokens || []).find(t => t && t.spellPiece === 'flaming sphere' && String(t.zoneId || '') === String(z.id)) || null;
+}
 function zoneLightRows() {
   const L = window.SSDNSLighting;
   const rows = [];
   liveSpellZones().forEach(z => {
     if (!z || !z.light || z.lightOut || z.lightHidden) return;
+    /* Static zone origin. The live token emits this light instead, including while it is dragged. */
+    if (sphereTokenForZone(z)) return;
     const bright = Number(z.light.bright) || 0;
     const dim = Number(z.light.dim) || 0;
     const pts = (z.shape === "wall" && L && L.wallLightPoints) ? L.wallLightPoints(z) : [z.origin];
@@ -10767,31 +10791,111 @@ function paintDimLift(sources, px) {
   ctx.drawImage(layer.canvas, 0, 0, box.w, box.h);
   ctx.restore();
 }
-function paintTorchHalo(sources, px, amb) {
-  const hot = amb === 'bright' ? 0.28 : 0.5;
-  const dimA = amb === 'bright' ? 0.12 : (amb === 'dim' ? 0.34 : 0.42);
-  (sources || []).forEach(ls => {
+/* Dim and dark keep these stops. Bright ground is near-zero; the same
+   dim/dark stops are redrawn only where the light cuts dim, dark, or fog. */
+function haloTint(amb) {
+  if (amb === 'dim') return { hot: 0.5, dimA: 0.34 };
+  if (amb === 'bright') return { hot: 0.02, dimA: 0.02 };
+  return { hot: 0.5, dimA: 0.42 };
+}
+function paintOneHalo(pen, ls, px, hot, dimA) {
+  if (!pen || !ls || !(ls.radius > 0)) return;
+  const outer = ls.radius * px;
+  pen.save();
+  if (!clipLightDisc(ls, outer, pen)) { pen.restore(); return; }
+  const c = worldToScreen(ls.x, ls.y);
+  const z = state.view.zoom || 1;
+  const oR = Math.max(2, outer * z);
+  const bR = Math.max(0, (Number(ls.bright) || 0) * px * z);
+  const g = pen.createRadialGradient(c.x, c.y, 0, c.x, c.y, oR);
+  if (ls.bright > 0 && bR + 1 < oR) {
+    g.addColorStop(0, 'rgba(255, 214, 120, ' + hot + ')');
+    g.addColorStop(Math.max(0.02, Math.min(0.92, bR / oR)), 'rgba(255, 170, 60, ' + (hot * 0.65) + ')');
+    g.addColorStop(1, 'rgba(140, 150, 190, 0)');
+  } else {
+    g.addColorStop(0, 'rgba(255, 206, 130, ' + dimA + ')');
+    g.addColorStop(0.55, 'rgba(180, 170, 140, ' + (dimA * 0.45) + ')');
+    g.addColorStop(1, 'rgba(120, 120, 140, 0)');
+  }
+  pen.fillStyle = g;
+  pen.fillRect(c.x - oR - 2, c.y - oR - 2, oR * 2 + 4, oR * 2 + 4);
+  pen.restore();
+}
+function punchBrightFromHalo(pen, self, sources, px, sight) {
+  const box = viewBox();
+  ((sight && sight.regions) || []).forEach(region => {
+    if (!region || region.level !== 'bright') return;
+    pen.save();
+    pen.globalCompositeOperation = 'destination-out';
+    if (!clipLightRegion(region, px, pen)) { pen.restore(); return; }
+    pen.clip();
+    pen.fillStyle = '#000';
+    pen.fillRect(0, 0, box.w, box.h);
+    pen.restore();
+  });
+  (sources || []).forEach(other => {
+    if (!other || other === self) return;
+    const brightPx = (Number(other.bright) || 0) * px;
+    if (!(brightPx > 1)) return;
+    pen.save();
+    pen.globalCompositeOperation = 'destination-out';
+    if (!clipLightDisc(other, brightPx, pen)) { pen.restore(); return; }
+    pen.fillStyle = '#000';
+    const c = worldToScreen(other.x, other.y);
+    const z = state.view.zoom || 1;
+    const r = Math.max(2, brightPx * z);
+    pen.fillRect(c.x - r - 2, c.y - r - 2, r * 2 + 4, r * 2 + 4);
+    pen.restore();
+  });
+}
+function clipFogPocket(zone, px, pen) {
+  if (!zone || !zone.origin || !(Number(zone.radius) > 0)) return false;
+  const c = worldToScreen(Number(zone.origin.x) * px, Number(zone.origin.y) * px);
+  const z = state.view.zoom || 1;
+  pen.beginPath();
+  pen.arc(c.x, c.y, Math.max(1, (Number(zone.radius) / 5) * px * z), 0, Math.PI * 2);
+  return true;
+}
+/* Bright ground stays clear. Dim, dark, and fog still get the old tint. */
+function paintHaloCuts(pen, ls, px, sight) {
+  const dark = { hot: 0.5, dimA: 0.42 };
+  const dim = { hot: 0.5, dimA: 0.34 };
+  const pockets = [];
+  ((sight && sight.regions) || []).forEach(region => {
+    if (!region) return;
+    if (region.level === 'dim') pockets.push({ clip: (p) => clipLightRegion(region, px, p), tint: dim });
+    if (region.level === 'dark') pockets.push({ clip: (p) => clipLightRegion(region, px, p), tint: dark });
+  });
+  ((sight && sight.darkness) || []).forEach(zone => {
+    pockets.push({ clip: (p) => clipDarkZone(zone, px, p), tint: dark });
+  });
+  try {
+    (liveSpellZones() || []).forEach(zone => {
+      if (!zone || zone.magicalDark || !zone.heavilyObscured) return;
+      pockets.push({ clip: (p) => clipFogPocket(zone, px, p), tint: dark });
+    });
+  } catch (e) {}
+  pockets.forEach(pocket => {
+    pen.save();
+    if (!pocket.clip(pen)) { pen.restore(); return; }
+    pen.clip();
+    paintOneHalo(pen, ls, px, pocket.tint.hot, pocket.tint.dimA);
+    pen.restore();
+  });
+}
+function paintTorchHalo(sources, px, amb, sight) {
+  const tint = haloTint(amb);
+  const box = viewBox();
+  const list = sources || [];
+  list.forEach(ls => {
     if (!ls || !(ls.radius > 0)) return;
+    const layer = lightScratch(box);
+    paintOneHalo(layer.pen, ls, px, tint.hot, tint.dimA);
+    punchBrightFromHalo(layer.pen, ls, list, px, sight);
+    if (amb === 'bright') paintHaloCuts(layer.pen, ls, px, sight);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const outer = ls.radius * px;
-    if (!clipLightDisc(ls, outer)) { ctx.restore(); return; }
-    const c = worldToScreen(ls.x, ls.y);
-    const z = state.view.zoom || 1;
-    const oR = Math.max(2, outer * z);
-    const bR = Math.max(0, (Number(ls.bright) || 0) * px * z);
-    const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, oR);
-    if (ls.bright > 0 && bR + 1 < oR) {
-      g.addColorStop(0, 'rgba(255, 214, 120, ' + hot + ')');
-      g.addColorStop(Math.max(0.02, Math.min(0.92, bR / oR)), 'rgba(255, 170, 60, ' + (hot * 0.65) + ')');
-      g.addColorStop(1, 'rgba(140, 150, 190, 0)');
-    } else {
-      g.addColorStop(0, 'rgba(255, 206, 130, ' + dimA + ')');
-      g.addColorStop(0.55, 'rgba(180, 170, 140, ' + (dimA * 0.45) + ')');
-      g.addColorStop(1, 'rgba(120, 120, 140, 0)');
-    }
-    ctx.fillStyle = g;
-    ctx.fillRect(c.x - oR - 2, c.y - oR - 2, oR * 2 + 4, oR * 2 + 4);
+    ctx.drawImage(layer.canvas, 0, 0, box.w, box.h);
     ctx.restore();
   });
 }
@@ -10858,15 +10962,16 @@ function magicalDarknessZones(sceneId) {
   });
   return out;
 }
-function clipDarkZone(zone, px) {
+function clipDarkZone(zone, px, g) {
   if (!zone) return false;
-  if (zone.kind === "box" || (!zone.origin && zone.w > 0 && zone.h > 0)) return clipLightRegion(zone, px);
+  const pen = g || ctx;
+  if (zone.kind === "box" || (!zone.origin && zone.w > 0 && zone.h > 0)) return clipLightRegion(zone, px, pen);
   const origin = zone.origin;
   if (!origin || !(Number(zone.radius) > 0)) return false;
   const c = worldToScreen(origin.x * px, origin.y * px);
   const z = state.view.zoom || 1;
-  ctx.beginPath();
-  ctx.arc(c.x, c.y, Math.max(1, (zone.radius / 5) * px * z), 0, Math.PI * 2);
+  pen.beginPath();
+  pen.arc(c.x, c.y, Math.max(1, (zone.radius / 5) * px * z), 0, Math.PI * 2);
   return true;
 }
 function punchDevilsSight(sight, px, zones) {
@@ -10911,15 +11016,16 @@ function paintMagicalDarknessLayer(sight, px) {
   });
   punchDevilsSight(sight, px, zones);
 }
-function clipLightRegion(region, px) {
+function clipLightRegion(region, px, g) {
   if (!region) return false;
+  const pen = g || ctx;
   const x = Number(region.x) || 0, y = Number(region.y) || 0;
   const w = Number(region.w) || 0, h = Number(region.h) || 0;
   if (!(w > 0) || !(h > 0)) return false;
   const a = worldToScreen(x * px, y * px);
   const b = worldToScreen((x + w) * px, (y + h) * px);
-  ctx.beginPath();
-  ctx.rect(a.x, a.y, Math.max(1, b.x - a.x), Math.max(1, b.y - a.y));
+  pen.beginPath();
+  pen.rect(a.x, a.y, Math.max(1, b.x - a.x), Math.max(1, b.y - a.y));
   return true;
 }
 function paintOneRegion(region, px, box, hard) {
@@ -11041,7 +11147,7 @@ function paintLightGlow(sources, px, sight) {
   const box = viewBox();
   const washed = amb !== 'bright' && !(role === 'dm' && !state.showPlayerFov);
   if (!washed && amb === 'bright' && !darkRoom) {
-    paintTorchHalo(sources, px, amb);
+    paintTorchHalo(sources, px, amb, sight);
     paintMagicalDarknessLayer(sight, px);
     return;
   }
@@ -11053,7 +11159,7 @@ function paintLightGlow(sources, px, sight) {
     if (darkRoom && amb !== 'dark') paintVeilInDarkRegions(sources, px, regions);
     repunchBrightAndDarkvision(sources, sight, px);
   }
-  paintTorchHalo(sources, px, amb);
+  paintTorchHalo(sources, px, amb, sight);
   /* After the glow, so Light, Gas Lamp, and torches do not punch a hole in the ink. */
   paintMagicalDarknessLayer(sight, px);
 }
@@ -12133,10 +12239,15 @@ if (role === 'dm') {
     saveScene();
     draw();
   });
-  if (q('showLightRings')) q('showLightRings').addEventListener('change', () => {
-    state.showLightRings = !!q('showLightRings').checked;
-    draw();
-  });
+  if (q('showLightRings')) {
+    q('showLightRings').checked = !!state.showLightRings;
+    q('showLightRings').addEventListener('change', () => {
+      if (role !== 'dm') return;
+      state.showLightRings = !!q('showLightRings').checked;
+      try { localStorage.setItem('ssdns.map.lightRings', state.showLightRings ? '1' : '0'); } catch (e) {}
+      draw();
+    });
+  }
   if (q('visionSel')) q('visionSel').addEventListener('change', () => {
     sceneData().visionMode = q('visionSel').value === 'party' ? 'party' : 'own';
     saveScene();
