@@ -23,8 +23,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.278" && version.sheetBuild === "sheet-playtest-v03278");
-check("ver.dmcc", version.dmcc === "0.2.291" && version.dmccBuild === "dmcc-playtest-v02291");
+check("ver.sheet", version.sheet === "0.3.279" && version.sheetBuild === "sheet-playtest-v03279");
+check("ver.dmcc", version.dmcc === "0.2.292" && version.dmccBuild === "dmcc-playtest-v02292");
 const rulesDiff = execSync("git diff --name-only HEAD -- assets/data/rules.js database.rules.json", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
@@ -151,7 +151,7 @@ check("smite.wire", read("assets/js/sheet-extras.js").includes("ridesWeapon(row)
 
 const heatFail = R.landResolved(R.emptyBag(null), { row: R.patchRow(Cast.lookup("Heat Metal")), name: "Heat Metal", targetId: "mob", targetName: "Bandit", failed: true, hit: true });
 const heatSave = R.landResolved(R.emptyBag(null), { row: R.patchRow(Cast.lookup("Heat Metal")), name: "Heat Metal", targetId: "mob", targetName: "Bandit", failed: false, hit: true });
-check("heat.fail", /drops the object/.test((heatFail.logs || []).join(" ")) && /Nothing leaves inventory/.test((heatFail.logs || []).join(" ")) && !(heatFail.chips || []).length);
+check("heat.fail", /drops the object/.test((heatFail.logs || []).join(" ")) && /leaves inventory/.test((heatFail.logs || []).join(" ")) && !/Nothing leaves inventory/.test((heatFail.logs || []).join(" ")) && !(heatFail.chips || []).length);
 check("heat.keep", /keeps hold of the object/.test((heatSave.logs || []).join(" ")) && /still lands/.test((heatSave.logs || []).join(" ")));
 check("heat.auto", R.patchRow(Cast.lookup("Heat Metal")).damageAuto === true && R.dealt(R.patchRow(Cast.lookup("Heat Metal")), 9, { failed: false }) === 9);
 check("heat.sustain", v2.includes("CON save only to drop the object"));

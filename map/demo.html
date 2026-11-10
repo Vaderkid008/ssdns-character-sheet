@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>SSDNS Map — M2 v4 demo</title>
-<link rel="stylesheet" href="ssdns-map.css?v=0.3.278-stinger">
+<link rel="stylesheet" href="ssdns-map.css?v=0.3.279-lockdc">
 <link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.3.200-digit">
 <style>
   html, body { margin: 0; height: 100%; background: #1a1612; color: #e8dcc8; font-family: system-ui, sans-serif; }
@@ -32,18 +32,19 @@
 <script src="../assets/js/ammo-display.js?v=0.3.201-encounter"></script>
 <script src="ssdns-map-chat.js?v=0.3.31-float"></script>
 <script src="token-size.js?v=0.3.168-size"></script>
-<script src="ssdns-map-fx.js?v=0.3.278-p1c"></script>
-<script src="../assets/js/challenge-sfx.js?v=0.3.278-challsfx"></script>
-<script src="../assets/js/d20-plain.js?v=0.3.278-challenge"></script>
-<script src="../assets/js/d20-zoom.js?v=0.3.278-challenge"></script>
+<script src="ssdns-map-fx.js?v=0.3.279-p1c"></script>
+<script src="../assets/js/challenge-sfx.js?v=0.3.279-challsfx"></script>
+<script src="../assets/js/d20-plain.js?v=0.3.279-challenge"></script>
+<script src="../assets/js/d20-zoom.js?v=0.3.279-challenge"></script>
 <script src="../assets/js/turn-rules.js?v=0.3.168-turn2"></script>
 <script src="ssdns-map-move.js?v=0.3.168-move"></script>
 <script src="../assets/js/conditions.js?v=0.3.210-pills"></script>
-<script src="zone-art.js?v=0.3.278-zones"></script>
-<script src="../assets/js/spell-zones.js?v=0.3.278-timers"></script>
-<script src="map-packs.js?v=0.3.278-between"></script>
-<script src="map-library.js?v=0.3.278-between"></script>
-<script src="ssdns-map.js?v=0.3.278-hellmaker"></script>
+<script src="zone-art.js?v=0.3.279-zones"></script>
+<script src="../assets/js/spell-zones.js?v=0.3.279-timers"></script>
+<script src="map-packs.js?v=0.3.279-between"></script>
+<script src="map-library.js?v=0.3.279-between"></script>
+<script src="../assets/js/loot.js?v=0.3.279-claim"></script>
+<script src="ssdns-map.js?v=0.3.279-lockdc"></script>
 <script>
 // demo.html is the only file allowed to read the URL, localStorage, and BroadcastChannel.
 const params = new URLSearchParams(location.search);
@@ -118,10 +119,41 @@ function mockAdapter(room, role) {
       if (ch) ch.postMessage(msg);
       deliver(path, null, msg);
       return Promise.resolve();
+    },
+    claim(path, value) {
+      if (!String(path || "").startsWith("tableFeed/")) return Promise.resolve({ ok: false, won: false, reason: "bad path" });
+      const body = Object.assign({ ts: new Date().toISOString(), text: "Loot claim", from: uid }, value || {});
+      body.from = uid || body.from;
+      if (!body.from || !body.ts || !body.text) return Promise.resolve({ ok: false, won: false, reason: "bad claim" });
+      const store = load(pubKey);
+      const prev = store[path] && store[path].value;
+      if (prev && prev.from) return Promise.resolve({ ok: true, won: false, owner: prev.from, existing: prev });
+      store[path] = { value: body, by: body.from };
+      save(pubKey, store);
+      const again = load(pubKey);
+      const owner = again[path] && again[path].value && again[path].value.from;
+      if (owner !== body.from) return Promise.resolve({ ok: true, won: false, owner: owner || "" });
+      const msg = { path, value: body, by: body.from };
+      pubCh.postMessage(msg);
+      deliver(path, body, msg);
+      return Promise.resolve({ ok: true, won: true, owner: body.from });
     }
   };
 }
 
+if (role === "player") {
+  const character = {
+    name: "Jolene",
+    abilities: { DEX: 16 },
+    prof: 3,
+    thievesTools: true,
+    items: [],
+    ammo: [],
+    guns: [],
+    es: 0
+  };
+  window.SSDNSApp = { doc() { return { character: character }; } };
+}
 const host = {
   displayName(id) { return ({ p_jolene: 'Jolene', p_caleb: 'Caleb', p_mira: 'Mira', p_wes: 'Wes', dm: 'DM' })[id] || id; },
   actions: {

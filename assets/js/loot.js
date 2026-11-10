@@ -428,6 +428,69 @@
     if (/thieves' tools|thieves tools|lockpick/i.test(sheetBlob(sheet))) return prof;
     return 0;
   }
+  function hasThievesTools(sheet) {
+    sheet = sheet || {};
+    if (sheet.thievesTools) return true;
+    if (/thieves' tools|thieves tools|lockpick/i.test(sheetBlob(sheet))) return true;
+    return (sheet.items || []).some(function (it) {
+      var id = String((it && (it.catalogId || it.id || it.name)) || "").toLowerCase();
+      return id.indexOf("thieves") >= 0 || id.indexOf("lockpick") >= 0 || id.indexOf("lock-pick") >= 0;
+    });
+  }
+  function proficientThieves(sheet) {
+    sheet = sheet || {};
+    if (sheet.thievesTools) return true;
+    var lists = [sheet.toolProf, sheet.toolsProf, sheet.toolProficiencies];
+    var i, j;
+    for (i = 0; i < lists.length; i++) {
+      var list = lists[i];
+      if (!Array.isArray(list)) continue;
+      for (j = 0; j < list.length; j++) {
+        if (/thieves/i.test(String(list[j] || ""))) return true;
+      }
+    }
+    return false;
+  }
+  /* Proficiency bonus only. Holding the tools is not the same as being proficient. */
+  function thievesBonus(sheet) {
+    if (!proficientThieves(sheet)) return 0;
+    if (isFinite(Number(sheet.toolBonus))) return Number(sheet.toolBonus);
+    return isFinite(Number(sheet.prof)) ? Number(sheet.prof) : 0;
+  }
+  function pickLock(box, sheet, who, rng, forced) {
+    forced = forced || {};
+    rng = rngOf(rng);
+    sheet = sheet || {};
+    if (!box) return { ok: false, success: false, reason: "No lock." };
+    if (!box.lock) box.lock = freshLock(0, ["tools"], "", false);
+    box.lock.attempts = box.lock.attempts || {};
+    box.log = box.log || [];
+    var whoId = String(who || "");
+    var prior = whoId && box.lock.attempts[whoId];
+    if (prior && !box.lock.allowRetries) {
+      return {
+        ok: false, success: !!prior.success, already: true,
+        reason: prior.success ? "Already unlocked." : "You already failed this lock.",
+        prior: prior, nat: prior.nat, total: prior.total, dc: box.lock.dc, line: prior.line || ""
+      };
+    }
+    if (!hasThievesTools(sheet)) return { ok: false, success: false, noTools: true, reason: "No thieves' tools." };
+    if (!(box.lock.dc > 0) || box.lock.unlocked) return { ok: true, success: true, box: box, line: "The lock is open." };
+    var dex = abilityModFrom(sheet, "DEX");
+    var tools = thievesBonus(sheet);
+    var dnat = forced.nat != null ? Number(forced.nat) : die(20, rng);
+    var dtotal = forced.total != null ? Number(forced.total) : dnat + dex + tools;
+    var dok = dtotal >= box.lock.dc;
+    var line = "d20 " + dnat + " " + signNum(dex) + " Dex" + (tools ? " " + signNum(tools) + " tools" : "") + " = " + dtotal + " vs DC " + box.lock.dc + (dok ? ". Unlocked." : ". Failed. Still locked.");
+    if (dok) box.lock.unlocked = true;
+    box.log.push(line);
+    if (whoId) box.lock.attempts[whoId] = { nat: dnat, total: dtotal, success: dok, dc: box.lock.dc, line: line };
+    return { ok: true, success: dok, box: box, nat: dnat, total: dtotal, dc: box.lock.dc, line: line };
+  }
+  function resetLockAttempts(box) {
+    if (box && box.lock) box.lock.attempts = {};
+    return box;
+  }
   function perceptionMod(sheet) {
     sheet = sheet || {};
     var skills = sheet.skills || {};
@@ -715,6 +778,55 @@
       payload: payload
     };
   }
+  function claimKey(boxId, rowId) {
+    var safe = function (v) { return String(v || "").replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 60); };
+    var id = "lootclaim_" + safe(boxId || "box") + "_" + safe(rowId || "row");
+    return { id: id, path: "tableFeed/" + id };
+  }
+  /* Claim each row before it is granted. claimFn must resolve one winner.
+     Take all uses the same claims, so a second take finds them gone. */
+  function claimTake(box, who, rows, claimFn) {
+    if (!box) return Promise.resolve({ ok: false, reason: "Can't take that" });
+    var takeAll = !rows;
+    if (takeAll && box.taken) return Promise.resolve({ ok: false, reason: "Already taken." });
+    var list = (rows || box.contents || []).filter(function (r) { return r && !r.taken; });
+    if (!list.length) return Promise.resolve({ ok: false, reason: box.taken ? "Already taken." : "Gone." });
+    var won = [];
+    var gone = [];
+    var chain = Promise.resolve();
+    list.forEach(function (row) {
+      chain = chain.then(function () {
+        if (!claimFn) { won.push(row); return; }
+        var key = claimKey(box.id || "box", row.id || row.name);
+        var body = {
+          id: key.id,
+          ts: new Date().toISOString(),
+          from: String(who || ""),
+          text: String(who || "Someone") + " took " + (row.name || row.id || "an item"),
+          boxId: String(box.id || ""),
+          rowId: String(row.id || row.name || "")
+        };
+        return Promise.resolve(claimFn(key.path, body)).then(function (res) {
+          if (res && res.won) won.push(row);
+          else {
+            row.taken = true;
+            gone.push({ id: row.id, owner: (res && res.owner) || "" });
+          }
+        });
+      });
+    });
+    return chain.then(function () {
+      if (!won.length) {
+        var mine = gone.length && gone.every(function (g) { return g.owner && g.owner === String(who || ""); });
+        return { ok: false, reason: mine ? "Already taken." : "Gone.", won: [], gone: gone, box: box };
+      }
+      var result = takeRows(box, who, takeAll ? null : won, null);
+      if ((box.contents || []).length && (box.contents || []).every(function (r) { return !r || r.taken; })) box.taken = true;
+      result.gone = gone;
+      result.box = box;
+      return result;
+    });
+  }
   function takeRows(box, uid, rows, character) {
     if (!visibleTo(box, uid, "player") && uid !== box.opener) return { ok: false, reason: "You can't see this box." };
     if (box.taken && (!rows || rows === box.contents)) return { ok: false, reason: "Already taken." };
@@ -845,10 +957,12 @@
   root.SSDNSLoot = {
     GUNS: GUNS, AMMO: AMMO, BUDGET: BUDGET, CHAPTER: CHAPTER, SEALED: SEALED,
     rollQty: rollQty, rollBox: rollBox, rollCash: rollCash, place: place, openBox: openBox, handPlace: handPlace,
-    visibleTo: visibleTo, takeRows: takeRows, takeAll: function (box, uid, character) { return takeRows(box, uid, null, character); },
+    visibleTo: visibleTo, takeRows: takeRows, claimTake: claimTake, claimKey: claimKey,
+    takeAll: function (box, uid, character) { return takeRows(box, uid, null, character); },
     applyTake: applyTake, budget: budget, tagOf: tagOf, illegalReason: illegalReason, nameOf: nameOf,
     register: register, tableFor: tableFor, tables: allTables, load: load, magicRare: magicRare, isGun: isGun,
     seedAccess: seedAccess, blocked: blocked, menu: menu, resolve: resolve, playCheck: playCheck,
-    preUnlock: preUnlock, clearJam: clearJam, hasItem: hasItem, hasPry: hasPry, checkMod: checkMod
+    preUnlock: preUnlock, clearJam: clearJam, hasItem: hasItem, hasPry: hasPry, checkMod: checkMod,
+    hasThievesTools: hasThievesTools, thievesBonus: thievesBonus, pickLock: pickLock, resetLockAttempts: resetLockAttempts
   };
 })(typeof window !== "undefined" ? window : globalThis);

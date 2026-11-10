@@ -37,6 +37,7 @@
     var fb = opts.fb;
     var roomCode = opts.roomCode;
     var role = opts.role === "dm" ? "dm" : "player";
+    var uid = opts.uid || "";
     if (!db || !fb || !roomCode) throw new Error("SSDNSMapFirebase: db, fb, and roomCode are required");
     var seqs = {};
     var controlCache = {};
@@ -192,6 +193,30 @@
         bury(path);
         delete seqs[path];
         return fb.remove(ref(path));
+      },
+      /* Create-only claim. tableFeed/$id allows a new row whose from is the
+         signed-in uid, and rejects an update. The loser aborts instead of writing. */
+      claim: function (path, value) {
+        if (blocked(path)) return Promise.resolve({ ok: false, won: false });
+        if (String(path || "").indexOf("tableFeed/") !== 0) return Promise.resolve({ ok: false, won: false, reason: "bad path" });
+        var body = Object.assign({ ts: new Date().toISOString(), text: "Loot claim" }, value || {});
+        if (uid) body.from = uid;
+        if (!body.from || !body.ts || !body.text) return Promise.resolve({ ok: false, won: false, reason: "bad claim" });
+        if (!fb.runTransaction) return Promise.resolve({ ok: false, won: false, reason: "no transaction" });
+        var seen = { owner: "" };
+        return Promise.resolve(fb.runTransaction(ref(path), function (cur) {
+          if (cur && cur.from) {
+            seen.owner = cur.from;
+            return;
+          }
+          seen.owner = body.from;
+          return body;
+        })).then(function (res) {
+          var committed = !!(res && res.committed);
+          return { ok: true, won: committed, owner: committed ? body.from : (seen.owner || ""), existing: committed ? null : { from: seen.owner } };
+        }, function () {
+          return { ok: false, won: false, owner: seen.owner || "" };
+        });
       }
     };
   }
@@ -260,6 +285,19 @@
         if (opts.onWrite) opts.onWrite(path, null, { removed: true });
         fan(path, null, { removed: true });
         return Promise.resolve();
+      },
+      claim: function (path, value) {
+        if (role !== "dm" && String(path).indexOf("map/dm") === 0) return Promise.resolve({ ok: false, won: false });
+        if (String(path || "").indexOf("tableFeed/") !== 0) return Promise.resolve({ ok: false, won: false, reason: "bad path" });
+        var body = Object.assign({ ts: new Date().toISOString(), text: "Loot claim" }, value || {});
+        if (!body.from || !body.ts || !body.text) return Promise.resolve({ ok: false, won: false, reason: "bad claim" });
+        var bag = bucket(path);
+        var prev = bag[path] && bag[path].value;
+        if (prev && prev.from) return Promise.resolve({ ok: true, won: false, owner: prev.from, existing: clone(prev) });
+        bag[path] = { value: clone(body), by: body.from };
+        if (opts.onWrite) opts.onWrite(path, body, { by: body.from });
+        fan(path, clone(body), { by: body.from });
+        return Promise.resolve({ ok: true, won: true, owner: body.from });
       },
       _store: store
     };

@@ -776,7 +776,7 @@
     var key = norm(spell);
     if (key !== "heat metal") return "";
     var name = who || "The creature";
-    if (failed) return name + " drops the object (Heat Metal). The fire damage already landed. Nothing leaves inventory.";
+    if (failed) return name + " drops the object (Heat Metal). The fire damage already landed. The object is on the map and leaves inventory.";
     return name + " keeps hold of the object (Heat Metal). The fire damage still lands.";
   }
 

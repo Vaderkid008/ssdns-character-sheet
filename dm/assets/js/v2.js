@@ -13241,6 +13241,9 @@ function dropHeldWeapon(targetId, targetName) {
       reason: "Heat Metal"
     });
   }
+  if (row && row.kind === "player" && atk && DM.pushCommand) {
+    DM.pushCommand({ type: "take_gear", to: row.playerId || row.id, quiet: true, payload: { text: atk.name || "" }, from: DM.state && DM.state.uid });
+  }
   if (row) saveRemoteTable();
   if (atk) DM.toast((atk.name || "The object") + " is on the map" + (targetName ? " by " + targetName : "") + ".");
 }
