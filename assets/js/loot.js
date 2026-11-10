@@ -488,8 +488,72 @@
     return { ok: true, success: dok, box: box, nat: dnat, total: dtotal, dc: box.lock.dc, line: line };
   }
   function resetLockAttempts(box) {
-    if (box && box.lock) box.lock.attempts = {};
+    if (box && box.lock) {
+      box.lock.attempts = {};
+      box.lock.forceAttempts = {};
+    }
     return box;
+  }
+  function strongboxBox(box) {
+    if (!box) return false;
+    if (box.container === "chest") return false;
+    if (box.container === "strongbox") return true;
+    return box.boxType === "strongbox" && /strongbox/i.test(String(box.name || ""));
+  }
+  function athleticsProficient(sheet) {
+    sheet = sheet || {};
+    var mark = sheet.skillProf && sheet.skillProf.Athletics;
+    if (Number(mark) > 0) return true;
+    if (sheet.athletics === true || sheet.athleticsProf === true) return true;
+    var lists = [sheet.skillProficiencies, sheet.proficientSkills, sheet.skills];
+    var i, j;
+    for (i = 0; i < lists.length; i++) {
+      var list = lists[i];
+      if (!Array.isArray(list)) continue;
+      for (j = 0; j < list.length; j++) {
+        var item = list[j];
+        var name = item && (item.name || item.id) ? (item.name || item.id) : item;
+        if (/athletics/i.test(String(name || ""))) return true;
+      }
+    }
+    if (/athletics/i.test(String(sheet.proficiencies || "") + "\n" + String(sheet.proficienciesLanguages || ""))) return true;
+    return false;
+  }
+  /* Strength (Athletics). Proficiency only when Athletics is proficient. One try unless retries are on. */
+  function forceOpen(box, sheet, who, rng, forced) {
+    forced = forced || {};
+    rng = rngOf(rng);
+    sheet = sheet || {};
+    if (!box) return { ok: false, success: false, reason: "No strongbox." };
+    if (!strongboxBox(box)) return { ok: false, success: false, notStrongbox: true, reason: "Chests don't force open." };
+    if (!box.lock) box.lock = freshLock(0, ["tools"], "", false);
+    box.lock.forceAttempts = box.lock.forceAttempts || {};
+    box.log = box.log || [];
+    var whoId = String(who || "");
+    var prior = whoId && box.lock.forceAttempts[whoId];
+    if (prior && !box.lock.allowRetries) {
+      return {
+        ok: false, success: !!prior.success, already: true,
+        reason: prior.success ? "Already open." : "You already tried to force this.",
+        prior: prior, line: prior.line || ""
+      };
+    }
+    if (!(Number(box.lock.dc) > 0) || box.lock.unlocked) return { ok: true, success: true, box: box, line: "It's already open." };
+    var dc = Number(box.lock.forceDc);
+    if (!isFinite(dc) || dc <= 0) dc = 25;
+    var str = abilityModFrom(sheet, "STR");
+    var ath = athleticsProficient(sheet) ? (isFinite(Number(sheet.prof)) ? Number(sheet.prof) : 0) : 0;
+    var dnat = forced.nat != null ? Number(forced.nat) : die(20, rng);
+    var dtotal = forced.total != null ? Number(forced.total) : dnat + str + ath;
+    var dok = dtotal >= dc;
+    var line = "d20 " + dnat + " " + signNum(str) + " Str" + (ath ? " " + signNum(ath) + " Athletics" : "") + " = " + dtotal + " vs DC " + dc + (dok ? ". The strongbox opens." : ". It holds. That was loud.");
+    if (dok) {
+      box.lock.unlocked = true;
+      box.opened = true;
+    }
+    box.log.push(line);
+    if (whoId) box.lock.forceAttempts[whoId] = { nat: dnat, total: dtotal, success: dok, dc: dc, line: line };
+    return { ok: true, success: dok, noise: !dok, box: box, nat: dnat, total: dtotal, dc: dc, line: line };
   }
   function perceptionMod(sheet) {
     sheet = sheet || {};
@@ -963,6 +1027,7 @@
     register: register, tableFor: tableFor, tables: allTables, load: load, magicRare: magicRare, isGun: isGun,
     seedAccess: seedAccess, blocked: blocked, menu: menu, resolve: resolve, playCheck: playCheck,
     preUnlock: preUnlock, clearJam: clearJam, hasItem: hasItem, hasPry: hasPry, checkMod: checkMod,
-    hasThievesTools: hasThievesTools, thievesBonus: thievesBonus, pickLock: pickLock, resetLockAttempts: resetLockAttempts
+    hasThievesTools: hasThievesTools, thievesBonus: thievesBonus, pickLock: pickLock, resetLockAttempts: resetLockAttempts,
+    strongboxBox: strongboxBox, athleticsProficient: athleticsProficient, forceOpen: forceOpen
   };
 })(typeof window !== "undefined" ? window : globalThis);
