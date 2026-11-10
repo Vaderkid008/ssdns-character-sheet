@@ -573,6 +573,7 @@ toolbar.innerHTML = `
     <button data-act="fogBtn" class="active">Fog: ON</button>
     <button data-act="showFovBtn" class="active">Show Player FOV: ON</button>
     <button data-act="mapsBtn" class="ssm-maps-btn" title="Maps: built-in, my maps, world">Maps ▾</button>
+    <button data-act="betweenBtn" type="button" title="Show the Between Encounters cover to the table. Players follow. Fog stays off and the scene starts bright. Raise the Grid slider to put squares on it.">Between encounters</button>
     <button data-act="assetsBtn" class="ssm-maps-btn" title="Asset library for this room">Assets</button>
     <select data-act="sceneSelect" hidden aria-hidden="true"></select>
     <button data-act="myViewBtn">My view</button>
@@ -4911,7 +4912,10 @@ function draw() {
   if (role === 'dm') paintFogShapes(px);
   if (role === 'dm') paintRegionFrames(px);
 
-  // grid
+  // grid. A backdrop scene (grid.show === false) stays clear at the slider's low end.
+  // Raising Grid above that draws the squares again.
+  const gridShown = !(state.scene.grid && state.scene.grid.show === false) || state.gridStrength > state.minStrength + 0.001;
+  if (gridShown) {
   const strength = Math.max(state.gridStrength, state.minStrength);
   ctx.lineWidth = 1;
   const alpha = 0.25 + 0.25 * (strength - 1);
@@ -4943,6 +4947,7 @@ function draw() {
       const p = worldToScreen(-12 / state.view.zoom, r * px + px / 2);
       if (p.x > -20 && p.x < 40) ctx.fillText(String(r + 1), p.x, p.y + 4);
     }
+  }
   }
 
   paintRangeControls();
@@ -7829,22 +7834,130 @@ function addPlayerToken() {
 }
 let defaultSceneDone = false;
 let sawRemoteScene = false;
+/* New and empty rooms start on the title cover. Rooms that already saved a scene,
+   and every token/party/sight fallback that still says scn_dustyspur01, stay put. */
+function roomAlreadyMapped() {
+  const scenes = shared.scenes || {};
+  return Object.keys(scenes).some(id => {
+    const sc = scenes[id];
+    if (!sc || typeof sc !== 'object') return false;
+    if (Array.isArray(sc.walls) && sc.walls.length) return true;
+    if (Array.isArray(sc.fogShapes) && sc.fogShapes.length) return true;
+    if (sc.meta && sc.meta.src) return true;
+    if (sc.seededPlay || sc.seededPack || sc.seededWorld) return true;
+    return false;
+  });
+}
 function ensureDefaultScene() {
-  if (role !== 'dm' || sawRemoteScene || defaultSceneDone) return;
+  if (role !== 'dm' || defaultSceneDone) return;
   const sid = (state.scene && state.scene.id) || 'scn_dustyspur01';
   const cur = (shared.scenes && shared.scenes[sid]) || {};
+  /* A scene that already has walls, fog, or a saved image is a room in progress.
+     The bootstrap write of an empty Dusty Spur during boot does not count. */
   if (cur.walls && cur.walls.length) { defaultSceneDone = true; return; }
-  shared.scenes[sid] = {
-    id: sid,
-    name: (state.scene && state.scene.name) || 'Dusty Spur',
-    walls: cur.walls || [],
-    fogRects: cur.fogRects || [],
-    fogPolys: cur.fogPolys || [],
-    fogRevealed: cur.fogRevealed === true
-  };
-  if (Array.isArray(cur.fogShapes)) shared.scenes[sid].fogShapes = cur.fogShapes;
+  if (roomAlreadyMapped()) { defaultSceneDone = true; return; }
+  if (sawRemoteScene && sid !== 'scn_dustyspur01' && sid !== DEFAULT_SCENE_ID) { defaultSceneDone = true; return; }
   defaultSceneDone = true;
-  saveScene(sid);
+  showBetweenEncounters({ moveTokens: false, quiet: true });
+}
+function coverRecord() {
+  return builtinScenes().find(s => s && s.id === DEFAULT_SCENE_ID) || null;
+}
+/* Fog off and daylight, unless the DM has already painted fog on the cover. */
+function brightenCover() {
+  const sd = sceneData(DEFAULT_SCENE_ID);
+  if ((sd.fogShapes || []).length) return sd;
+  let changed = false;
+  if (sd.fogRevealed !== true) { sd.fogRevealed = true; changed = true; }
+  if (!sd.ambient) { sd.ambient = 'bright'; changed = true; }
+  if (changed) saveScene(DEFAULT_SCENE_ID);
+  return sd;
+}
+function seatPlayers(id, moveTokens) {
+  if (!shared.playerScenes) shared.playerScenes = {};
+  partyList().forEach(p => {
+    const u = p && (p.uid || p.id);
+    if (!u) return;
+    if (moveTokens || !shared.playerScenes[u]) shared.playerScenes[u] = id;
+  });
+  (state.tokens || []).forEach(t => {
+    if (!t || !t.ownerUid || isPartyToken(t)) return;
+    if (!moveTokens && t.sceneId && t.sceneId !== id) return;
+    if (moveTokens || !t.sceneId) {
+      t.sceneId = id;
+      if (shared.tokens[t.id]) shared.tokens[t.id].sceneId = id;
+      shared.playerScenes[t.ownerUid] = id;
+      saveToken(t.id);
+    }
+  });
+  postScenes();
+}
+function showBetweenEncounters(opts) {
+  opts = opts || {};
+  if (role !== 'dm') return false;
+  if (!coverRecord()) { toast('Cover map is missing'); return false; }
+  brightenCover();
+  const ok = swapScene(DEFAULT_SCENE_ID);
+  seatPlayers(DEFAULT_SCENE_ID, opts.moveTokens !== false);
+  renderTurnStrip();
+  draw();
+  if (!opts.quiet) toast('Between encounters');
+  return ok !== false;
+}
+function worldSceneId(worldId) {
+  return 'scn_' + String(worldId || '').replace(/[^a-z0-9_]+/gi, '_');
+}
+function worldSceneReady(sid) {
+  if (library[sid]) return true;
+  const sd = shared.scenes && shared.scenes[sid];
+  if (!sd || typeof sd !== 'object') return false;
+  if (sd.seededWorld) return true;
+  if (sd.meta && sd.meta.src) return true;
+  if (Array.isArray(sd.walls) && sd.walls.length) return true;
+  if (Array.isArray(sd.fogShapes) && sd.fogShapes.length) return true;
+  return Object.keys(shared.tokens || {}).some(tid => {
+    const t = shared.tokens[tid];
+    return t && (t.sceneId || '') === sid;
+  });
+}
+function fitWorldGrid(w, h) {
+  const ppsq = 70;
+  return {
+    cols: Math.max(1, Math.min(200, Math.round((Number(w) || 2100) / ppsq))),
+    rows: Math.max(1, Math.min(200, Math.round((Number(h) || 1400) / ppsq))),
+    px: ppsq,
+    show: false,
+    labels: false
+  };
+}
+/* One scene per world image. A second open swaps to it and leaves walls and tokens alone. */
+function openWorldAsMap(worldId) {
+  if (role !== 'dm') return false;
+  const w = worldMaps().find(m => m && m.id === worldId);
+  if (!w) return false;
+  const sid = worldSceneId(w.id);
+  if (worldSceneReady(sid)) return swapScene(sid);
+  const entry = {
+    id: sid,
+    name: w.name || 'World map',
+    src: asset(w.img),
+    thumb: asset(w.thumb || w.img),
+    grid: fitWorldGrid(w.w, w.h),
+    ppsq: 70,
+    from: w.id,
+    notes: 'Opened from the World folder',
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  };
+  saveLibraryEntry(entry);
+  const sd = sceneData(sid);
+  if (!sd.seededWorld) {
+    if (!sd.ambient) sd.ambient = 'bright';
+    if (!sd.walls.length && !(sd.fogShapes || []).length) sd.fogRevealed = true;
+    sd.seededWorld = true;
+    saveScene(sid);
+  }
+  return swapScene(sid);
 }
 
 /* ---- BG3 click-to-move (map/ssdns-map-move.js). Sheet Map and DMCC Map share this. ---- */
@@ -12195,6 +12308,7 @@ function douseSelected(out) {
     if (window.SSDNSMapLibrary && window.SSDNSMapLibrary.open) window.SSDNSMapLibrary.open(libraryApi());
     else toast('Map menu not loaded');
   });
+  if (q('betweenBtn')) q('betweenBtn').addEventListener('click', () => showBetweenEncounters());
   if (q('assetsBtn')) q('assetsBtn').addEventListener('click', () => {
     if (window.SSDNSAssetLibrary && window.SSDNSAssetLibrary.open) window.SSDNSAssetLibrary.open(assetApi());
     else toast('Asset library not loaded');
@@ -12413,10 +12527,13 @@ function douseSelected(out) {
 
 // --- scene images ---
 // 0.3.54: built-in packs (map/map-packs.js) + the DM's own library (map/dm/library).
+/* Empty rooms open this scene. Do not use it as a stand-in for a missing token sceneId. */
+const DEFAULT_SCENE_ID = 'scn_between';
 const LEGACY_SCENES = [
   { id: 'scn_dustyspur01', name: 'Dusty Spur', folder: 'builtin', img: 'dusty-spur-saloon_30x20_70px.webp' },
   { id: 'scn_street', name: 'Main Street', folder: 'builtin', img: 'main-street.webp' },
-  { id: 'scn_upstairs', name: 'Upstairs', folder: 'builtin', img: 'upstairs.webp' }
+  { id: 'scn_upstairs', name: 'Upstairs', folder: 'builtin', img: 'upstairs.webp' },
+  { id: 'scn_between', name: 'Six-Shooters & Sorcery — Between Encounters', folder: 'builtin', img: 'packs/between-encounters.webp', grid: { cols: 37, rows: 21, px: 70, show: false, labels: false } }
 ];
 let library = {};
 function builtinScenes() {
@@ -12462,11 +12579,15 @@ function fillSceneSelect() {
 function sceneGrid(sc) {
   const base = BASE_GRID;
   const g = (sc && sc.grid) || {};
-  return Object.assign({}, base, {
+  const out = Object.assign({}, base, {
     cols: Math.max(1, Math.round(Number(g.cols) || base.cols)),
     rows: Math.max(1, Math.round(Number(g.rows) || base.rows)),
     px: Number(g.px) || base.px || 70
   });
+  if (g.show === false) out.show = false;
+  if (g.labels === false) out.labels = false;
+  else if (g.labels === true) out.labels = true;
+  return out;
 }
 function seedPackWalls(sc) {
   if (role !== 'dm' || !sc || !Array.isArray(sc.walls) || !sc.walls.length) return false;
@@ -12484,6 +12605,7 @@ function seedPackPlay(sc) {
   const sd = sceneData(sc.id);
   if (sd.seededPlay) return false;
   if (!sd.ambient && sc.play.ambient) sd.ambient = sc.play.ambient;
+  if (sc.play.fogOff && !(sd.fogShapes || []).length) sd.fogRevealed = true;
   if (Array.isArray(sc.play.zones)) sd.zones = JSON.parse(JSON.stringify(sc.play.zones));
   if (Array.isArray(sc.play.spawns)) sd.spawns = JSON.parse(JSON.stringify(sc.play.spawns));
   if (Array.isArray(sc.play.cover)) sd.cover = JSON.parse(JSON.stringify(sc.play.cover));
@@ -12580,7 +12702,10 @@ function saveLibraryEntry(entry) {
   if (role === 'dm') write('map/dm/library/' + entry.id, library[entry.id]);
   if (entry.src && role === 'dm') {
     const sd = sceneData(entry.id);
-    sd.meta = { name: entry.name || 'Map', src: entry.src, grid: { cols: entry.grid.cols, rows: entry.grid.rows, px: entry.grid.px || 70 } };
+    const metaGrid = { cols: entry.grid.cols, rows: entry.grid.rows, px: entry.grid.px || 70 };
+    if (entry.grid.show === false) metaGrid.show = false;
+    if (entry.grid.labels === false) metaGrid.labels = false;
+    sd.meta = { name: entry.name || 'Map', src: entry.src, grid: metaGrid };
     saveScene(entry.id);
   }
 }
@@ -12694,6 +12819,13 @@ function getPlayerScene() {
   const my = state.tokens.find(t => t.ownerUid === uid);
   return my?.sceneId || shared.playerScenes?.[uid] || 'scn_dustyspur01';
 }
+function followPlayerScene() {
+  if (role !== 'player' || !state || !state.scene) return;
+  const sid = getPlayerScene();
+  if (!sid) return;
+  if ((state.scene.mapId || state.scene.id) === sid) return;
+  loadSceneImage(sid);
+}
 async function loadSceneImage(sceneId, opts) {
   const scene = SCENES.find(s => s.id === sceneId) || builtinScenes()[0];
   if (state.scene) {
@@ -12704,6 +12836,17 @@ async function loadSceneImage(sceneId, opts) {
     if ((opts && opts.center) || before.cols !== g.cols || before.rows !== g.rows) {
       state.view.x = (g.cols * g.px) / 2;
       state.view.y = (g.rows * g.px) / 2;
+    }
+    if (g.show === false) {
+      const box = viewBox();
+      const worldW = g.cols * g.px;
+      const worldH = g.rows * g.px;
+      if (box.w > 2 && box.h > 2 && worldW > 0 && worldH > 0) {
+        state.view.zoom = Math.max(0.05, Math.min(box.w / worldW, box.h / worldH) * 0.98);
+        state.view.x = worldW / 2;
+        state.view.y = worldH / 2;
+        paintZoom();
+      }
     }
   }
   const img = new Image();
@@ -16013,6 +16156,7 @@ async function loadSceneImage(sceneId, opts) {
     applySharedToTokens();
     restoreDragPos(keep);
     if (remotePos) refreshRangeSurfaces();
+    if (role === 'player') followPlayerScene();
     requestDraw();
   }
 
@@ -16045,7 +16189,7 @@ async function loadSceneImage(sceneId, opts) {
     }));
     unsubs.push(adapter.subscribe('map/public/playerScenes', (value) => {
       shared.playerScenes = value || {};
-      if (role === 'player' && state.scene) loadSceneImage(getPlayerScene());
+      followPlayerScene();
       requestDraw();
     }));
     unsubs.push(adapter.subscribe('map/public/events/slide', (value) => {
@@ -16125,7 +16269,8 @@ function libraryApi() {
       if (typeof window.SSDNSPushHandout === 'function') return window.SSDNSPushHandout({ name: w.name, url, text: w.text || '', to: 'all' }, true);
       toast('Handouts need the DM Command Center');
       return Promise.resolve(false);
-    }
+    },
+    openWorld: openWorldAsMap
   };
 }
 async function boot() {
