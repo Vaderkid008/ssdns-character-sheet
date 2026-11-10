@@ -2852,14 +2852,41 @@ function zoneLoopLive() {
   zones.forEach(z => {
     if (!z) return;
     if (z.key === "guardian of faith") guard = true;
-    if (chunk4ZoneKey(z.key) || z.key === "call lightning") { live[zoneFxId(z)] = 1; hit = true; }
+    /* The 18 replacement plates run their own shared loops. Leave the
+       procedural pump for the zones that still use it. */
+    const Art = window.SSDNSZoneArt;
+    if (!(Art && Art.owns && Art.owns(z.key))) {
+      if (chunk4ZoneKey(z.key) || z.key === "call lightning") { live[zoneFxId(z)] = 1; hit = true; }
+    }
     if (z.key !== "wall of fire") return;
     live[zoneFxId(z)] = 1;
     hit = true;
   });
   Object.keys(zoneFxBorn).forEach(id => { if (!live[id]) delete zoneFxBorn[id]; });
   if (syncScarMotion(zones)) hit = true;
+  const Art = window.SSDNSZoneArt;
+  if (Art && Art.sync && Art.sync(zones.filter(z => z && !zoneIsToken(z)), zoneArtEnv())) hit = true;
   return hit || guard;
+}
+function zoneArtEnv() {
+  const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
+  return {
+    asset: asset,
+    worldToScreen: worldToScreen,
+    px: px,
+    zoom: (state.view && state.view.zoom) || 1,
+    fxOn: scarFxOn,
+    requestDraw: requestDraw
+  };
+}
+function paintZoneLightRings(zone, px) {
+  if (!zone || !zone.light || !zone.origin) return;
+  const brightFt = Number(zone.light.bright) || 0;
+  const dimFt = Number(zone.light.dim) || 0;
+  const wx = zone.origin.x * px;
+  const wy = zone.origin.y * px;
+  if (dimFt > 0) strokeRing(wx, wy, ((brightFt + dimFt) / 5) * px, "rgba(160,190,255,0.9)", "rgba(120,160,220,0.08)");
+  if (brightFt > 0) strokeRing(wx, wy, (brightFt / 5) * px, "rgba(255,206,80,0.98)", "rgba(255,196,60,0.16)");
 }
 function chunk4ZoneKey(key) {
   const k = String(key || "").toLowerCase();
@@ -3261,6 +3288,7 @@ window.addEventListener("ssdns-map-fx-pref", () => {
     scarVideoState = "idle";
     scarPlayKicked = false;
   }
+  if (window.SSDNSZoneArt && window.SSDNSZoneArt.revive) window.SSDNSZoneArt.revive();
   syncScarMotion(spellZoneList());
   requestDraw();
 });
@@ -3300,12 +3328,25 @@ function paintSpellZones() {
   const zones = liveSpellZones();
   paintZoneBadges(zones);
   syncZoneClear();
-  if (!zones.length) return;
+  if (!zones.length) {
+    const Art = window.SSDNSZoneArt;
+    if (Art && Art.sync) Art.sync([], zoneArtEnv());
+    return;
+  }
   const px = state.scene.grid.px || 70;
   zones.forEach(zone => {
     if (zoneIsToken(zone)) {
       paintTokenAura(zone, px);
       return;
+    }
+    const Art = window.SSDNSZoneArt;
+    if (Art && Art.owns && Art.owns(zone.key)) {
+      const hit = Art.paint(ctx, zone, zoneArtEnv());
+      if (hit === "art" || hit === "wait") {
+        paintZoneLightRings(zone, px);
+        paintZonePulse(zone, px);
+        return;
+      }
     }
     if (zone.key === "wall of fire") {
       paintWallOfFire(zone, px);
@@ -3346,14 +3387,7 @@ function paintSpellZones() {
     paintLastingZoneDisc(zone, px);
     paintZonePulse(zone, px);
     /* Bright/dim rings live only while this zone is in the list. Dismissing Light drops the zone. */
-    if (zone.light) {
-      const brightFt = Number(zone.light.bright) || 0;
-      const dimFt = Number(zone.light.dim) || 0;
-      const wx = zone.origin.x * px;
-      const wy = zone.origin.y * px;
-      if (dimFt > 0) strokeRing(wx, wy, ((brightFt + dimFt) / 5) * px, "rgba(160,190,255,0.9)", "rgba(120,160,220,0.08)");
-      if (brightFt > 0) strokeRing(wx, wy, (brightFt / 5) * px, "rgba(255,206,80,0.98)", "rgba(255,196,60,0.16)");
-    }
+    paintZoneLightRings(zone, px);
   });
   if (zoneLoopLive()) ensureAnim();
 }
