@@ -1083,6 +1083,7 @@ if (role === 'dm') {
       <label><input data-act="doorAjar" type="checkbox"> Ajar</label>
       <label title="Stub only. A failed lockpick stays locked and does not spring a trap."><input data-act="doorTrapOnFail" type="checkbox"> Trap on fail (stub)</label>
     </div>
+    <button type="button" data-act="placeChestBtn" title="Drop a chest on the map. Lock DC is the number above, once a door is selected. Before that, the field defaults to 15. 0 is unlocked.">Place chest</button>
     <button data-act="windowBtn">Window</button>
     <button data-act="delWallBtn">Del Wall</button>
     <button data-act="undoWallBtn">Undo Wall</button>
@@ -6521,25 +6522,17 @@ function showChestMenu(token) {
       if (act === 'take-all' && !(Give && Give.chestAct)) {
         const live = state.tokens.find(t => t && (t.lootBoxId === boxId || t.id === boxId)) || token;
         const box = dropBox(live);
-        const Loot = window.SSDNSLoot;
-        if (Loot && Loot.takeAll && box && !box.taken) {
-          box.opener = uid;
-          box.shared = true;
-          box.reveal = 'everyone';
-          box.boxType = box.boxType || 'enemy-drop';
-          let sheet = {};
-          try { sheet = (window.SSDNSApp && window.SSDNSApp.doc && window.SSDNSApp.doc().character) || {}; } catch (e) { sheet = {}; }
-          Loot.takeAll(box, uid, sheet);
-          if (live) {
-            live.loot = box;
-            if (live.weaponDrop) live.weaponDrop.taken = !!box.taken;
-          }
-          menu.innerHTML = chestMenuHtml(box);
+        const result = collectMapLoot(box, uid);
+        if (live) {
+          live.loot = box;
+          if (live.weaponDrop) live.weaponDrop.taken = !!box.taken;
+          saveToken(live.id);
         }
-        if (adapter && adapter.write) adapter.write('map/public/events/loot', {
-          boxId: boxId, action: 'take-all', from: uid, seq: Date.now()
+        if (result && result.ok && adapter && adapter.write) adapter.write('map/public/events/loot', {
+          boxId: boxId, action: 'take-all', from: uid, seq: Date.now(), taken: true
         }, { seq: Date.now(), by: uid });
-        toast(box && box.taken ? 'Collected' : 'Take sent');
+        toast(result && result.toast ? result.toast : (result && result.reason) || "Can't take that");
+        menu.innerHTML = chestMenuHtml(box);
         requestDraw();
         return;
       }
@@ -6571,6 +6564,77 @@ function showChestMenu(token) {
   const Give = window.SSDNSLootGive;
   if (Give && Give.menuHtml && Give.box && Give.box(token.lootBoxId)) menu.innerHTML = Give.menuHtml(token.lootBoxId);
   else menu.innerHTML = chestMenuHtml(dropBox(token) || lootStub(token));
+}
+function playerCharacter() {
+  try { return (window.SSDNSApp && window.SSDNSApp.doc && window.SSDNSApp.doc().character) || null; } catch (e) { return null; }
+}
+function carriedItems() {
+  const sheet = playerCharacter();
+  return ((sheet && sheet.items) || []).filter(it => it && (it.count == null || Number(it.count) > 0) && (it.catalogId || it.id || it.name));
+}
+/* Take lands on the sheet once. A second take of the same box is refused. */
+function collectMapLoot(box, who) {
+  const Loot = window.SSDNSLoot;
+  if (!Loot || !Loot.takeAll || !box) return { ok: false, reason: "Can't take that" };
+  if (box.taken) return { ok: false, reason: "Already taken." };
+  box.opener = who || uid;
+  box.shared = true;
+  box.reveal = "everyone";
+  box.boxType = box.boxType || "enemy-drop";
+  const sheet = playerCharacter() || {};
+  const result = Loot.takeAll(box, who || uid, sheet);
+  if (!result || !result.ok) return { ok: false, reason: (result && result.reason) || "Can't take that" };
+  if (Loot.applyTake && playerCharacter()) Loot.applyTake(playerCharacter(), result);
+  const names = ((result.xfer && result.xfer.legs) || []).map(leg => {
+    const p = (leg && leg.payload) || {};
+    return p.text || p.itemId || (p.ammo && p.ammo.type) || "";
+  }).filter(Boolean);
+  let toastText = names.length ? ("Collected " + names.join(", ")) : "Collected";
+  if (result.warning) toastText += " · " + result.warning;
+  return { ok: true, toast: toastText, result: result };
+}
+function placeLockedChest() {
+  if (role !== "dm") return null;
+  const raw = q("doorLockDc") && q("doorLockDc").value;
+  const dc = Math.max(0, parseInt(raw, 10) || 0);
+  const id = "chest_" + Date.now().toString(36);
+  const box = {
+    id: id,
+    name: "Chest",
+    boxType: "strongbox",
+    rolled: true,
+    opened: false,
+    taken: false,
+    contents: [{ id: "trail-rations", qty: 1, name: "Trail rations" }],
+    cash: { es: 0, black: 0, blackId: "", branch: "none" },
+    lock: { dc: dc, unlocked: !(dc > 0), method: dc > 0 ? ["tools"] : [], jammed: false, jamOnFail: false },
+    log: ["DM placed a chest"]
+  };
+  const sel = state.selected;
+  const at = sel && sel.pos ? { x: sel.pos.x + 1, y: sel.pos.y } : null;
+  const token = pinLootChest(box, at);
+  toast(token ? ("Chest placed" + (dc > 0 ? " · lock DC " + dc : "")) : "Couldn't place a chest");
+  return token;
+}
+function dropCarriedItem(itemId) {
+  const sheet = playerCharacter();
+  const Items = window.SSDNSItems;
+  const item = carriedItems().find(it => (it.catalogId || it.id) === itemId) || carriedItems()[0];
+  if (!item) { toast("Nothing to drop"); return null; }
+  if (Items && Items.drop) {
+    const res = Items.drop(sheet, item.catalogId || item.id, { dm: role === "dm" });
+    if (!res || !res.ok) { toast((res && res.reason) || "Can't drop that"); return null; }
+  }
+  const actor = commandToken();
+  const at = actor && actor.pos ? { x: actor.pos.x + 1, y: actor.pos.y } : null;
+  const token = pinWeaponDrop({
+    name: item.name || "Dropped item",
+    itemId: item.catalogId || item.id || item.name,
+    at: at,
+    reason: "Dropped from inventory"
+  });
+  toast((item.name || "Item") + " is on the map");
+  return token;
 }
 function chestMenuHtml(box) {
   const Loot = window.SSDNSLoot;
@@ -7274,13 +7338,21 @@ function placeCommandMenu() {
     menu = document.createElement('div');
     menu.className = 'ssm-token-cmd';
     menu.setAttribute('data-act', 'tokenCmd');
-    menu.innerHTML = '<button type="button" data-act="tokenCmdMove">Move</button><button type="button" data-act="tokenCmdInteract">Interact</button>';
+    menu.innerHTML = '<button type="button" data-act="tokenCmdMove">Move</button><button type="button" data-act="tokenCmdInteract">Interact</button><button type="button" data-act="tokenCmdDrop">Drop</button>';
     menu.addEventListener('pointerdown', ev => ev.stopPropagation());
     menu.addEventListener('click', ev => {
       ev.stopPropagation();
       const act = ev.target && ev.target.getAttribute && ev.target.getAttribute('data-act');
       if (act === 'tokenCmdMove') armTokenMove();
       if (act === 'tokenCmdInteract') useTokenInteract();
+      if (act === 'tokenCmdDrop') {
+        const items = carriedItems();
+        if (!items.length) { toast("Nothing to drop"); return; }
+        menu.innerHTML = items.slice(0, 6).map(it => '<button type="button" data-act="tokenCmdDropItem" data-item="' + String(it.catalogId || it.id).replace(/"/g, "") + '">' + (it.name || it.catalogId || "Item") + '</button>').join("") + '<button type="button" data-act="tokenCmdDropBack">Back</button>';
+        return;
+      }
+      if (act === 'tokenCmdDropItem') dropCarriedItem(ev.target.getAttribute('data-item'));
+      if (act === 'tokenCmdDropBack') { menu.remove(); placeCommandMenu(); }
     });
     el.appendChild(menu);
   }
@@ -7291,6 +7363,8 @@ function placeCommandMenu() {
     move.classList.toggle('is-on', !!state.moveArmed);
   }
   if (interact) interact.disabled = !interactTarget(token);
+  const dropBtn = menu.querySelector('[data-act="tokenCmdDrop"]');
+  if (dropBtn) dropBtn.disabled = !carriedItems().length;
   const px = state.scene.grid.px || 70;
   const s = worldToScreen((token.pos.x + 0.5) * px, token.pos.y * px);
   const r = ((Number(token.size) || 1) * px * (state.view.zoom || 1)) / 2;
@@ -12260,6 +12334,7 @@ if (role === 'dm') {
   q('wallBtn').addEventListener('click', () => setTool('wall'));
   q('roomBtn').addEventListener('click', () => setTool('room'));
   q('doorBtn').addEventListener('click', () => setTool('door'));
+  if (q('placeChestBtn')) q('placeChestBtn').addEventListener('click', () => placeLockedChest());
   q('secretDoorBtn').addEventListener('click', () => armSecretDoor());
   ['doorLocked', 'doorLockDc', 'doorAjar', 'doorTrapOnFail'].forEach(name => {
     const node = q(name);

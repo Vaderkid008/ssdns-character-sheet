@@ -260,6 +260,7 @@
     var box = findBox(msg.boxId);
     if (!box || !L()) return;
     if (msg.action === "take-all") {
+      if (box.taken) { toast("Already taken."); return; }
       if (msg.from) box.opener = msg.from;
       box.shared = true;
       box.reveal = "everyone";
