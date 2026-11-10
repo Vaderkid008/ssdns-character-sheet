@@ -102,7 +102,7 @@ const ringsFn = src.slice(src.indexOf("function paintLightRings"), src.indexOf("
 const gateAt = ringsFn.indexOf("if (role !== 'dm' || !state.showLightRings) return");
 check("rings.defaultOff", /showLightRings:\s*false/.test(src));
 check("rings.playerNever", gateAt > 0 && ringsFn.indexOf("playerLights") < gateAt && ringsFn.indexOf("strokeRing") > gateAt && ringsFn.indexOf("strokeCone") > gateAt);
-check("rings.dmOnly", src.includes('data-act="showLightRings"> Light rings') && !src.slice(src.indexOf("ssdns-playercard"), src.indexOf("attack effects")).includes("showLightRings") && !src.slice(src.indexOf("ssdns-playercard"), src.indexOf("attack effects")).includes("Light rings"));
+check("rings.dmOnly", src.includes('data-act="showLightRings"> Light rings (DM guide)') && !src.slice(src.indexOf("ssdns-playercard"), src.indexOf("attack effects")).includes("showLightRings") && !src.slice(src.indexOf("ssdns-playercard"), src.indexOf("attack effects")).includes("Light rings"));
 check("rings.rangeKept", src.includes("function paintRangeRings") && src.includes("paintRangeRings();") && src.includes("function paintMoveReach"));
 check("rings.washStays", src.includes("for (const ls of lightSources) drawVisible(ls.x, ls.y, ls.radius * px, ls)") && src.includes("if (b.darkvision) drawVisible"));
 check("rules.untouched", !read("database.rules.json").includes("dmDoused"));
