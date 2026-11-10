@@ -117,6 +117,7 @@
     var g = m.grid ? m.grid.cols + "×" + m.grid.rows : (m.w ? "handout" : "");
     var acts = [];
     if (m.folder === "world") {
+      acts.push('<button type="button" class="btn sm" data-ml-asmap="' + esc(m.id) + '">Open as map</button>');
       acts.push('<button type="button" class="btn sm" data-ml-push="' + esc(m.id) + '">Push to table</button>');
       acts.push('<a class="btn sm" target="_blank" rel="noopener" href="' + esc(ui.api.asset(m.img)) + '">Open</a>');
     } else {
@@ -149,7 +150,7 @@
       '<div class="ml-tools"><button type="button" class="btn sm btn-primary" data-ml-add>+ Add map</button><button type="button" class="btn sm" data-ml-export>Export pack</button><label class="btn sm ml-import">Import pack<input type="file" accept="application/json,.json" data-ml-import hidden></label><button type="button" class="btn sm" data-ml-close>Close</button></div></div>' +
       (ui.adding ? addFormHtml() : "") +
       '<div class="ml-grid" role="list">' + (list.map(card).join("") || '<p class="fine">No maps match.</p>') + "</div>" +
-      '<p class="fine ml-foot">Built-in maps ship with the site. My maps save in this room (small JSON; images are links or optional Storage uploads) and autosave as you work. World maps push to players as handouts.</p>';
+      '<p class="fine ml-foot">Built-in maps ship with the site. My maps save in this room (small JSON; images are links or optional Storage uploads) and autosave as you work. World maps can open as a table scene, or push to players as handouts.</p>';
     var s = body.querySelector(".ml-search");
     if (s && ui.focusSearch) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); ui.focusSearch = false; }
     if (ui.adding) paintPreview();
@@ -224,6 +225,12 @@
     if (t.hasAttribute("data-ml-folder")) { ui.folder = t.getAttribute("data-ml-folder"); render(); return; }
     if ((id = t.getAttribute("data-ml-open"))) { api.swap(id); api.toast("Map: " + ((allCards().filter(function (m) { return m.id === id; })[0] || {}).name || id)); render(); return; }
     if ((id = t.getAttribute("data-ml-push"))) { var w = api.world().filter(function (m) { return m.id === id; })[0]; if (w) Promise.resolve(api.pushHandout(w)).then(function (ok) { if (ok !== false) api.toast("Pushed " + w.name + " to the table"); }); return; }
+    if ((id = t.getAttribute("data-ml-asmap"))) {
+      if (typeof api.openWorld === "function" && api.openWorld(id)) api.toast("Map: " + ((api.world().filter(function (m) { return m.id === id; })[0] || {}).name || id));
+      else api.toast("That world map didn't open");
+      render();
+      return;
+    }
     if ((id = t.getAttribute("data-ml-save"))) { var en = lib[id]; if (en) { en.snapshot = api.snapshot(id); en.updatedAt = Date.now(); api.save(en); api.toast("Saved " + en.name); render(); } return; }
     if ((id = t.getAttribute("data-ml-saveas"))) {
       var sc = allCards().filter(function (m) { return m.id === id; })[0]; if (!sc) return;

@@ -1,6 +1,6 @@
 /**
  * Fireball burst fills the 20-ft sphere with flames, not a clean disk
- * (sheet 0.3.276 / DMCC 0.2.289).
+ * (sheet 0.3.277 / DMCC 0.2.290).
  *   node tools/test-fireball-fire-03253.mjs
  * The comet is unchanged. rules.js is not regenerated.
  */
@@ -75,8 +75,8 @@ check("core", burst.some((op) => op.op === "fill" && op.arc && op.arc.r > 8 && o
 check("look", FX.lookOf({ type: "spell", spell: "Fireball" }) === "fireball" && FX.lookOf({ type: "spell", spell: "Ice Storm" }) === "hailstorm");
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.276" && ver.dmcc === "0.2.289" && ver.sheetBuild === "sheet-playtest-v03276" && ver.dmccBuild === "dmcc-playtest-v02289");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.276") && !read("database.rules.json").includes("0.3.276"));
+check("ver", ver.sheet === "0.3.277" && ver.dmcc === "0.2.290" && ver.sheetBuild === "sheet-playtest-v03277" && ver.dmccBuild === "dmcc-playtest-v02290");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.277") && !read("database.rules.json").includes("0.3.277"));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");
