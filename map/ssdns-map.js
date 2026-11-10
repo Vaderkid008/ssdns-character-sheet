@@ -7897,6 +7897,7 @@ function setDmEdit(on) {
   if (role !== 'dm') return;
   state.dmEdit = !!on;
   try { localStorage.setItem(DM_EDIT_KEY, state.dmEdit ? '1' : '0'); } catch (e) {}
+  if (on) hideCommandMenu();
   state.moveHover = null;
   if (state.moveConfirm) state.moveConfirm.pending = null;
   state.moveReachKey = '';
@@ -9273,18 +9274,21 @@ function onPointerDown(e) {
           draw();
           return;
         }
-        state.drag = { moveAim: true, token: hit, sx: e.clientX, sy: e.clientY };
-        if (role === 'dm') openDrawer(hit.id);
+        state.drag = { moveAim: true, token: hit, sx: e.clientX, sy: e.clientY, deferDrawer: role === 'dm' ? hit.id : "" };
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
         draw();
         return;
       }
-      /* A plain click selects and shows Move / Interact. The drag and the path wait for Move. */
+      /* A plain click selects and shows Move / Interact. The drag and the path wait for Move.
+         Edit tokens is the free drag: the card waits until the pointer is up, so docking it
+         cannot slide the map out from under the cursor mid-drag. */
       if (!dmEditing() && !state.moveArmed) {
         showCommandMenu(hit);
         if (role === 'dm') openDrawer(hit.id);
         draw();
         return;
       }
+      hideCommandMenu();
       /* token size: ox/oy is the grabbed square, so a 4x4 token grabbed by a corner does not jump */
       const gpx = state.scene.grid.px;
       if (isPartyToken(hit)) {
@@ -9297,12 +9301,12 @@ function onPointerDown(e) {
         });
         if (state.selectedIds.indexOf(hit.id) < 0) state.selectedIds.push(hit.id);
       }
-      state.drag = { token: hit, ox: Math.round(w.x / gpx - 0.5), oy: Math.round(w.y / gpx - 0.5), sx: e.clientX, sy: e.clientY, starts: {} };
+      state.drag = { token: hit, ox: Math.round(w.x / gpx - 0.5), oy: Math.round(w.y / gpx - 0.5), sx: e.clientX, sy: e.clientY, starts: {}, deferDrawer: role === 'dm' ? hit.id : "" };
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
       state.selectedIds.forEach(id => {
         const t = state.tokens.find(tok => tok.id === id);
         if (t && (isPartyToken(hit) || !isPartyToken(t))) state.drag.starts[id] = { x: t.pos.x, y: t.pos.y };
       });
-      if (role === 'dm') openDrawer(hit.id);
       if (hit.kind === 'asset') showAssetMenu(hit);
     } else if (hit && role === 'player') {
       selectToken(hit);
@@ -9490,6 +9494,21 @@ function onPointerUp(e) {
     }
   }
   const wasTokenDrag = !!(state.drag && state.drag.token && !state.drag.moveAimDone);
+  if (wasTokenDrag && state.drag.starts && state.drag.sx != null) {
+    const mdx = e.clientX - state.drag.sx;
+    const mdy = e.clientY - state.drag.sy;
+    const cell = ((state.scene && state.scene.grid && state.scene.grid.px) || 70) * (state.view.zoom || 1);
+    if (Math.hypot(mdx, mdy) < Math.max(8, cell / 2)) {
+      Object.keys(state.drag.starts).forEach(id => {
+        const t = state.tokens.find(tok => tok && tok.id === id);
+        if (!t || !state.drag.starts[id]) return;
+        t.pos.x = state.drag.starts[id].x;
+        t.pos.y = state.drag.starts[id].y;
+        if (shared.tokens[t.id]) shared.tokens[t.id].pos = Object.assign({}, t.pos, { by: uid, ts: Date.now() });
+      });
+      state.drag.clickOnly = true;
+    }
+  }
   if (wasTokenDrag) clearStreamTimer();
   if (state.drag && state.drag.walled) toastDmEditHint();
   if (state.drag && state.drag.rammed && state.drag.rammed.creature && !state.drag.blocked) {
@@ -9625,7 +9644,9 @@ function onPointerUp(e) {
     });
   }
   pointers.delete(e.pointerId);
+  const deferDrawer = state.drag && state.drag.deferDrawer;
   if (pointers.size === 0) state.drag = null;
+  if (deferDrawer && role === 'dm') openDrawer(deferDrawer);
   state.fogStart = null;
   state.regionStart = null;
   if (wasTokenDrag) refreshRangeSurfaces();
@@ -14619,7 +14640,10 @@ async function loadSceneImage(sceneId, opts) {
   }
   function reflowTokenDock() {
     try {
-      requestAnimationFrame(() => { try { resize(); } catch (e) {} });
+      requestAnimationFrame(() => {
+        try { resize(); } catch (e) {}
+        try { placeCommandMenu(); } catch (e2) {}
+      });
     } catch (e) {}
   }
   function syncDockChrome(panel) {
