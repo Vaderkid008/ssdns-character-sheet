@@ -413,6 +413,16 @@ body.ssdns-chat-pop .ssm-who,
   box-shadow: 0 -10px 14px rgba(0, 0, 0, 0.45);
 }
 .ssdns-map .ssdns-rightbar .ssm-spell-grids .panel-title { margin-top: 0; flex: 0 0 auto; }
+.ssdns-map .ssdns-rightbar .ssm-zone-place { display: flex; flex-direction: column; gap: 4px; flex: 0 0 auto; }
+.ssdns-map .ssdns-rightbar .ssm-zone-place select,
+.ssdns-map .ssdns-rightbar .ssm-zone-place button { width: 100%; font-size: 11px; }
+.ssdns-map .ssdns-rightbar .ssm-zone-place label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; }
+.ssdns-map .ssdns-rightbar .ssm-zone-place [data-act="zoneFacing"] { display: flex; gap: 4px; align-items: center; }
+.ssdns-map .ssdns-rightbar .ssm-zone-place [data-act="zoneFacing"][hidden] { display: none; }
+.ssdns-map .ssdns-rightbar .ssm-zone-place [data-act="zoneFacing"] button { width: auto; flex: 1; }
+.ssdns-map .ssdns-rightbar .ssm-zone-row { display: flex; gap: 4px; align-items: stretch; }
+.ssdns-map .ssdns-rightbar .ssm-zone-row .ssm-zone-move { flex: 0 0 auto; font-size: 11px; }
+.ssdns-map .ssdns-rightbar .ssm-zone-row .ssm-zone-clear { flex: 1 1 auto; }
 .ssdns-map .ssdns-rightbar .ssm-spell-grids [data-act="zoneList"] {
   flex: 1 1 auto;
   min-height: 0;

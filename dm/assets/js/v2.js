@@ -2270,6 +2270,15 @@ function adoptCastZone(row, name, placed, slot, dc, extra) {
   }
   return put.log || "";
 }
+window.addEventListener("ssdns-zone-link", (ev) => {
+  const zone = ev && ev.detail && ev.detail.zone;
+  if (!zone || !zone.casterId || !zone.conc || !window.SSDNSSpellZones || !window.SSDNSSpellZones.place) return;
+  const row = (fight.order || []).find((r) => r && (r.playerId === zone.casterId || r.id === zone.casterId));
+  if (!row) return;
+  const put = window.SSDNSSpellZones.place(row.spellMarks, zone);
+  row.spellMarks = put.bag;
+  row.concentration = zone.spell || row.concentration || "";
+});
 window.addEventListener("ssdns-advance-time", (ev) => {
   const steps = ev && ev.detail && ev.detail.steps;
   advanceSpellZones(steps);

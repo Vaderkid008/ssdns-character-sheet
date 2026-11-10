@@ -1,5 +1,5 @@
 /**
- * Full screen must not leave the map canvas at 0×0 or unpainted (sheet 0.3.277 / DMCC 0.2.290).
+ * Full screen must not leave the map canvas at 0×0 or unpainted (sheet 0.3.278 / DMCC 0.2.291).
  * A 0×0 observation while the grid settles used to wipe the bitmap. One relayout, the same
  * path as the FULL SCREEN button, restores a positive size and a paint. Player and DM share it.
  *   node tools/test-fullscreen-blank-03244.mjs
@@ -19,8 +19,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.277" && version.sheetBuild === "sheet-playtest-v03277");
-check("ver.dmcc", version.dmcc === "0.2.290" && version.dmccBuild === "dmcc-playtest-v02290");
+check("ver.sheet", version.sheet === "0.3.278" && version.sheetBuild === "sheet-playtest-v03278");
+check("ver.dmcc", version.dmcc === "0.2.291" && version.dmccBuild === "dmcc-playtest-v02291");
 const host = read("map/ssdns-map-host.js");
 const clickAt = host.indexOf('full.addEventListener("click"');
 check("host.relayout", clickAt > 0 && host.slice(clickAt, clickAt + 700).includes("map.relayout"));
