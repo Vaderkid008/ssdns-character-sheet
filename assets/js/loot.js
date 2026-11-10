@@ -474,14 +474,24 @@
         prior: prior, nat: prior.nat, total: prior.total, dc: box.lock.dc, line: prior.line || ""
       };
     }
-    if (!hasThievesTools(sheet)) return { ok: false, success: false, noTools: true, reason: "No thieves' tools." };
+    var improvise = !!forced.improvise;
+    if (!improvise && !hasThievesTools(sheet)) return { ok: false, success: false, noTools: true, reason: "Needs thieves' tools." };
     if (!(box.lock.dc > 0) || box.lock.unlocked) return { ok: true, success: true, box: box, line: "The lock is open." };
     var dex = abilityModFrom(sheet, "DEX");
-    var tools = thievesBonus(sheet);
-    var dnat = forced.nat != null ? Number(forced.nat) : die(20, rng);
+    var tools = improvise ? 0 : thievesBonus(sheet);
+    var dnat;
+    var other = null;
+    if (improvise && forced.nat == null) {
+      var rollA = die(20, rng);
+      var rollB = die(20, rng);
+      dnat = Math.min(rollA, rollB);
+      other = Math.max(rollA, rollB);
+    } else dnat = forced.nat != null ? Number(forced.nat) : die(20, rng);
     var dtotal = forced.total != null ? Number(forced.total) : dnat + dex + tools;
     var dok = dtotal >= box.lock.dc;
-    var line = "d20 " + dnat + " " + signNum(dex) + " Dex" + (tools ? " " + signNum(tools) + " tools" : "") + " = " + dtotal + " vs DC " + box.lock.dc + (dok ? ". Unlocked." : ". Failed. Still locked.");
+    var line = improvise
+      ? "d20 " + dnat + "/" + other + " disadv. " + signNum(dex) + " Dex = " + dtotal + " vs DC " + box.lock.dc + (dok ? ". Unlocked." : ". Failed. Still locked.")
+      : "d20 " + dnat + " " + signNum(dex) + " Dex" + (tools ? " " + signNum(tools) + " tools" : "") + " = " + dtotal + " vs DC " + box.lock.dc + (dok ? ". Unlocked." : ". Failed. Still locked.");
     if (dok) box.lock.unlocked = true;
     box.log.push(line);
     if (whoId) box.lock.attempts[whoId] = { nat: dnat, total: dtotal, success: dok, dc: box.lock.dc, line: line };
@@ -524,8 +534,7 @@
     forced = forced || {};
     rng = rngOf(rng);
     sheet = sheet || {};
-    if (!box) return { ok: false, success: false, reason: "No strongbox." };
-    if (!strongboxBox(box)) return { ok: false, success: false, notStrongbox: true, reason: "Chests don't force open." };
+    if (!box) return { ok: false, success: false, reason: "Nothing to force." };
     if (!box.lock) box.lock = freshLock(0, ["tools"], "", false);
     box.lock.forceAttempts = box.lock.forceAttempts || {};
     box.log = box.log || [];
@@ -539,14 +548,15 @@
       };
     }
     if (!(Number(box.lock.dc) > 0) || box.lock.unlocked) return { ok: true, success: true, box: box, line: "It's already open." };
-    var dc = Number(box.lock.forceDc);
-    if (!isFinite(dc) || dc <= 0) dc = 25;
+    var named = box.lock.forceDc;
+    var dc = named != null && named !== "" && isFinite(Number(named)) ? Number(named) : (strongboxBox(box) ? 25 : 15);
     var str = abilityModFrom(sheet, "STR");
     var ath = athleticsProficient(sheet) ? (isFinite(Number(sheet.prof)) ? Number(sheet.prof) : 0) : 0;
     var dnat = forced.nat != null ? Number(forced.nat) : die(20, rng);
     var dtotal = forced.total != null ? Number(forced.total) : dnat + str + ath;
     var dok = dtotal >= dc;
-    var line = "d20 " + dnat + " " + signNum(str) + " Str" + (ath ? " " + signNum(ath) + " Athletics" : "") + " = " + dtotal + " vs DC " + dc + (dok ? ". The strongbox opens." : ". It holds. That was loud.");
+    var what = strongboxBox(box) ? "strongbox" : "container";
+    var line = "d20 " + dnat + " " + signNum(str) + " Str" + (ath ? " " + signNum(ath) + " Athletics" : "") + " = " + dtotal + " vs DC " + dc + (dok ? ". The " + what + " opens." : ". It holds. That was loud.");
     if (dok) {
       box.lock.unlocked = true;
       box.opened = true;

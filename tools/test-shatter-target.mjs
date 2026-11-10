@@ -19,8 +19,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.281" && version.sheetBuild === "sheet-playtest-v03281");
-check("ver.dmcc", version.dmcc === "0.2.294" && version.dmccBuild === "dmcc-playtest-v02294");
+check("ver.sheet", version.sheet === "0.3.282" && version.sheetBuild === "sheet-playtest-v03282");
+check("ver.dmcc", version.dmcc === "0.2.295" && version.dmccBuild === "dmcc-playtest-v02295");
 const rulesDiff = execSync("git diff --name-only HEAD -- assets/data/rules.js database.rules.json", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 

@@ -1,6 +1,6 @@
 /**
  * Map chests use the closed and open plates, and the open state is published.
- * Sheet 0.3.281 / DMCC 0.2.294.
+ * Sheet 0.3.282 / DMCC 0.2.295.
  *   node tools/test-chest-art-03281.mjs
  */
 import fs from "node:fs";
@@ -18,8 +18,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.281" && ver.dmcc === "0.2.294" && ver.sheetBuild === "sheet-playtest-v03281" && ver.dmccBuild === "dmcc-playtest-v02294");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.281") && !read("database.rules.json").includes("0.3.281"));
+check("ver", ver.sheet === "0.3.282" && ver.dmcc === "0.2.295" && ver.sheetBuild === "sheet-playtest-v03282" && ver.dmccBuild === "dmcc-playtest-v02295");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.282") && !read("database.rules.json").includes("0.3.282"));
 ["chest-closed.webp", "chest-closed.png", "chest-open.webp", "chest-open.png"].forEach((name) => {
   check("art." + name, fs.existsSync(path.join(root, "map/props", name)));
 });
@@ -88,9 +88,9 @@ check("art.requested", w.__srcs.some((src) => src.indexOf("props/chest-closed.we
 el.querySelector('[data-act="chestLockDc"]').value = "0";
 el.querySelector('[data-act="placeChestBtn"]').click();
 await flush(30);
-const menu = w.document.querySelector('[data-act="chestMenu"]');
-console.log("menu", menu && menu.getAttribute("data-box"), (menu && menu.textContent || "").replace(/\s+/g, " ").slice(0, 180));
-const openBtn = menu && menu.querySelector('[data-chest="open"]');
+const menu = w.document.querySelector('[data-act="dmChest"]') || w.document.querySelector('[data-act="chestMenu"]');
+console.log("menu", menu && menu.getAttribute("data-act"), (menu && menu.textContent || "").replace(/\s+/g, " ").slice(0, 180));
+const openBtn = menu && (menu.querySelector('[data-dm="open"]') || menu.querySelector('[data-chest="open"]'));
 if (openBtn) openBtn.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
 await flush(40);
 const opened = chests().filter((t) => t.loot && t.loot.lock && !(Number(t.loot.lock.dc) > 0));

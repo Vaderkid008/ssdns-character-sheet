@@ -269,14 +269,14 @@ pointer(w, canvas, "pointerdown", at.x, at.y);
 pointer(w, canvas, "pointerup", at.x, at.y, { buttons: 0 });
 const menu = act(playerEl, "doorMenu");
 const labels = menu ? Array.prototype.map.call(menu.querySelectorAll("[data-door]"), (b) => b.getAttribute("data-door")).join(",") : "";
-check("ui.menu", menu && !menu.hidden && labels === "open,lockpick,peek", labels);
+check("ui.menu", menu && !menu.hidden && labels === "open,lockpick,force,peek", labels);
 const openBtn = menu && menu.querySelector('[data-door="open"]');
 if (openBtn) openBtn.click();
 await flush(30);
 const wallsNow = ((store.pub["map/public/scenes/scn_dustyspur01"] || {}).value || {}).walls || [];
 const still = wallsNow.find((wall) => wall.door && wall.x1 === 6);
 check("ui.locked", still && still.locked === true && still.open !== true, JSON.stringify(still));
-check("ui.toast", act(playerEl, "toast") && act(playerEl, "toast").textContent === "Locked");
+check("ui.toast", act(playerEl, "toast") && act(playerEl, "toast").textContent === "It's locked.");
 
 dmAd.write("map/public/tokens/ada", {
   id: "ada", name: "Ada", label: "Ada", kind: "player", size: 1, sceneId: "scn_dustyspur01",

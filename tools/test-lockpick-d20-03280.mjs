@@ -1,6 +1,6 @@
 /**
  * Pick lock throws the Challenge d20 and plays the lockpick sound once.
- * Sheet 0.3.281 / DMCC 0.2.294.
+ * Sheet 0.3.282 / DMCC 0.2.295.
  *   node tools/test-lockpick-d20-03280.mjs
  */
 import fs from "node:fs";
@@ -30,8 +30,8 @@ check("die.mapPath", dieImg && dieImg.getAttribute("src") === "../assets/img/dic
 played.then(() => {}).catch(() => {});
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.281" && ver.dmcc === "0.2.294" && ver.sheetBuild === "sheet-playtest-v03281" && ver.dmccBuild === "dmcc-playtest-v02294");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.281") && !read("database.rules.json").includes("0.3.281"));
+check("ver", ver.sheet === "0.3.282" && ver.dmcc === "0.2.295" && ver.sheetBuild === "sheet-playtest-v03282" && ver.dmccBuild === "dmcc-playtest-v02295");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.282") && !read("database.rules.json").includes("0.3.282"));
 check("sound.file", fs.existsSync(path.join(root, "assets/sfx/lockpick-attempt.mp3")));
 const sfxMap = JSON.parse(read("assets/sfx/sfx.json"));
 check("sound.mapped", sfxMap.events["lockpick-attempt"] === "lockpick-attempt.mp3");
@@ -120,7 +120,7 @@ await flush(80);
 el.querySelector('[data-act="lockAllowRetries"]').checked = true;
 el.querySelector('[data-act="placeChestBtn"]').click();
 await flush(30);
-const menu = () => w.document.querySelector('[data-act="chestMenu"]');
+const menu = () => w.document.querySelector('[data-act="dmChest"]') || w.document.querySelector('[data-act="chestMenu"]');
 const menuText = () => (menu() && menu().textContent) || "";
 w.document.querySelectorAll(".d20-zoom, .d20-plain").forEach((node) => node.remove());
 w.Math.random = () => 0;

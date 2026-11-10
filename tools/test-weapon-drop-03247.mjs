@@ -1,5 +1,5 @@
 /**
- * Weapon-drop indicators and Interact collect (sheet 0.3.281 / DMCC 0.2.294).
+ * Weapon-drop indicators and Interact collect (sheet 0.3.282 / DMCC 0.2.295).
  * A dropped weapon is a map token. Interact within 5 ft opens the existing
  * chest menu and Take all collects it. Nothing in reach stays dim.
  *   node tools/test-weapon-drop-03247.mjs
@@ -20,8 +20,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.281" && version.sheetBuild === "sheet-playtest-v03281");
-check("ver.dmcc", version.dmcc === "0.2.294" && version.dmccBuild === "dmcc-playtest-v02294");
+check("ver.sheet", version.sheet === "0.3.282" && version.sheetBuild === "sheet-playtest-v03282");
+check("ver.dmcc", version.dmcc === "0.2.295" && version.dmccBuild === "dmcc-playtest-v02295");
 check("rules.untouched", !read("database.rules.json").includes("weaponDrop") && !read("assets/data/rules.js").includes("pinWeaponDrop"));
 
 const v2 = read("dm/assets/js/v2.js");

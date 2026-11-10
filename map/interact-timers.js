@@ -106,18 +106,34 @@
 
   function doorLockBox(wall) {
     var dc = num(wall && wall.lockDc);
+    if (!(dc > 0) && wall && wall.locked) dc = 15;
+    var force = wall && wall.forceDc != null && wall.forceDc !== "" ? num(wall.forceDc) : 15;
     return {
       name: "Door",
+      container: "door",
       boxType: "door",
       lock: {
-        dc: dc > 0 ? dc : 0,
+        dc: dc > 0 ? dc : (wall && wall.locked ? 15 : 0),
         unlocked: !(wall && wall.locked),
+        allowRetries: !!(wall && wall.allowRetries),
+        attempts: (wall && wall.pickAttempts) ? wall.pickAttempts : {},
+        forceAttempts: (wall && wall.forceAttempts) ? wall.forceAttempts : {},
+        forceDc: force,
         method: ["tools"],
         jammed: false,
         jamOnFail: false
       },
-      log: []
+      log: (wall && wall.noiseLog) ? wall.noiseLog.slice() : []
     };
+  }
+  function writeDoorLock(wall, box) {
+    if (!wall || !box || !box.lock) return;
+    wall.locked = !box.lock.unlocked && num(box.lock.dc) > 0;
+    wall.pickAttempts = box.lock.attempts || {};
+    wall.forceAttempts = box.lock.forceAttempts || {};
+    wall.allowRetries = !!box.lock.allowRetries;
+    if (box.lock.forceDc != null) wall.forceDc = box.lock.forceDc;
+    if (box._rollLine) wall._rollLine = box._rollLine;
   }
   function lockpick(wall, sheet, rng, forced) {
     var box = doorLockBox(wall);
@@ -220,8 +236,16 @@
     if (wall.locked && !wall.open) {
       var who = String((ctx && ctx.who) || "");
       var prior = who && wall.pickAttempts && wall.pickAttempts[who];
+      var forced = who && wall.forceAttempts && wall.forceAttempts[who];
+      var Loot = root.SSDNSLoot;
+      var tools = Loot && Loot.hasThievesTools ? Loot.hasThievesTools(ctx.sheet || {}) : true;
+      var improvise = !!(ctx && ctx.improvise) && !tools;
       if (prior && !wall.allowRetries && !prior.success) actions.push({ id: "lockpick", label: "Pick failed", disabled: true });
+      else if (improvise) actions.push({ id: "improvise", label: "Improvise (disadv.)" });
+      else if (!tools) actions.push({ id: "lockpick", label: "Pick lock", disabled: true, note: "Needs thieves' tools" });
       else actions.push({ id: "lockpick", label: "Pick lock" });
+      if (forced && !wall.allowRetries && !forced.success) actions.push({ id: "force", label: "It holds", disabled: true });
+      else actions.push({ id: "force", label: "Force open" });
     }
     if (!wall.open) actions.push({ id: "peek", label: wall.ajar ? "Shut peek" : "Peek" });
     return { reach: true, feet: gate.feet, actions: actions };
