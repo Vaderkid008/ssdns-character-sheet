@@ -1097,7 +1097,9 @@ if (role === 'dm') {
       <select data-act="colorBtn" aria-label="Token color"></select>
     </div>
     <input data-act="colorCustom" type="color" value="#4a90d9" hidden aria-label="Custom token color">
-    <div class="panel-title">Fog</div>
+    <div class="panel-title">Containers</div>
+    <label>Container <select data-act="chestKind" aria-label="Container type"><option value="chest">Chest</option><option value="strongbox">Strongbox</option></select></label>
+    <button type="button" data-act="placeChestBtn" title="Drop the selected container. New locks start at Medium, DC 15, unless another preset or number is selected.">Place</button>
     <div class="ssm-lock-dc" data-act="lockDcPanel">
       <button type="button" data-lock-preset="easy" title="Easy, DC 10">Easy</button>
       <button type="button" data-lock-preset="medium" class="is-on" title="Medium, DC 15">Medium</button>
@@ -1105,11 +1107,10 @@ if (role === 'dm') {
       <label>Lock DC <input data-act="chestLockDc" type="number" min="0" value="15" aria-label="Lock DC" title="Easy 10, Medium 15, Hard 20. Any other number is a custom DC. 0 is unlocked."></label>
       <label>Force DC <input data-act="forceDc" type="number" min="0" value="25" aria-label="Force DC" title="Strength (Athletics) to force a container. Strongboxes start at 25, chests at 15. Players do not see this before they roll."></label>
     </div>
-    <label>Container <select data-act="chestKind" aria-label="Container type"><option value="chest">Chest</option><option value="strongbox">Strongbox</option></select></label>
-    <button type="button" data-act="placeChestBtn" title="Drop the selected container. New locks start at Medium, DC 15, unless another preset or number is selected.">Place</button>
     <label title="When on, the same character may pick this lock again, and may try to force a container again."><input data-act="lockAllowRetries" type="checkbox"> Allow retries</label>
     <label title="When on, a player without thieves' tools may improvise a Dex check at disadvantage. Default off."><input data-act="improviseLocks" type="checkbox"> Allow improvised lockpicking</label>
     <button type="button" data-act="resetLockBtn" title="Clear every character's attempt on the selected door or chest.">Reset attempts</button>
+    <div class="panel-title">Fog</div>
     <button data-act="revealFogBtn" type="button">Reveal: Box</button>
     <select data-act="revealShape" aria-label="Reveal shape">
       <option value="box">Box</option>

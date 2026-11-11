@@ -1,6 +1,6 @@
 /**
  * Map chests use the closed and open plates, and the open state is published.
- * Sheet 0.3.283 / DMCC 0.2.296.
+ * Sheet 0.3.284 / DMCC 0.2.297.
  *   node tools/test-chest-art-03281.mjs
  */
 import fs from "node:fs";
@@ -18,8 +18,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.283" && ver.dmcc === "0.2.296" && ver.sheetBuild === "sheet-playtest-v03283" && ver.dmccBuild === "dmcc-playtest-v02296");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.283") && !read("database.rules.json").includes("0.3.283"));
+check("ver", ver.sheet === "0.3.284" && ver.dmcc === "0.2.297" && ver.sheetBuild === "sheet-playtest-v03284" && ver.dmccBuild === "dmcc-playtest-v02297");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.284") && !read("database.rules.json").includes("0.3.284"));
 ["chest-closed.webp", "chest-closed.png", "chest-open.webp", "chest-open.png"].forEach((name) => {
   check("art." + name, fs.existsSync(path.join(root, "map/props", name)));
 });
