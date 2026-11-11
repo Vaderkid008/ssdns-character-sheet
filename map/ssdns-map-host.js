@@ -1188,6 +1188,11 @@
       try { return map.tokenPos(id); }
       catch (e) { return null; }
     },
+    tokenScreen: function (id) {
+      if (!map || typeof map.tokenScreen !== "function") return null;
+      try { return map.tokenScreen(id); }
+      catch (e) { return null; }
+    },
     focusLootChest: function (boxId) {
       if (!map || typeof map.focusLootChest !== "function") return "";
       try { return map.focusLootChest(boxId); }

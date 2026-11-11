@@ -1296,6 +1296,28 @@ body.map-fullscreen #mapMount .ssm-cropper canvas {
   padding: 8px 10px; border: 1px solid #c4a35a; border-radius: 6px;
   background: rgba(28, 18, 8, .94); color: #f3e6c8;
 }
+.ssm-dm-chest [data-dm="add-cat"].on { outline: 2px solid #e2c56a; }
+@media (min-width: 721px) {
+  body .ssdns-map.ssdns-role-dm.ssm-token-dock > .ssm-prop-dock,
+  body.map-fullscreen #mapMount.ssdns-role-dm.ssm-token-dock > .ssm-prop-dock {
+    grid-area: token;
+    position: relative;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    width: auto;
+    max-width: none;
+    height: auto;
+    max-height: none;
+    align-self: stretch;
+    justify-self: stretch;
+    min-height: 0;
+    overflow: auto;
+    z-index: 32;
+    margin: 0;
+  }
+}
 .ssm-chest-menu[hidden] { display: none; }
 .ssm-chest-menu button { margin: 0 6px 6px 0; }
 .ssm-card-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: grab; margin: -8px -10px 8px; padding: 6px 8px 6px 10px; background: #3a2a14; border-bottom: 1px solid #c4a35a; border-radius: 5px 5px 0 0; user-select: none; flex: 0 0 auto; }

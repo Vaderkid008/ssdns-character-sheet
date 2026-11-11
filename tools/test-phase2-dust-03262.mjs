@@ -1,5 +1,5 @@
 /**
- * Phase 2 leftover wraps and cones (sheet 0.3.289 / DMCC 0.2.302).
+ * Phase 2 leftover wraps and cones (sheet 0.3.290 / DMCC 0.2.303).
  * Bane, Fly, Blur, and Mirror Image dust the ring they already draw.
  * Fear and Color Spray dust the cone they already draw.
  *   node tools/test-phase2-dust-03262.mjs
@@ -18,8 +18,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.289" && ver.dmcc === "0.2.302" && ver.sheetBuild === "sheet-playtest-v03289" && ver.dmccBuild === "dmcc-playtest-v02302");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.289") && !read("database.rules.json").includes("0.3.289"));
+check("ver", ver.sheet === "0.3.290" && ver.dmcc === "0.2.303" && ver.sheetBuild === "sheet-playtest-v03290" && ver.dmccBuild === "dmcc-playtest-v02303");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.290") && !read("database.rules.json").includes("0.3.290"));
 check("bestiary.kept", read("dm/assets/js/v2.js").includes("bestiary.json?v=0.2.249-spell-tokens"));
 check("fullscreen.guard", read("map/ssdns-map.js").includes("A 0×0 read during fullscreen must not replace it."));
 check("prior.kept", read("map/ssdns-map-fx.js").includes("function stormIdle") && read("map/ssdns-map-fx.js").includes('["155,65,240", "60,215,195"]'));

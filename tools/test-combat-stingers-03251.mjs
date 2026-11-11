@@ -1,6 +1,6 @@
 /**
  * Combat stingers: ROLL INITIATIVE then ROUND 1 at the start,
- * and ROUND n only when the round increments (sheet 0.3.289 / DMCC 0.2.302).
+ * and ROUND n only when the round increments (sheet 0.3.290 / DMCC 0.2.303).
  *   node tools/test-combat-stingers-03251.mjs
  * rules.js is not regenerated. No sting sound.
  */
@@ -91,8 +91,8 @@ const shown = w2.document.querySelector('[data-act="combatStinger"]');
 check("player.round", !!(shown && shown.classList.contains("is-on") && shown.textContent.includes("ROUND") && shown.textContent.includes("2")), shown && shown.textContent);
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.289" && ver.dmcc === "0.2.302" && ver.sheetBuild === "sheet-playtest-v03289" && ver.dmccBuild === "dmcc-playtest-v02302");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.289") && !read("database.rules.json").includes("0.3.289"));
+check("ver", ver.sheet === "0.3.290" && ver.dmcc === "0.2.303" && ver.sheetBuild === "sheet-playtest-v03290" && ver.dmccBuild === "dmcc-playtest-v02303");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.290") && !read("database.rules.json").includes("0.3.290"));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");
