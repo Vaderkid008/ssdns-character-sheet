@@ -1,6 +1,6 @@
 /**
  * Fireball aftermath plate: the existing 20-ft burn scar, not the cast burst.
- * Sheet 0.3.287 / DMCC 0.2.300.
+ * Sheet 0.3.288 / DMCC 0.2.301.
  *   node tools/test-fireball-aftermath-03272.mjs
  * The 1d6 start tick, 2-round clock, and radius stay. rules.js is not edited.
  */
@@ -21,8 +21,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function near(a, b, slop) { return Math.abs(a - b) <= (slop == null ? 0.75 : slop); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.287" && ver.dmcc === "0.2.300" && ver.sheetBuild === "sheet-playtest-v03287" && ver.dmccBuild === "dmcc-playtest-v02300");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.287") && !read("database.rules.json").includes("0.3.287"));
+check("ver", ver.sheet === "0.3.288" && ver.dmcc === "0.2.301" && ver.sheetBuild === "sheet-playtest-v03288" && ver.dmccBuild === "dmcc-playtest-v02301");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.288") && !read("database.rules.json").includes("0.3.288"));
 
 const sandbox = { console, Math, Date, JSON, parseInt, isFinite, Number, String, Object, Array, Promise };
 sandbox.window = sandbox;

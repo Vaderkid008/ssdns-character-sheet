@@ -228,10 +228,10 @@ async function browserPart() {
       const supOn = await pg.evaluate(() => !document.querySelector("#rewSupplyWrap").hidden && !!document.querySelector("#rewSupplyWrap #rewWeight"));
       check("dm.fix12.supplyBox", supOn);
       await pg.evaluate(() => { const b = document.querySelector("#giveSupplyOn"); b.checked = false; b.dispatchEvent(new Event("change", { bubbles: true })); }); await sleep(100);
-      await pg.click("#btnCustomItem"); await sleep(200);
-      const cust = await pg.evaluate(() => { const w = document.querySelector("#dmItemFormWrap"); const f = document.querySelector("#dmItemForm"); return { shown: !w.hidden, give: /Give item/.test((f.querySelector("[data-item-add]") || {}).textContent || ""), save: !!f.querySelector("[data-item-catalog-save]"), quest: !!f.querySelector('[data-item-type] option[value="quest"]'), lock: !!document.querySelector("#btnLockInventory"), pending: !!document.querySelector("#dmPendingItems") }; });
-      check("dm.fix8.customItem", cust.shown && cust.give && cust.save && cust.quest && cust.lock && cust.pending, J(cust));
-      await pg.click("#btnCustomItem"); await sleep(100);
+      await pg.evaluate(() => { const s = document.querySelector("#giveCatalogSearch"); s.value = "Mystery token"; s.dispatchEvent(new Event("input", { bubbles: true })); }); await sleep(150);
+      await pg.click("[data-give-custom]"); await sleep(200);
+      const cust = await pg.evaluate(() => { const w = document.querySelector("#dmItemFormWrap"); const f = document.querySelector("#dmItemForm"); return { shown: !w.hidden, give: /Give item/.test((f.querySelector("[data-item-add]") || {}).textContent || ""), save: !!f.querySelector("[data-item-catalog-save]"), quest: !!f.querySelector('[data-item-type] option[value="quest"]'), lock: !!document.querySelector("#btnLockInventory"), pending: !!document.querySelector("#dmPendingItems"), name: (f.querySelector("[data-item-name]") || {}).value || "" }; });
+      check("dm.fix8.customItem", cust.shown && cust.give && cust.save && cust.quest && cust.lock && cust.pending && cust.name === "Mystery token", J(cust));
 
       /* Weapon stays in this flow; Starting kit asks first (#127 Grant full kit); Note; Loot is a placeholder */
       await pg.click('[data-give-mode="weapon"]'); await sleep(100);
