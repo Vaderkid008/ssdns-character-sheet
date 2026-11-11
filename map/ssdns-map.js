@@ -494,7 +494,7 @@ function applySharedToTokens() {
         adoptLootState(t.loot, s.lootState);
         const menu = el.querySelector('[data-act="chestMenu"]');
         const boxId = t.lootBoxId || (t.loot && t.loot.id) || '';
-        if (menu && !menu.hidden && menu.getAttribute('data-box') === boxId) menu.innerHTML = chestMenuHtml(t.loot);
+        if (menu && !menu.hidden && menu.getAttribute('data-box') === boxId) replaceMenuHtml(menu, chestMenuHtml(t.loot));
       }
       if (t.image && !t._img) loadTokenImage(t);
     }
@@ -762,7 +762,6 @@ on(document, 'keydown', e => {
   }
   if (e.key === 'Shift' && state.drag && state.drag.token && state.ghostPlan) { dropPin(); return; }
   if (e.key === 'Backspace' && state.drag && state.drag.pins && state.ghostPlan) { e.preventDefault(); popPin(); return; }
-  if (e.key.toLowerCase() === 'x' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); recallPath(); }
 });
 const chatdock = document.createElement('div');
 chatdock.className = 'ssdns-chatdock';
@@ -6967,17 +6966,17 @@ function blastPointer(e, kind) {
 }
 function hideChestMenu() {
   const menu = el.querySelector('[data-act="chestMenu"]');
-  if (menu) menu.hidden = true;
+  if (menu) { menu.hidden = true; releaseMenuAnchor(menu); }
   cancelReposition();
 }
 function hideDmChest() {
   const menu = el.querySelector('[data-act="dmChest"]');
-  if (menu) menu.hidden = true;
+  if (menu) { menu.hidden = true; releaseMenuAnchor(menu); }
   cancelReposition();
 }
 function hideChooser() {
   const menu = el.querySelector('[data-act="chooseMenu"]');
-  if (menu) menu.hidden = true;
+  if (menu) { menu.hidden = true; releaseMenuAnchor(menu); }
 }
 function closeMapMenus(keep) {
   if (keep !== "chest") hideChestMenu();
@@ -6994,11 +6993,22 @@ function closeMapMenus(keep) {
 function floatBar(title) {
   return '<div class="ssm-card-bar" data-float-drag><b>' + title + '</b><button type="button" data-menu-close="1" aria-label="Close">×</button></div>';
 }
+function releaseMenuAnchor(menu) {
+  if (menu && menu.dataset) delete menu.dataset.menuAnchored;
+}
+/* A menu is placed once, when it opens. Later redraws, token moves, pans, and
+   zooms leave it there. The title-bar drag is the only later move. */
+function anchorMenuOnce(menu, left, top) {
+  if (!menu) return;
+  if (menu.dataset.menuAnchored === "1") return;
+  clampMenu(menu, left, top);
+  menu.dataset.menuAnchored = "1";
+}
 function clampMenu(menu, left, top) {
   if (!menu || !el) return;
   const frameW = el.clientWidth || 0;
   const frameH = el.clientHeight || 0;
-  if (frameH > 0) menu.style.maxHeight = Math.max(96, frameH - 8) + "px";
+  if (frameH > 0 && menu.dataset.menuAnchored !== "1") menu.style.maxHeight = Math.max(96, frameH - 8) + "px";
   const w = menu.offsetWidth || 220;
   const h = Math.min(menu.offsetHeight || 64, frameH > 0 ? frameH - 8 : 64);
   const maxL = Math.max(4, frameW - w - 4);
@@ -7007,6 +7017,22 @@ function clampMenu(menu, left, top) {
   menu.style.top = Math.round(Math.max(4, Math.min(maxT, top))) + "px";
   menu.style.bottom = "auto";
   menu.style.right = "auto";
+  menu.dataset.menuAnchored = "1";
+}
+function replaceMenuHtml(menu, html) {
+  if (!menu) return;
+  const active = document.activeElement;
+  const key = active && menu.contains(active)
+    ? (active.getAttribute("data-door") || active.getAttribute("data-chest") || active.getAttribute("data-dm") || active.getAttribute("data-act") || "")
+    : "";
+  const body = menu.querySelector(".ssm-card-body");
+  const scroll = body ? body.scrollTop : 0;
+  menu.innerHTML = html;
+  const next = menu.querySelector(".ssm-card-body");
+  if (next) next.scrollTop = scroll;
+  if (!key) return;
+  const again = menu.querySelector('[data-door="' + key + '"], [data-chest="' + key + '"], [data-dm="' + key + '"], [data-act="' + key + '"]');
+  if (again && again.focus) { try { again.focus(); } catch (e) {} }
 }
 function bindFloatingMenu(menu, hide) {
   if (!menu || menu._floatBound) return;
@@ -7192,7 +7218,7 @@ function noteLootClaim(row) {
     commitLoot(t);
     if ((t.kind === "drop" || t.weaponDrop) && box.taken) finishDropTake(t);
     const menu = el.querySelector('[data-act="chestMenu"]');
-    if (menu && !menu.hidden && menu.getAttribute('data-box') === (t.lootBoxId || box.id)) menu.innerHTML = chestMenuHtml(box);
+    if (menu && !menu.hidden && menu.getAttribute('data-box') === (t.lootBoxId || box.id)) replaceMenuHtml(menu, chestMenuHtml(box));
   });
   requestDraw();
 }
@@ -7351,9 +7377,9 @@ function showChooser(tokens) {
   }
   menu.hidden = false;
   const first = tokens[0];
-  menu.innerHTML = floatBar("Which one?") + '<div class="ssm-card-body">' + tokens.map(t =>
+  replaceMenuHtml(menu, floatBar("Which one?") + '<div class="ssm-card-body">' + tokens.map(t =>
     '<button type="button" data-choose="' + t.id + '">' + (t.name || t.label || t.kind || "Token") + "</button>"
-  ).join("") + "</div>";
+  ).join("") + "</div>");
   if (first) anchorChestMenu(menu, first);
 }
 function escHtml(s) {
@@ -7730,7 +7756,7 @@ function showDmChest(token) {
         commitLoot(live);
         toast("Opened");
       }
-      menu.innerHTML = dmChestHtml(live);
+      replaceMenuHtml(menu, dmChestHtml(live));
     });
     menu.addEventListener("click", ev => {
       const act = ev.target && ev.target.getAttribute && ev.target.getAttribute("data-chest");
@@ -7759,7 +7785,7 @@ function showDmChest(token) {
             noiseY: live && live.pos ? (Number(live.pos.y) + 0.5) * ((state.scene.grid && state.scene.grid.px) || 70) : 0
           }, { by: uid });
         }
-        menu.innerHTML = dmChestHtml(live);
+        replaceMenuHtml(menu, dmChestHtml(live));
       };
       if (!threw) { finish(); return; }
       (act === "pick" ? showLockDie(res, sheet) : showForceDie(res, sheet)).then(finish);
@@ -7769,7 +7795,7 @@ function showDmChest(token) {
   }
   menu.setAttribute("data-token", token.id);
   menu.hidden = false;
-  menu.innerHTML = dmChestHtml(token);
+  replaceMenuHtml(menu, dmChestHtml(token));
   if (role === "dm") dockDmPropMenu(menu);
   else anchorChestMenu(menu, token);
 }
@@ -7830,7 +7856,7 @@ function showChestMenu(token) {
             });
           }
           toast((res && (res.line || res.reason)) || "Pick lock");
-          menu.innerHTML = chestMenuHtml(box);
+          replaceMenuHtml(menu, chestMenuHtml(box));
           requestDraw();
         };
         if (!threw) { finish(null); return; }
@@ -7862,7 +7888,7 @@ function showChestMenu(token) {
             });
           }
           toast((res && (res.line || res.reason)) || "Improvise");
-          menu.innerHTML = chestMenuHtml(box);
+          replaceMenuHtml(menu, chestMenuHtml(box));
           requestDraw();
         };
         if (!threw) { finish(null); return; }
@@ -7912,7 +7938,7 @@ function showChestMenu(token) {
             }, { by: uid });
           }
           toast((res && (res.line || res.reason)) || "Force open");
-          menu.innerHTML = chestMenuHtml(box);
+          replaceMenuHtml(menu, chestMenuHtml(box));
           requestDraw();
         };
         if (!threw) { finish(null); return; }
@@ -7925,7 +7951,7 @@ function showChestMenu(token) {
         const locked = box && box.lock && Number(box.lock.dc) > 0 && !box.lock.unlocked;
         if (locked) {
           if (box) box._rollLine = "It's locked.";
-          menu.innerHTML = chestMenuHtml(box);
+          replaceMenuHtml(menu, chestMenuHtml(box));
           toast("It's locked.");
           return;
         }
@@ -7939,7 +7965,7 @@ function showChestMenu(token) {
             lockBox: box.id, lockOpen: true
           }, { by: uid });
         }
-        menu.innerHTML = chestMenuHtml(box);
+        replaceMenuHtml(menu, chestMenuHtml(box));
         requestDraw();
         return;
       }
@@ -7950,7 +7976,7 @@ function showChestMenu(token) {
         if (locked) { toast("Still locked."); return; }
         if (!box || !box.opened) { toast("Open it first."); return; }
         if (box) box._showLoot = true;
-        menu.innerHTML = chestMenuHtml(box);
+        replaceMenuHtml(menu, chestMenuHtml(box));
         return;
       }
       if ((act === 'take-one' || act === 'take-all') && !(Give && Give.chestAct)) {
@@ -7958,7 +7984,7 @@ function showChestMenu(token) {
         const box = dropBox(live);
         const index = Number(ev.target.getAttribute('data-index'));
         const row = act === 'take-one' && box ? (box.contents || [])[index] : null;
-        if (act === 'take-one' && (!row || row.taken)) { toast("Gone."); if (box) menu.innerHTML = chestMenuHtml(box); return; }
+        if (act === 'take-one' && (!row || row.taken)) { toast("Gone."); if (box) replaceMenuHtml(menu, chestMenuHtml(box)); return; }
         Promise.resolve(collectMapLoot(box, uid, act === 'take-one' ? [row] : null)).then(result => {
           if (live) {
             live.loot = box;
@@ -7966,14 +7992,14 @@ function showChestMenu(token) {
             commitLoot(live);
           }
           toast(result && result.toast ? result.toast : (result && result.reason) || "Gone.");
-          menu.innerHTML = chestMenuHtml(box);
+          replaceMenuHtml(menu, chestMenuHtml(box));
           requestDraw();
         });
         return;
       }
       if (Give && Give.chestAct) {
         Promise.resolve(Give.chestAct(boxId, act)).then(() => {
-          if (Give.menuHtml) menu.innerHTML = Give.menuHtml(boxId);
+          if (Give.menuHtml) replaceMenuHtml(menu, Give.menuHtml(boxId));
         });
         return;
       }
@@ -7989,26 +8015,20 @@ function showChestMenu(token) {
         boxId: boxId, action: act, nat: res && res.nat, total: res && res.total,
         success: !!(res && res.success), seq: Date.now()
       }, { seq: Date.now(), by: uid });
-      menu.innerHTML = chestMenuHtml(box);
+      replaceMenuHtml(menu, chestMenuHtml(box));
       if (res && res.notice) toast(res.notice);
     });
     el.appendChild(menu);
     bindFloatingMenu(menu, hideChestMenu);
-    menu.addEventListener("click", () => {
-      const tok = menu._anchorToken;
-      requestAnimationFrame(() => {
-        if (tok && menu.isConnected && !menu.hidden && role !== "dm") anchorChestMenu(menu, tok);
-      });
-    });
   }
   menu._anchorToken = token;
   menu.setAttribute('data-box', token.lootBoxId || (token.loot && token.loot.id) || '');
   menu.setAttribute('data-token', token.id || '');
   menu.hidden = false;
   const Give = window.SSDNSLootGive;
-  if (Give && Give.menuHtml && Give.box && Give.box(token.lootBoxId)) menu.innerHTML = Give.menuHtml(token.lootBoxId);
-  else if (token.kind === "drop" || token.weaponDrop) menu.innerHTML = dropPileHtml(dropsOnSquare(token));
-  else menu.innerHTML = chestMenuHtml(dropBox(token) || lootStub(token));
+  if (Give && Give.menuHtml && Give.box && Give.box(token.lootBoxId)) replaceMenuHtml(menu, Give.menuHtml(token.lootBoxId));
+  else if (token.kind === "drop" || token.weaponDrop) replaceMenuHtml(menu, dropPileHtml(dropsOnSquare(token)));
+  else replaceMenuHtml(menu, chestMenuHtml(dropBox(token) || lootStub(token)));
   if (role === "dm") dockDmPropMenu(menu);
   else anchorChestMenu(menu, token);
 }
@@ -8052,13 +8072,19 @@ function pickupDrop(id) {
 }
 function dockDmPropMenu(menu) {
   if (!menu || role !== "dm") return;
-  menu.classList.add("ssm-prop-dock");
-  menu.classList.remove("placed", "ssm-float");
-  menu.style.left = "";
-  menu.style.top = "";
-  menu.style.right = "";
-  menu.style.bottom = "";
-  menu.style.maxHeight = "";
+  /* The column is the anchor. Re-applying it after the character drawer closes
+     must not clear a position that was already chosen. */
+  const placed = menu.dataset.menuAnchored === "1" && menu.classList.contains("ssm-prop-dock");
+  if (!placed) {
+    menu.classList.add("ssm-prop-dock");
+    menu.classList.remove("placed", "ssm-float");
+    menu.style.left = "";
+    menu.style.top = "";
+    menu.style.right = "";
+    menu.style.bottom = "";
+    menu.style.maxHeight = "";
+    menu.dataset.menuAnchored = "1";
+  }
   el.classList.add("ssm-token-dock");
   if (!el.classList.contains("ssm-token-left")) el.classList.add("ssm-token-right");
 }
@@ -8072,7 +8098,7 @@ function anchorChestMenu(menu, token) {
   let top = oy + s.y;
   const cmd = el.querySelector('[data-act="tokenCmd"]');
   if (cmd && cmd.isConnected) left = ox + worldToScreen(token.pos.x * px, token.pos.y * px).x - 240;
-  clampMenu(menu, left, top);
+  anchorMenuOnce(menu, left, top);
 }
 function playerCharacter() {
   try { return (window.SSDNSApp && window.SSDNSApp.doc && window.SSDNSApp.doc().character) || null; } catch (e) { return null; }
@@ -8164,7 +8190,7 @@ function setLiveLockDc(dc, preset) {
     commitLoot(live.token);
     const menu = el.querySelector('[data-act="chestMenu"]');
     const boxId = live.token.lootBoxId || (live.token.loot && live.token.loot.id) || "";
-    if (menu && !menu.hidden && menu.getAttribute("data-box") === boxId) menu.innerHTML = chestMenuHtml(live.token.loot);
+    if (menu && !menu.hidden && menu.getAttribute("data-box") === boxId) replaceMenuHtml(menu, chestMenuHtml(live.token.loot));
   } else {
     live.wall.lockDc = n;
     live.wall.lockDifficulty = name;
@@ -8627,7 +8653,7 @@ function commitDoorEdit() {
 }
 function hideDoorMenu() {
   const menu = el.querySelector('[data-act="doorMenu"]');
-  if (menu) menu.hidden = true;
+  if (menu) { menu.hidden = true; releaseMenuAnchor(menu); }
 }
 function tryDoorClick(e, world) {
   if (!e || e.button !== 0 || state.tool) return false;
@@ -8679,6 +8705,7 @@ function showDoorMenu(wall) {
   const pack = I.doorMenu(wall, { token: mine, dm: role === "dm", who: uid, sheet: playerSheet(), improvise: improviseOn() });
   if (!pack.reach) {
     menu.hidden = true;
+    releaseMenuAnchor(menu);
     if (pack.toast && !pack.hidden) toast(pack.toast);
     return;
   }
@@ -8694,11 +8721,11 @@ function showDoorMenu(wall) {
     if (o.disabled) return '<button type="button" data-door="' + o.id + '" disabled>' + o.label + "</button>" + (o.note ? '<p class="ssm-note">' + o.note + "</p>" : "");
     return '<button type="button" data-door="' + o.id + '">' + o.label + "</button> ";
   }).join("");
-  menu.innerHTML = floatBar("Door") + '<div class="ssm-card-body"><p><b>Door</b>' + lockNote + "</p>" +
+  replaceMenuHtml(menu, floatBar("Door") + '<div class="ssm-card-body"><p><b>Door</b>' + lockNote + "</p>" +
     dcField +
     (roll ? '<p class="ssm-roll">' + roll + "</p>" : "") +
     (wall._lockedNote ? '<p class="ssm-note">' + wall._lockedNote + "</p>" : "") +
-    actions + "</div>";
+    actions + "</div>");
   bindFloatingMenu(menu, hideDoorMenu);
   if (role === "dm") dockDmPropMenu(menu);
   else anchorChestMenu(menu, { pos: { x: (Number(wall.x1) + Number(wall.x2)) / 2 - 0.5, y: (Number(wall.y1) + Number(wall.y2)) / 2 - 0.5 }, size: 1 });
@@ -9045,7 +9072,7 @@ function placeAssetAt(def, cell) {
 }
 function hideAssetMenu() {
   const menu = el.querySelector('[data-act="assetMenu"]');
-  if (menu) menu.hidden = true;
+  if (menu) { menu.hidden = true; releaseMenuAnchor(menu); }
   cancelReposition();
 }
 function assetMenuHtml(token) {
@@ -9119,7 +9146,7 @@ function showAssetMenu(token) {
   }
   menu.setAttribute("data-token", token.id);
   menu.hidden = false;
-  menu.innerHTML = assetMenuHtml(token);
+  replaceMenuHtml(menu, assetMenuHtml(token));
   if (role === "dm") dockDmPropMenu(menu);
   else anchorChestMenu(menu, token);
 }
@@ -9191,7 +9218,7 @@ function placeCommandMenu() {
     menu = document.createElement('div');
     menu.className = 'ssm-token-cmd';
     menu.setAttribute('data-act', 'tokenCmd');
-    menu.innerHTML = floatBar("Token") + '<div class="ssm-card-body"><button type="button" data-act="tokenCmdMove">Move</button><button type="button" data-act="tokenCmdInteract">Interact</button><button type="button" data-act="tokenCmdDrop">Drop</button></div>';
+    replaceMenuHtml(menu, floatBar("Token") + '<div class="ssm-card-body"><button type="button" data-act="tokenCmdMove">Move</button><button type="button" data-act="tokenCmdInteract">Interact</button><button type="button" data-act="tokenCmdDrop">Drop</button></div>');
     bindFloatingMenu(menu, hideCommandMenu);
     menu.addEventListener('pointerdown', ev => ev.stopPropagation());
     menu.addEventListener('click', ev => {
@@ -9202,7 +9229,7 @@ function placeCommandMenu() {
       if (act === 'tokenCmdDrop') {
         const items = carriedItems();
         if (!items.length) { toast("Nothing to drop"); return; }
-        menu.innerHTML = floatBar("Drop") + '<div class="ssm-card-body">' + items.slice(0, 6).map(it => '<button type="button" data-act="tokenCmdDropItem" data-item="' + String(it.catalogId || it.id).replace(/"/g, "") + '">' + (it.name || it.catalogId || "Item") + '</button>').join("") + '<button type="button" data-act="tokenCmdDropBack">Back</button></div>';
+        replaceMenuHtml(menu, floatBar("Drop") + '<div class="ssm-card-body">' + items.slice(0, 6).map(it => '<button type="button" data-act="tokenCmdDropItem" data-item="' + String(it.catalogId || it.id).replace(/"/g, "") + '">' + (it.name || it.catalogId || "Item") + '</button>').join("") + '<button type="button" data-act="tokenCmdDropBack">Back</button></div>');
         return;
       }
       if (act === 'tokenCmdDropItem') dropCarriedItem(ev.target.getAttribute('data-item'));
@@ -9224,12 +9251,14 @@ function placeCommandMenu() {
   const r = ((Number(token.size) || 1) * px * (state.view.zoom || 1)) / 2;
   const ox = canvas ? canvas.offsetLeft || 0 : 0;
   const oy = canvas ? canvas.offsetTop || 0 : 0;
-  clampMenu(menu, ox + s.x + r + 8, oy + s.y - 8);
+  anchorMenuOnce(menu, ox + s.x + r + 8, oy + s.y - 8);
   el.dataset.moveArmed = state.moveArmed ? '1' : '0';
 }
 function showCommandMenu(token) {
   if (!token || !token.id) return;
   closeMapMenus("cmd");
+  const existingCmd = el.querySelector('[data-act="tokenCmd"]');
+  if (existingCmd && state.commandToken && state.commandToken !== token.id) releaseMenuAnchor(existingCmd);
   if (state.commandToken !== token.id) {
     state.moveArmed = false;
     state.moveHover = null;
@@ -11526,7 +11555,7 @@ function onPointerDown(e) {
         return;
       }
       if (dmPropDrag) selectToken(hit);
-      hideCommandMenu();
+      /* The open Move / Interact card stays where it was anchored. Dragging the token does not close it or pin it to the token. */
       /* token size: ox/oy is the grabbed square, so a 4x4 token grabbed by a corner does not jump */
       const gpx = state.scene.grid.px;
       if (isPartyToken(hit)) {
@@ -14427,7 +14456,7 @@ if (role === 'dm') {
       commitLoot(live.token);
       const menu = el.querySelector('[data-act="chestMenu"]');
       const boxId = live.token.lootBoxId || (live.token.loot && live.token.loot.id) || "";
-      if (menu && !menu.hidden && menu.getAttribute("data-box") === boxId) menu.innerHTML = chestMenuHtml(live.token.loot);
+      if (menu && !menu.hidden && menu.getAttribute("data-box") === boxId) replaceMenuHtml(menu, chestMenuHtml(live.token.loot));
       const pop = el.querySelector('[data-act="dmChest"]');
       if (pop && !pop.hidden && pop.getAttribute("data-token") === live.token.id) pop.innerHTML = dmChestHtml(live.token);
     } else {
@@ -14765,6 +14794,7 @@ function douseSelected(out) {
   on(document, 'keydown', e => {
     if (e.key === 'Shift' && state.drag && state.drag.token) { dropPin(); return; }
     if (e.key.toLowerCase() === 'x' && !e.ctrlKey && !e.metaKey) {
+      if (typingInField(e.target) || typingInField(document.activeElement)) return;
       const sel = state.selected || state.tokens.find(tok => tok.ownerUid === uid);
       const path = sel && state.lastPaths && state.lastPaths[sel.id];
       if (path) { state.recall = path; toast('Last path'); draw(); setTimeout(() => { state.recall = null; draw(); }, 2500); }
@@ -15728,7 +15758,12 @@ function syncCombatants(initiative) {
     state.pendingTarget = null;
     const d = q('drawer');
     if (d) d.remove();
-    el.classList.remove('ssm-token-dock', 'ssm-token-left', 'ssm-token-right', 'ssm-token-shut');
+    /* A docked prop menu owns the same column. Closing the character drawer must not undock it. */
+    const propDocked = ["dmChest", "assetMenu", "chestMenu", "doorMenu"].some(act => {
+      const m = el.querySelector('[data-act="' + act + '"]');
+      return m && !m.hidden && m.classList.contains("ssm-prop-dock");
+    });
+    if (!propDocked) el.classList.remove('ssm-token-dock', 'ssm-token-left', 'ssm-token-right', 'ssm-token-shut');
     reflowTokenDock();
     emit('drawer:close', { tokenId: id });
   }
@@ -17188,7 +17223,6 @@ function syncCombatants(initiative) {
     try {
       requestAnimationFrame(() => {
         try { resize(); } catch (e) {}
-        try { placeCommandMenu(); } catch (e2) {}
       });
     } catch (e) {}
   }
