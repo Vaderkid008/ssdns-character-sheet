@@ -798,13 +798,22 @@ if (role === 'dm') {
   });
   grip.addEventListener('pointermove', (e) => {
     if (dragY == null) return;
+    if (e.buttons === 0) { endDrag(); return; }
     applyChatHeight(startH + (dragY - e.clientY));
   });
   const endDrag = () => {
     if (dragY == null) return;
     dragY = null;
+    document.removeEventListener('pointerup', endDrag, true);
+    document.removeEventListener('pointercancel', endDrag, true);
+    window.removeEventListener('blur', endDrag);
     try { localStorage.setItem(CHAT_H_KEY, chatdock.getAttribute('data-chat-height') || ''); } catch (e) {}
   };
+  grip.addEventListener('pointerdown', () => {
+    document.addEventListener('pointerup', endDrag, true);
+    document.addEventListener('pointercancel', endDrag, true);
+    window.addEventListener('blur', endDrag);
+  });
   grip.addEventListener('pointerup', endDrag);
   grip.addEventListener('pointercancel', endDrag);
   grip.addEventListener('dblclick', () => {
@@ -7039,7 +7048,14 @@ function bindFloatingMenu(menu, hide) {
   menu._floatBound = true;
   menu.classList.add("ssm-map-ui");
   menu.addEventListener("pointerdown", ev => ev.stopPropagation());
-  menu.addEventListener("pointermove", ev => ev.stopPropagation());
+  menu.addEventListener("pointermove", ev => {
+    ev.stopPropagation();
+    if (state.moveHover || (el && el.dataset.moveCell)) {
+      state.moveHover = null;
+      if (el) el.dataset.moveCell = "";
+      requestDraw();
+    }
+  });
   menu.addEventListener("pointerup", ev => ev.stopPropagation());
   menu.addEventListener("click", ev => {
     if (!(ev.target && ev.target.closest && ev.target.closest("[data-menu-close]"))) return;
@@ -7055,13 +7071,27 @@ function bindFloatingMenu(menu, hide) {
     const sy = ev.clientY;
     const left0 = parseFloat(menu.style.left) || menu.offsetLeft || 0;
     const top0 = parseFloat(menu.style.top) || menu.offsetTop || 0;
-    const move = (e) => clampMenu(menu, left0 + e.clientX - sx, top0 + e.clientY - sy);
-    const up = () => {
-      document.removeEventListener("pointermove", move);
-      document.removeEventListener("pointerup", up);
+    let dragging = false;
+    const move = (e) => {
+      if (!e.buttons) { end(); return; }
+      if (!dragging) {
+        if (Math.hypot(e.clientX - sx, e.clientY - sy) < 4) return;
+        dragging = true;
+      }
+      clampMenu(menu, left0 + e.clientX - sx, top0 + e.clientY - sy);
     };
-    document.addEventListener("pointermove", move);
-    document.addEventListener("pointerup", up);
+    /* Capture phase: the menu itself stops pointerup, so a bubble listener on
+       document never hears the release and the card keeps following the cursor. */
+    const end = () => {
+      document.removeEventListener("pointermove", move, true);
+      document.removeEventListener("pointerup", end, true);
+      document.removeEventListener("pointercancel", end, true);
+      window.removeEventListener("blur", end);
+    };
+    document.addEventListener("pointermove", move, true);
+    document.addEventListener("pointerup", end, true);
+    document.addEventListener("pointercancel", end, true);
+    window.addEventListener("blur", end);
   });
 }
 function improviseOn() {
@@ -11611,6 +11641,10 @@ function onPointerDown(e) {
   e.preventDefault();
 }
 function onPointerMove(e) {
+  if (state.drag && e.buttons === 0) {
+    onPointerUp(e);
+    return;
+  }
   if (pointerOverMapUi(e)) {
     noteMoveHover(e);
     return;
@@ -11662,6 +11696,12 @@ function onPointerMove(e) {
     } else if (state.drag.select) {
       // marquee in progress — just redraw
     } else if (state.drag.token) {
+      if (!state.drag.moved) {
+        const mdx = e.clientX - (state.drag.sx || 0);
+        const mdy = e.clientY - (state.drag.sy || 0);
+        if (Math.hypot(mdx, mdy) < 4) return;
+        state.drag.moved = true;
+      }
       const w = pointerWorld(e);
       const px = state.scene.grid.px;
       let nx = Math.round(w.x / px - 0.5);
@@ -11743,6 +11783,10 @@ function onPointerMove(e) {
   } else if (polyLive) draw();
 }
 function onPointerUp(e) {
+  if (!state.drag) {
+    if (e && e.pointerId != null && e.pointerId !== -1) pointers.delete(e.pointerId);
+    return;
+  }
   if (pointerOverMapUi(e) && state.drag) {
     state.drag.clickMove = false;
     state.drag.moveAim = false;
@@ -11775,7 +11819,7 @@ function onPointerUp(e) {
     }
   }
   const wasTokenDrag = !!(state.drag && state.drag.token && !state.drag.moveAimDone);
-  if (wasTokenDrag && state.drag.starts && state.drag.sx != null) {
+  if (wasTokenDrag && state.drag.starts && state.drag.sx != null && !state.drag.moved && e.type !== "blur") {
     const mdx = e.clientX - state.drag.sx;
     const mdy = e.clientY - state.drag.sy;
     const cell = ((state.scene && state.scene.grid && state.scene.grid.px) || 70) * (state.view.zoom || 1);
@@ -14064,6 +14108,22 @@ on(canvas, 'pointermove', (e) => {
 });
 on(canvas, 'pointerup', onPointerUp);
 on(canvas, 'pointercancel', onPointerUp);
+on(canvas, 'lostpointercapture', onPointerUp);
+/* Release over a menu, outside the canvas, or after the window loses focus.
+   The menu stops pointerup on its way up, so the canvas listener never sees it. */
+document.addEventListener('pointerup', onPointerUp, true);
+document.addEventListener('pointercancel', onPointerUp, true);
+document.addEventListener('lostpointercapture', onPointerUp, true);
+document.addEventListener('pointermove', (e) => {
+  if (state.drag && e.buttons === 0) onPointerUp(e);
+}, true);
+window.addEventListener('blur', () => {
+  if (!state.drag) return;
+  const sx = state.drag.sx || 0;
+  const sy = state.drag.sy || 0;
+  pointers.clear();
+  onPointerUp({ pointerId: -1, button: 0, buttons: 0, clientX: sx + 80, clientY: sy + 80, type: 'blur' });
+});
 on(canvas, 'wheel', e => {
   e.preventDefault();
   e.stopPropagation();
@@ -17347,6 +17407,7 @@ function syncCombatants(initiative) {
     });
     on(panel, 'pointermove', (e) => {
       if (!drag) return;
+      if (e.buttons === 0) { endDrag(e, true); return; }
       if (!drag.moved) {
         if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 4) return;
         drag.moved = true;
@@ -17368,6 +17429,9 @@ function syncCombatants(initiative) {
       const moved = drag.moved;
       const host = drag.host;
       drag = null;
+      document.removeEventListener('pointerup', endOnWindow, true);
+      document.removeEventListener('pointercancel', endOnWindow, true);
+      window.removeEventListener('blur', endOnWindow);
       if (!moved) return;
       if (panel.classList.contains('ssm-drawer')) clampDmCard(panel);
       const side = allowSnap ? edgeSide(e && e.clientX, host) : '';
@@ -17376,6 +17440,13 @@ function syncCombatants(initiative) {
       syncDockChrome(panel);
       reflowTokenDock();
     };
+    const endOnWindow = (e) => endDrag(e, e && e.type !== 'blur');
+    on(panel, 'pointerdown', (e) => {
+      if (!drag) return;
+      document.addEventListener('pointerup', endOnWindow, true);
+      document.addEventListener('pointercancel', endOnWindow, true);
+      window.addEventListener('blur', endOnWindow);
+    });
     on(panel, 'pointerup', (e) => endDrag(e, true));
     on(panel, 'pointercancel', (e) => endDrag(e, false));
   }
