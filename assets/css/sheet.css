@@ -717,7 +717,14 @@ html, body { overflow-x: hidden; }
   body:not(.sheet-dock-collapsed) .turn-panel,
   body:not(.sheet-dock-collapsed) .dice-tray,
   body:not(.sheet-dock-collapsed) main { margin-right: 300px; }
-  body:not(.sheet-dock-collapsed) .turn-panel { max-width: calc(100% - 324px); }
+  body:not(.sheet-dock-collapsed) #turnPanel.turn-panel {
+    width: min(1200px, calc(100% - 300px - 24px));
+    max-width: min(1200px, calc(100% - 300px - 24px));
+    margin-top: 8px;
+    margin-bottom: 0;
+    margin-left: calc(12px + max(0px, (100% - 300px - 24px - 1200px) / 2));
+    margin-right: 300px;
+  }
   /* The parchment is centered in the column beside the table log. The tab row
      used to take the leftover space on the right, so a wide or zoomed-out
      window parked Main through Log on the dark page. */
@@ -1515,11 +1522,22 @@ button.focus-blocked { opacity: .55; cursor: not-allowed; }
    (swipe, or the arrows on a mouse), one header line, and the current gun's chambers as mini dots in the current chip.
    Tapping a chip opens one fold-down line with the full list (and, on your turn, the clickable chambers).
    Scoped to #turnPanel: the map and DMCC strips keep their own .turn-chip look. */
-/* 0.3.131: the frame Jessey likes on the player strip (teal edge, dark bar, pill chips). The map docks this same #turnPanel. */
-#turnPanel.turn-panel { flex-wrap: nowrap; gap: 6px; padding: 4px 8px; align-items: center; border: 2px solid #3fbf9a; border-radius: 10px; background: #16130f; }
+/* The sheet strip matches the centered page (1200px, main's 12px gutters): parchment card, page edge, small radius.
+   On the map the host rule puts the same node back to the full-width teal bar. */
+#turnPanel.turn-panel {
+  box-sizing: border-box;
+  flex-wrap: nowrap; gap: 6px; padding: 4px 8px; align-items: center;
+  width: min(1200px, calc(100% - 24px));
+  max-width: min(1200px, calc(100% - 24px));
+  margin: 8px auto 0;
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  background: var(--bg) url("../images/paper.jpg") center top / 100% auto repeat-y;
+  color: var(--ink);
+}
 #turnPanel .turn-round { flex: none; font-size: 12px; letter-spacing: .02em; white-space: nowrap; color: var(--eld, #e2c56a); }
 #turnPanel .turn-who, #turnPanel .tc-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-#turnPanel .turn-order-strip { flex: 1 1 auto; min-width: 0; gap: 4px; padding: 3px 2px; scrollbar-width: none; scroll-behavior: smooth; overscroll-behavior-x: contain; }
+#turnPanel .turn-order-strip { flex: 1 1 auto; min-width: 0; gap: 4px; padding: 3px 2px; overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; overscroll-behavior-x: contain; }
 #turnPanel .turn-order-strip::-webkit-scrollbar { display: none; }
 #turnPanel .turn-scroll { flex: none; width: 22px; height: 26px; padding: 0; border: 1px solid rgba(201,162,39,.45); border-radius: 4px; background: rgba(0,0,0,.25); color: var(--parch); font-size: 16px; line-height: 1; cursor: pointer; }
 #turnPanel .turn-scroll[hidden] { display: none; }
@@ -1551,7 +1569,7 @@ button.focus-blocked { opacity: .55; cursor: not-allowed; }
 #turnPanel .turn-fold-x { position: absolute; top: 2px; right: 4px; width: 24px; height: 24px; border: 0; background: none; color: var(--parch); font-size: 18px; cursor: pointer; }
 @media (max-width: 600px) {
   /* padding stays tight so the 2px teal frame still fits the one-row height (U10: panel ≤ 44px) */
-  #turnPanel.turn-panel { margin: 6px 6px 0; max-width: calc(100% - 12px); padding: 2px 6px; gap: 4px; }
+  #turnPanel.turn-panel { width: auto; margin: 6px 6px 0; max-width: calc(100% - 12px); padding: 2px 6px; gap: 4px; }
   #turnPanel .turn-round { font-size: 11px; }
   #turnPanel .turn-chip:not(.current) .chip-name { display: none; }
   #turnPanel .turn-chip:not(.current) { padding-right: 3px; }

@@ -1200,9 +1200,10 @@ select:-webkit-autofill {
 #turnStrip .turn-scroll[hidden] { display: none; }
 #turnStrip .turn-order-strip {
   flex: 1 1 auto; min-width: 0; display: flex; gap: 4px; align-items: center; overflow-x: auto;
-  padding: 3px 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  padding: 3px 2px; scrollbar-width: thin; -webkit-overflow-scrolling: touch;
 }
-#turnStrip .turn-order-strip::-webkit-scrollbar { display: none; }
+#turnStrip .turn-order-strip::-webkit-scrollbar { height: 6px; }
+#turnStrip .turn-order-strip::-webkit-scrollbar-thumb { background: var(--line); border-radius: 99px; }
 #turnStrip .turn-chip {
   flex: none; height: 26px; min-height: 0; gap: 4px; padding: 0 7px 0 2px; border-width: 1px; border-radius: 999px;
   font-size: 12px; line-height: 1; flex-wrap: nowrap; overflow: hidden;
@@ -1214,8 +1215,27 @@ select:-webkit-autofill {
 #turnStrip .status-chips { flex-wrap: nowrap; }
 #turnStrip .status-chips .chip { min-height: 0; height: 16px; padding: 0 5px; font-size: 9px; line-height: 16px; }
 #turnStrip .cylinder-row { flex-basis: auto; display: inline-flex; align-items: center; gap: 2px; max-width: 92px; overflow: hidden; font-size: 0; }
-/* N89: the strip lives above the tabs. Idle is chips. A turn opens chambers and the marker row. */
-#roomShell > #turnStrip.turn-strip { margin: 8px 12px 0; }
+/* Dashboard only. The strip matches the centered panel (1100px, the same 12px gutters as main).
+   The map bar is .ssm-turnstrip in ssdns-map.css and is not this element. */
+#roomShell > #turnStrip.turn-strip {
+  box-sizing: border-box;
+  width: min(var(--max), calc(100% - 24px));
+  max-width: var(--max);
+  margin: 8px auto 0;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-top-color: var(--eld-dim);
+  border-radius: var(--radius);
+}
+/* The Map tab keeps the full-width bar. The map's own .ssm-turnstrip is separate. */
+body.map-tab-active #roomShell > #turnStrip.turn-strip {
+  width: auto;
+  max-width: none;
+  margin: 8px 12px 0;
+  background: #12100e;
+  border: 0;
+  border-radius: 8px;
+}
 #turnStrip .turn-expand { flex: none; width: 22px; height: 26px; padding: 0; border: 1px solid rgba(201,162,39,.45); border-radius: 4px; background: rgba(0,0,0,.25); color: #efe6d4; font-size: 14px; line-height: 1; cursor: pointer; }
 #turnStrip .tc-icons { display: inline-flex; align-items: center; gap: 1px; font-size: 12px; line-height: 1; }
 #turnStrip .tc-more { font-size: 10px; font-weight: 700; padding: 0 4px; border-radius: 999px; background: rgba(0,0,0,.35); }

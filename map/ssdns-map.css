@@ -1814,7 +1814,7 @@ body.map-fullscreen #mapMount > canvas.ssm-fx {
 .ssdns-map > .ssm-turnhost { grid-area: strip; position: relative; z-index: 4; min-width: 0; max-width: 100%; overflow-x: auto; }
 .ssdns-map > .ssm-turnhost:empty,
 .ssdns-map > .ssm-turnhost:has(> #turnPanel[hidden]) { display: none; }
-.ssdns-map > .ssm-turnhost #turnPanel.turn-panel { margin: 0; max-width: 100%; box-sizing: border-box; background: #16130f; border-radius: 10px; border: 2px solid #3fbf9a; }
+.ssdns-map > .ssm-turnhost #turnPanel.turn-panel { width: auto; margin: 0; max-width: 100%; box-sizing: border-box; background: #16130f; border-radius: 10px; border: 2px solid #3fbf9a; }
 .ssdns-map.has-sheet-turn > .ssm-turnstrip { display: none !important; }
 /* the DM's strip: the current player's markers (the same markers as the DM card) between the chips and Next */
 .ssm-turnstrip .ssm-strip-markers { display: inline-flex; flex: none; align-items: center; }
