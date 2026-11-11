@@ -545,7 +545,9 @@
   }
 
   function chipText(token, round, viewer) {
-    if (!token) return "";
+    /* A fuse chip belongs on an asset. A creature can still carry a stray
+       asset.props.timer from an older drawer; leave that record alone and do not read it. */
+    if (!token || token.kind !== "asset") return "";
     var asset = token.asset;
     if (!asset) return "";
     var hidden = !!(token.hidden || asset.hiddenFromPlayers);
@@ -593,7 +595,8 @@
 
   function assetMenu(token, ctx) {
     ctx = ctx || {};
-    var timer = token && token.asset && token.asset.props && token.asset.props.timer;
+    if (!token || token.kind !== "asset") return { actions: [] };
+    var timer = token.asset && token.asset.props && token.asset.props.timer;
     var mode = timer && timer.mode;
     if (!mode) return { actions: [] };
     if (!ctx.dm && ctx.feet != null && ctx.feet > REACH_FT) {
@@ -631,7 +634,7 @@
       '</div>';
   }
   function bombPanelHtml(token) {
-    if (!token) return "";
+    if (!token || token.kind !== "asset") return "";
     var asset = token.asset || {};
     var timer = (asset.props && asset.props.timer) || {};
     var st = asset.state || {};
