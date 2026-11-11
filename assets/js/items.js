@@ -2712,11 +2712,17 @@
 
   function bindDm() {
     var box = document.getElementById("dmItemTools");
-    if (!box || box.getAttribute("data-bound")) return;
-    box.setAttribute("data-bound", "1");
+    var formWrap = document.getElementById("dmItemFormWrap");
+    if (!box && !formWrap) return;
+    if ((box && box.getAttribute("data-bound")) || (formWrap && formWrap.getAttribute("data-bound"))) return;
+    if (box) box.setAttribute("data-bound", "1");
+    if (formWrap) formWrap.setAttribute("data-bound", "1");
     var slot = document.getElementById("dmItemForm");
     if (slot) slot.innerHTML = formHtml({ dm: true });
-    box.addEventListener("change", function (e) {
+    var hosts = [];
+    if (box) hosts.push(box);
+    if (formWrap && hosts.indexOf(formWrap) < 0 && !(box && box.contains(formWrap))) hosts.push(formWrap);
+    hosts.forEach(function (host) { host.addEventListener("change", function (e) {
       var t = e.target;
       if (t && t.hasAttribute && t.hasAttribute("data-dm-attune-cap") && root.DMCC && root.DMCC.pushCommand) {
         root.DMCC.pushCommand({ type: "item_mod", to: t.getAttribute("data-dm-attune-cap"), payload: { op: "attuneCap", cap: Number(t.value) || 3 } });
@@ -2726,13 +2732,13 @@
       if (t && t.hasAttribute("data-item-kind")) applyKind(t.closest("[data-item-form]"));
       if (t && t.hasAttribute("data-item-armor")) { var af = t.closest("[data-item-form]"); var aw = af && af.querySelector("[data-item-weight]"); if (aw) aw.value = ""; armorWeight(af, t.value); }
       if (t && t.hasAttribute("data-item-catalog")) fillForm(t.closest("[data-item-form]"), t.value);
-    });
+    }); });
     var weightBox = document.getElementById("chkWeight");
     if (weightBox && !weightBox.getAttribute("data-bound")) {
       weightBox.setAttribute("data-bound", "1");
       weightBox.addEventListener("change", function () { saveMeta({ weightOn: !!weightBox.checked }); });
     }
-    box.addEventListener("click", function (e) {
+    hosts.forEach(function (host) { host.addEventListener("click", function (e) {
       var t = e.target;
       if (!t || !t.getAttribute) return;
       if (t.hasAttribute("data-item-catalog-save")) {
@@ -2766,7 +2772,7 @@
       var pl = { op: op, uid: t.getAttribute("data-uid") };
       if (op === "attune") pl.on = t.getAttribute("data-on") !== "0";
       root.DMCC.pushCommand({ type: "item_mod", to: t.getAttribute("data-pid"), payload: pl });
-    });
+    }); });
     var lockBtn = document.getElementById("btnLockInventory");
     if (lockBtn) lockBtn.addEventListener("click", function () {
       var sel = document.getElementById("itemGiveTarget") || document.getElementById("rewTarget");

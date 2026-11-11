@@ -219,10 +219,21 @@
             <button type="button" class="btn give-step-btn" data-give-step="1" data-give-for="giveAmmoQty" aria-label="More ammo">+</button>
           </div>
         </div>
-        <div class="span-2" id="giveCatalogWrap" data-give-show="item" hidden>
+        <div class="span-2" id="giveCatalogWrap" data-give-show="item weapon ammo" hidden>
           <label for="giveCatalogSearch">Find in the catalog</label>
-          <input type="search" id="giveCatalogSearch" placeholder="Type to filter, then pick" autocomplete="off">
-          <div id="giveCatalogHits" class="give-catalog-hits" hidden></div>
+          <div class="give-combo">
+            <input type="search" id="giveCatalogSearch" placeholder="Type to filter, or open the list" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="giveCatalogHits" aria-autocomplete="list">
+            <button type="button" class="give-combo-toggle" id="giveCatalogToggle" aria-label="Open the catalog" aria-expanded="false">▼</button>
+          </div>
+          <div id="giveCatalogHits" class="give-catalog-hits" role="listbox" hidden></div>
+        </div>
+        <div class="span-2 give-card" id="dmItemFormWrap" hidden>
+          <h3 class="give-step">Custom item</h3>
+          <p class="fine">The full Add Item form, same as the sheet. Quest items are DM-only. "Save to room catalog" keeps the row in this room. It gives to the player picked in Who.</p>
+          <div id="dmItemForm"></div>
+        </div>
+        <div class="span-2 give-item-more" id="giveItemMore" data-give-show="item" hidden>
+          <label class="chk"><input type="checkbox" id="giveSupplyOn"> It's food or water</label>
         </div>
         <div class="span-2" id="rewTextWrap" data-give-show="item note" hidden>
           <label for="rewText" id="rewTextLabel">Item</label>
@@ -305,10 +316,6 @@
           <label class="chk" id="rewDirtyWrap" hidden><input type="checkbox" id="rewDirty"> Arrives Dirty (loot gun)</label>
           <div id="rewItemBuilder" hidden></div>
         </div>
-        <div class="span-2 give-item-more" id="giveItemMore" data-give-show="item" hidden>
-          <label class="chk"><input type="checkbox" id="giveSupplyOn"> It's food or water</label>
-          <button type="button" class="btn sm" id="btnCustomItem" aria-expanded="false" aria-controls="dmItemFormWrap">Custom item…</button>
-        </div>
         <div class="span-2 rew-supply" id="rewSupplyWrap" hidden>
           <label>Food &amp; water (makes it a real item the day's food and water can use)</label>
           <div class="field-inline">
@@ -324,11 +331,6 @@
         <p class="give-preview" id="givePreview" aria-live="polite" hidden></p>
       </div>
       <div id="dmItemTools" class="item-tools">
-        <div class="give-card" id="dmItemFormWrap" hidden>
-          <h3 class="give-step">Custom item</h3>
-          <p class="fine">The full Add Item form, same as the sheet. Quest items are DM-only. "Save to room catalog" keeps the row in this room. It gives to the player picked in Who.</p>
-          <div id="dmItemForm"></div>
-        </div>
         <select id="itemGiveTarget" hidden aria-hidden="true" tabindex="-1"></select>
         <details class="fold" id="dmItemReview">
           <summary>Player-added items and attunement</summary>

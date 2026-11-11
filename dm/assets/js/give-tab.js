@@ -148,6 +148,34 @@
       return row && row.name && (norm(row.name).indexOf(q) >= 0 || norm(row.id).indexOf(q) >= 0);
     }).slice(0, 8);
   }
+  function groupLabel(row) {
+    if (!row) return "Catalog";
+    if (row.group) return row.group;
+    if (row.type === "gear") return row.shelf || "Gear";
+    if (row.type) return String(row.type).charAt(0).toUpperCase() + String(row.type).slice(1);
+    return "Catalog";
+  }
+  /** Full list for the open combo. An empty query keeps every row; typing filters name, id, and group. */
+  function catalogList(rows, query) {
+    var q = norm(query);
+    return (rows || []).filter(function (row) {
+      if (!row || !row.name) return false;
+      if (!q) return true;
+      return norm(row.name).indexOf(q) >= 0 || norm(row.id).indexOf(q) >= 0 || norm(groupLabel(row)).indexOf(q) >= 0;
+    });
+  }
+  function groupCatalog(rows) {
+    var map = {}, order = [];
+    (rows || []).forEach(function (row) {
+      var g = groupLabel(row);
+      if (!map[g]) { map[g] = []; order.push(g); }
+      map[g].push(row);
+    });
+    order.sort(function (a, b) { return a.localeCompare(b); });
+    return order.map(function (g) {
+      return { group: g, rows: map[g].slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); }) };
+    });
+  }
   function shortName(snap, pid) {
     var n = String((snap && (snap.name || snap.player)) || pid || "them").replace(/["“”].*?["“”]/g, " ").trim();
     return n.split(/\s+/)[0] || n;
@@ -318,10 +346,10 @@
 
   var pure = { ammoCatalog: ammoCatalog, ammoOptions: ammoOptions, gunKeys: gunKeys, poolCount: poolCount, samePool: samePool, byKey: byKey,
     describe: describe, shortName: shortName, ackKey: ackKey, ackCount: ackCount, demoAmmo: demoAmmo, weaponList: weaponList, findWeapon: findWeapon, ammoWhat: ammoWhat,
-    catalogHits: catalogHits, initialOf: initialOf, portraitSrc: portraitSrc };
+    catalogHits: catalogHits, catalogList: catalogList, groupCatalog: groupCatalog, initialOf: initialOf, portraitSrc: portraitSrc };
 
   /* ---------------- DOM ---------------- */
-  var ui = { mode: "", custom: false, showAll: false, recent: [], loadedFor: "" };
+  var ui = { mode: "", custom: false, showAll: false, recent: [], loadedFor: "", catalogOpen: false, catalogIndex: -1 };
   function D() { return root.DMCC; }
   function st() { return (D() && D().state) || {}; }
   function $(id) { return typeof document !== "undefined" ? document.getElementById(id) : null; }
@@ -462,10 +490,10 @@
     var tx = $("rewText");
     if (tx) tx.placeholder = mode === "note" ? "You find a letter tucked in the saddlebag…" : "Gun cleaning kit, Bowie knife, Hardtack…";
     paintSupply();
+    var more = $("giveItemMore");
+    if (more) more.hidden = !(mode === "item" && ui.custom);
     var wrap = $("dmItemFormWrap");
     if (wrap) wrap.hidden = !(ui.custom && (mode === "item" || mode === "weapon"));
-    var cb = $("btnCustomItem");
-    if (cb) { cb.setAttribute("aria-expanded", ui.custom && mode === "item" ? "true" : "false"); cb.textContent = ui.custom && mode === "item" ? "Hide custom item" : "Custom item…"; }
     var cw = $("btnCustomWeapon");
     if (cw) cw.textContent = ui.custom && mode === "weapon" ? "Hide custom weapon" : "Custom weapon…";
   }
@@ -485,7 +513,9 @@
     if (!on) ["rewTags", "rewMeals", "rewWater", "rewCapacity", "rewWeight"].forEach(function (id) { var el = $(id); if (el) el.value = ""; });
   }
   function setMode(m, fromSelect) {
-    ui.mode = m || "";
+    m = m || "";
+    if (m !== ui.mode) { ui.custom = false; if (typeof closeCatalog === "function") closeCatalog(); }
+    ui.mode = m;
     var sel = $("rewType");
     if (sel && !fromSelect && sel.value !== ui.mode) { sel.value = ui.mode; sel.dispatchEvent(new Event("change", { bubbles: true })); return; }
     showFor(ui.mode);
@@ -510,6 +540,20 @@
     }
     var dirty = $("giveWeaponDirty");
     if (dirty && dirty.parentNode && ui.mode === "weapon") { var cw = ctx().weapon; dirty.parentNode.hidden = !!(cw && cw.melee); }
+    paintMatch();
+  }
+  /* The dashed box stays off the page until a catalog pick has a Lands-as line (or a Dirty gun). */
+  function paintMatch() {
+    var box = $("rewItemWrap");
+    var match = $("rewMatch");
+    var builder = $("rewItemBuilder");
+    if (builder) builder.hidden = true;
+    var line = match ? String(match.textContent || "") : "";
+    var lands = line.indexOf("Lands as:") === 0;
+    if (match) match.hidden = !lands;
+    if (!box) return;
+    var dirty = $("rewDirtyWrap");
+    box.hidden = !lands && !(dirty && !dirty.hidden);
   }
   function paintButton(p) {
     p = p || plan();
@@ -620,18 +664,60 @@
     paintWho();
     return true;
   }
+  function rowsForMode() {
+    if (ui.mode === "weapon") {
+      return weaponList().map(function (w) { return { id: w.id, name: w.name, group: w.melee ? "Melee" : "Guns" }; });
+    }
+    if (ui.mode === "ammo") {
+      return ammoCatalog().map(function (o) { return { id: o.key, name: o.label, group: o.group || "Ammo" }; });
+    }
+    var I = root.SSDNSItems;
+    return I && I.catalog ? I.catalog({ dm: true }) : [];
+  }
   function paintCatalog() {
     var box = $("giveCatalogHits");
     var field = $("giveCatalogSearch");
     if (!box || !field) return;
-    var I = root.SSDNSItems;
-    var rows = I && I.catalog ? I.catalog({ dm: true }) : [];
-    var hits = catalogHits(rows, field.value || "");
-    if (!hits.length) { box.hidden = true; box.innerHTML = ""; return; }
-    box.hidden = false;
-    box.innerHTML = hits.map(function (row) {
-      return '<button type="button" class="btn give-hit" data-give-catalog="' + esc(row.id) + '" data-give-name="' + esc(row.name) + '">' + esc(row.name) + "</button>";
+    var typed = String(field.value || "").trim();
+    var groups = groupCatalog(catalogList(rowsForMode(), typed));
+    var html = groups.map(function (g) {
+      return '<div class="give-cat-head">' + esc(g.group) + "</div>" + g.rows.map(function (row) {
+        return '<button type="button" class="btn give-hit" role="option" data-give-catalog="' + esc(row.id) + '" data-give-name="' + esc(row.name) + '">' + esc(row.name) + "</button>";
+      }).join("");
     }).join("");
+    if (ui.mode === "item" && typed) html += '<button type="button" class="btn give-hit give-hit-custom" role="option" data-give-custom="1">+ Create custom item: ' + esc(typed) + "</button>";
+    var open = !!ui.catalogOpen && !!html;
+    box.hidden = !open;
+    box.innerHTML = open ? html : "";
+    if (field) field.setAttribute("aria-expanded", open ? "true" : "false");
+    var toggle = $("giveCatalogToggle");
+    if (toggle) toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    ui.catalogIndex = -1;
+  }
+  function closeCatalog() {
+    ui.catalogOpen = false;
+    ui.catalogIndex = -1;
+    paintCatalog();
+  }
+  function openCatalog() {
+    ui.catalogOpen = true;
+    paintCatalog();
+  }
+  function moveCatalog(dir) {
+    var box = $("giveCatalogHits");
+    if (!box || box.hidden) { openCatalog(); }
+    var opts = box ? [].slice.call(box.querySelectorAll("[data-give-catalog],[data-give-custom]")) : [];
+    if (!opts.length) return;
+    var next = ui.catalogIndex + dir;
+    if (next < 0) next = opts.length - 1;
+    if (next >= opts.length) next = 0;
+    ui.catalogIndex = next;
+    opts.forEach(function (el, i) {
+      var on = i === next;
+      el.classList.toggle("on", on);
+      el.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    try { opts[next].scrollIntoView({ block: "nearest" }); } catch (e) {}
   }
   function stepQty(id, dir) {
     var input = $(id);
@@ -644,12 +730,43 @@
     input.dispatchEvent(new Event("input", { bubbles: true }));
   }
   function pickCatalog(id, name) {
-    var tx = $("rewText");
-    if (tx) { tx.value = name || ""; tx.dispatchEvent(new Event("input", { bubbles: true })); }
+    if (ui.mode === "weapon") {
+      var gun = $("giveWeapon");
+      if (gun) { gun.value = name || ""; gun.dispatchEvent(new Event("input", { bubbles: true })); }
+    } else if (ui.mode === "ammo") {
+      var sel = $("giveAmmo");
+      if (sel) {
+        if (id && ![].some.call(sel.options, function (o) { return o.value === id; })) {
+          var opt = document.createElement("option");
+          opt.value = id;
+          opt.textContent = name || id;
+          sel.appendChild(opt);
+        }
+        sel.value = id || "";
+        sel.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    } else {
+      var tx = $("rewText");
+      if (tx) { tx.value = name || ""; tx.dispatchEvent(new Event("input", { bubbles: true })); }
+    }
     var field = $("giveCatalogSearch");
     if (field) field.value = "";
-    var box = $("giveCatalogHits");
-    if (box) { box.hidden = true; box.innerHTML = ""; }
+    ui.custom = false;
+    closeCatalog();
+    showFor(ui.mode);
+  }
+  function openCustom() {
+    var name = String(($("giveCatalogSearch") || {}).value || "").trim();
+    ui.custom = true;
+    var tx = $("rewText");
+    if (tx) { tx.value = name; tx.dispatchEvent(new Event("input", { bubbles: true })); }
+    var form = $("dmItemForm");
+    var nm = form && form.querySelector("[data-item-name]");
+    if (nm) nm.value = name;
+    var field = $("giveCatalogSearch");
+    if (field) field.value = "";
+    closeCatalog();
+    showFor(ui.mode);
   }
   function paintWho() { whoCards(); paintMore(); if (ui.mode === "ammo") fillAmmo(); paintPreview(); }
   function paint() {
@@ -676,15 +793,17 @@
     if (!panel || panel.getAttribute("data-give-tab")) return;
     panel.setAttribute("data-give-tab", "1");
     panel.addEventListener("click", function (e) {
-      var t = e.target && e.target.closest ? e.target.closest("[data-give-who],[data-give-mode],[data-give-undo],[data-give-step],[data-give-catalog],#btnCustomItem,#btnCustomWeapon") : null;
+      var t = e.target && e.target.closest ? e.target.closest("[data-give-who],[data-give-mode],[data-give-undo],[data-give-step],[data-give-catalog],[data-give-custom],#giveCatalogToggle,#btnCustomWeapon") : null;
       if (!t) return;
+      if (t.id === "giveCatalogToggle") { if (ui.catalogOpen) closeCatalog(); else openCatalog(); return; }
       if (t.hasAttribute("data-give-step")) { stepQty(t.getAttribute("data-give-for"), Number(t.getAttribute("data-give-step")) || 0); return; }
+      if (t.hasAttribute("data-give-custom")) { openCustom(); return; }
       if (t.hasAttribute("data-give-catalog")) { pickCatalog(t.getAttribute("data-give-catalog"), t.getAttribute("data-give-name")); return; }
       if (t.hasAttribute("data-give-who")) { pickWho(t.getAttribute("data-give-who")); return; }
       if (t.hasAttribute("data-give-mode")) { setMode(t.getAttribute("data-give-mode")); return; }
       if (t.hasAttribute("data-give-undo")) { t.disabled = true; undo(t.getAttribute("data-give-undo")); return; }
-      if (t.id === "btnCustomItem" || t.id === "btnCustomWeapon") {
-        var forMode = t.id === "btnCustomItem" ? "item" : "weapon";
+      if (t.id === "btnCustomWeapon") {
+        var forMode = "weapon";
         ui.custom = !(ui.custom && ui.mode === forMode);
         showFor(ui.mode);
         if (ui.custom && forMode === "weapon") {
@@ -696,9 +815,31 @@
       }
     });
     panel.addEventListener("input", function (e) {
-      if (e.target && e.target.id === "giveCatalogSearch") paintCatalog();
+      if (e.target && e.target.id === "giveCatalogSearch") { ui.catalogOpen = true; paintCatalog(); }
       paintSupplyLater();
       paintPreview();
+    });
+    panel.addEventListener("focusin", function (e) {
+      if (e.target && e.target.id === "giveCatalogSearch") openCatalog();
+    });
+    panel.addEventListener("keydown", function (e) {
+      var id = e.target && e.target.id;
+      if (id !== "giveCatalogSearch" && !(e.target && e.target.closest && e.target.closest("#giveCatalogHits"))) return;
+      if (e.key === "Escape") { closeCatalog(); e.preventDefault(); return; }
+      if (e.key === "ArrowDown") { moveCatalog(1); e.preventDefault(); return; }
+      if (e.key === "ArrowUp") { moveCatalog(-1); e.preventDefault(); return; }
+      if (e.key === "Enter") {
+        var box = $("giveCatalogHits");
+        var opts = box ? [].slice.call(box.querySelectorAll("[data-give-catalog],[data-give-custom]")) : [];
+        var pick = opts[ui.catalogIndex] || opts[0];
+        if (pick && ui.catalogOpen) { pick.click(); e.preventDefault(); }
+      }
+    });
+    document.addEventListener("click", function (e) {
+      var wrap = $("giveCatalogWrap");
+      if (!wrap || !ui.catalogOpen) return;
+      if (wrap.contains(e.target)) return;
+      closeCatalog();
     });
     panel.addEventListener("change", function (e) {
       var id = e.target && e.target.id;

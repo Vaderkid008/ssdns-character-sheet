@@ -32,7 +32,8 @@ const page = read("dm/index.html");
   check("chip." + mode, page.includes('data-give-mode="' + mode + '"'));
 });
 check("keep.reason", page.includes('id="rewReason"') && page.includes('data-give-show="es ammo item weapon"'));
-check("keep.food", page.includes("It's food or water") && page.includes('id="btnCustomItem"'));
+check("keep.food", page.includes("It's food or water") && !page.includes('id="btnCustomItem"'));
+check("keep.customRow", read("dm/assets/js/give-tab.js").includes("Create custom item"));
 check("keep.step", page.includes('class="btn give-step-btn"') && page.includes('id="giveCatalogSearch"'));
 
 const dom = new JSDOM(`<!doctype html><body>
@@ -52,8 +53,13 @@ const dom = new JSDOM(`<!doctype html><body>
   <select id="rewType"><option value=""></option><option value="es">es</option><option value="ammo">ammo</option><option value="item">item</option><option value="weapon">weapon</option><option value="kit">kit</option><option value="note">note</option><option value="loot">loot</option></select>
   <div id="rewReasonWrap" data-give-show="es ammo item weapon"><input id="rewReason" value="Bounty"></div>
   <div id="giveItemMore" data-give-show="item" hidden><input id="giveSupplyOn"><button id="btnCustomItem">Custom item…</button></div>
-  <input id="giveCatalogSearch">
-  <div id="giveCatalogHits" hidden></div>
+  <div id="giveCatalogWrap">
+    <input id="giveCatalogSearch" role="combobox">
+    <button type="button" id="giveCatalogToggle">▼</button>
+    <div id="giveCatalogHits" hidden></div>
+  </div>
+  <div id="dmItemFormWrap" hidden><div id="dmItemForm"><input data-item-name></div></div>
+  <div id="rewItemWrap"><p id="rewMatch"></p><div id="rewItemBuilder"></div></div>
   <input id="rewText">
   <input id="rewQty" min="1" value="1">
   <button type="button" data-give-step="-1" data-give-for="rewQty">-</button>
@@ -68,9 +74,9 @@ const dom = new JSDOM(`<!doctype html><body>
 </body>`, { url: "http://localhost/dm/", runScripts: "dangerously" });
 const w = dom.window;
 const catalog = [
-  { id: "hardtack", name: "Hardtack" },
-  { id: "bowie-knife", name: "Bowie knife" },
-  { id: "waterskin", name: "Waterskin" }
+  { id: "hardtack", name: "Hardtack", type: "consumable" },
+  { id: "bowie-knife", name: "Bowie knife", type: "weapon" },
+  { id: "waterskin", name: "Waterskin", type: "gear", shelf: "Drink" }
 ];
 w.SSDNSItems = {
   catalog() { return catalog; },
@@ -109,7 +115,7 @@ check("who.click", w.document.getElementById("rewTarget").value === "p1");
 w.SSDNSGiveTab.setMode("item", true);
 const chips = [...w.document.querySelectorAll("[data-give-mode]")].map((b) => b.getAttribute("data-give-mode"));
 check("chips.stay", chips.join(",") === "es,ammo,item,weapon,kit,note,loot" && [...w.document.querySelectorAll("[data-give-mode]")].every((b) => !b.hidden), chips.join(","));
-check("item.extras", !w.document.getElementById("giveItemMore").hidden && !w.document.getElementById("rewReasonWrap").hidden);
+check("item.extras", w.document.getElementById("giveItemMore").hidden && !w.document.getElementById("rewReasonWrap").hidden);
 const plus = w.document.querySelector('[data-give-step="1"][data-give-for="rewQty"]');
 plus.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
 plus.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
@@ -125,6 +131,32 @@ hits.querySelector("[data-give-catalog]").dispatchEvent(new w.MouseEvent("click"
 check("search.pick", w.document.getElementById("rewText").value === "Bowie knife" && hits.hidden);
 const itemPlan = w.SSDNSGiveTab.plan();
 check("item.plan", itemPlan.what === "3 × Bowie knife" && !itemPlan.error, itemPlan.what);
+
+search.value = "";
+search.dispatchEvent(new w.FocusEvent("focusin", { bubbles: true }));
+check("drop.open", !hits.hidden && hits.querySelectorAll("[data-give-catalog]").length === 3 && !hits.querySelector("[data-give-custom]"), hits.textContent);
+check("drop.groups", ["Consumable", "Weapon", "Drink"].every((g) => hits.textContent.indexOf(g) >= 0), hits.textContent);
+check("stepper.size", (page.match(/class="btn give-step-btn"/g) || []).length === 4 && read("dm/assets/css/dmcc.css").includes("width: 40px") && read("dm/assets/css/dmcc.css").includes("height: 40px"));
+search.value = "har";
+search.dispatchEvent(new w.Event("input", { bubbles: true }));
+search.dispatchEvent(new w.KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+search.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+check("drop.key", w.document.getElementById("rewText").value === "Hardtack" && hits.hidden, w.document.getElementById("rewText").value);
+search.value = "lantern";
+search.dispatchEvent(new w.Event("input", { bubbles: true }));
+check("drop.customRow", !!hits.querySelector("[data-give-custom]") && hits.textContent.indexOf("Create custom item: lantern") >= 0, hits.textContent);
+search.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+check("drop.esc", hits.hidden);
+search.value = "Lantern oil";
+search.dispatchEvent(new w.Event("input", { bubbles: true }));
+hits.querySelector("[data-give-custom]").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+check("custom.inline", !w.document.getElementById("dmItemFormWrap").hidden && w.document.querySelector("[data-item-name]").value === "Lantern oil" && w.document.getElementById("rewText").value === "Lantern oil");
+check("custom.food", !w.document.getElementById("giveItemMore").hidden);
+check("lands.hidden", w.document.getElementById("rewMatch").hidden);
+w.document.body.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+search.value = "";
+search.dispatchEvent(new w.FocusEvent("focusin", { bubbles: true }));
+check("drop.outside", (w.document.body.dispatchEvent(new w.MouseEvent("click", { bubbles: true })) || true) && w.document.getElementById("giveCatalogHits").hidden);
 
 w.SSDNSGiveTab.setMode("loot");
 const loot = w.SSDNSGiveTab.plan();
