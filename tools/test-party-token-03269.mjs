@@ -1,7 +1,7 @@
 /**
  * Party token: one story marker on a big map.
  * The DM places, moves, renames, and removes it. Players see the same square and cannot drag it.
- * It is not a combatant. Sheet 0.3.293 / DMCC 0.2.306.
+ * It is not a combatant. Sheet 0.3.294 / DMCC 0.2.307.
  *   node tools/test-party-token-03269.mjs
  */
 import fs from "node:fs";
@@ -19,12 +19,12 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.293" && ver.dmcc === "0.2.306" && ver.sheetBuild === "sheet-playtest-v03293" && ver.dmccBuild === "dmcc-playtest-v02306");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.293") && !read("database.rules.json").includes("0.3.293"));
+check("ver", ver.sheet === "0.3.294" && ver.dmcc === "0.2.307" && ver.sheetBuild === "sheet-playtest-v03294" && ver.dmccBuild === "dmcc-playtest-v02307");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.294") && !read("database.rules.json").includes("0.3.294"));
 const sheet = read("index.html");
 const dmHtml = read("dm/index.html");
-check("cache.sheet", sheet.includes('data-act="partyTokenBtn"') === false && sheet.includes("map/ssdns-map.js?v=0.3.293-force"));
-check("cache.dm", dmHtml.includes("Party token") === false && dmHtml.includes("../map/ssdns-map.js?v=0.2.306-force"));
+check("cache.sheet", sheet.includes('data-act="partyTokenBtn"') === false && sheet.includes("map/ssdns-map.js?v=0.3.294-force"));
+check("cache.dm", dmHtml.includes("Party token") === false && dmHtml.includes("../map/ssdns-map.js?v=0.2.307-force"));
 check("src.button", read("map/ssdns-map.js").includes('data-act="partyTokenBtn"') && read("map/ssdns-map.js").includes(">Party token</button>"));
 const gun = fs.readFileSync(path.join(root, "assets/images/party-hell-maker.webp"));
 check("src.art", read("map/ssdns-map.js").includes("party-hell-maker.webp") && read("map/ssdns-map.js").includes("dm-only/hell-maker.webp") && read("map/ssdns-map.js").includes("party-six-shooter.svg") && read("map/ssdns-map.js").includes("asset-baggage-cart"));
@@ -288,9 +288,19 @@ await flush(30);
 const nightParty = box(nightPl, (t) => t.story);
 check("fog.loaded", !!nightParty && nightParty.x === 12 && nightParty.y === 12);
 check("fog.art", !!nightParty && String(nightParty.image).indexOf("party-hell-maker.webp") >= 0);
-check("fog.hidden", nightPl.canPlayerSee("scout", nightParty && nightParty.id) === false);
+check("fog.lit", nightPl.canPlayerSee("scout", nightParty && nightParty.id) === true);
+check("fog.near", nightPl.squareShown(13, 12, "scout") === true);
+check("fog.far", nightPl.squareShown(12, 40, "scout") === false);
 const nightTexts = ((nightPlEl.querySelector("canvas") || {}).__texts || []).join(" ");
-check("fog.notPainted", nightTexts.indexOf("Camp") < 0, nightTexts);
+check("fog.painted", nightTexts.indexOf("Camp") >= 0, nightTexts);
+const lanternToast = nightPlEl.querySelector('[data-act="toast"]');
+check("toast.lantern", !lanternToast || lanternToast.style.display === "none" || !/carrying a light/.test(lanternToast.textContent || ""), lanternToast && lanternToast.textContent);
+const lightBox = nightDmEl.querySelector('[data-act="partyLight"]');
+check("toast.toggle", !!lightBox);
+if (lightBox) lightBox.click();
+await flush(40);
+const darkToast = nightDmEl.querySelector('[data-act="toast"]');
+check("toast.dark", !!darkToast && darkToast.style.display !== "none" && /carrying a light/.test(darkToast.textContent || ""), darkToast && darkToast.textContent);
 
 dm.removePartyToken();
 await flush(30);
