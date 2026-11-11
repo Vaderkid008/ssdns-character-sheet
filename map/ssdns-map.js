@@ -445,13 +445,16 @@ function applySharedToTokens() {
       if (s.noHpPool) t.noHpPool = true;
       if (s.notTargetable) t.notTargetable = true;
       if (s.noInit) t.noInit = true;
-      if (s.kind === 'asset' || s.asset) {
-        t.kind = 'asset';
+      if (s.kind === "asset" || (s.asset && !isCreatureToken(s))) {
+        t.kind = "asset";
         if (s.asset) t.asset = s.asset;
         if (s.assetDefId) t.assetDefId = s.assetDefId;
         if (s.size) t.size = tokSquares(s.size);
         if (s.asset && s.asset.targetable) t.notTargetable = false;
         else if (s.notTargetable) t.notTargetable = true;
+      } else if (s.asset) {
+        t.asset = s.asset;
+        if (s.assetDefId) t.assetDefId = s.assetDefId;
       }
       if (s.moveFeet != null && s.moveFeet !== '') t.moveFeet = Number(s.moveFeet) || 0;
       if (s.damageBudget != null && s.damageBudget !== '') t.damageBudget = Number(s.damageBudget) || 0;
@@ -8379,7 +8382,7 @@ function readBombEffects(rootEl) {
 }
 function bindBomb(d, token) {
   const I = interactApi();
-  if (!d || !token || !I) return;
+  if (!d || !token || token.kind !== "asset" || !I) return;
   const panel = d.querySelector('[data-act="bombPanel"]');
   if (!panel || panel._bound) return;
   panel._bound = true;
@@ -8441,7 +8444,7 @@ function bindBomb(d, token) {
 }
 function paintAssetChip(ctx, token, s, r) {
   const I = interactApi();
-  if (!I) return;
+  if (!I || !token || token.kind !== "asset") return;
   const text = I.chipText(token, (state.initiative && state.initiative.round) || 1, role === "dm" ? "dm" : "player");
   if (!text) return;
   ctx.save();
@@ -11533,8 +11536,62 @@ function dmToolsHtml(inner) {
 }
 function bombToolsHtml(token) {
   const I = window.SSDNSInteract;
-  if (!I || !token || typeof I.bombPanelHtml !== 'function') return '';
+  if (!I || !token || token.kind !== "asset" || typeof I.bombPanelHtml !== "function") return "";
   return dmToolsHtml(I.bombPanelHtml(token));
+}
+function isCreatureToken(token) {
+  if (!token || token.kind === "asset" || token.kind === "chest" || token.kind === "drop" || token.kind === "marker") return false;
+  if (typeof isPartyToken === "function" && isPartyToken(token)) return true;
+  const k = token.kind;
+  return k === "player" || k === "enemy" || k === "npc" || k === "friendly" || k === "party" || !k;
+}
+function hasStrayFuse(token) {
+  if (role !== "dm" || !isCreatureToken(token) || !token.asset) return false;
+  const timer = token.asset.props && token.asset.props.timer;
+  const st = token.asset.state || {};
+  if (timer && (timer.mode || Number(timer.fuseRounds) > 0)) return true;
+  if (st.firesAtRound != null || st.waiting || st.armedAtRound != null || st.countdownVisible) return true;
+  return false;
+}
+function strayFuseHtml(token) {
+  if (!hasStrayFuse(token)) return "";
+  return '<button type="button" data-act="clearStrayFuse">Clear stray fuse</button>';
+}
+function clearStrayFuse(token) {
+  if (role !== "dm" || !isCreatureToken(token) || !token.asset) return;
+  if (token.asset.props) delete token.asset.props.timer;
+  if (token.asset.state) {
+    delete token.asset.state.firesAtRound;
+    delete token.asset.state.armedAtRound;
+    delete token.asset.state.waiting;
+    delete token.asset.state.pendingFuse;
+    delete token.asset.state.countdownVisible;
+  }
+  if (token.asset.effects) token.asset.effects = [];
+  if (!token.assetDefId) {
+    const props = token.asset.props || {};
+    const rest = Object.keys(props).filter(k => k !== "timer" && props[k] != null && props[k] !== "");
+    if (!rest.length) delete token.asset;
+  }
+  const copy = shared.tokens && shared.tokens[token.id];
+  if (copy) {
+    if (token.asset) copy.asset = JSON.parse(JSON.stringify(token.asset));
+    else delete copy.asset;
+  }
+  saveToken(token.id);
+  toast("Stray fuse cleared");
+  draw();
+  if (state.drawerOpen && state.drawerTokenId === token.id) renderDrawer();
+}
+function bindStrayFuse(rootEl, token) {
+  if (!rootEl || !token) return;
+  const btn = rootEl.querySelector('[data-act="clearStrayFuse"]');
+  if (!btn || btn._bound) return;
+  btn._bound = true;
+  btn.addEventListener("click", ev => {
+    ev.preventDefault();
+    clearStrayFuse(token);
+  });
 }
 function lightDrawerHtml(token) {
   if (role !== 'dm' || !token) return '';
@@ -16139,6 +16196,7 @@ function syncCombatants(initiative) {
       '<div data-act="n62Compact"' + (full ? ' hidden' : '') + '>' + n62PeekHtml(card, true) +
       '<details class="n62-acc"><summary>Conditions <small>' + (names.length ? names.length + ' active' : 'none') + '</small></summary><div class="n62-accbody">' + condLine + '</div></details></div>' +
       dmToolsHtml(bag.bomb) +
+      (bag.stray || "") +
       '</div>';
   }
   function n62OnClick(e, repaint) {
@@ -16875,6 +16933,7 @@ function syncCombatants(initiative) {
         '<label><input type="checkbox" data-act="assetTarget"' + (assetTok.notTargetable ? '' : ' checked') + '> Targetable</label>' +
         '<label><input type="checkbox" data-act="assetHide"' + (assetTok.hidden ? ' checked' : '') + '> Hidden from players</label>' +
         '<div class="ssm-row"><button type="button" data-act="assetDelete">Delete from map</button></div>' +
+        bombToolsHtml(assetTok) +
         '</div>';
       const c = d.querySelector('[data-act="drawerClose"]');
       if (c) c.addEventListener('click', closeDrawer);
@@ -16916,6 +16975,7 @@ function syncCombatants(initiative) {
         hideAssetMenu();
         closeDrawer();
       });
+      bindBomb(d, assetTok);
       syncDockChrome(d);
       done();
       return;
@@ -16942,7 +17002,7 @@ function syncCombatants(initiative) {
         '</select>' +
         '<p class="ssm-tactics">Players can be laid out before a fight. A bestiary or custom enemy is added on the Fight tab and linked here.</p>' +
         lightDrawerHtml(bare) +
-        bombToolsHtml(bare) +
+        strayFuseHtml(bare) +
         '</div>';
       const c = d.querySelector('[data-act="drawerClose"]');
       if (c) c.addEventListener('click', closeDrawer);
@@ -16954,7 +17014,7 @@ function syncCombatants(initiative) {
         pick.value = '';
       });
       bindLightHands(d, tokenId);
-      bindBomb(d, bare);
+      bindStrayFuse(d, bare);
       syncDockChrome(d);
       done();
       return;
@@ -17189,7 +17249,8 @@ function syncCombatants(initiative) {
       tactics: card.tactics || '',
       markerRow: markerRow,
       actToggle: actToggle,
-      bomb: window.SSDNSInteract ? window.SSDNSInteract.bombPanelHtml(state.tokens.find(t => t && t.id === tokenId)) : '',
+      bomb: "",
+      stray: strayFuseHtml(state.tokens.find(t => t && t.id === tokenId)),
       pending: pendingBannerHtml(tokenId),
       light: lightDrawerHtml(state.tokens.find(t => t && t.id === tokenId)),
       gear: gearDrawerHtml(card),
@@ -17241,7 +17302,7 @@ function syncCombatants(initiative) {
         '<button type="button" data-act="shoveBtn"' + shoveAttr + '>Shove</button>' +
       '</div>' +
       '<button type="button" data-act="imageBtn">Replace image</button>' +
-      bombToolsHtml(state.tokens.find(t => t && t.id === tokenId)) +
+      strayFuseHtml(state.tokens.find(t => t && t.id === tokenId)) +
       '</div>');
     bindSpellFold(d);
     d.querySelectorAll('details[data-n62-acc]').forEach(box => {
@@ -17252,6 +17313,7 @@ function syncCombatants(initiative) {
       });
     });
     bindBomb(d, state.tokens.find(t => t && t.id === tokenId));
+    bindStrayFuse(d, state.tokens.find(t => t && t.id === tokenId));
     const readHp = () => {
       const elAmt = d.querySelector('[data-act="hpAmt"]');
       const n = parseInt(elAmt && elAmt.value, 10);
