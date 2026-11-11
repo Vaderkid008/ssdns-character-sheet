@@ -121,7 +121,12 @@ w.Math.random = () => 0.99;
 el.querySelector('[data-chest="force"]').dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
 await flush(40);
 const opened = boxes().find((t) => t.loot && t.loot.container === "strongbox");
-check("success.open", opened && opened.loot.opened === true && opened.loot.lock.unlocked === true && menuText().indexOf("Take") >= 0, menuText());
+check("success.unlocks", opened && opened.loot.opened === false && opened.loot.lock.unlocked === true && menuText().indexOf("Take") < 0, menuText());
+const openBtn = el.querySelector('[data-dm="open"]');
+if (openBtn) openBtn.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+await flush(20);
+const afterOpen = boxes().find((t) => t.loot && t.loot.container === "strongbox");
+check("success.open", afterOpen && afterOpen.loot.opened === true, JSON.stringify(afterOpen && afterOpen.loot && { opened: afterOpen.loot.opened }));
 check("success.die", dies.length === 1 && dies[0].challenge === true && dies[0].fancy === true && dies[0].nat === 20 && dies[0].lockpick !== true && dies[0].label === "Force open", JSON.stringify(dies[0]));
 
 el.querySelector('[data-act="resetLockBtn"]').click();

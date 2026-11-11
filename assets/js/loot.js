@@ -555,12 +555,8 @@
     var dnat = forced.nat != null ? Number(forced.nat) : die(20, rng);
     var dtotal = forced.total != null ? Number(forced.total) : dnat + str + ath;
     var dok = dtotal >= dc;
-    var what = strongboxBox(box) ? "strongbox" : "container";
-    var line = "d20 " + dnat + " " + signNum(str) + " Str" + (ath ? " " + signNum(ath) + " Athletics" : "") + " = " + dtotal + " vs DC " + dc + (dok ? ". The " + what + " opens." : ". It holds. That was loud.");
-    if (dok) {
-      box.lock.unlocked = true;
-      box.opened = true;
-    }
+    var line = "d20 " + dnat + " " + signNum(str) + " Str" + (ath ? " " + signNum(ath) + " Athletics" : "") + " = " + dtotal + " vs DC " + dc + (dok ? ". Unlocked." : ". It holds. That was loud.");
+    if (dok) box.lock.unlocked = true;
     box.log.push(line);
     if (whoId) box.lock.forceAttempts[whoId] = { nat: dnat, total: dtotal, success: dok, dc: dc, line: line };
     return { ok: true, success: dok, noise: !dok, box: box, nat: dnat, total: dtotal, dc: dc, line: line };

@@ -45,9 +45,9 @@ await flush(80);
 el.querySelector('[data-act="placeChestBtn"]').click();
 await flush(40);
 const menu = w.document.querySelector('[data-act="dmChest"]');
-check("editor", !!(menu && menu.querySelector('[data-dm="search"]') && menu.querySelector('[data-dm="add-custom"]') && menu.querySelector('[data-dm="coin"]')));
+check("editor", !!(menu && menu.querySelector('[data-dm="search"]') && menu.querySelector('[data-dm="add-custom"]') && menu.querySelector('[data-dm="coin"]') && menu.querySelector('[data-act="catalogHits"]')));
 const before = (menu.textContent || "").replace(/\s+/g, " ");
-check("before.list", before.includes("Trail rations") && before.includes("Waterskin"));
+check("before.list", /ContentsEmpty/.test(before) && !/Trail rations/.test(before) && !/Waterskin/.test(before), before.slice(0, 220));
 
 const search = menu.querySelector('[data-dm="search"]');
 search.value = "healing";
@@ -80,7 +80,7 @@ function published() {
 }
 const pub = published();
 const rows = pub && pub.loot && pub.loot.contents || [];
-check("qty.synced", rows[0] && rows[0].name === "Trail rations" && rows[0].qty === 4, JSON.stringify(rows[0]));
+check("qty.synced", rows[0] && /healing/i.test(rows[0].name || "") && rows[0].qty === 4, JSON.stringify(rows[0]));
 check("catalog.added", rows.some((r) => /healing/i.test(r.name || "")), rows.map((r) => r.name).join(", "));
 const poster = rows.find((r) => r.name === "Wanted poster");
 check("custom.added", poster && poster.qty === 2 && poster.weight === 0.5 && poster.notes === "Nailed to the lid", JSON.stringify(poster));
@@ -90,7 +90,7 @@ const remove = w.document.querySelector('[data-act="dmChest"] [data-dm="remove"]
 if (remove) remove.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
 await flush(20);
 const left = published().loot.contents;
-check("removed", left.length === rows.length - 1 && left[0].name !== "Trail rations", left.map((r) => r.name).join(", "));
+check("removed", left.length === rows.length - 1 && left[0].name === "Wanted poster", left.map((r) => r.name).join(", "));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

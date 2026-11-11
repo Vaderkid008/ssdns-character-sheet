@@ -93,11 +93,17 @@
    * Wall fields stay {x1,y1,x2,y2,open}. This does not add a collision format.
    */
   function segmentBlocks(x1, y1, x2, y2, wall) {
-    /* An open door is a floor square: the segment does not block, and the square can be occupied. */
+    /* An open door is a floor square: the segment does not block, and the square can be occupied.
+       A closed door is only the edge between two squares. Standing on either side is legal.
+       The step is blocked only when the two centres are on opposite sides of that edge. */
     if (!wall || wall.open) return false;
-    var d = (x2 - x1) * (wall.y2 - wall.y1) - (y2 - y1) * (wall.x2 - wall.x1);
+    var wx = wall.x2 - wall.x1, wy = wall.y2 - wall.y1;
+    var side1 = wx * (y1 - wall.y1) - wy * (x1 - wall.x1);
+    var side2 = wx * (y2 - wall.y1) - wy * (x2 - wall.x1);
+    if (wall.door && side1 * side2 >= 0) return false;
+    var d = (x2 - x1) * wy - (y2 - y1) * wx;
     if (Math.abs(d) < 0.0001) return false;
-    var t = ((wall.x1 - x1) * (wall.y2 - wall.y1) - (wall.y1 - y1) * (wall.x2 - wall.x1)) / d;
+    var t = ((wall.x1 - x1) * wy - (wall.y1 - y1) * wx) / d;
     var u = ((wall.x1 - x1) * (y2 - y1) - (wall.y1 - y1) * (x2 - x1)) / d;
     return t >= 1e-6 && t <= 1 && u >= 0 && u <= 1;
   }
