@@ -6445,8 +6445,15 @@ function feedZoomPlan(row, selfUid, started) {
 }
 function replayFeedZoom(row, started) {
   const how = feedZoomPlan(row, DM.state && DM.state.uid, started);
+  if (!how) return;
+  const Card = window.SSDNSRollCard;
+  const ev = how === "zoom" ? row.zoom : row.die;
+  if (Card && Card.enabled && Card.enabled() && Card.wants && Card.wants(ev, row)) {
+    try { Card.offer(Card.fromFeed(row)); } catch (eCard) {}
+    return;
+  }
   const Zoom = window.SSDNSD20Zoom;
-  if (!how || !Zoom) return;
+  if (!Zoom) return;
   try {
     if (how === "zoom" && typeof Zoom.play === "function") Zoom.play(row.zoom);
     else if (how === "die" && typeof Zoom.present === "function") Zoom.present(row.die);

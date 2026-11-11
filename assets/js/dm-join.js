@@ -632,6 +632,14 @@
         id: id, ts: entry.ts, from: state.uid,
         fromName: entry.characterName || entry.who, characterName: entry.characterName || "", playerName: entry.playerName || "", weapon: entry.weapon || "", spellName: entry.spellName || "", text: rollText(entry), kind: "roll", who: entry.characterName || entry.who, formula: entry.formula || "", detail: entry.detail || "", dice: Array.isArray(entry.dice) ? entry.dice : null, rolls: Array.isArray(entry.rolls) ? entry.rolls : null, faces: Array.isArray(entry.faces) ? entry.faces : null
       };
+      if (entry.challenge) {
+        if (entry.check) feed.check = entry.check;
+        if (entry.total != null) feed.total = entry.total;
+        if (entry.dc != null) feed.dc = entry.dc;
+        if (entry.success != null) feed.success = entry.success;
+        if (entry.portrait) feed.portrait = entry.portrait;
+        feed.challenge = true;
+      }
       if (fxReq && !entry.awaitDm && root.SSDNSMapFx && root.SSDNSMapFx.request) {
         try { feed.fxReq = root.SSDNSMapFx.request(fxReq); } catch (e) {}
       }
@@ -1552,15 +1560,20 @@
           id: rollId,
           challenge: true,
           label: payload.label || "Challenge",
+          check: payload.label || "Challenge",
           formula: "1d20" + signBonus(bonus),
           result: total,
+          total: total,
           nat: nat,
+          dc: (dc != null && isFinite(dc)) ? dc : null,
+          success: (dc != null && isFinite(dc)) ? (nat !== 1 && total >= dc) : null,
           crit: !!(pose && pose.kind === "crit"),
           critMin: 20,
           detail: line,
           die: pose && pose.kind === "plain" ? pose : null,
           characterName: who,
-          who: who
+          who: who,
+          portrait: (function () { try { var ch = root.SSDNSApp && root.SSDNSApp.doc && root.SSDNSApp.doc() && root.SSDNSApp.doc().character; return (ch && ch.portrait) || ""; } catch (eP) { return ""; } })()
         });
       }
     });

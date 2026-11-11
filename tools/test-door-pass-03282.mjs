@@ -1,6 +1,6 @@
 /**
  * Closed doors block a step across and stay usable from the next square.
- * Open doors can be walked through. Sheet 0.3.288 / DMCC 0.2.301.
+ * Open doors can be walked through. Sheet 0.3.289 / DMCC 0.2.302.
  *   node tools/test-door-pass-03282.mjs
  */
 import fs from "node:fs";
@@ -16,7 +16,7 @@ function check(id, cond, detail) {
 }
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.288" && ver.dmcc === "0.2.301" && ver.sheetBuild === "sheet-playtest-v03288" && ver.dmccBuild === "dmcc-playtest-v02301");
+check("ver", ver.sheet === "0.3.289" && ver.dmcc === "0.2.302" && ver.sheetBuild === "sheet-playtest-v03289" && ver.dmccBuild === "dmcc-playtest-v02302");
 
 const context = {
   console, Math, Date, JSON, parseInt, isFinite, Number, String, Object, Array
