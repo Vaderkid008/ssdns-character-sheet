@@ -2,7 +2,7 @@
  * Challenge waits on Art's blank d20. Clicking that die rolls.
  * Fancy blank→number and crit/FAIL stay on that gold path only.
  * A sheet d20 still uses the normal spin. No new sound.
- * Sheet 0.3.285 / DMCC 0.2.298.
+ * Sheet 0.3.286 / DMCC 0.2.299.
  *   node tools/test-challenge-d20-03257.mjs
  */
 import fs from "node:fs";
@@ -20,8 +20,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.285" && ver.dmcc === "0.2.298" && ver.sheetBuild === "sheet-playtest-v03285" && ver.dmccBuild === "dmcc-playtest-v02298");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.285") && !read("database.rules.json").includes("0.3.285"));
+check("ver", ver.sheet === "0.3.286" && ver.dmcc === "0.2.299" && ver.sheetBuild === "sheet-playtest-v03286" && ver.dmccBuild === "dmcc-playtest-v02299");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.286") && !read("database.rules.json").includes("0.3.286"));
 check("bestiary.kept", read("dm/assets/js/v2.js").includes("bestiary.json?v=0.2.249-spell-tokens"));
 
 const join = read("assets/js/dm-join.js");
@@ -107,7 +107,7 @@ check("sheet.numberWhileSpinning", ordinary.showNum && ordinary.text !== "" && o
 const sfxMap = JSON.parse(read("assets/sfx/sfx.json"));
 check("sfx.files", fs.existsSync(path.join(root, "assets/sfx/challenge-nat20-crit.wav")) && fs.existsSync(path.join(root, "assets/sfx/challenge-fail.wav")));
 check("sfx.map", sfxMap.events["challenge-nat20-crit"] === "challenge-nat20-crit.wav" && sfxMap.events["challenge-fail"] === "challenge-fail.wav");
-check("sfx.cache", read("assets/js/sfx.js").includes("sfx.json?v=0.3.285"));
+check("sfx.cache", read("assets/js/sfx.js").includes("sfx.json?v=0.3.286"));
 check("sfx.plainQuiet", !read("assets/js/d20-plain.js").includes("challenge-nat20-crit") && !read("assets/js/d20-plain.js").includes("challenge-fail"));
 check("sfx.keys", Z.challengeSting(true) === "challenge-nat20-crit" && Z.challengeSting(false) === "challenge-fail");
 

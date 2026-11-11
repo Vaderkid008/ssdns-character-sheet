@@ -565,6 +565,33 @@
     if (whoId) box.lock.forceAttempts[whoId] = { nat: dnat, total: dtotal, success: dok, dc: dc, line: line };
     return { ok: true, success: dok, noise: !dok, box: box, nat: dnat, total: dtotal, dc: dc, line: line };
   }
+  /* Strength (Athletics), same bonus rule as Force. One try unless retries are on.
+     The caller moves the prop; this only rolls and records the attempt. */
+  function shoveCheck(record, sheet, who, rng, forced) {
+    forced = forced || {};
+    rng = rngOf(rng);
+    sheet = sheet || {};
+    record = record || {};
+    record.attempts = record.attempts || {};
+    var whoId = String(who || "");
+    var prior = whoId && record.attempts[whoId];
+    if (prior && !record.allowRetries) {
+      return {
+        ok: false, success: !!prior.success, already: true,
+        reason: prior.success ? "It already moved." : "You already tried to shove this.",
+        prior: prior, line: prior.line || ""
+      };
+    }
+    var dc = record.dc != null && record.dc !== "" && isFinite(Number(record.dc)) ? Number(record.dc) : 10;
+    var str = abilityModFrom(sheet, "STR");
+    var ath = athleticsProficient(sheet) ? (isFinite(Number(sheet.prof)) ? Number(sheet.prof) : 0) : 0;
+    var dnat = forced.nat != null ? Number(forced.nat) : die(20, rng);
+    var dtotal = forced.total != null ? Number(forced.total) : dnat + str + ath;
+    var dok = dtotal >= dc;
+    var line = "d20 " + dnat + " " + signNum(str) + " Str" + (ath ? " " + signNum(ath) + " Athletics" : "") + " = " + dtotal + " vs DC " + dc + (dok ? ". It shifts." : ". It doesn't budge.");
+    if (whoId) record.attempts[whoId] = { nat: dnat, total: dtotal, success: dok, dc: dc, line: line };
+    return { ok: true, success: dok, nat: dnat, total: dtotal, dc: dc, line: line, record: record };
+  }
   function perceptionMod(sheet) {
     sheet = sheet || {};
     var skills = sheet.skills || {};
@@ -1038,6 +1065,6 @@
     seedAccess: seedAccess, blocked: blocked, menu: menu, resolve: resolve, playCheck: playCheck,
     preUnlock: preUnlock, clearJam: clearJam, hasItem: hasItem, hasPry: hasPry, checkMod: checkMod,
     hasThievesTools: hasThievesTools, thievesBonus: thievesBonus, pickLock: pickLock, resetLockAttempts: resetLockAttempts,
-    strongboxBox: strongboxBox, athleticsProficient: athleticsProficient, forceOpen: forceOpen
+    strongboxBox: strongboxBox, athleticsProficient: athleticsProficient, forceOpen: forceOpen, shoveCheck: shoveCheck
   };
 })(typeof window !== "undefined" ? window : globalThis);

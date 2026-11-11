@@ -15,10 +15,10 @@ function check(name, ok) {
 }
 
 const ver = JSON.parse(read("version.json"));
-check("ver.sheet", ver.sheet === "0.3.285");
-check("ver.dmcc", ver.dmcc === "0.2.298");
-check("ver.sheetBuild", ver.sheetBuild === "sheet-playtest-v03285");
-check("ver.dmccBuild", ver.dmccBuild === "dmcc-playtest-v02298");
+check("ver.sheet", ver.sheet === "0.3.286");
+check("ver.dmcc", ver.dmcc === "0.2.299");
+check("ver.sheetBuild", ver.sheetBuild === "sheet-playtest-v03286");
+check("ver.dmccBuild", ver.dmccBuild === "dmcc-playtest-v02299");
 check("rules untouched pin", !read("assets/js/app.js").includes("0.3.237"));
 
 const css = read("map/ssdns-map.css");
@@ -69,4 +69,4 @@ if (failed) {
   console.log(failed + " failed");
   process.exit(1);
 }
-console.log("dm bar 0.3.285 ok");
+console.log("dm bar 0.3.286 ok");
