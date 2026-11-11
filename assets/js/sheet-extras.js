@@ -4782,6 +4782,19 @@
       showNotice(shortHex ? "Short rest — pact slots refreshed. The misfire streak resets. Dirt and fouling stay." : "Short rest. Your " + word + " comes back on a long rest. The misfire streak resets. Dirt and fouling stay.");
     }
     if (root.SSDNSItems && root.SSDNSItems.recharge) root.SSDNSItems.recharge(c, kind);
+    endConcentration(kind === "long" ? "long rest" : "short rest");
+  }
+  function endConcentration(reason) {
+    var c = ch();
+    if (!c) return "";
+    var SR = root.SSDNSSpellRiders;
+    var bag = SR && SR.emptyBag ? SR.emptyBag(c.spellMarks) : (c.spellMarks || {});
+    var name = (bag && bag.conc) || c.concentration || "";
+    if (!name) return "";
+    breakLocalConc(name);
+    c.concentration = "";
+    if (c.spellMarks) c.spellMarks.conc = "";
+    return name;
   }
 
   function syncRestFields(c) {
@@ -5501,6 +5514,7 @@
     rollGunMelee: rollGunMelee,
     clearDowned: clearDowned,
     applyRest: applyRest,
+    endConcentration: endConcentration,
     undoItem: undoItem,
     renderStore: renderStore,
     renderLog: renderLog,

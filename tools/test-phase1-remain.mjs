@@ -1,5 +1,5 @@
 /**
- * Phase 1 remaining spells (sheet 0.3.290 / DMCC 0.2.303).
+ * Phase 1 remaining spells (sheet 0.3.291 / DMCC 0.2.304).
  * Witch Bolt ticks the creature it hit, Fire Shield dismiss clears the glow,
  * Ice Storm keeps the hailstorm look, Phantasmal Killer asks even with a
  * frontier name, smite riders survive a hidden-AC gun, Chain Lightning hops
@@ -22,8 +22,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.290" && version.sheetBuild === "sheet-playtest-v03290");
-check("ver.dmcc", version.dmcc === "0.2.303" && version.dmccBuild === "dmcc-playtest-v02303");
+check("ver.sheet", version.sheet === "0.3.291" && version.sheetBuild === "sheet-playtest-v03291");
+check("ver.dmcc", version.dmcc === "0.2.304" && version.dmccBuild === "dmcc-playtest-v02304");
 const rulesDiff = execSync("git diff --name-only HEAD -- assets/data/rules.js database.rules.json", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
