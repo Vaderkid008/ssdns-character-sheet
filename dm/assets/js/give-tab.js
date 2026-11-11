@@ -362,15 +362,36 @@
       var s = snapOf(pid), on = online(pid);
       var sub = [s.calling ? s.calling + (s.level ? " " + s.level : "") : "", num(s.es) + " ES", on ? "online" : "offline"].filter(Boolean).join(" · ");
       var nm = s.name || s.player || pid;
-      var face = portraitSrc(s) ? '<img class="give-face" alt="" src="' + esc(portraitSrc(s)) + '">' : '<span class="give-face give-initial">' + esc(initialOf(nm)) + "</span>";
+      var src = portraitSrc(s);
+      var face = src
+        ? '<img class="give-face" alt="" src="' + esc(src) + '" data-give-initial="' + esc(initialOf(nm)) + '">'
+        : '<span class="give-face give-initial">' + esc(initialOf(nm)) + "</span>";
       return '<button type="button" class="give-who-card' + (t === pid ? " on" : "") + (on ? "" : " off") + '" role="radio" aria-checked="' + (t === pid) + '" data-give-who="' + esc(pid) + '">' +
         face + '<span class="give-who-text"><b>' + esc(nm) + "</b><span>" + esc(sub) + "</span></span></button>";
     });
     if (ids.length) cards.push('<button type="button" class="give-who-card all' + (t === "all" ? " on" : "") + '" role="radio" aria-checked="' + (t === "all") + '" data-give-who="all"><span class="give-face give-initial">All</span><span class="give-who-text"><b>Everyone</b><span>' + ids.length + " player" + (ids.length === 1 ? "" : "s") + " · asks first</span></span></button>");
     var html = cards.join("") || '<p class="fine">No players at the table yet.</p>';
     if (box.getAttribute("data-html") !== html) { box.innerHTML = html; box.setAttribute("data-html", html); }
+    bindFaces(box);
     var carry = $("giveWhoCarry");
     if (carry) carry.textContent = carryLine(t);
+  }
+  /* A portrait that never arrives (empty, broken, or undecodable) shows initials, not a blank circle. */
+  function bindFaces(box) {
+    if (!box || !box.querySelectorAll) return;
+    [].forEach.call(box.querySelectorAll("img.give-face"), function (img) {
+      if (img.getAttribute("data-face-bound")) return;
+      img.setAttribute("data-face-bound", "1");
+      var swap = function () {
+        if (!img.isConnected && !img.parentNode) return;
+        var span = document.createElement("span");
+        span.className = "give-face give-initial";
+        span.textContent = img.getAttribute("data-give-initial") || "?";
+        if (img.parentNode) img.parentNode.replaceChild(span, img);
+      };
+      img.addEventListener("error", swap);
+      if (img.complete && !(img.naturalWidth > 0)) swap();
+    });
   }
   function carryLine(t) {
     if (!t) return "Pick who gets it. Nobody is picked until you tap one.";
@@ -609,7 +630,7 @@
     if (!hits.length) { box.hidden = true; box.innerHTML = ""; return; }
     box.hidden = false;
     box.innerHTML = hits.map(function (row) {
-      return '<button type="button" class="btn sm" data-give-catalog="' + esc(row.id) + '" data-give-name="' + esc(row.name) + '">' + esc(row.name) + "</button>";
+      return '<button type="button" class="btn give-hit" data-give-catalog="' + esc(row.id) + '" data-give-name="' + esc(row.name) + '">' + esc(row.name) + "</button>";
     }).join("");
   }
   function stepQty(id, dir) {

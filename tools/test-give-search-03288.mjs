@@ -27,12 +27,31 @@ check("cmd.kit", send.includes("grantFullKit(pid"));
 check("cmd.loot", send.includes('if (type === "loot")'));
 check("cmd.ammo", send.includes("payload: { text: am.qty"));
 
+const page = read("dm/index.html");
+["es", "ammo", "item", "weapon", "kit", "note", "loot"].forEach((mode) => {
+  check("chip." + mode, page.includes('data-give-mode="' + mode + '"'));
+});
+check("keep.reason", page.includes('id="rewReason"') && page.includes('data-give-show="es ammo item weapon"'));
+check("keep.food", page.includes("It's food or water") && page.includes('id="btnCustomItem"'));
+check("keep.step", page.includes('class="btn give-step-btn"') && page.includes('id="giveCatalogSearch"'));
+
 const dom = new JSDOM(`<!doctype html><body>
 <section id="panel-rewards">
   <div id="giveWho"></div>
   <p id="giveWhoCarry"></p>
   <select id="rewTarget"><option value="">Pick</option><option value="p1">Ada</option><option value="p2">Bea</option><option value="all">Everyone</option></select>
+  <div class="give-types">
+    <button type="button" class="btn sm give-chip" data-give-mode="es">Money (ES)</button>
+    <button type="button" class="btn sm give-chip" data-give-mode="ammo">Ammo</button>
+    <button type="button" class="btn sm give-chip" data-give-mode="item">Item</button>
+    <button type="button" class="btn sm give-chip" data-give-mode="weapon">Weapon</button>
+    <button type="button" class="btn sm give-chip" data-give-mode="kit">Starting kit</button>
+    <button type="button" class="btn sm give-chip" data-give-mode="note">Note</button>
+    <button type="button" class="btn sm give-chip" data-give-mode="loot">Loot</button>
+  </div>
   <select id="rewType"><option value=""></option><option value="es">es</option><option value="ammo">ammo</option><option value="item">item</option><option value="weapon">weapon</option><option value="kit">kit</option><option value="note">note</option><option value="loot">loot</option></select>
+  <div id="rewReasonWrap" data-give-show="es ammo item weapon"><input id="rewReason" value="Bounty"></div>
+  <div id="giveItemMore" data-give-show="item" hidden><input id="giveSupplyOn"><button id="btnCustomItem">Custom item…</button></div>
   <input id="giveCatalogSearch">
   <div id="giveCatalogHits" hidden></div>
   <input id="rewText">
@@ -42,7 +61,6 @@ const dom = new JSDOM(`<!doctype html><body>
   <input id="giveAmmoQty" min="1" value="20">
   <select id="giveAmmo"><option value="cartridge|Light">Light</option></select>
   <input id="rewEs" value="25">
-  <input id="rewReason" value="Bounty">
   <input id="giveWeapon" value="Bowie knife">
   <p id="givePreview" hidden></p>
   <button id="btnPushReward"></button>
@@ -65,7 +83,7 @@ w.DMCC = {
   state: {
     players: {
       p1: { snapshot: { name: "Ada Lovelace", es: 12, calling: "Marshal", portrait: "" }, presence: { online: true } },
-      p2: { snapshot: { name: "Bea", es: 3, portrait: "data:image/png;base64,abc" }, presence: { online: false } }
+      p2: { snapshot: { name: "Bea", es: 3, portrait: "https://example.invalid/missing-portrait.png" }, presence: { online: false } }
     }
   },
   playerOnline(p) { return !!(p && p.presence && p.presence.online); }
@@ -81,11 +99,17 @@ check("pure.initial", P.initialOf("Ada Lovelace") === "AL" && P.initialOf("Bea")
 
 const who = w.document.getElementById("giveWho");
 check("face.initial", !!who.querySelector('[data-give-who="p1"] .give-initial') && who.querySelector('[data-give-who="p1"] .give-initial').textContent === "AL");
-check("face.portrait", !!who.querySelector('[data-give-who="p2"] img.give-face') && who.querySelector('[data-give-who="p2"] img').getAttribute("src").indexOf("data:image") === 0);
+const broken = who.querySelector('[data-give-who="p2"]');
+const brokenImg = broken.querySelector("img.give-face");
+if (brokenImg) brokenImg.dispatchEvent(new w.Event("error"));
+check("face.broken", !broken.querySelector("img") && broken.querySelector(".give-initial").textContent === "B");
 who.querySelector('[data-give-who="p1"]').dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
 check("who.click", w.document.getElementById("rewTarget").value === "p1");
 
-w.SSDNSGiveTab.setMode("item");
+w.SSDNSGiveTab.setMode("item", true);
+const chips = [...w.document.querySelectorAll("[data-give-mode]")].map((b) => b.getAttribute("data-give-mode"));
+check("chips.stay", chips.join(",") === "es,ammo,item,weapon,kit,note,loot" && [...w.document.querySelectorAll("[data-give-mode]")].every((b) => !b.hidden), chips.join(","));
+check("item.extras", !w.document.getElementById("giveItemMore").hidden && !w.document.getElementById("rewReasonWrap").hidden);
 const plus = w.document.querySelector('[data-give-step="1"][data-give-for="rewQty"]');
 plus.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
 plus.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
