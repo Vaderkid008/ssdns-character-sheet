@@ -5,7 +5,20 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.301"; // dmcc-playtest-v02301
+const VERSION = "0.2.302"; // dmcc-playtest-v02302
+if (window.SSDNSRollCard) {
+  window.SSDNSRollCard.setAudience("dm");
+  window.SSDNSRollCard.setPortraitLookup(function (name) {
+    const players = state.players || {};
+    const want = String(name || "");
+    const ids = Object.keys(players);
+    for (let i = 0; i < ids.length; i++) {
+      const snap = players[ids[i]] && players[ids[i]].snapshot;
+      if (snap && (snap.name === want || snap.player === want) && snap.portrait) return snap.portrait;
+    }
+    return "";
+  });
+}
 const NOTES_KEY = "ssdns.dm.notes";
 const ROOM_KEY = "ssdns.dm.lastRoom";
 const OPEN_KEY = "ssdns.dm.open";

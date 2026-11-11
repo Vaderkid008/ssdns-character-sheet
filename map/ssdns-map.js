@@ -972,7 +972,11 @@ function pushFeed(row) {
     try { playAssetSfx(row.sfxUrl, row.from); } catch (eSfx) {}
     return;
   }
-  if (row && row.zoom && window.SSDNSD20Zoom && window.SSDNSD20Zoom.play) {
+  const rollCard = window.SSDNSRollCard;
+  const rollEv = row && (row.zoom || row.die);
+  if (role === "dm" && rollCard && rollCard.enabled && rollCard.enabled() && rollEv && rollCard.wants(rollEv, row)) {
+    try { rollCard.offer(rollCard.fromFeed(row)); } catch (eCard) {}
+  } else if (row && row.zoom && window.SSDNSD20Zoom && window.SSDNSD20Zoom.play) {
     try { window.SSDNSD20Zoom.play(row.zoom); } catch (eZoom) {}
   } else if (row && row.die && window.SSDNSD20Zoom && window.SSDNSD20Zoom.present) {
     var dieTs = Date.parse(row.ts || "");
@@ -7015,18 +7019,40 @@ function whenDieLands(job) {
   });
 }
 /* Challenge d20, same family as a lock pick, with no lockpick sound. */
-function showForceDie(res, sheet) {
+let rollCardPending = null;
+function noteRollCard(meta) { rollCardPending = meta || null; }
+function rollCardFields() {
+  const meta = rollCardPending || {};
+  rollCardPending = null;
+  const out = {};
+  if (meta.check) out.check = meta.check;
+  if (meta.total != null) out.total = meta.total;
+  if (meta.dc != null) out.dc = meta.dc;
+  if (meta.success != null) out.success = !!meta.success;
+  if (meta.portrait) out.portrait = meta.portrait;
+  return out;
+}
+function showForceDie(res, sheet, opts) {
+  opts = opts || {};
   const Zoom = window.SSDNSD20Zoom;
   const id = "forcedie_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  const shove = !!opts.shove;
   const ev = {
     id: id,
     nat: res && res.nat,
     fancy: true,
     challenge: true,
-    label: "Force open",
+    label: shove ? "Shove" : "Force open",
     characterName: (sheet && sheet.name) || "",
     who: (sheet && sheet.name) || ""
   };
+  noteRollCard({
+    check: shove ? "Shove — Str (Athletics)" : "Force — Str (Athletics)",
+    total: res && res.total,
+    dc: res && res.dc,
+    success: !!(res && res.success),
+    portrait: (sheet && sheet.portrait) || ""
+  });
   let job = Promise.resolve();
   if (Zoom && Zoom.play) job = Promise.resolve(Zoom.play(ev));
   const zoom = Zoom && Zoom.pack ? Zoom.pack({ id: id }) : null;
@@ -7175,19 +7201,28 @@ function dropBox(token) {
   return box;
 }
 /* Challenge d20 for a real attempt. No tools and a spent attempt do not throw. */
-function showLockDie(res, sheet) {
+function showLockDie(res, sheet, opts) {
+  opts = opts || {};
   const Zoom = window.SSDNSD20Zoom;
   const id = "lockdie_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  const improvise = !!opts.improvise;
   const ev = {
     id: id,
     nat: res && res.nat,
     fancy: true,
     challenge: true,
     lockpick: true,
-    label: "Pick lock",
+    label: improvise ? "Improvise" : "Pick lock",
     characterName: (sheet && sheet.name) || "",
     who: (sheet && sheet.name) || ""
   };
+  noteRollCard({
+    check: improvise ? "Improvise — Dex (disadvantage)" : "Pick lock — Dex (thieves' tools)",
+    total: res && res.total,
+    dc: res && res.dc,
+    success: !!(res && res.success),
+    portrait: (sheet && sheet.portrait) || ""
+  });
   let job = Promise.resolve();
   if (Zoom && Zoom.play) job = Promise.resolve(Zoom.play(ev));
   else if (window.SSDNSChallengeSfx && window.SSDNSChallengeSfx.lockpick) window.SSDNSChallengeSfx.lockpick();
@@ -7201,7 +7236,7 @@ function postLockFeed(line, extra) {
   const row = Object.assign({
     id: id, ts: new Date().toISOString(), from: uid, fromName: (extra && extra.fromName) || "Table",
     text: line, kind: "roll"
-  }, extra || {});
+  }, extra || {}, rollCardFields());
   adapter.write("tableFeed/" + id, row, { by: uid });
 }
 function isContainerTok(t) {
@@ -7370,7 +7405,7 @@ function doPropShove(token) {
     if (res && res.ok && adapter && adapter.write) {
       const id = "shove_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
       const who = sheet.name || "Someone";
-      adapter.write("tableFeed/" + id, {
+      adapter.write("tableFeed/" + id, Object.assign({
         id: id, ts: new Date().toISOString(), from: uid, fromName: who,
         text: who + " " + (res.line || "shoves"),
         kind: "note", event: "prop-shove", tokenId: token.id,
@@ -7378,14 +7413,14 @@ function doPropShove(token) {
         shoveDc: rec.dc, allowRetries: !!rec.allowRetries,
         to: res.success ? { x: spot.dest.x, y: spot.dest.y } : null,
         zoom: shown && shown.zoom || null, die: shown && shown.die || null, nat: res.nat
-      }, { by: uid });
+      }, rollCardFields()), { by: uid });
     }
     toast((res && (res.line || res.reason)) || "Shove");
     refreshPropMenu(token);
     requestDraw();
   };
   if (!res || !res.ok || res.nat == null) { finish(null); return; }
-  showForceDie(res, sheet).then(finish);
+  showForceDie(res, sheet, { shove: true }).then(finish);
 }
 const seenPropShove = {};
 function applyPropShove(row) {
@@ -7704,7 +7739,7 @@ function showChestMenu(token) {
           requestDraw();
         };
         if (!threw) { finish(null); return; }
-        showLockDie(res, sheet).then(finish);
+        showLockDie(res, sheet, { improvise: true }).then(finish);
         return;
       }
       if (act === 'force' && !(Give && Give.chestAct)) {
@@ -8580,7 +8615,7 @@ function runDoorAction(wall, action) {
         if (!threw) finishDoor(null);
         else showForceDie(res, sheet).then(finishDoor);
       } else if (!threw) finishDoor(null);
-      else showLockDie(res, sheet).then(finishDoor);
+      else showLockDie(res, sheet, { improvise: true }).then(finishDoor);
       return;
     }
     else toast(action === "peek" ? "Peek sent" : "Sent");
