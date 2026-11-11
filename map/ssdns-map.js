@@ -9417,7 +9417,8 @@ function setPartyLight(token, patch) {
     copy.lights = token.lights.map(l => Object.assign({}, l));
     saveToken(token.id);
   }
-  requestDraw();
+  notePartyDark(buildSight(null, token.sceneId || activeSceneId(), 'party'));
+  draw();
 }
 function placePartyToken(opts) {
   if (role !== 'dm' || !state.scene) return null;
@@ -12884,16 +12885,26 @@ function paintLightLegend(ambient) {
   const amb = ambient === 'bright' || ambient === 'dim' ? ambient : 'dark';
   el.querySelectorAll('[data-act="lightLegend"]').forEach(node => node.setAttribute('data-ambient', amb));
 }
-/* Once, when the scene is Dark and no party token is carrying a light. */
+function sharedLightOn(ls) {
+  return !!(ls && ((Number(ls.bright) || 0) + (Number(ls.dim) || 0) > 0));
+}
+function hidePartyDarkToast() {
+  const node = q('toast');
+  if (node && node.textContent === 'No one in the party is carrying a light.') node.style.display = 'none';
+}
+/* Once, when the scene is Dark and nothing the party shares is lit.
+   The party token's lantern counts, as does any other light on that map. */
 function notePartyDark(sight) {
-  if (!sight || sight.ambient !== 'dark') { state._partyDarkSig = ''; return; }
-  const party = state.tokens.filter(t => t && t.pos && !t.hidden && (t.ownerUid || t.kind === 'player') && (t.sceneId || 'scn_dustyspur01') === sight.sceneId);
-  if (!party.length) { state._partyDarkSig = ''; return; }
-  const lit = party.some(t => tokenLightList(t).length > 0);
-  const sig = sight.sceneId + (lit ? ':lit' : ':dark');
+  if (!sight || sight.ambient !== 'dark') { state._partyDarkSig = ''; hidePartyDarkToast(); return; }
+  const sid = sight.sceneId;
+  const present = state.tokens.some(t => t && t.pos && !t.hidden && (t.sceneId || 'scn_dustyspur01') === sid && (t.ownerUid || t.kind === 'player' || isPartyToken(t)));
+  if (!present) { state._partyDarkSig = ''; return; }
+  const lit = (sight.lights || []).some(sharedLightOn);
+  const sig = sid + (lit ? ':lit' : ':dark');
   if (state._partyDarkSig === sig) return;
   state._partyDarkSig = sig;
-  if (!lit) toast('No one in the party is carrying a light.');
+  if (lit) hidePartyDarkToast();
+  else toast('No one in the party is carrying a light.');
 }
 function clipLightDisc(ls, radiusPx, g) {
   /* Caller passes pixel coordinates (draw() already scaled grid squares). */

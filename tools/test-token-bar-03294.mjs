@@ -61,6 +61,20 @@ async function nudge(page, id) {
 
 const dm = await browser.newPage();
 await boot(dm, "dm");
+await dm.select('[data-act="ambientSel"]', "dark");
+await dm.evaluate(() => window.map.placePartyToken({ pos: { x: 14, y: 8 }, label: "Camp" }));
+await new Promise((r) => setTimeout(r, 50));
+const dmToast = await dm.evaluate(() => {
+  const t = document.querySelector('[data-act="toast"]');
+  if (!t || t.style.display === "none") return "";
+  return t.textContent || "";
+});
+check("dm.toast", !/carrying a light/.test(dmToast), dmToast);
+const party = await dm.evaluate(() => {
+  const t = window.map.tokenBoxes().find((b) => b.kind === "party" || b.label === "Camp");
+  return t ? { id: t.id, x: t.x, y: t.y } : null;
+});
+check("party.placed", !!party, JSON.stringify(party));
 const jp = await dm.evaluate(() => window.map.tokenBoxes().find((b) => b.label === "JP").id);
 await nudge(dm, jp);
 const screen = await dm.evaluate((id) => window.map.tokenScreen(id), jp);
@@ -85,15 +99,6 @@ check("dm.bar.before", !!before && before.w > 40, JSON.stringify(before));
 check("dm.bar.during", during.every((row) => sameBar(before, row)), JSON.stringify({ before, during }));
 check("dm.bar.after", sameBar(before, after), JSON.stringify({ before, after }));
 check("dm.moved", moved && (moved.x !== 11 || moved.y !== 1), JSON.stringify(moved));
-
-await dm.select('[data-act="ambientSel"]', "dark");
-await dm.evaluate(() => window.map.placePartyToken({ pos: { x: 14, y: 8 }, label: "Camp" }));
-await new Promise((r) => setTimeout(r, 200));
-const party = await dm.evaluate(() => {
-  const t = window.map.tokenBoxes().find((b) => b.kind === "party" || b.label === "Camp");
-  return t ? { id: t.id, x: t.x, y: t.y } : null;
-});
-check("party.placed", !!party, JSON.stringify(party));
 
 const player = await browser.newPage();
 await boot(player, "player");
@@ -127,6 +132,12 @@ const seen = await player.evaluate(() => {
   };
 });
 check("player.sees", !!(seen.camp && seen.here && seen.near && !seen.far), JSON.stringify(seen));
+const playerToast = await player.evaluate(() => {
+  const t = document.querySelector('[data-act="toast"]');
+  if (!t || t.style.display === "none") return "";
+  return t.textContent || "";
+});
+check("player.toast", !/carrying a light/.test(playerToast), playerToast);
 if (seen.camp) {
   const id = await player.evaluate(() => window.map.tokenBoxes().find((b) => b.label === "Camp" || b.kind === "party").id);
   await nudge(player, id);

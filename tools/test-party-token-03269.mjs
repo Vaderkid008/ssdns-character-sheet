@@ -293,6 +293,14 @@ check("fog.near", nightPl.squareShown(13, 12, "scout") === true);
 check("fog.far", nightPl.squareShown(12, 40, "scout") === false);
 const nightTexts = ((nightPlEl.querySelector("canvas") || {}).__texts || []).join(" ");
 check("fog.painted", nightTexts.indexOf("Camp") >= 0, nightTexts);
+const lanternToast = nightPlEl.querySelector('[data-act="toast"]');
+check("toast.lantern", !lanternToast || lanternToast.style.display === "none" || !/carrying a light/.test(lanternToast.textContent || ""), lanternToast && lanternToast.textContent);
+const lightBox = nightDmEl.querySelector('[data-act="partyLight"]');
+check("toast.toggle", !!lightBox);
+if (lightBox) lightBox.click();
+await flush(40);
+const darkToast = nightDmEl.querySelector('[data-act="toast"]');
+check("toast.dark", !!darkToast && darkToast.style.display !== "none" && /carrying a light/.test(darkToast.textContent || ""), darkToast && darkToast.textContent);
 
 dm.removePartyToken();
 await flush(30);
