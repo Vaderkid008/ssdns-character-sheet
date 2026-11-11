@@ -10459,6 +10459,8 @@ function pointerOverMapUi(e) {
     if (!node || node.hidden) continue;
     const r = node.getBoundingClientRect();
     if (r.width < 2 || r.height < 2) continue;
+    const mapRect = canvas && canvas.getBoundingClientRect();
+    if (mapRect && r.width >= mapRect.width - 1 && r.height >= mapRect.height - 1) continue;
     if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return true;
   }
   return false;

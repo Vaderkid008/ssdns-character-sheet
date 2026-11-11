@@ -1,5 +1,5 @@
 /**
- * Doors, empty chests, and map cards (sheet 0.3.292 / DMCC 0.2.305).
+ * Doors, empty chests, and map cards (sheet 0.3.293 / DMCC 0.2.306).
  * A closed door blocks a crossing and not the squares on either side.
  * New chests start empty. Pick lock unlocks; Open reveals the loot.
  * Dragging the Token card does not drop movement waypoints.
@@ -19,7 +19,7 @@ function check(id, cond, detail) {
 }
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.292" && ver.dmcc === "0.2.305");
+check("ver", ver.sheet === "0.3.293" && ver.dmcc === "0.2.306");
 
 const context = { console, Math, Date, JSON, parseInt, isFinite, Number, String, Object, Array, Map, Set };
 context.window = context;
@@ -222,31 +222,41 @@ let picked = await player.evaluate(() => {
   const inside = s.x > canvas.left + 8 && s.x < canvas.right - 8 && s.y > canvas.top + 8 && s.y < canvas.bottom - 8;
   return { id: chest.id, screen: s, inside };
 });
+console.log("chest screen", JSON.stringify(picked));
 if (picked && picked.inside && picked.screen) {
   await player.evaluate(() => { Math.random = () => 0.99; });
   await player.mouse.click(picked.screen.x, picked.screen.y);
-  await new Promise((r) => setTimeout(r, 200));
-  await player.evaluate(() => {
-    const btn = document.querySelector('[data-chest="pick"]');
-    if (btn) btn.click();
-  });
-  await new Promise((r) => setTimeout(r, 400));
-  const lockedText = await player.evaluate(() => {
+  await new Promise((r) => setTimeout(r, 250));
+  const openedMenu = await player.evaluate(() => !!document.querySelector('[data-chest="pick"]'));
+  if (!openedMenu) await player.evaluate((id) => window.map.focusLootChest(id), picked.id);
+  await player.waitForSelector('[data-chest="pick"]', { timeout: 4000 });
+  const pickBtn = await player.$('[data-chest="pick"]');
+  const pickBox = await pickBtn.boundingBox();
+  if (pickBox) await player.mouse.click(pickBox.x + pickBox.width / 2, pickBox.y + pickBox.height / 2);
+  else await pickBtn.click();
+  const lockedText = await player.waitForFunction(() => {
     const menu = document.querySelector('[data-act="chestMenu"]');
-    return menu ? menu.textContent.replace(/\s+/g, " ") : "";
-  });
+    const text = menu ? menu.textContent.replace(/\s+/g, " ") : "";
+    return /Unlocked|Needs thieves|Failed|Still locked/.test(text) ? text : false;
+  }, { timeout: 9000 }).then((handle) => handle.jsonValue());
   check("pick.closed", /Unlocked/.test(lockedText) && /Open/.test(lockedText) && !/Rope/.test(lockedText), lockedText.slice(0, 220) || JSON.stringify(picked));
-  await player.screenshot({ path: "/opt/cursor/artifacts/chest-unlocked-not-open.png" });
   await player.evaluate(() => {
-    const btn = document.querySelector('[data-chest="open"]');
-    if (btn) btn.click();
+    document.querySelectorAll(".d20-zoom, .d20-plain").forEach((node) => node.remove());
   });
-  await new Promise((r) => setTimeout(r, 200));
-  const openText = await player.evaluate(() => {
+  await player.screenshot({ path: "/opt/cursor/artifacts/chest-unlocked-not-open.png" });
+  const openBtn = await player.$('[data-chest="open"]');
+  const openBox = openBtn && await openBtn.boundingBox();
+  if (openBox) await player.mouse.click(openBox.x + Math.min(24, openBox.width / 2), openBox.y + openBox.height / 2);
+  else if (openBtn) await openBtn.click();
+  const openText = await player.waitForFunction(() => {
     const menu = document.querySelector('[data-act="chestMenu"]');
-    return menu ? menu.textContent.replace(/\s+/g, " ") : "";
-  });
-  check("pick.opened", /Rope/.test(openText), openText.slice(0, 180));
+    const text = menu ? menu.textContent.replace(/\s+/g, " ") : "";
+    return /Rope|It's locked|Still locked|Open it first/.test(text) ? text : false;
+  }, { timeout: 4000 }).then((handle) => handle.jsonValue()).catch(async () => player.evaluate(() => {
+    const menu = document.querySelector('[data-act="chestMenu"]');
+    return (menu ? menu.textContent.replace(/\s+/g, " ") : "NO MENU").slice(0, 240);
+  }));
+  check("pick.opened", /Rope/.test(openText) && !/It's locked/.test(openText), openText.slice(0, 180));
   await player.screenshot({ path: "/opt/cursor/artifacts/chest-opened-loot.png" });
 } else {
   check("pick.closed", false, JSON.stringify(picked));
