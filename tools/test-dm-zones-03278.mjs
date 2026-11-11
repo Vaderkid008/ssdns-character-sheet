@@ -1,6 +1,6 @@
 /**
  * DM places catalog zones by hand. Players get the same zone feed as a cast.
- * Sheet 0.3.289 / DMCC 0.2.302.
+ * Sheet 0.3.290 / DMCC 0.2.303.
  *   node tools/test-dm-zones-03278.mjs
  */
 import fs from "node:fs";
@@ -18,8 +18,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.289" && ver.dmcc === "0.2.302" && ver.sheetBuild === "sheet-playtest-v03289" && ver.dmccBuild === "dmcc-playtest-v02302");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.289") && !read("database.rules.json").includes("0.3.289"));
+check("ver", ver.sheet === "0.3.290" && ver.dmcc === "0.2.303" && ver.sheetBuild === "sheet-playtest-v03290" && ver.dmccBuild === "dmcc-playtest-v02303");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.290") && !read("database.rules.json").includes("0.3.290"));
 const v2 = read("dm/assets/js/v2.js");
 check("ticks.existing", v2.includes("function zonePhase") && v2.includes("Z.phaseDue") && v2.includes("ssdns-zone-link"));
 check("feed.existing", read("map/ssdns-map.js").includes("function publishZoneFeed") && read("map/ssdns-map.js").includes("function placeManualZone"));

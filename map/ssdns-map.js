@@ -661,7 +661,15 @@ if (role === 'dm' && window.SSDNSRangeRings && window.SSDNSRangeRings.onOverride
     draw();
   });
 }
+function typingInField(target) {
+  const node = target || (typeof document !== 'undefined' ? document.activeElement : null);
+  if (!node || !node.tagName) return false;
+  const tag = node.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  return !!node.isContentEditable;
+}
 on(document, 'keydown', e => {
+  if (typingInField(e.target) && e.key !== 'Escape') return;
   if (e.key === 'Escape' && state.reposition) {
     const tag = e.target && e.target.tagName;
     if (tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'TEXTAREA') {
@@ -707,7 +715,6 @@ on(document, 'keydown', e => {
     }
   }
   if (!el.matches(':hover') && !el.contains(e.target)) return;
-  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) return;
   if (role === 'dm' && (state.tool === 'reveal' || state.tool === 'hide') && state.fogKind === 'poly' && state.polyPoints && state.polyPoints.length) {
     if (e.key === 'Escape') {
       e.preventDefault();
@@ -7475,13 +7482,15 @@ function dmChestHtml(token) {
     '<button type="button" data-dm="medium"' + (preset === "medium" ? ' class="is-on"' : "") + ">Medium</button>" +
     '<button type="button" data-dm="hard"' + (preset === "hard" ? ' class="is-on"' : "") + ">Hard</button>" +
     "</div>" +
+    '<div class="ssm-dc-row">' +
     '<label>Lock DC <input data-dm="lock" type="number" min="0" value="' + dc + '"></label>' +
     '<label>Force DC <input data-dm="force" type="number" min="0" value="' + force + '"></label>' +
     '<label>Shove DC <input data-dm="shove" type="number" min="0" value="' + ensureShove(token).dc + '"></label>' +
-    '<label><input data-dm="retry" type="checkbox"' + (box.lock && box.lock.allowRetries ? " checked" : "") + "> Allow retries</label>" +
+    "</div>" +
+    '<label class="ssm-line"><input data-dm="retry" type="checkbox"' + (box.lock && box.lock.allowRetries ? " checked" : "") + "> Allow retries</label>" +
     (state.reposition && state.reposition.id === token.id ? '<p class="ssm-roll">Click a square. Esc or × cancels.</p>' : "") +
     '<button type="button" data-dm="reposition">Reposition</button>' +
-    '<label><input data-dm="improv" type="checkbox"' + (improviseOn() ? " checked" : "") + "> Allow improvised lockpicking</label>" +
+    '<label class="ssm-line"><input data-dm="improv" type="checkbox"' + (improviseOn() ? " checked" : "") + "> Allow improvised lockpicking</label>" +
     (box._rollLine ? '<p class="ssm-roll">' + box._rollLine + "</p>" : "") +
     "<p><b>Contents</b></p>" + (rows || "<p>Empty</p>") +
     '<label>Find gear <input data-dm="search" type="search" placeholder="Search the catalog"></label>' +
@@ -7518,6 +7527,26 @@ function showDmChest(token) {
         '<button type="button" data-dm="add-cat" data-id="' + escHtml(row.id) + '">' + escHtml(row.name || row.id) + "</button>"
       ).join("");
     });
+    menu.addEventListener("keydown", ev => {
+      const field = ev.target;
+      if (!field || field.getAttribute("data-dm") !== "search") return;
+      const hits = [].slice.call(menu.querySelectorAll('[data-dm="add-cat"]'));
+      const on = hits.findIndex(b => b.classList.contains("on"));
+      if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (!hits.length) return;
+        const next = ev.key === "ArrowDown" ? Math.min(hits.length - 1, on + 1) : Math.max(0, on < 0 ? 0 : on - 1);
+        hits.forEach((b, i) => b.classList.toggle("on", i === next));
+        try { hits[next].scrollIntoView({ block: "nearest" }); } catch (e) {}
+      }
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const pick = hits[on >= 0 ? on : 0];
+        if (pick) pick.click();
+      }
+    });
     menu.addEventListener("change", ev => {
       const live = state.tokens.find(t => t && t.id === menu.getAttribute("data-token"));
       if (!live || !live.loot) return;
@@ -7551,11 +7580,12 @@ function showDmChest(token) {
         live.loot.cash.es = Math.max(0, parseInt(ev.target.value, 10) || 0);
         commitLoot(live);
       }
-      if (name !== "search") menu.innerHTML = dmChestHtml(live);
     });
     menu.addEventListener("click", ev => {
       const name = ev.target && ev.target.getAttribute && ev.target.getAttribute("data-dm");
       if (!name) return;
+      const tag = ev.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       ev.preventDefault();
       const live = state.tokens.find(t => t && t.id === menu.getAttribute("data-token"));
       if (!live || !live.loot) return;
@@ -7644,7 +7674,8 @@ function showDmChest(token) {
   menu.setAttribute("data-token", token.id);
   menu.hidden = false;
   menu.innerHTML = dmChestHtml(token);
-  anchorChestMenu(menu, token);
+  if (role === "dm") dockDmPropMenu(menu);
+  else anchorChestMenu(menu, token);
 }
 function showChestMenu(token) {
   closeMapMenus("chest");
@@ -7874,7 +7905,8 @@ function showChestMenu(token) {
   if (Give && Give.menuHtml && Give.box && Give.box(token.lootBoxId)) menu.innerHTML = Give.menuHtml(token.lootBoxId);
   else if (token.kind === "drop" || token.weaponDrop) menu.innerHTML = dropPileHtml(dropsOnSquare(token));
   else menu.innerHTML = chestMenuHtml(dropBox(token) || lootStub(token));
-  anchorChestMenu(menu, token);
+  if (role === "dm") dockDmPropMenu(menu);
+  else anchorChestMenu(menu, token);
 }
 function dropsOnSquare(token) {
   return tokensSharingSquare(token).filter(t => t && (t.kind === "drop" || t.weaponDrop) && !(t.weaponDrop && t.weaponDrop.taken) && !(t.loot && t.loot.taken));
@@ -7913,6 +7945,18 @@ function pickupDrop(id) {
     toast(result && result.toast ? result.toast : (result && result.reason) || "Gone.");
     if (result && result.ok) finishDropTake(live);
   });
+}
+function dockDmPropMenu(menu) {
+  if (!menu || role !== "dm") return;
+  menu.classList.add("ssm-prop-dock");
+  menu.classList.remove("placed", "ssm-float");
+  menu.style.left = "";
+  menu.style.top = "";
+  menu.style.right = "";
+  menu.style.bottom = "";
+  menu.style.maxHeight = "";
+  el.classList.add("ssm-token-dock");
+  if (!el.classList.contains("ssm-token-left")) el.classList.add("ssm-token-right");
 }
 function anchorChestMenu(menu, token) {
   if (!menu || !token || !token.pos || !state.scene) return;
@@ -8156,6 +8200,14 @@ function tokenPos(id) {
   const t = (state.tokens || []).find(tok => tok && (tok.id === id || tok.combatantId === id));
   if (!t || !t.pos || !isFinite(Number(t.pos.x)) || !isFinite(Number(t.pos.y))) return null;
   return { x: Number(t.pos.x), y: Number(t.pos.y) };
+}
+function tokenScreen(id) {
+  const t = (state.tokens || []).find(tok => tok && (tok.id === id || tok.combatantId === id));
+  if (!t || !t.pos || !canvas) return null;
+  const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
+  const s = worldToScreen((Number(t.pos.x) + 0.5) * px, (Number(t.pos.y) + 0.5) * px);
+  const rect = canvas.getBoundingClientRect();
+  return { x: rect.left + s.x, y: rect.top + s.y, gridX: Number(t.pos.x), gridY: Number(t.pos.y) };
 }
 function pinLootChest(box, at) {
   if (role !== 'dm' || !box || !state.scene) return null;
@@ -8529,7 +8581,8 @@ function showDoorMenu(wall) {
     (wall._lockedNote ? '<p class="ssm-note">' + wall._lockedNote + "</p>" : "") +
     actions + "</div>";
   bindFloatingMenu(menu, hideDoorMenu);
-  anchorChestMenu(menu, { pos: { x: (Number(wall.x1) + Number(wall.x2)) / 2 - 0.5, y: (Number(wall.y1) + Number(wall.y2)) / 2 - 0.5 }, size: 1 });
+  if (role === "dm") dockDmPropMenu(menu);
+  else anchorChestMenu(menu, { pos: { x: (Number(wall.x1) + Number(wall.x2)) / 2 - 0.5, y: (Number(wall.y1) + Number(wall.y2)) / 2 - 0.5 }, size: 1 });
 }
 function runDoorAction(wall, action) {
   const I = interactApi();
@@ -8930,6 +8983,8 @@ function showAssetMenu(token) {
   menu.setAttribute("data-token", token.id);
   menu.hidden = false;
   menu.innerHTML = assetMenuHtml(token);
+  if (role === "dm") dockDmPropMenu(menu);
+  else anchorChestMenu(menu, token);
 }
 function commandToken() {
   return (state.tokens || []).find(t => t && t.id === state.commandToken) || null;
@@ -9123,11 +9178,12 @@ function selectToken(token) {
     hideChestMenu();
     hideAssetMenu();
   }
-  /* A chest or drop keeps its card and must not open the character drawer (no "Link to…").
-     An asset still opens the asset drawer so the DM reaches the fuse controls.
-     Edit-tokens drag is a different path and is left alone. */
-  if (role === 'dm' && (token.kind === 'chest' || token.kind === 'drop')) closeDrawer();
-  else if (role === 'dm') openDrawer(token.id);
+  /* A prop keeps its own menu in the token dock. No character sheet, HP, or fuse drawer. */
+  if (role === 'dm' && isPropTok(token)) {
+    closeDrawer();
+    const openProp = ['dmChest', 'assetMenu', 'chestMenu'].map(act => el.querySelector('[data-act="' + act + '"]')).find(m => m && !m.hidden);
+    if (openProp) dockDmPropMenu(openProp);
+  } else if (role === 'dm') openDrawer(token.id);
   draw();
 }
 function playerTokenId(pid) {
@@ -11217,7 +11273,7 @@ function onPointerDown(e) {
       }
     }
     /* Props stay put under Edit tokens and under Shift-drag. The card repositions them. */
-    if (hit && isPropTok(hit) && e.button === 0 && !state.tool) {
+    if (hit && isPropTok(hit) && e.button === 0 && !state.tool && role !== 'dm') {
       selectToken(hit);
       return;
     }
@@ -11271,12 +11327,14 @@ function onPointerDown(e) {
       /* A plain click selects and shows Move / Interact. The drag and the path wait for Move.
          Edit tokens is the free drag: the card waits until the pointer is up, so docking it
          cannot slide the map out from under the cursor mid-drag. */
-      if (!dmEditing() && !state.moveArmed) {
+      const dmPropDrag = role === 'dm' && isPropTok(hit);
+      if (!dmEditing() && !state.moveArmed && !dmPropDrag) {
         showCommandMenu(hit);
         if (role === 'dm') openDrawer(hit.id);
         draw();
         return;
       }
+      if (dmPropDrag) selectToken(hit);
       hideCommandMenu();
       /* token size: ox/oy is the grabbed square, so a 4x4 token grabbed by a corner does not jump */
       const gpx = state.scene.grid.px;
@@ -11292,14 +11350,14 @@ function onPointerDown(e) {
       }
       state.selectedIds = state.selectedIds.filter(id => {
         const tok = state.tokens.find(t => t && t.id === id);
-        return tok && !isPropTok(tok);
+        return tok && (!isPropTok(tok) || (role === 'dm' && tok.id === hit.id));
       });
-      if (state.selectedIds.indexOf(hit.id) < 0 && !isPropTok(hit)) state.selectedIds.push(hit.id);
-      state.drag = { token: hit, ox: Math.round(w.x / gpx - 0.5), oy: Math.round(w.y / gpx - 0.5), sx: e.clientX, sy: e.clientY, starts: {}, deferDrawer: role === 'dm' ? hit.id : "" };
+      if (state.selectedIds.indexOf(hit.id) < 0 && (!isPropTok(hit) || role === 'dm')) state.selectedIds.push(hit.id);
+      state.drag = { token: hit, ox: Math.round(w.x / gpx - 0.5), oy: Math.round(w.y / gpx - 0.5), sx: e.clientX, sy: e.clientY, starts: {}, deferDrawer: role === 'dm' && !isPropTok(hit) ? hit.id : "" };
       try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
       state.selectedIds.forEach(id => {
         const t = state.tokens.find(tok => tok.id === id);
-        if (t && !isPropTok(t) && (isPartyToken(hit) || !isPartyToken(t))) state.drag.starts[id] = { x: t.pos.x, y: t.pos.y };
+        if (t && (!isPropTok(t) || (role === 'dm' && t.id === hit.id)) && (isPartyToken(hit) || !isPartyToken(t))) state.drag.starts[id] = { x: t.pos.x, y: t.pos.y };
       });
       if (hit.kind === 'asset') showAssetMenu(hit);
     } else if (hit && role === 'player') {
@@ -11391,7 +11449,7 @@ function onPointerMove(e) {
       state.drag.walled = false;
       ids.forEach(id => {
         const t = state.tokens.find(tok => tok.id === id);
-        if (!t || !onViewedScene(t) || isPropTok(t)) return;
+        if (!t || !onViewedScene(t) || (isPropTok(t) && role !== 'dm')) return;
         const start = state.drag.starts ? state.drag.starts[id] : { x: t.pos.x, y: t.pos.y };
         if (!state.drag.starts) state.drag.starts = {};
         if (!state.drag.starts[id]) state.drag.starts[id] = { x: t.pos.x - dx, y: t.pos.y - dy };
@@ -14467,7 +14525,7 @@ function douseSelected(out) {
       return;
     }
     if (role !== 'dm') return;
-    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+    if (typingInField(e.target) || typingInField(document.activeElement)) return;
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') { e.preventDefault(); copyTokens(); }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteTokens(); }
     if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); q('delTokenBtn').click(); }
@@ -18650,6 +18708,7 @@ return {
   pinLootChest,
   pinWeaponDrop,
   tokenPos,
+  tokenScreen,
   focusLootChest,
   setTool,
   removeToken: function (id) { removeMapTokens([id], { silent: true }); },

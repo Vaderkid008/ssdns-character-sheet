@@ -1062,6 +1062,62 @@ select:-webkit-autofill {
       "dice dice dice"
       "left stage right";
   }
+  /* A docked token drawer or prop menu keeps the same 320px column the fullscreen drawer uses.
+     The tool rail is capped so that column does not eat the stage. */
+  #mapMount.ssdns-map.ssdns-role-dm.ssm-token-dock.ssm-token-right:has(.ssdns-leftbar):has(.ssdns-rightbar) {
+    grid-template-columns: 148px minmax(220px, 1fr) max-content 320px;
+    grid-template-areas:
+      "strip strip strip token"
+      "bar bar bar token"
+      "dice dice dice token"
+      "left stage right token";
+  }
+  #mapMount.ssdns-map.ssdns-role-dm.ssm-token-dock .ssdns-leftbar {
+    width: 148px;
+    max-width: 148px;
+    min-width: 0;
+    overflow: auto;
+  }
+  #mapMount.ssdns-map.ssdns-role-dm.ssm-token-dock .ssdns-leftbar button,
+  #mapMount.ssdns-map.ssdns-role-dm.ssm-token-dock .ssdns-leftbar select,
+  #mapMount.ssdns-map.ssdns-role-dm.ssm-token-dock .ssdns-leftbar label,
+  #mapMount.ssdns-map.ssdns-role-dm.ssm-token-dock .ssdns-leftbar .ssm-colorpick {
+    max-width: 100%;
+    min-width: 0;
+  }
+  #mapMount.ssdns-map.ssdns-role-dm.ssm-token-dock .ssdns-leftbar .ssm-lock-dc {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    height: auto;
+    max-height: none;
+  }
+  #mapMount.ssdns-map.ssdns-role-dm.ssm-token-dock .ssdns-leftbar .ssm-lock-dc button {
+    flex: 0 0 auto;
+    width: 100%;
+    height: auto;
+  }
+  #mapMount.ssdns-map.ssdns-role-dm.ssm-token-dock > .ssm-prop-dock,
+  #mapMount.ssdns-map.ssdns-role-dm.ssm-token-dock > .ssm-drawer:not(.placed) {
+    grid-area: token;
+    position: relative;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+    height: auto;
+    max-height: none;
+    align-self: stretch;
+    justify-self: stretch;
+    overflow: hidden;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+  }
 }
 
 /* 0.2.93 dice tray: the shared rules now live in assets/css/dice.css (0.3.80), so the player sheet and the map lane match. */
