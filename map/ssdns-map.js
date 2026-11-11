@@ -3754,9 +3754,21 @@ function noteChunk4ZoneGone(prev, next) {
     });
   });
 }
+function asZoneArray(value) {
+  if (Array.isArray(value)) return value;
+  if (value && typeof value === "object") {
+    return Object.keys(value).map(key => value[key]).filter(zone => zone && typeof zone === "object");
+  }
+  return null;
+}
+function liveZoneRows(value) {
+  const rows = asZoneArray(value);
+  if (!rows) return null;
+  return rows.filter(zone => zone && zone.id && zone.id !== "__clear" && !zone.cleared).map(zone => Object.assign({}, zone));
+}
 function adoptSpellZones(list, seq, opts) {
   const prev = (state.spellZones || []).slice();
-  const next = (Array.isArray(list) ? list : []).map(z => Object.assign({}, z));
+  const next = liveZoneRows(list) || [];
   state.spellZones = next.filter(z => !(z && z.id && state.zoneGone[String(z.id)]));
   noteChunk4ZoneGone(prev, state.spellZones);
   state.spellZonesLive = true;
@@ -3775,7 +3787,9 @@ function persistSpellZones() {
   if (role !== "dm") return;
   try {
     const sd = sceneData();
-    sd.spellZones = (state.spellZones || []).map(z => Object.assign({}, z));
+    const list = liveZoneRows(state.spellZones) || [];
+    sd.spellZones = list;
+    sd.zoneCleared = list.length === 0;
     sd.zoneSeq = state.zoneSeq;
     saveScene();
   } catch (e) {}
@@ -3787,7 +3801,9 @@ function publishZoneFeed(zones) {
     id: id, ts: new Date().toISOString(), from: uid,
     fromName: role === "dm" ? "DM" : "Player",
     text: "zone", kind: "sfx", event: "zone",
-    zones: zones, zoneSeq: state.zoneSeq,
+    zones: liveZoneRows(zones) || [],
+    cleared: !(zones && zones.length),
+    zoneSeq: state.zoneSeq,
     full: role === "dm"
   };
   try {
@@ -3796,11 +3812,15 @@ function publishZoneFeed(zones) {
   } catch (e) {}
 }
 function applyZoneFeed(row) {
-  if (!row || row.event !== "zone" || !Array.isArray(row.zones)) return;
+  if (!row || row.event !== "zone") return;
   if (row.from && row.from === uid) return;
   const seq = Number(row.zoneSeq) || 0;
   if (state.spellZonesLive && seq && state.zoneSeq && seq < state.zoneSeq) return;
-  const incoming = row.zones.filter(z => z && z.id);
+  let incoming = liveZoneRows(row.zones);
+  if (!incoming) {
+    if (row.cleared || row.full) incoming = [];
+    else return;
+  }
   const Z = window.SSDNSSpellZones;
   const full = !!row.full;
   let merged;
@@ -18347,7 +18367,10 @@ function syncCombatants(initiative) {
     unsubs.push(adapter.subscribe('map/public/scenes', (value, meta) => {
       const path = meta && meta.path || '';
       const sid = path.split('/').pop();
-      if (sid && sid !== 'scenes' && value && typeof value === 'object') {
+      if (sid && sid !== 'scenes' && (value == null || (meta && meta.removed))) {
+        if (sid === activeSceneId()) adoptSpellZones([], Date.now(), { roster: true });
+        requestDraw();
+      } else if (sid && sid !== 'scenes' && value && typeof value === 'object') {
         sawRemoteScene = true;
         if (!shared.scenes) shared.scenes = {};
         const next = Object.assign({}, value);
@@ -18356,8 +18379,12 @@ function syncCombatants(initiative) {
         if (!Array.isArray(next.fogPolys)) next.fogPolys = [];
         const hadMeta = JSON.stringify((shared.scenes[sid] || {}).meta || null);
         shared.scenes[sid] = next;
-        if (Array.isArray(next.spellZones) && sid === activeSceneId() && (!state.spellZonesLive || (Number(next.zoneSeq) || 0) >= (state.zoneSeq || 0))) {
-          adoptSpellZones(next.spellZones, Number(next.zoneSeq) || 0, { roster: true });
+        if (sid === activeSceneId()) {
+          const seq = Number(next.zoneSeq) || 0;
+          const fresh = !state.spellZonesLive || !seq || seq >= (Number(state.zoneSeq) || 0);
+          let incoming = liveZoneRows(next.spellZones);
+          if (!incoming && (next.zoneCleared || (next.spellZones == null && seq && state.spellZonesLive))) incoming = [];
+          if (incoming && fresh) adoptSpellZones(incoming, seq || state.zoneSeq, { roster: true });
         }
         if (Array.isArray(next.spellEmitters) && sid === activeSceneId() && (!state.spellEmittersLive || (Number(next.lightSeq) || 0) >= (state.lightSeq || 0))) {
           adoptSpellEmitters(next.spellEmitters, Number(next.lightSeq) || 0);
