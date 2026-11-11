@@ -228,6 +228,11 @@ window.SSDNSMap = { create(opts) {
         hidden: !!t.loot.hidden, found: t.loot.found !== false, hideDc: t.loot.hideDc || 0,
         trap: t.loot.trap || null
       } : null,
+      shove: t.shove ? {
+        dc: t.shove.dc != null && t.shove.dc !== "" ? Number(t.shove.dc) : null,
+        allowRetries: !!t.shove.allowRetries,
+        attempts: t.shove.attempts || {}
+      } : null,
       loot: t.loot ? {
         id: t.loot.id || t.lootBoxId || t.id,
         name: t.loot.name || t.name || '',
@@ -462,6 +467,13 @@ function applySharedToTokens() {
       if (s.spellPiece && s.size) t.size = tokSquares(s.size);
       if (s.name) t.name = s.name;
       if (s.lootBoxId) t.lootBoxId = s.lootBoxId;
+      if (s.shove && typeof s.shove === "object") {
+        t.shove = {
+          dc: s.shove.dc != null && s.shove.dc !== "" ? Number(s.shove.dc) : (t.shove && t.shove.dc),
+          allowRetries: !!s.shove.allowRetries,
+          attempts: Object.assign({}, (t.shove && t.shove.attempts) || {}, s.shove.attempts || {})
+        };
+      }
       if (s.weaponDrop && typeof s.weaponDrop === 'object') t.weaponDrop = Object.assign({}, s.weaponDrop);
       if (s.loot && (s.loot.contents || s.loot.lock)) {
         const keepRoll = t.loot && t.loot._rollLine;
@@ -534,6 +546,8 @@ const state = {
   commandToken: "",
   /* DM "Edit tokens". Off by default. Persisted only for the DM role (ssdns.map.dmEdit). */
   dmEdit: false,
+  /* Armed from a prop card. The next map click is the destination square. Esc or × cancels. */
+  reposition: null,
   rangeWeaponId: "",
   rangeChoices: [],
   rangeMoved: {},
@@ -648,6 +662,14 @@ if (role === 'dm' && window.SSDNSRangeRings && window.SSDNSRangeRings.onOverride
   });
 }
 on(document, 'keydown', e => {
+  if (e.key === 'Escape' && state.reposition) {
+    const tag = e.target && e.target.tagName;
+    if (tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'TEXTAREA') {
+      e.preventDefault();
+      cancelReposition();
+      return;
+    }
+  }
   if (e.key === 'Escape' && state.blast) {
     e.preventDefault();
     cancelBlast();
@@ -936,6 +958,7 @@ paintRoleBadge();
 function pushFeed(row) {
   if (row && row.boxId && row.rowId && String(row.id || "").indexOf("lootclaim_") === 0) noteLootClaim(row);
   if (row && row.event === "drop-place" && role === "dm" && row.drop) placeDropFromFeed(row.drop);
+  if (row && row.event === "prop-shove" && role === "dm") applyPropShove(row);
   if (row && row.lockBox && role === "dm") applyLockFeed(row);
   if (row && row.noise && role === "dm") noteForceNoise(row);
   if (row && row.event === 'zone') { applyZoneFeed(row); return; }
@@ -6880,10 +6903,12 @@ function blastPointer(e, kind) {
 function hideChestMenu() {
   const menu = el.querySelector('[data-act="chestMenu"]');
   if (menu) menu.hidden = true;
+  cancelReposition();
 }
 function hideDmChest() {
   const menu = el.querySelector('[data-act="dmChest"]');
   if (menu) menu.hidden = true;
+  cancelReposition();
 }
 function hideChooser() {
   const menu = el.querySelector('[data-act="chooseMenu"]');
@@ -7022,6 +7047,19 @@ function noteForceNoise(row) {
   if (el) el.dataset.noisePulses = String(state.noisePulses.length);
   ensureAnim();
   requestDraw();
+}
+function commitProp(token) {
+  if (!token || role !== "dm") return;
+  const live = (state.tokens || []).find(t => t && t.id === token.id) || token;
+  const copy = shared.tokens && shared.tokens[live.id];
+  if (copy) {
+    if (live.pos) copy.pos = { x: live.pos.x, y: live.pos.y };
+    if (live.shove) copy.shove = JSON.parse(JSON.stringify(live.shove));
+    if (live.loot) copy.loot = live.loot;
+    if (live.kind) copy.kind = live.kind;
+    if (live.lootBoxId) copy.lootBoxId = live.lootBoxId;
+  }
+  saveToken(live.id);
 }
 function commitLoot(token) {
   if (!token || role !== "dm") return;
@@ -7230,6 +7268,153 @@ function catalogHits(query) {
   if (q.length < 2) return [];
   return Items.catalog({ dm: true }).filter(row => row && ((row.name || "").toLowerCase().indexOf(q) >= 0 || String(row.id || "").toLowerCase().indexOf(q) >= 0)).slice(0, 6);
 }
+function ensureShove(token) {
+  if (!token) return { dc: 10, allowRetries: false, attempts: {} };
+  const prev = token.shove || {};
+  const strong = token.kind === "chest" && isStrongbox(token.loot || {});
+  const fallback = strong ? 15 : 10;
+  token.shove = {
+    dc: prev.dc != null && prev.dc !== "" && isFinite(Number(prev.dc)) ? Number(prev.dc) : fallback,
+    allowRetries: prev.allowRetries != null ? !!prev.allowRetries : !!(token.loot && token.loot.lock && token.loot.lock.allowRetries),
+    attempts: prev.attempts || {}
+  };
+  return token.shove;
+}
+function shoveReach(me, prop) {
+  const feet = feetBetween(me, prop);
+  return feet != null && feet > 0 && feet <= 5;
+}
+function shoveDest(me, prop) {
+  if (!me || !prop || !me.pos || !prop.pos) return null;
+  const dx = Math.sign(Math.floor(Number(prop.pos.x)) - Math.floor(Number(me.pos.x)));
+  const dy = Math.sign(Math.floor(Number(prop.pos.y)) - Math.floor(Number(me.pos.y)));
+  if (!dx && !dy) return null;
+  const dest = { x: Math.floor(Number(prop.pos.x)) + dx, y: Math.floor(Number(prop.pos.y)) + dy };
+  const grid = state.scene && state.scene.grid;
+  if (grid && (dest.x < 0 || dest.y < 0 || dest.x >= Number(grid.cols) || dest.y >= Number(grid.rows))) {
+    return { blocked: true, dest: dest, reason: "The edge of the map is in the way." };
+  }
+  const size = prop.size || 1;
+  const blocked = crossesWall(Number(prop.pos.x) + size / 2, Number(prop.pos.y) + size / 2, dest.x + size / 2, dest.y + size / 2);
+  if (blocked) return { blocked: true, dest: dest, reason: "A wall is in the way." };
+  return { blocked: false, dest: dest };
+}
+function cancelReposition() {
+  if (!state.reposition) return;
+  state.reposition = null;
+  toast("Reposition cancelled");
+}
+function finishReposition(cell) {
+  const job = state.reposition;
+  state.reposition = null;
+  const t = job && (state.tokens || []).find(tok => tok && tok.id === job.id);
+  const grid = state.scene && state.scene.grid;
+  const x = cell ? Math.floor(Number(cell.x)) : NaN;
+  const y = cell ? Math.floor(Number(cell.y)) : NaN;
+  if (!t || !isPropTok(t) || !isFinite(x) || !isFinite(y)) {
+    toast("Reposition cancelled");
+    return;
+  }
+  if (grid && (x < 0 || y < 0 || x >= Number(grid.cols) || y >= Number(grid.rows))) {
+    toast("That square is off the map");
+    return;
+  }
+  t.pos = { x: x, y: y };
+  commitProp(t);
+  toast("Moved " + (t.name || "it"));
+  refreshPropMenu(t);
+  draw();
+}
+function armReposition(token) {
+  if (!token || role !== "dm" || !isPropTok(token)) return;
+  state.reposition = { id: token.id };
+  toast("Click a square for " + (token.name || "it") + ". Esc cancels.");
+  const dm = el.querySelector('[data-act="dmChest"]');
+  if (dm && !dm.hidden && token.loot) dm.innerHTML = dmChestHtml(token);
+  const chest = el.querySelector('[data-act="chestMenu"]');
+  if (chest && !chest.hidden) {
+    if (token.kind === "drop" || token.weaponDrop) chest.innerHTML = dropPileHtml(dropsOnSquare(token));
+    else if (token.loot) chest.innerHTML = chestMenuHtml(token.loot);
+  }
+  const asset = el.querySelector('[data-act="assetMenu"]');
+  if (asset && !asset.hidden && token.kind === "asset") asset.innerHTML = assetMenuHtml(token);
+}
+function refreshPropMenu(token) {
+  if (!token || !el) return;
+  const dm = el.querySelector('[data-act="dmChest"]');
+  if (dm && !dm.hidden && dm.getAttribute("data-token") === token.id && token.loot) dm.innerHTML = dmChestHtml(token);
+  const chest = el.querySelector('[data-act="chestMenu"]');
+  if (chest && !chest.hidden) {
+    if (token.kind === "drop" || token.weaponDrop) chest.innerHTML = dropPileHtml(dropsOnSquare(token));
+    else if (token.loot) chest.innerHTML = chestMenuHtml(token.loot);
+  }
+  const asset = el.querySelector('[data-act="assetMenu"]');
+  if (asset && !asset.hidden && asset.getAttribute("data-token") === token.id) asset.innerHTML = assetMenuHtml(token);
+}
+function doPropShove(token) {
+  if (!token || token.kind === "drop" || token.kind !== "chest" && token.kind !== "asset") return;
+  if (role === "dm") return;
+  const me = myMapToken();
+  if (!shoveReach(me, token)) { toast("Too far away."); return; }
+  const spot = shoveDest(me, token);
+  if (!spot) { toast("Stand next to it."); return; }
+  if (spot.blocked) { toast(spot.reason); return; }
+  const rec = ensureShove(token);
+  const sheet = playerCharacter() || {};
+  const Loot = window.SSDNSLoot;
+  const res = Loot && Loot.shoveCheck ? Loot.shoveCheck(rec, sheet, uid) : { ok: false, reason: "Can't shove that" };
+  const finish = (shown) => {
+    if (token.loot) token.loot._rollLine = (res && (res.line || res.reason)) || "";
+    token._rollLine = (res && (res.line || res.reason)) || "";
+    if (res && res.success) token.pos = { x: spot.dest.x, y: spot.dest.y };
+    if (res && res.ok && adapter && adapter.write) {
+      const id = "shove_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+      const who = sheet.name || "Someone";
+      adapter.write("tableFeed/" + id, {
+        id: id, ts: new Date().toISOString(), from: uid, fromName: who,
+        text: who + " " + (res.line || "shoves"),
+        kind: "note", event: "prop-shove", tokenId: token.id,
+        success: !!res.success, attempts: rec.attempts,
+        shoveDc: rec.dc, allowRetries: !!rec.allowRetries,
+        to: res.success ? { x: spot.dest.x, y: spot.dest.y } : null,
+        zoom: shown && shown.zoom || null, die: shown && shown.die || null, nat: res.nat
+      }, { by: uid });
+    }
+    toast((res && (res.line || res.reason)) || "Shove");
+    refreshPropMenu(token);
+    requestDraw();
+  };
+  if (!res || !res.ok || res.nat == null) { finish(null); return; }
+  showForceDie(res, sheet).then(finish);
+}
+const seenPropShove = {};
+function applyPropShove(row) {
+  if (role !== "dm" || !row || row.event !== "prop-shove") return;
+  if (row.id && seenPropShove[row.id]) return;
+  if (row.id) seenPropShove[row.id] = 1;
+  const t = (state.tokens || []).find(tok => tok && tok.id === row.tokenId);
+  if (!t || t.kind === "drop" || (t.kind !== "chest" && t.kind !== "asset")) return;
+  const rec = ensureShove(t);
+  const who = String(row.from || "");
+  const prior = who && rec.attempts[who];
+  if (prior && !rec.allowRetries) {
+    commitProp(t);
+    return;
+  }
+  if (row.attempts) rec.attempts = row.attempts;
+  if (row.shoveDc != null && row.shoveDc !== "") rec.dc = Number(row.shoveDc);
+  if (row.allowRetries != null) rec.allowRetries = !!row.allowRetries;
+  if (row.success && row.to && isFinite(Number(row.to.x)) && isFinite(Number(row.to.y))) {
+    const dest = { x: Math.floor(Number(row.to.x)), y: Math.floor(Number(row.to.y)) };
+    const size = t.size || 1;
+    const grid = state.scene && state.scene.grid;
+    const off = grid && (dest.x < 0 || dest.y < 0 || dest.x >= Number(grid.cols) || dest.y >= Number(grid.rows));
+    const blocked = crossesWall(Number(t.pos.x) + size / 2, Number(t.pos.y) + size / 2, dest.x + size / 2, dest.y + size / 2);
+    if (!off && !blocked) t.pos = dest;
+  }
+  commitProp(t);
+  requestDraw();
+}
 function dmChestHtml(token) {
   const box = token && token.loot;
   if (!box) return floatBar("Container") + '<div class="ssm-card-body"><p>Empty</p></div>';
@@ -7257,7 +7442,10 @@ function dmChestHtml(token) {
     "</div>" +
     '<label>Lock DC <input data-dm="lock" type="number" min="0" value="' + dc + '"></label>' +
     '<label>Force DC <input data-dm="force" type="number" min="0" value="' + force + '"></label>' +
+    '<label>Shove DC <input data-dm="shove" type="number" min="0" value="' + ensureShove(token).dc + '"></label>' +
     '<label><input data-dm="retry" type="checkbox"' + (box.lock && box.lock.allowRetries ? " checked" : "") + "> Allow retries</label>" +
+    (state.reposition && state.reposition.id === token.id ? '<p class="ssm-roll">Click a square. Esc or × cancels.</p>' : "") +
+    '<button type="button" data-dm="reposition">Reposition</button>' +
     '<label><input data-dm="improv" type="checkbox"' + (improviseOn() ? " checked" : "") + "> Allow improvised lockpicking</label>" +
     (box._rollLine ? '<p class="ssm-roll">' + box._rollLine + "</p>" : "") +
     "<p><b>Contents</b></p>" + (rows || "<p>Empty</p>") +
@@ -7301,9 +7489,14 @@ function showDmChest(token) {
       const name = ev.target && ev.target.getAttribute && ev.target.getAttribute("data-dm");
       if (name === "lock") setLiveLockDc(ev.target.value);
       if (name === "force") setLiveForceDc(ev.target.value);
+      if (name === "shove") {
+        ensureShove(live).dc = Math.max(0, Number(ev.target.value) || 0);
+        commitProp(live);
+      }
       if (name === "retry") {
         live.loot.lock = live.loot.lock || {};
         live.loot.lock.allowRetries = !!ev.target.checked;
+        ensureShove(live).allowRetries = !!ev.target.checked;
         const box = q("lockAllowRetries");
         if (box) box.checked = !!ev.target.checked;
         commitLoot(live);
@@ -7331,6 +7524,7 @@ function showDmChest(token) {
       ev.preventDefault();
       const live = state.tokens.find(t => t && t.id === menu.getAttribute("data-token"));
       if (!live || !live.loot) return;
+      if (name === "reposition") { armReposition(live); return; }
       if (name === "easy" || name === "medium" || name === "hard") setLiveLockDc(LOCK_DC[name], name);
       if (name === "unlock") {
         live.loot.lock = live.loot.lock || { dc: 15, attempts: {}, forceAttempts: {} };
@@ -7430,6 +7624,16 @@ function showChestMenu(token) {
       if (!act) return;
       ev.preventDefault();
       ev.stopPropagation();
+      if (act === "reposition") {
+        const live = state.tokens.find(t => t && (t.id === menu.getAttribute("data-token") || t.lootBoxId === menu.getAttribute("data-box")));
+        if (live) armReposition(live);
+        return;
+      }
+      if (act === "shove") {
+        const live = state.tokens.find(t => t && (t.id === menu.getAttribute("data-token") || t.lootBoxId === menu.getAttribute("data-box")));
+        if (live) doPropShove(live);
+        return;
+      }
       if (act === "pickup" || act === "pickup-all") {
         const ids = act === "pickup"
           ? [ev.target.getAttribute("data-token")]
@@ -7629,6 +7833,7 @@ function showChestMenu(token) {
     bindFloatingMenu(menu, hideChestMenu);
   }
   menu.setAttribute('data-box', token.lootBoxId || (token.loot && token.loot.id) || '');
+  menu.setAttribute('data-token', token.id || '');
   menu.hidden = false;
   const Give = window.SSDNSLootGive;
   if (Give && Give.menuHtml && Give.box && Give.box(token.lootBoxId)) menu.innerHTML = Give.menuHtml(token.lootBoxId);
@@ -7639,16 +7844,21 @@ function showChestMenu(token) {
 function dropsOnSquare(token) {
   return tokensSharingSquare(token).filter(t => t && (t.kind === "drop" || t.weaponDrop) && !(t.weaponDrop && t.weaponDrop.taken) && !(t.loot && t.loot.taken));
 }
+function dropMoveHtml(list) {
+  if (role !== "dm") return "";
+  const armed = state.reposition && (list || []).some(t => t && t.id === state.reposition.id);
+  return (armed ? '<p class="ssm-roll">Click a square. Esc or × cancels.</p>' : "") + '<button type="button" data-chest="reposition">Reposition</button>';
+}
 function dropPileHtml(pile) {
   const list = pile && pile.length ? pile : [];
   if (list.length <= 1) {
     const t = list[0];
     const name = (t && t.name) || "Dropped item";
-    return floatBar(escHtml(name)) + '<div class="ssm-card-body"><button type="button" data-chest="pickup" data-token="' + (t ? t.id : "") + '">Pick up</button></div>';
+    return floatBar(escHtml(name)) + '<div class="ssm-card-body"><button type="button" data-chest="pickup" data-token="' + (t ? t.id : "") + '">Pick up</button>' + dropMoveHtml(list) + '</div>';
   }
   return floatBar("Dropped items") + '<div class="ssm-card-body">' + list.map(t =>
     '<p>' + escHtml(t.name || "Item") + '</p><button type="button" data-chest="pickup" data-token="' + t.id + '">Pick up</button>'
-  ).join("") + '<button type="button" data-chest="pickup-all">Take all</button></div>';
+  ).join("") + '<button type="button" data-chest="pickup-all">Take all</button>' + dropMoveHtml(list) + '</div>';
 }
 function finishDropTake(t) {
   if (!t) return;
@@ -7882,6 +8092,19 @@ function chestMenuHtml(box) {
     else parts.push('<button type="button" data-chest="force">Force open</button>');
   }
   parts.push('<button type="button" data-chest="loot"' + (locked ? ' disabled' : '') + '>Loot</button>');
+  const prop = (state.tokens || []).find(t => t && box && (t.lootBoxId === box.id || (t.loot && t.loot.id === box.id)));
+  if (prop && isPropTok(prop)) {
+    if (role === "dm") {
+      if (state.reposition && state.reposition.id === prop.id) parts.push('<p class="ssm-roll">Click a square. Esc or × cancels.</p>');
+      parts.push('<button type="button" data-chest="reposition">Reposition</button>');
+    } else if (prop.kind === "chest" && shoveReach(myMapToken(), prop)) {
+      const prior = prop.shove && prop.shove.attempts && prop.shove.attempts[uid];
+      const retries = prop.shove ? !!prop.shove.allowRetries : !!(box.lock && box.lock.allowRetries);
+      if (prior && !retries) {
+        if (!box._rollLine) parts.push('<p>' + (prior.line || "You already tried to shove this.") + '</p>');
+      } else parts.push('<button type="button" data-chest="shove">Shove</button>');
+    }
+  }
   if (!locked && (box._showLoot || box.opened)) {
     (box.contents || []).forEach((row, i) => {
       if (!row) return;
@@ -8598,16 +8821,33 @@ function placeAssetAt(def, cell) {
 function hideAssetMenu() {
   const menu = el.querySelector('[data-act="assetMenu"]');
   if (menu) menu.hidden = true;
+  cancelReposition();
 }
 function assetMenuHtml(token) {
   const A = assetLib();
   const acts = A && A.menuActions ? A.menuActions(token.asset) : [];
   const name = (token.asset && token.asset.name) || token.name || "Asset";
+  const safe = name.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
   const rows = acts.map(act => {
     if (act.stub) return '<button type="button" data-asset="' + act.id + '" disabled>' + act.label + "</button> ";
     return '<button type="button" data-asset="' + act.id + '">' + act.label + "</button> ";
   }).join("");
-  return floatBar(name.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]))) + '<div class="ssm-card-body">' + (rows || "<p>No actions</p>") + "</div>";
+  const rec = ensureShove(token);
+  const prior = rec.attempts && rec.attempts[uid];
+  let extra = "";
+  if (token._rollLine) extra += '<p class="ssm-roll">' + token._rollLine + "</p>";
+  else if (prior && prior.line) extra += '<p class="ssm-roll">' + prior.line + "</p>";
+  if (role === "dm") {
+    if (state.reposition && state.reposition.id === token.id) extra += '<p class="ssm-roll">Click a square. Esc or × cancels.</p>';
+    extra += '<button type="button" data-prop="reposition">Reposition</button>';
+    extra += '<label>Shove DC <input data-prop="shove-dc" type="number" min="0" value="' + rec.dc + '"></label>';
+    extra += '<label><input data-prop="shove-retry" type="checkbox"' + (rec.allowRetries ? " checked" : "") + "> Allow shove retries</label>";
+  } else if (shoveReach(myMapToken(), token)) {
+    if (prior && !rec.allowRetries) {
+      if (!token._rollLine) extra += "<p>" + (prior.line || "You already tried to shove this.") + "</p>";
+    } else extra += '<button type="button" data-prop="shove">Shove</button>';
+  }
+  return floatBar(safe) + '<div class="ssm-card-body">' + (rows || "<p>No actions</p>") + extra + "</div>";
 }
 function showAssetMenu(token) {
   if (!token) return;
@@ -8618,7 +8858,29 @@ function showAssetMenu(token) {
     menu.className = "ssm-chest-menu";
     menu.setAttribute("data-act", "assetMenu");
     menu.addEventListener("pointerdown", ev => ev.stopPropagation());
+    menu.addEventListener("change", ev => {
+      const key = ev.target && ev.target.getAttribute && ev.target.getAttribute("data-prop");
+      if (key !== "shove-dc" && key !== "shove-retry") return;
+      const id = menu.getAttribute("data-token") || "";
+      const live = state.tokens.find(t => t && t.id === id);
+      if (!live) return;
+      const rec = ensureShove(live);
+      if (key === "shove-dc") rec.dc = Math.max(0, Number(ev.target.value) || 0);
+      if (key === "shove-retry") rec.allowRetries = !!ev.target.checked;
+      commitProp(live);
+    });
     menu.addEventListener("click", ev => {
+      const propAct = ev.target && ev.target.getAttribute && ev.target.getAttribute("data-prop");
+      if (propAct === "reposition" || propAct === "shove") {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const id = menu.getAttribute("data-token") || "";
+        const live = state.tokens.find(t => t && t.id === id);
+        if (!live) return;
+        if (propAct === "reposition") armReposition(live);
+        else doPropShove(live);
+        return;
+      }
       const act = ev.target && ev.target.getAttribute && ev.target.getAttribute("data-asset");
       if (!act || ev.target.disabled) return;
       ev.preventDefault();
@@ -8805,7 +9067,7 @@ function selectToken(token) {
   state.selected = token;
   state.selectedIds = [token.id];
   refreshSelectedPanel();
-  if (token && (token.kind === 'chest' || token.lootBoxId) && token.kind !== 'player' && token.kind !== 'enemy') {
+  if (token && (token.kind === 'chest' || token.kind === 'drop' || token.lootBoxId) && token.kind !== 'player' && token.kind !== 'enemy') {
     closeMapMenus(role === "dm" && token.kind === "chest" ? "dm" : "chest");
     if (role === "dm" && token.kind === "chest") showDmChest(token);
     else showChestMenu(token);
@@ -10901,26 +11163,26 @@ function onPointerDown(e) {
       return;
     }
     const hit = hitTest(w.x, w.y);
+    if (state.reposition && role === 'dm' && e.button === 0 && !state.tool) {
+      const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
+      finishReposition({ x: Math.floor(w.x / px), y: Math.floor(w.y / px) });
+      return;
+    }
     if (!hit && e.button === 0 && !state.tool && !e.altKey) closeMapMenus();
-    if (hit && hit.kind === 'asset' && role !== 'dm' && !e.shiftKey && !tokenSeenBy(hit, sightFor(uid, getPlayerScene()))) {
+    if (hit && hit.kind === 'asset' && role !== 'dm' && !tokenSeenBy(hit, sightFor(uid, getPlayerScene()))) {
       toast("You can't see that.");
       return;
     }
-    if (hit && e.button === 0 && !e.shiftKey && !state.tool) {
+    if (hit && e.button === 0 && !state.tool) {
       const pile = tokensSharingSquare(hit);
       const choices = shareChoices(pile);
-      /* Edit tokens still drags an asset, including one that shares a square. The chooser is the normal click. */
-      const editingAsset = dmEditing() && hit.kind === 'asset';
-      if (!editingAsset && choices.length > 1 && pile.some(isPropTok)) {
+      if (choices.length > 1 && pile.some(isPropTok)) {
         showChooser(choices);
         return;
       }
     }
-    if (hit && hit.kind === 'asset' && !e.shiftKey && !dmEditing()) {
-      selectToken(hit);
-      return;
-    }
-    if (hit && isContainerTok(hit) && !e.shiftKey) {
+    /* Props stay put under Edit tokens and under Shift-drag. The card repositions them. */
+    if (hit && isPropTok(hit) && e.button === 0 && !state.tool) {
       selectToken(hit);
       return;
     }
@@ -10993,11 +11255,16 @@ function onPointerDown(e) {
         });
         if (state.selectedIds.indexOf(hit.id) < 0) state.selectedIds.push(hit.id);
       }
+      state.selectedIds = state.selectedIds.filter(id => {
+        const tok = state.tokens.find(t => t && t.id === id);
+        return tok && !isPropTok(tok);
+      });
+      if (state.selectedIds.indexOf(hit.id) < 0 && !isPropTok(hit)) state.selectedIds.push(hit.id);
       state.drag = { token: hit, ox: Math.round(w.x / gpx - 0.5), oy: Math.round(w.y / gpx - 0.5), sx: e.clientX, sy: e.clientY, starts: {}, deferDrawer: role === 'dm' ? hit.id : "" };
       try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
       state.selectedIds.forEach(id => {
         const t = state.tokens.find(tok => tok.id === id);
-        if (t && (isPartyToken(hit) || !isPartyToken(t))) state.drag.starts[id] = { x: t.pos.x, y: t.pos.y };
+        if (t && !isPropTok(t) && (isPartyToken(hit) || !isPartyToken(t))) state.drag.starts[id] = { x: t.pos.x, y: t.pos.y };
       });
       if (hit.kind === 'asset') showAssetMenu(hit);
     } else if (hit && role === 'player') {
@@ -11089,7 +11356,7 @@ function onPointerMove(e) {
       state.drag.walled = false;
       ids.forEach(id => {
         const t = state.tokens.find(tok => tok.id === id);
-        if (!t || !onViewedScene(t)) return;
+        if (!t || !onViewedScene(t) || isPropTok(t)) return;
         const start = state.drag.starts ? state.drag.starts[id] : { x: t.pos.x, y: t.pos.y };
         if (!state.drag.starts) state.drag.starts = {};
         if (!state.drag.starts[id]) state.drag.starts[id] = { x: t.pos.x - dx, y: t.pos.y - dy };

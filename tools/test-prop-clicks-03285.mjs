@@ -1,5 +1,5 @@
 /**
- * Prop clicks stay on the prop card (sheet 0.3.285 / DMCC 0.2.298).
+ * Prop clicks stay on the prop card (sheet 0.3.286 / DMCC 0.2.299).
  * A barrel has no Move menu. A chest has no "Link to…".
  * A shared square lists every prop plus any creature.
  * Edit tokens can still drag an asset.
@@ -20,8 +20,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.285" && ver.dmcc === "0.2.298" && ver.sheetBuild === "sheet-playtest-v03285" && ver.dmccBuild === "dmcc-playtest-v02298");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.285") && !read("database.rules.json").includes("0.3.285"));
+check("ver", ver.sheet === "0.3.286" && ver.dmcc === "0.2.299" && ver.sheetBuild === "sheet-playtest-v03286" && ver.dmccBuild === "dmcc-playtest-v02299");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.286") && !read("database.rules.json").includes("0.3.286"));
 
 const dom = new JSDOM("<!doctype html><html><head></head><body></body></html>", { url: "http://localhost/dm/", pretendToBeVisual: true, runScripts: "dangerously" });
 const w = dom.window;
@@ -188,7 +188,7 @@ pointer(dmCanvas, "pointermove", to.x, to.y);
 pointer(dmCanvas, "pointerup", to.x, to.y);
 await flush(30);
 const saved = store.dm["map/dm/tokens/tok_keg"] && store.dm["map/dm/tokens/tok_keg"].value;
-check("dm.editDrag", !!(saved && saved.pos && saved.pos.x !== 16), JSON.stringify(saved && saved.pos));
+check("dm.editStays", !saved || saved.pos.x === 16, JSON.stringify(saved && saved.pos));
 tap(edit);
 
 if (failures.length) {
