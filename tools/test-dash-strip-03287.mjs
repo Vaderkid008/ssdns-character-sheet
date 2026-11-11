@@ -1,7 +1,7 @@
 /**
  * Dashboard initiative strip matches the centered panel.
  * The map bar (.ssm-turnstrip) stays full width.
- * Sheet 0.3.294 / DMCC 0.2.307.
+ * Sheet 0.3.295 / DMCC 0.2.308.
  *   node tools/test-dash-strip-03287.mjs
  */
 import fs from "node:fs";
@@ -18,8 +18,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.294" && ver.dmcc === "0.2.307" && ver.sheetBuild === "sheet-playtest-v03294" && ver.dmccBuild === "dmcc-playtest-v02307");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.294") && !read("database.rules.json").includes("0.2.307"));
+check("ver", ver.sheet === "0.3.295" && ver.dmcc === "0.2.308" && ver.sheetBuild === "sheet-playtest-v03295" && ver.dmccBuild === "dmcc-playtest-v02308");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.295") && !read("database.rules.json").includes("0.2.308"));
 
 const css = read("dm/assets/css/dmcc.css");
 const mapCss = read("map/ssdns-map.css");
