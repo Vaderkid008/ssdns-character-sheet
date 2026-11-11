@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.287"; // sheet-playtest-v03287
+  var APP_VERSION = "0.3.288"; // sheet-playtest-v03288
   var TR_BELT_MSG = "Need a gun belt or bandolier for Tactical Reload.";
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;

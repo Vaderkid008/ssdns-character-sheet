@@ -1311,7 +1311,13 @@ body.map-tab-active #roomShell > #turnStrip.turn-strip {
 #panel-rewards .give-card.give-need { border-color: var(--warn); box-shadow: 0 0 0 2px rgba(224,160,64,.35); }
 #panel-rewards .give-step { font-family: var(--label); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--eld); margin: 0 0 8px; font-weight: 600; }
 .give-who { display: flex; flex-wrap: wrap; gap: 8px; }
-.give-who-card { appearance: none; text-align: left; min-height: var(--tap); min-width: 150px; flex: 0 1 200px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); cursor: pointer; display: flex; flex-direction: column; gap: 2px; font: inherit; }
+.give-who-card { appearance: none; text-align: left; min-height: var(--tap); min-width: 150px; flex: 0 1 200px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); cursor: pointer; display: flex; flex-direction: row; align-items: center; gap: 8px; font: inherit; }
+.give-who-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.give-face { width: 36px; height: 36px; border-radius: 50%; flex: none; object-fit: cover; background: #1a2428; border: 1px solid var(--line); display: inline-flex; align-items: center; justify-content: center; font-family: var(--label); font-size: 12px; letter-spacing: .04em; color: var(--eld); }
+.give-catalog-hits { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.give-catalog-hits button { text-align: left; justify-content: flex-start; }
+.give-stepper-row { display: flex; align-items: center; gap: 6px; }
+.give-stepper-row input { width: 72px; text-align: center; }
 .give-who-card b { font-family: var(--body); font-size: 15px; }
 .give-who-card span { font-size: 12px; color: var(--muted); }
 .give-who-card.off b { color: var(--muted); }

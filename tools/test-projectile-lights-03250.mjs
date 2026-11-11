@@ -1,6 +1,6 @@
 /**
  * COA #15 — fire and lightning projectiles carry a short fog-cutting light
- * (sheet 0.3.287 / DMCC 0.2.300).
+ * (sheet 0.3.288 / DMCC 0.2.301).
  *   node tools/test-projectile-lights-03250.mjs
  * rules.js is not regenerated. Fireball stays a comet, then the burst.
  */
@@ -126,9 +126,9 @@ w.flushFx(16);
 check("effects.off", api.lightAt(hx, hy, "p1") === "dark", api.lightAt(hx, hy, "p1"));
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.287" && ver.dmcc === "0.2.300" && ver.sheetBuild === "sheet-playtest-v03287" && ver.dmccBuild === "dmcc-playtest-v02300");
+check("ver", ver.sheet === "0.3.288" && ver.dmcc === "0.2.301" && ver.sheetBuild === "sheet-playtest-v03288" && ver.dmccBuild === "dmcc-playtest-v02301");
 const rules = read("assets/data/rules.js");
-check("rules.clean", !rules.includes("0.3.287") && !rules.includes("0.2.300") && !read("database.rules.json").includes("0.3.287"));
+check("rules.clean", !rules.includes("0.3.288") && !rules.includes("0.2.301") && !read("database.rules.json").includes("0.3.288"));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

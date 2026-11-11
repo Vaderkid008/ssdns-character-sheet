@@ -129,6 +129,25 @@
     return n;
   }
   function byKey(key) { return ammoCatalog().filter(function (o) { return o.key === key; })[0] || null; }
+  function initialOf(name) {
+    var n = String(name || "").replace(/["“”].*$/, "").trim();
+    var parts = n.split(/\s+/).filter(Boolean);
+    if (!parts.length) return "?";
+    return ((parts[0].charAt(0) || "") + (parts.length > 1 ? parts[1].charAt(0) : "")).toUpperCase();
+  }
+  function portraitSrc(snap) {
+    var src = String((snap && snap.portrait) || "");
+    if (/^(data:image\/|https?:\/\/|blob:)/.test(src)) return src;
+    return "";
+  }
+  /** Catalog rows whose name or id contains the query. Two letters minimum. */
+  function catalogHits(rows, query) {
+    var q = norm(query);
+    if (q.length < 2) return [];
+    return (rows || []).filter(function (row) {
+      return row && row.name && (norm(row.name).indexOf(q) >= 0 || norm(row.id).indexOf(q) >= 0);
+    }).slice(0, 8);
+  }
   function shortName(snap, pid) {
     var n = String((snap && (snap.name || snap.player)) || pid || "them").replace(/["“”].*?["“”]/g, " ").trim();
     return n.split(/\s+/)[0] || n;
@@ -298,7 +317,8 @@
   }
 
   var pure = { ammoCatalog: ammoCatalog, ammoOptions: ammoOptions, gunKeys: gunKeys, poolCount: poolCount, samePool: samePool, byKey: byKey,
-    describe: describe, shortName: shortName, ackKey: ackKey, ackCount: ackCount, demoAmmo: demoAmmo, weaponList: weaponList, findWeapon: findWeapon, ammoWhat: ammoWhat };
+    describe: describe, shortName: shortName, ackKey: ackKey, ackCount: ackCount, demoAmmo: demoAmmo, weaponList: weaponList, findWeapon: findWeapon, ammoWhat: ammoWhat,
+    catalogHits: catalogHits, initialOf: initialOf, portraitSrc: portraitSrc };
 
   /* ---------------- DOM ---------------- */
   var ui = { mode: "", custom: false, showAll: false, recent: [], loadedFor: "" };
@@ -341,10 +361,12 @@
     var cards = ids.map(function (pid) {
       var s = snapOf(pid), on = online(pid);
       var sub = [s.calling ? s.calling + (s.level ? " " + s.level : "") : "", num(s.es) + " ES", on ? "online" : "offline"].filter(Boolean).join(" · ");
+      var nm = s.name || s.player || pid;
+      var face = portraitSrc(s) ? '<img class="give-face" alt="" src="' + esc(portraitSrc(s)) + '">' : '<span class="give-face give-initial">' + esc(initialOf(nm)) + "</span>";
       return '<button type="button" class="give-who-card' + (t === pid ? " on" : "") + (on ? "" : " off") + '" role="radio" aria-checked="' + (t === pid) + '" data-give-who="' + esc(pid) + '">' +
-        '<b>' + esc(s.name || s.player || pid) + "</b><span>" + esc(sub) + "</span></button>";
+        face + '<span class="give-who-text"><b>' + esc(nm) + "</b><span>" + esc(sub) + "</span></span></button>";
     });
-    if (ids.length) cards.push('<button type="button" class="give-who-card all' + (t === "all" ? " on" : "") + '" role="radio" aria-checked="' + (t === "all") + '" data-give-who="all"><b>Everyone</b><span>' + ids.length + " player" + (ids.length === 1 ? "" : "s") + " · asks first</span></button>");
+    if (ids.length) cards.push('<button type="button" class="give-who-card all' + (t === "all" ? " on" : "") + '" role="radio" aria-checked="' + (t === "all") + '" data-give-who="all"><span class="give-face give-initial">All</span><span class="give-who-text"><b>Everyone</b><span>' + ids.length + " player" + (ids.length === 1 ? "" : "s") + " · asks first</span></span></button>");
     var html = cards.join("") || '<p class="fine">No players at the table yet.</p>';
     if (box.getAttribute("data-html") !== html) { box.innerHTML = html; box.setAttribute("data-html", html); }
     var carry = $("giveWhoCarry");
@@ -577,6 +599,37 @@
     paintWho();
     return true;
   }
+  function paintCatalog() {
+    var box = $("giveCatalogHits");
+    var field = $("giveCatalogSearch");
+    if (!box || !field) return;
+    var I = root.SSDNSItems;
+    var rows = I && I.catalog ? I.catalog({ dm: true }) : [];
+    var hits = catalogHits(rows, field.value || "");
+    if (!hits.length) { box.hidden = true; box.innerHTML = ""; return; }
+    box.hidden = false;
+    box.innerHTML = hits.map(function (row) {
+      return '<button type="button" class="btn sm" data-give-catalog="' + esc(row.id) + '" data-give-name="' + esc(row.name) + '">' + esc(row.name) + "</button>";
+    }).join("");
+  }
+  function stepQty(id, dir) {
+    var input = $(id);
+    if (!input) return;
+    var min = Math.floor(Number(input.min));
+    if (!isFinite(min)) min = 1;
+    var cur = Math.floor(Number(input.value));
+    if (!isFinite(cur)) cur = min;
+    input.value = String(Math.max(min, cur + dir));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  function pickCatalog(id, name) {
+    var tx = $("rewText");
+    if (tx) { tx.value = name || ""; tx.dispatchEvent(new Event("input", { bubbles: true })); }
+    var field = $("giveCatalogSearch");
+    if (field) field.value = "";
+    var box = $("giveCatalogHits");
+    if (box) { box.hidden = true; box.innerHTML = ""; }
+  }
   function paintWho() { whoCards(); paintMore(); if (ui.mode === "ammo") fillAmmo(); paintPreview(); }
   function paint() {
     if (typeof document === "undefined" || !$("giveWho")) return;
@@ -602,8 +655,10 @@
     if (!panel || panel.getAttribute("data-give-tab")) return;
     panel.setAttribute("data-give-tab", "1");
     panel.addEventListener("click", function (e) {
-      var t = e.target && e.target.closest ? e.target.closest("[data-give-who],[data-give-mode],[data-give-undo],#btnCustomItem,#btnCustomWeapon") : null;
+      var t = e.target && e.target.closest ? e.target.closest("[data-give-who],[data-give-mode],[data-give-undo],[data-give-step],[data-give-catalog],#btnCustomItem,#btnCustomWeapon") : null;
       if (!t) return;
+      if (t.hasAttribute("data-give-step")) { stepQty(t.getAttribute("data-give-for"), Number(t.getAttribute("data-give-step")) || 0); return; }
+      if (t.hasAttribute("data-give-catalog")) { pickCatalog(t.getAttribute("data-give-catalog"), t.getAttribute("data-give-name")); return; }
       if (t.hasAttribute("data-give-who")) { pickWho(t.getAttribute("data-give-who")); return; }
       if (t.hasAttribute("data-give-mode")) { setMode(t.getAttribute("data-give-mode")); return; }
       if (t.hasAttribute("data-give-undo")) { t.disabled = true; undo(t.getAttribute("data-give-undo")); return; }
@@ -619,7 +674,11 @@
         if (ui.custom && w) { try { w.scrollIntoView({ block: "start", behavior: "smooth" }); } catch (err) {} }
       }
     });
-    panel.addEventListener("input", function () { paintSupplyLater(); paintPreview(); });
+    panel.addEventListener("input", function (e) {
+      if (e.target && e.target.id === "giveCatalogSearch") paintCatalog();
+      paintSupplyLater();
+      paintPreview();
+    });
     panel.addEventListener("change", function (e) {
       var id = e.target && e.target.id;
       if (id === "rewTarget") { paintWho(); return; }
