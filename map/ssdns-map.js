@@ -7482,13 +7482,15 @@ function dmChestHtml(token) {
     '<button type="button" data-dm="medium"' + (preset === "medium" ? ' class="is-on"' : "") + ">Medium</button>" +
     '<button type="button" data-dm="hard"' + (preset === "hard" ? ' class="is-on"' : "") + ">Hard</button>" +
     "</div>" +
+    '<div class="ssm-dc-row">' +
     '<label>Lock DC <input data-dm="lock" type="number" min="0" value="' + dc + '"></label>' +
     '<label>Force DC <input data-dm="force" type="number" min="0" value="' + force + '"></label>' +
     '<label>Shove DC <input data-dm="shove" type="number" min="0" value="' + ensureShove(token).dc + '"></label>' +
-    '<label><input data-dm="retry" type="checkbox"' + (box.lock && box.lock.allowRetries ? " checked" : "") + "> Allow retries</label>" +
+    "</div>" +
+    '<label class="ssm-line"><input data-dm="retry" type="checkbox"' + (box.lock && box.lock.allowRetries ? " checked" : "") + "> Allow retries</label>" +
     (state.reposition && state.reposition.id === token.id ? '<p class="ssm-roll">Click a square. Esc or × cancels.</p>' : "") +
     '<button type="button" data-dm="reposition">Reposition</button>' +
-    '<label><input data-dm="improv" type="checkbox"' + (improviseOn() ? " checked" : "") + "> Allow improvised lockpicking</label>" +
+    '<label class="ssm-line"><input data-dm="improv" type="checkbox"' + (improviseOn() ? " checked" : "") + "> Allow improvised lockpicking</label>" +
     (box._rollLine ? '<p class="ssm-roll">' + box._rollLine + "</p>" : "") +
     "<p><b>Contents</b></p>" + (rows || "<p>Empty</p>") +
     '<label>Find gear <input data-dm="search" type="search" placeholder="Search the catalog"></label>' +
