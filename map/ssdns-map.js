@@ -217,6 +217,7 @@ window.SSDNSMap = { create(opts) {
       weaponDrop: t.weaponDrop ? { name: t.weaponDrop.name || t.name || '', itemId: t.weaponDrop.itemId || '', dirty: !!t.weaponDrop.dirty, taken: !!t.weaponDrop.taken } : null,
       spellPiece: t.spellPiece || '', zoneId: t.zoneId || '',
       noHpPool: !!t.noHpPool, notTargetable: !!t.notTargetable, noInit: !!t.noInit,
+      partyLight: (t.kind === 'party' || t.storyMarker === 'party') ? t.partyLight !== false : undefined,
       damageBudget: t.spellPiece === 'guardian of faith' ? (Number(t.damageBudget) || 60) : null,
       budgetLeft: t.spellPiece === 'guardian of faith' ? (t.budgetLeft != null ? Number(t.budgetLeft) : (Number(t.damageBudget) || 60)) : null,
       assetDefId: t.assetDefId || '', asset: pubAsset,
@@ -429,7 +430,14 @@ function applySharedToTokens() {
       stampScene(t, s);
       if ((s.kind === 'asset' || t.kind === 'asset') && s.image && s.image !== t.image) t._img = null;
       t.image = s.image || t.image || '';
+      if (s.partyLight != null) t.partyLight = !!s.partyLight;
       if (s.kind === 'party' || s.storyMarker === 'party' || t.kind === 'party' || t.storyMarker === 'party') {
+        if (t.partyLight !== false && !(Array.isArray(t.lights) && t.lights.some(l => l && ((Number(l.bright) || 0) + (Number(l.dim) || 0) > 0)))) {
+          t.lights = partyLanternRows();
+          t.partyLight = true;
+          if (s) { s.lights = t.lights.map(l => Object.assign({}, l)); s.partyLight = true; }
+          if (role === 'dm') saveToken(t.id);
+        }
         const face = partyFace(t.image);
         if (face !== t.image) {
           t.image = face;
@@ -2412,7 +2420,8 @@ function ambientOf(sd) {
   return a === 'bright' || a === 'dim' ? a : 'dark';
 }
 function tokenLightList(t) {
-  if (!t || !t.pos || t.hidden || t.dmDoused || isPartyToken(t)) return [];
+  if (!t || !t.pos || t.hidden || t.dmDoused) return [];
+  if (isPartyToken(t) && t.partyLight === false) return [];
   const c = fxCenter(t);
   const face = (Number(t.facing) || 0) * Math.PI / 180;
   const rows = Array.isArray(t.lights) ? t.lights.filter(l => l && !l.out) : [];
@@ -2432,6 +2441,12 @@ function tokenLightList(t) {
     out.push({
       x: c.x, y: c.y, bright: 20, dim: 20, radius: 8, cone: false, facing: face,
       name: 'Flaming Sphere', id: 'sphere:' + t.id, magical: true, spell: true, spellLevel: 2
+    });
+  }
+  if (isPartyToken(t) && !out.length && t.partyLight !== false) {
+    out.push({
+      x: c.x, y: c.y, bright: 30, dim: 30, radius: 12, cone: false, facing: face,
+      name: 'Lantern', id: 'party-lantern', magical: false, spell: false
     });
   }
   if (out.length) return out;
@@ -2461,9 +2476,10 @@ function buildSight(viewerUid, sceneId, forceMode) {
     shapes: sd.fogShapes || []
   };
   for (const t of state.tokens) {
-    if (!t || !t.pos || t.hidden || isPartyToken(t)) continue;
+    if (!t || !t.pos || t.hidden) continue;
     if ((t.sceneId || 'scn_dustyspur01') !== sid) continue;
     tokenLightList(t).forEach(ls => out.lights.push(ls));
+    if (isPartyToken(t)) continue;
     const party = !!(t.ownerUid || t.kind === 'player');
     if (!party) continue;
     const mine = viewerUid && t.ownerUid === viewerUid;
@@ -4793,8 +4809,8 @@ function bindRangeUi() {
   }
 }
 function refreshRangeSurfaces() {
-  if (role === 'player') paintPlayerFight();
-  else if (state.drawerOpen) renderDrawer();
+  /* A move used to rebuild the token card on every cell. That snapped the bar
+     and shifted the map under the pointer. Range rings repaint with the canvas. */
 }
 function markRangeMoved(id, from, to) {
   if (!id || !from || !to) return;
@@ -9163,6 +9179,7 @@ function useTokenInteract() {
   else if (hit.kind === 'asset') showAssetMenu(hit.token);
 }
 function placeCommandMenu() {
+  if (state.drag && state.drag.token) return;
   const token = commandToken();
   let menu = el.querySelector('[data-act="tokenCmd"]');
   if (!token || !state.scene) {
@@ -9378,6 +9395,30 @@ function partyFace(image) {
   if (!src || src.indexOf('asset-baggage-cart') >= 0 || src.indexOf('party-six-shooter.svg') >= 0) return PARTY_ART;
   return src;
 }
+function partyLanternRows() {
+  return [{ id: 'party-lantern', name: 'Lantern', bright: 30, dim: 30 }];
+}
+function setPartyLight(token, patch) {
+  if (role !== 'dm' || !token || !isPartyToken(token)) return;
+  patch = patch || {};
+  if (patch.on != null) token.partyLight = !!patch.on;
+  else if (token.partyLight == null) token.partyLight = true;
+  const prev = (token.lights && token.lights[0]) || partyLanternRows()[0];
+  const row = {
+    id: 'party-lantern',
+    name: 'Lantern',
+    bright: patch.bright != null ? Math.max(0, Number(patch.bright) || 0) : (Number(prev.bright) || 30),
+    dim: patch.dim != null ? Math.max(0, Number(patch.dim) || 0) : (Number(prev.dim) || 30)
+  };
+  token.lights = [row];
+  const copy = shared.tokens[token.id];
+  if (copy) {
+    copy.partyLight = token.partyLight !== false;
+    copy.lights = token.lights.map(l => Object.assign({}, l));
+    saveToken(token.id);
+  }
+  requestDraw();
+}
 function placePartyToken(opts) {
   if (role !== 'dm' || !state.scene) return null;
   opts = opts || {};
@@ -9408,6 +9449,8 @@ function placePartyToken(opts) {
     notTargetable: true,
     color: '#c9a227',
     image: PARTY_ART,
+    partyLight: true,
+    lights: partyLanternRows(),
     size: 1,
     pos: cell,
     sceneId: sid
@@ -15657,6 +15700,7 @@ function syncCombatants(initiative) {
     state.drawerTokenId = tokenId;
     if (!same) state.rangeTargetId = '';
     if (!same) emit('drawer:open', { tokenId, combatantId: tokenCombatant(tokenId) });
+    if (same) return;
     /* map token guns: range rings start on the token's remembered weapon, not always the first (melee) one */
     if (!same) {
       const card0 = lookupCard(tokenId);
@@ -17484,14 +17528,28 @@ function syncCombatants(initiative) {
     if (partyTok) {
       d.innerHTML = drawerHeadHtml(partyTok.label || 'Party', 'story') +
         '<div class="ssm-drawer-body">' +
-        '<p class="ssm-tactics">Story marker for the whole party on this map. It has no HP, and it does not join the fight. Drag moves only this marker.</p>' +
+        '<p class="ssm-tactics">Story marker for the whole party on this map. It has no HP, and it does not join the fight. Drag moves only this marker. Its light is what players see by when the map is dark.</p>' +
         '<label>Name <input data-act="partyName" maxlength="16" value="' + esc(partyTok.label || 'Party') + '" aria-label="Party token name"></label>' +
+        '<label class="ssm-line"><input data-act="partyLight" type="checkbox"' + (partyTok.partyLight !== false ? ' checked' : '') + '> Light</label>' +
+        '<label class="ssm-line">Bright ft <input data-act="partyBright" type="number" min="0" value="' + ((partyTok.lights && partyTok.lights[0] && partyTok.lights[0].bright != null) ? partyTok.lights[0].bright : 30) + '" aria-label="Party light bright feet"></label>' +
+        '<label class="ssm-line">Dim ft <input data-act="partyDim" type="number" min="0" value="' + ((partyTok.lights && partyTok.lights[0] && partyTok.lights[0].dim != null) ? partyTok.lights[0].dim : 30) + '" aria-label="Party light dim feet"></label>' +
         '<div class="ssm-row"><button type="button" data-act="partyDelete">Remove party token</button></div>' +
         '</div>';
       const c = d.querySelector('[data-act="drawerClose"]');
       if (c) c.addEventListener('click', closeDrawer);
       const nameBox = d.querySelector('[data-act="partyName"]');
       if (nameBox) nameBox.addEventListener('change', () => { renamePartyToken(nameBox.value); });
+      const lightBox = d.querySelector('[data-act="partyLight"]');
+      const brightBox = d.querySelector('[data-act="partyBright"]');
+      const dimBox = d.querySelector('[data-act="partyDim"]');
+      const readPartyLight = () => setPartyLight(partyTok, {
+        on: lightBox ? lightBox.checked : partyTok.partyLight !== false,
+        bright: brightBox ? brightBox.value : undefined,
+        dim: dimBox ? dimBox.value : undefined
+      });
+      if (lightBox) lightBox.addEventListener('change', readPartyLight);
+      if (brightBox) brightBox.addEventListener('change', readPartyLight);
+      if (dimBox) dimBox.addEventListener('change', readPartyLight);
       const del = d.querySelector('[data-act="partyDelete"]');
       if (del) del.addEventListener('click', () => { removePartyToken(); closeDrawer(); });
       syncDockChrome(d);

@@ -1,5 +1,5 @@
 /**
- * Phase 2 next grit cut (sheet 0.3.293 / DMCC 0.2.306).
+ * Phase 2 next grit cut (sheet 0.3.294 / DMCC 0.2.307).
  * Fire Bolt, Ray of Frost, and Acid Splash kick grit when they land.
  * Misty Step, Wind Wall, and Spike Growth pick up dust on the shapes they already have.
  *   node tools/test-phase2-dust-03260.mjs
@@ -18,8 +18,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.293" && ver.dmcc === "0.2.306" && ver.sheetBuild === "sheet-playtest-v03293" && ver.dmccBuild === "dmcc-playtest-v02306");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.293") && !read("database.rules.json").includes("0.3.293"));
+check("ver", ver.sheet === "0.3.294" && ver.dmcc === "0.2.307" && ver.sheetBuild === "sheet-playtest-v03294" && ver.dmccBuild === "dmcc-playtest-v02307");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.294") && !read("database.rules.json").includes("0.3.294"));
 check("bestiary.kept", read("dm/assets/js/v2.js").includes("bestiary.json?v=0.2.249-spell-tokens"));
 check("fullscreen.guard", read("map/ssdns-map.js").includes("A 0×0 read during fullscreen must not replace it."));
 check("idle.kept", read("map/ssdns-map-fx.js").includes("function stormIdle") && read("map/ssdns-map-fx.js").includes("function hungerWhispers"));
