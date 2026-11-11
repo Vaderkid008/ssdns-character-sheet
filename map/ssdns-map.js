@@ -7169,6 +7169,20 @@ function postLockFeed(line, extra) {
 function isContainerTok(t) {
   return !!(t && (t.kind === "chest" || t.kind === "drop" || t.lootBoxId) && t.kind !== "player" && t.kind !== "enemy");
 }
+/* A prop is a chest, a dropped item, or an asset (powder barrel and the rest).
+   Creatures stay off this list so a later shove can still move them into a prop. */
+function isPropTok(t) {
+  return !!(t && (t.kind === "chest" || t.kind === "drop" || t.kind === "asset"));
+}
+/* Drops on one square already share one Pick up card. They count as a single choice
+   until a chest, barrel, or creature stands there too. Then every prop is listed. */
+function shareChoices(pile) {
+  const list = (pile || []).filter(Boolean);
+  const rest = list.filter(t => t.kind !== "drop");
+  if (rest.length) return list;
+  const drop = list.filter(t => t.kind === "drop");
+  return drop.length ? [drop[drop.length - 1]] : [];
+}
 function tokensSharingSquare(hit) {
   if (!hit || !hit.pos) return [];
   const x = Math.floor(Number(hit.pos.x));
@@ -7194,7 +7208,7 @@ function showChooser(tokens) {
       hideChooser();
       if (!t) return;
       selectToken(t);
-      if (!isContainerTok(t)) showCommandMenu(t);
+      if (!isPropTok(t)) showCommandMenu(t);
     });
     el.appendChild(menu);
     bindFloatingMenu(menu, hideChooser);
@@ -8812,7 +8826,11 @@ function selectToken(token) {
     hideChestMenu();
     hideAssetMenu();
   }
-  if (role === 'dm') openDrawer(token.id);
+  /* A chest or drop keeps its card and must not open the character drawer (no "Link to…").
+     An asset still opens the asset drawer so the DM reaches the fuse controls.
+     Edit-tokens drag is a different path and is left alone. */
+  if (role === 'dm' && (token.kind === 'chest' || token.kind === 'drop')) closeDrawer();
+  else if (role === 'dm') openDrawer(token.id);
   draw();
 }
 function playerTokenId(pid) {
@@ -10884,17 +10902,22 @@ function onPointerDown(e) {
     }
     const hit = hitTest(w.x, w.y);
     if (!hit && e.button === 0 && !state.tool && !e.altKey) closeMapMenus();
+    if (hit && hit.kind === 'asset' && role !== 'dm' && !e.shiftKey && !tokenSeenBy(hit, sightFor(uid, getPlayerScene()))) {
+      toast("You can't see that.");
+      return;
+    }
     if (hit && e.button === 0 && !e.shiftKey && !state.tool) {
       const pile = tokensSharingSquare(hit);
-      if (pile.some(isContainerTok) && pile.some(t => !isContainerTok(t))) {
-        showChooser(pile);
+      const choices = shareChoices(pile);
+      /* Edit tokens still drags an asset, including one that shares a square. The chooser is the normal click. */
+      const editingAsset = dmEditing() && hit.kind === 'asset';
+      if (!editingAsset && choices.length > 1 && pile.some(isPropTok)) {
+        showChooser(choices);
         return;
       }
     }
-    if (hit && hit.kind === 'asset' && role === 'player' && !e.shiftKey) {
-      if (!tokenSeenBy(hit, sightFor(uid, getPlayerScene()))) { toast("You can't see that."); return; }
+    if (hit && hit.kind === 'asset' && !e.shiftKey && !dmEditing()) {
       selectToken(hit);
-      showCommandMenu(hit);
       return;
     }
     if (hit && isContainerTok(hit) && !e.shiftKey) {
