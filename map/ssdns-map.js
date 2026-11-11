@@ -6995,6 +6995,10 @@ function clampMenu(menu, left, top) {
 function bindFloatingMenu(menu, hide) {
   if (!menu || menu._floatBound) return;
   menu._floatBound = true;
+  menu.classList.add("ssm-map-ui");
+  menu.addEventListener("pointerdown", ev => ev.stopPropagation());
+  menu.addEventListener("pointermove", ev => ev.stopPropagation());
+  menu.addEventListener("pointerup", ev => ev.stopPropagation());
   menu.addEventListener("click", ev => {
     if (!(ev.target && ev.target.closest && ev.target.closest("[data-menu-close]"))) return;
     ev.preventDefault();
@@ -7150,10 +7154,8 @@ function applyLockFeed(row) {
   if (row.lockAttempts) t.loot.lock.attempts = row.lockAttempts;
   if (row.forceAttempts) t.loot.lock.forceAttempts = row.forceAttempts;
   if (row.forceDc != null && row.forceDc !== "") t.loot.lock.forceDc = Number(row.forceDc);
-  if (row.lockOk || row.lockOpen) {
-    t.loot.opened = true;
-    if (row.lockOk && t.loot.lock) t.loot.lock.unlocked = true;
-  }
+  if (row.lockOk && t.loot.lock) t.loot.lock.unlocked = true;
+  if (row.lockOpen) t.loot.opened = true;
   if (row.lockRelock) {
     t.loot.opened = false;
     if (t.loot.lock) t.loot.lock.unlocked = false;
@@ -7341,12 +7343,41 @@ function showChooser(tokens) {
 function escHtml(s) {
   return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
-function catalogHits(query) {
+function catalogGroups(query) {
   const Items = window.SSDNSItems;
   if (!Items || !Items.catalog) return [];
   const q = String(query || "").trim().toLowerCase();
-  if (q.length < 2) return [];
-  return Items.catalog({ dm: true }).filter(row => row && ((row.name || "").toLowerCase().indexOf(q) >= 0 || String(row.id || "").toLowerCase().indexOf(q) >= 0)).slice(0, 6);
+  const rows = Items.catalog({ dm: true }).filter(row => {
+    if (!row || !row.name) return false;
+    if (!q) return true;
+    const name = String(row.name).toLowerCase();
+    const id = String(row.id || "").toLowerCase();
+    const group = String(row.group || row.shelf || row.type || "").toLowerCase();
+    return name.indexOf(q) >= 0 || id.indexOf(q) >= 0 || group.indexOf(q) >= 0;
+  }).slice(0, q ? 30 : 60);
+  const groups = {};
+  const order = [];
+  rows.forEach(row => {
+    const g = row.group || row.shelf || (row.type ? String(row.type).charAt(0).toUpperCase() + String(row.type).slice(1) : "Catalog");
+    if (!groups[g]) { groups[g] = []; order.push(g); }
+    groups[g].push(row);
+  });
+  return order.map(g => ({ group: g, rows: groups[g] }));
+}
+function paintAddCatalog(menu, query) {
+  const hits = menu && menu.querySelector('[data-act="catalogHits"]');
+  if (!hits) return;
+  const q = String(query || "").trim();
+  let html = catalogGroups(q).map(group =>
+    '<div class="ssm-cat-head">' + escHtml(group.group) + "</div>" +
+    group.rows.map(row => '<button type="button" data-dm="add-cat" data-id="' + escHtml(row.id) + '">' + escHtml(row.name || row.id) + "</button>").join("")
+  ).join("");
+  if (q) html += '<button type="button" data-dm="add-custom-pick">+ Create custom item: ' + escHtml(q) + "</button>";
+  hits.hidden = !html;
+  hits.innerHTML = html;
+}
+function catalogHits(query) {
+  return catalogGroups(query).reduce((out, group) => out.concat(group.rows), []).slice(0, 6);
 }
 function ensureShove(token) {
   if (!token) return { dc: 10, allowRetries: false, attempts: {} };
@@ -7531,8 +7562,9 @@ function dmChestHtml(token) {
     '<label class="ssm-line"><input data-dm="improv" type="checkbox"' + (improviseOn() ? " checked" : "") + "> Allow improvised lockpicking</label>" +
     (box._rollLine ? '<p class="ssm-roll">' + box._rollLine + "</p>" : "") +
     "<p><b>Contents</b></p>" + (rows || "<p>Empty</p>") +
-    '<label>Find gear <input data-dm="search" type="search" placeholder="Search the catalog"></label>' +
-    '<div data-act="catalogHits"></div>' +
+    '<p><b>Add item</b></p>' +
+    '<label>Catalog <input data-dm="search" type="search" placeholder="Search or browse the catalog"></label>' +
+    '<div data-act="catalogHits" hidden></div>' +
     '<p><b>Custom item</b></p>' +
     '<label>Name <input data-dm="custom-name" type="text"></label>' +
     '<label>Qty <input data-dm="custom-qty" type="number" min="1" value="1"></label>' +
@@ -7540,7 +7572,7 @@ function dmChestHtml(token) {
     '<label>Notes <input data-dm="custom-notes" type="text"></label>' +
     '<button type="button" data-dm="add-custom">Add custom item</button>' +
     '<label>Coin (ES) <input data-dm="coin" type="number" min="0" value="' + coin + '"></label>' +
-    ((box.opened || (box.lock && box.lock.unlocked)) ? '<button type="button" data-chest="take-all">Take all</button>' : "") +
+    (box.opened ? '<button type="button" data-chest="take-all">Take all</button>' : "") +
     "<p><b>Noise</b></p>" + (noise || "<p>Quiet</p>") +
     '<button type="button" data-dm="unlock">Unlock</button>' +
     '<button type="button" data-dm="open">Open</button>' +
@@ -7559,16 +7591,16 @@ function showDmChest(token) {
     menu.addEventListener("pointerdown", ev => ev.stopPropagation());
     menu.addEventListener("input", ev => {
       if (!ev.target || ev.target.getAttribute("data-dm") !== "search") return;
-      const hits = menu.querySelector('[data-act="catalogHits"]');
-      if (!hits) return;
-      hits.innerHTML = catalogHits(ev.target.value).map(row =>
-        '<button type="button" data-dm="add-cat" data-id="' + escHtml(row.id) + '">' + escHtml(row.name || row.id) + "</button>"
-      ).join("");
+      paintAddCatalog(menu, ev.target.value);
+    });
+    menu.addEventListener("focusin", ev => {
+      if (!ev.target || ev.target.getAttribute("data-dm") !== "search") return;
+      paintAddCatalog(menu, ev.target.value);
     });
     menu.addEventListener("keydown", ev => {
       const field = ev.target;
       if (!field || field.getAttribute("data-dm") !== "search") return;
-      const hits = [].slice.call(menu.querySelectorAll('[data-dm="add-cat"]'));
+      const hits = [].slice.call(menu.querySelectorAll('[data-dm="add-cat"], [data-dm="add-custom-pick"]'));
       const on = hits.findIndex(b => b.classList.contains("on"));
       if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
         ev.preventDefault();
@@ -7648,6 +7680,16 @@ function showDmChest(token) {
         live.loot.contents.push({ id: (row && row.id) || ev.target.getAttribute("data-id"), name: (row && row.name) || "Item", qty: 1, weight: Number(row && row.weight) || 0, notes: "", taken: false });
         commitLoot(live);
       }
+      if (name === "add-custom-pick") {
+        const typed = String((menu.querySelector('[data-dm="search"]') || {}).value || "").trim();
+        if (typed) {
+          live.loot.contents = live.loot.contents || [];
+          live.loot.contents.push({ id: "custom-" + Date.now().toString(36), name: typed.slice(0, 80), qty: 1, weight: 0, notes: "", taken: false, custom: true });
+          const nameField = menu.querySelector('[data-dm="custom-name"]');
+          if (nameField) nameField.value = typed;
+          commitLoot(live);
+        }
+      }
       if (name === "add-custom") {
         const read = (key) => { const n = menu.querySelector('[data-dm="' + key + '"]'); return n ? n.value : ""; };
         const itemName = String(read("custom-name") || "").trim();
@@ -7687,7 +7729,7 @@ function showDmChest(token) {
       const threw = !!(res && res.nat != null && !res.already);
       const finish = () => {
         if (box) box._rollLine = res.line || res.reason || "";
-        if (res && res.success && box) { box.opened = true; box._showLoot = true; }
+        if (res && res.success && box && box.lock) box.lock.unlocked = true;
         if (live) commitLoot(live);
         if (res && res.noise && adapter && adapter.write) {
           const id = "force_" + Date.now().toString(36);
@@ -7756,7 +7798,7 @@ function showChestMenu(token) {
         const threw = res && res.nat != null && !res.noTools && !res.already;
         const finish = (shown) => {
           if (box) box._rollLine = (res && (res.line || res.reason)) || "";
-          if (res && res.success && box) { box._showLoot = true; box.opened = true; }
+          if (res && res.success && box && box.lock) box.lock.unlocked = true;
           if (live) { live.loot = box; commitLoot(live); }
           if (threw) {
             const line = (sheet.name || "Someone") + " " + (res.line || res.reason || "tries the lock");
@@ -7765,7 +7807,7 @@ function showChestMenu(token) {
               lockBox: box && box.id,
               lockOk: !!(res && res.success),
               lockAttempts: box && box.lock && box.lock.attempts || {},
-              lockOpen: !!(res && res.success),
+              lockOpen: false,
               zoom: shown && shown.zoom || null,
               die: shown && shown.die || null,
               nat: res.nat
@@ -7788,7 +7830,7 @@ function showChestMenu(token) {
         const threw = res && res.nat != null && !res.noTools && !res.already;
         const finish = (shown) => {
           if (box) box._rollLine = (res && (res.line || res.reason)) || "";
-          if (res && res.success && box) { box._showLoot = true; box.opened = true; }
+          if (res && res.success && box && box.lock) box.lock.unlocked = true;
           if (live) { live.loot = box; commitLoot(live); }
           if (threw) {
             const line = (sheet.name || "Someone") + " " + (res.line || res.reason || "improvises");
@@ -7797,7 +7839,7 @@ function showChestMenu(token) {
               lockBox: box && box.id,
               lockOk: !!(res && res.success),
               lockAttempts: box && box.lock && box.lock.attempts || {},
-              lockOpen: !!(res && res.success),
+              lockOpen: false,
               zoom: shown && shown.zoom || null,
               die: shown && shown.die || null,
               nat: res.nat
@@ -7820,7 +7862,7 @@ function showChestMenu(token) {
         const threw = !!(res && res.nat != null && !res.already);
         const finish = (shown) => {
           if (box) box._rollLine = (res && (res.line || res.reason)) || "";
-          if (res && res.success && box) { box._showLoot = true; box.opened = true; }
+          if (res && res.success && box && box.lock) box.lock.unlocked = true;
           if (live) { live.loot = box; commitLoot(live); }
           if (threw && adapter && adapter.write && box) {
             const id = "force_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
@@ -7843,7 +7885,7 @@ function showChestMenu(token) {
               tag: noise ? "NOISE" : "",
               lockBox: box.id,
               lockOk: !!res.success,
-              lockOpen: !!res.success,
+              lockOpen: false,
               forceAttempts: box.lock && box.lock.forceAttempts || {},
               forceDc: box.lock && box.lock.forceDc,
               noiseX: live && live.pos ? (Number(live.pos.x) + 0.5) * px : null,
@@ -7890,6 +7932,7 @@ function showChestMenu(token) {
         const box = dropBox(live);
         const locked = box && box.lock && Number(box.lock.dc) > 0 && !box.lock.unlocked;
         if (locked) { toast("Still locked."); return; }
+        if (!box || !box.opened) { toast("Open it first."); return; }
         if (box) box._showLoot = true;
         menu.innerHTML = chestMenuHtml(box);
         return;
@@ -7935,7 +7978,14 @@ function showChestMenu(token) {
     });
     el.appendChild(menu);
     bindFloatingMenu(menu, hideChestMenu);
+    menu.addEventListener("click", () => {
+      const tok = menu._anchorToken;
+      requestAnimationFrame(() => {
+        if (tok && menu.isConnected && !menu.hidden && role !== "dm") anchorChestMenu(menu, tok);
+      });
+    });
   }
+  menu._anchorToken = token;
   menu.setAttribute('data-box', token.lootBoxId || (token.loot && token.loot.id) || '');
   menu.setAttribute('data-token', token.id || '');
   menu.hidden = false;
@@ -8144,10 +8194,7 @@ function placeLockedChest() {
     rolled: true,
     opened: false,
     taken: false,
-    contents: [
-      { id: "trail-rations", qty: 1, name: "Trail rations" },
-      { id: "waterskin", qty: 1, name: "Waterskin" }
-    ],
+    contents: [],
     cash: { es: 0, black: 0, blackId: "", branch: "none" },
     lock: {
       dc: dc, difficulty: lockPreset(dc), unlocked: !(dc > 0), method: dc > 0 ? ["tools"] : [], jammed: false, jamOnFail: false,
@@ -8222,7 +8269,7 @@ function chestMenuHtml(box) {
       } else parts.push('<button type="button" data-chest="shove">Shove</button>');
     }
   }
-  if (!locked && (box._showLoot || box.opened)) {
+  if (box.opened) {
     (box.contents || []).forEach((row, i) => {
       if (!row) return;
       if (row.taken) parts.push('<p>' + (row.name || 'Item') + ' — gone</p>');
@@ -8571,7 +8618,7 @@ function tryDoorClick(e, world) {
   const I = interactApi();
   if (!I || !state.scene) return false;
   const px = state.scene.grid.px || 70;
-  const wall = I.nearestDoor(sceneData().walls || [], world.x / px, world.y / px, 0.7);
+  const wall = I.nearestDoor(sceneData().walls || [], world.x / px, world.y / px, 0.22);
   if (!wall) return false;
   if (role !== "dm" && doorIsSecret(wall)) return false;
   showDoorMenu(wall);
@@ -8586,7 +8633,20 @@ function showDoorMenu(wall) {
     menu = document.createElement("div");
     menu.className = "ssm-chest-menu";
     menu.setAttribute("data-act", "doorMenu");
+    menu.classList.add("ssm-map-ui");
     menu.addEventListener("pointerdown", ev => ev.stopPropagation());
+    menu.addEventListener("change", ev => {
+      const key = ev.target && ev.target.getAttribute && ev.target.getAttribute("data-door");
+      if (key !== "lock-dc" && key !== "retry") return;
+      const live = I.findWall(sceneData().walls || [], menu._wallRef);
+      if (!live) return;
+      if (key === "lock-dc") {
+        const n = parseInt(ev.target.value, 10);
+        live.lockDc = isFinite(n) ? Math.max(0, n) : 15;
+      }
+      if (key === "retry") live.allowRetries = !!ev.target.checked;
+      saveScene();
+    });
     menu.addEventListener("click", ev => {
       const act = ev.target && ev.target.getAttribute && ev.target.getAttribute("data-door");
       if (!act) return;
@@ -8610,11 +8670,16 @@ function showDoorMenu(wall) {
   const lockNote = wall.locked ? " <span>Locked</span>" : (wall.open ? " <span>Open</span>" : "");
   const prior = wall.pickAttempts && wall.pickAttempts[uid];
   const roll = (wall._rollLine || (prior && prior.line) || "");
+  const dcField = role === "dm"
+    ? '<label class="ssm-line">Lock DC <input data-door="lock-dc" type="number" min="0" value="' + (wall.lockDc != null && wall.lockDc !== "" ? wall.lockDc : 15) + '"></label>' +
+      '<label class="ssm-line"><input data-door="retry" type="checkbox"' + (wall.allowRetries ? " checked" : "") + "> Allow retries</label>"
+    : "";
   const actions = (pack.actions || []).map(o => {
     if (o.disabled) return '<button type="button" data-door="' + o.id + '" disabled>' + o.label + "</button>" + (o.note ? '<p class="ssm-note">' + o.note + "</p>" : "");
     return '<button type="button" data-door="' + o.id + '">' + o.label + "</button> ";
   }).join("");
   menu.innerHTML = floatBar("Door") + '<div class="ssm-card-body"><p><b>Door</b>' + lockNote + "</p>" +
+    dcField +
     (roll ? '<p class="ssm-roll">' + roll + "</p>" : "") +
     (wall._lockedNote ? '<p class="ssm-note">' + wall._lockedNote + "</p>" : "") +
     actions + "</div>";
@@ -8643,6 +8708,7 @@ function runDoorAction(wall, action) {
       if (res && res.line) wall.pickAttempts[uid] = Object.assign({}, wall.pickAttempts[uid], { line: res.line });
       const threw = res && res.nat != null && !res.noTools && !res.already;
       const finishDoor = (shown) => {
+        if (success) wall.locked = false;
         toast(res && (res.line || res.reason) || (success ? "Unlocked" : "Still locked"));
         const line = (sheet.name || "Someone") + " " + (res && (res.line || res.reason) || "tries the lock");
         if (threw) postLockFeed(line, {
@@ -8712,6 +8778,23 @@ function runDoorAction(wall, action) {
     else toast(action === "peek" ? "Peek sent" : "Sent");
     const attempt = wall.pickAttempts && wall.pickAttempts[uid];
     postDoorReq({ door: I.wallRef(wall), action: action, by: uid, nat: nat, total: total, success: success, attempt: attempt || null }, action);
+    return;
+  }
+  if (action === "lock" || action === "unlock") {
+    const menu = el.querySelector('[data-act="doorMenu"]');
+    const field = menu && menu.querySelector('[data-door="lock-dc"]');
+    const retry = menu && menu.querySelector('[data-door="retry"]');
+    if (retry) wall.allowRetries = !!retry.checked;
+    if (action === "unlock") wall.locked = false;
+    else {
+      const n = field ? parseInt(field.value, 10) : Number(wall.lockDc);
+      wall.lockDc = isFinite(n) && n > 0 ? n : 15;
+      wall.locked = true;
+      if (wall.forceDc == null || wall.forceDc === "") wall.forceDc = 15;
+    }
+    saveScene();
+    showDoorMenu(wall);
+    toast(action === "lock" ? "Locked" : "Unlocked");
     return;
   }
   const target = { door: true, wall: I.wallRef(wall), action: action };
@@ -10355,6 +10438,7 @@ function hoverAt(cell, screen) {
   const same = cell.x === origin.x && cell.y === origin.y;
   const built = same ? null : M.computePath(origin, cell, budget.free ? 100000 : budget.left, Object.assign({}, pack.ctx, { reach: pack.reach }));
   const endOk = !same && M.canEndOn(cell.x, cell.y, pack.ctx);
+  if (el) el.dataset.moveCell = cell.x + "," + cell.y;
   state.moveHover = {
     x: cell.x,
     y: cell.y,
@@ -10369,8 +10453,31 @@ function hoverAt(cell, screen) {
     showReach: !budget.free && fightOn()
   };
 }
+function pointerOverMapUi(e) {
+  if (!e) return false;
+  const target = e.target;
+  if (target && target.closest && target.closest(".ssm-map-ui, .ssm-token-cmd, .ssm-chest-menu, .ssm-choose, .ssm-drawer, .ssdns-roll-card, .ssm-bestiary")) return true;
+  const x = e.clientX;
+  const y = e.clientY;
+  if (x == null || y == null) return false;
+  const nodes = document.querySelectorAll(".ssm-map-ui, .ssm-token-cmd, .ssm-chest-menu, .ssm-choose, .ssm-drawer, .ssdns-roll-card");
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    if (!node || node.hidden) continue;
+    const r = node.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) continue;
+    const mapRect = canvas && canvas.getBoundingClientRect();
+    if (mapRect && r.width >= mapRect.width - 1 && r.height >= mapRect.height - 1) continue;
+    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return true;
+  }
+  return false;
+}
 function noteMoveHover(e) {
   /* Arrows stay hidden until Move is tapped, in a fight and outside one. */
+  if (pointerOverMapUi(e)) {
+    if (state.moveHover) { state.moveHover = null; if (el) el.dataset.moveCell = ""; requestDraw(); }
+    return;
+  }
   if (dmEditing() || !state.moveArmed) {
     if (state.moveHover) { state.moveHover = null; requestDraw(); }
     return;
@@ -10741,6 +10848,7 @@ function tryClickMove(cell) {
     requestDraw();
     return true;
   }
+  if (el) el.dataset.moveMarks = String((Number(el.dataset.moveMarks) || 0) + 1);
   commitWalk(mover, built, budget);
   return true;
 }
@@ -10984,6 +11092,7 @@ function assetClick(e) {
   return true;
 }
 function onPointerDown(e) {
+  if (pointerOverMapUi(e)) return;
   pointers.set(e.pointerId, Object.assign({ t: Date.now() }, localXY(e)));
   if (pointers.size === 1) {
     /* 0.3.67: a pending Attacks target pick wins over the active tool (ruler, ping, walls, fog...),
@@ -11429,6 +11538,10 @@ function onPointerDown(e) {
   e.preventDefault();
 }
 function onPointerMove(e) {
+  if (pointerOverMapUi(e)) {
+    noteMoveHover(e);
+    return;
+  }
   if (state.blast) {
     blastPointer(e, 'move');
     return;
@@ -11557,6 +11670,11 @@ function onPointerMove(e) {
   } else if (polyLive) draw();
 }
 function onPointerUp(e) {
+  if (pointerOverMapUi(e) && state.drag) {
+    state.drag.clickMove = false;
+    state.drag.moveAim = false;
+    state.drag.dismissMenu = false;
+  }
   /* A real click wobbles. 8px treated those as pans, so the path preview stuck and the token never walked.
      Half a square still counts as a click. A longer drag still pans (or marquees, for the DM). */
   const CLICK_SLOP = 40;

@@ -1,6 +1,6 @@
 /**
  * Pick lock throws the Challenge d20 and plays the lockpick sound once.
- * Sheet 0.3.292 / DMCC 0.2.305.
+ * Sheet 0.3.293 / DMCC 0.2.306.
  *   node tools/test-lockpick-d20-03280.mjs
  */
 import fs from "node:fs";
@@ -30,8 +30,8 @@ check("die.mapPath", dieImg && dieImg.getAttribute("src") === "../assets/img/dic
 played.then(() => {}).catch(() => {});
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.292" && ver.dmcc === "0.2.305" && ver.sheetBuild === "sheet-playtest-v03292" && ver.dmccBuild === "dmcc-playtest-v02305");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.292") && !read("database.rules.json").includes("0.3.292"));
+check("ver", ver.sheet === "0.3.293" && ver.dmcc === "0.2.306" && ver.sheetBuild === "sheet-playtest-v03293" && ver.dmccBuild === "dmcc-playtest-v02306");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.293") && !read("database.rules.json").includes("0.3.293"));
 check("sound.file", fs.existsSync(path.join(root, "assets/sfx/lockpick-attempt.mp3")));
 const sfxMap = JSON.parse(read("assets/sfx/sfx.json"));
 check("sound.mapped", sfxMap.events["lockpick-attempt"] === "lockpick-attempt.mp3");
@@ -135,11 +135,11 @@ w.Math.random = () => 0.99;
 const again = lockpickPlays(w);
 menu().querySelector('[data-chest="pick"]').click();
 await flush(120);
-check("map.success", lockpickPlays(w) === again + 1 && /Unlocked/.test(menuText()) && /Take all/.test(menuText()), menuText());
+check("map.success", lockpickPlays(w) === again + 1 && /Unlocked/.test(menuText()) && !/Take all/.test(menuText()), menuText());
 const published = Object.keys(store.pub).filter((k) => k.indexOf("map/public/tokens/") === 0).map((k) => store.pub[k].value).filter((t) => t && t.kind === "chest");
-check("map.opened", published.some((t) => t.loot && t.loot.opened === true && t.lootState && t.lootState.opened === true), JSON.stringify(published.map((t) => t.loot && { opened: t.loot.opened, state: t.lootState && t.lootState.opened })));
+check("map.opened", published.some((t) => t.loot && t.loot.opened === false && t.loot.lock && t.loot.lock.unlocked === true), JSON.stringify(published.map((t) => t.loot && { opened: t.loot.opened, unlocked: t.loot.lock && t.loot.lock.unlocked })));
 const openPlays = lockpickPlays(w);
-const openBtn = menu().querySelector('[data-chest="open"]');
+const openBtn = menu().querySelector('[data-dm="open"], [data-chest="open"]');
 if (openBtn) openBtn.click();
 await flush(40);
 check("map.openQuiet", lockpickPlays(w) === openPlays);

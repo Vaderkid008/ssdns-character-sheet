@@ -8,7 +8,7 @@
   var REACH_FT = 5;
   var BOOM_SFX = "magic/fireball_explosion_#4-1793418958878.mp3";
   var TIMER_ACTIONS = ["light-fuse", "push-plunger", "start-timer", "trigger", "defuse", "clear-timer"];
-  var DOOR_ACTIONS = { open: 1, close: 1, lockpick: 1, peek: 1 };
+  var DOOR_ACTIONS = { open: 1, close: 1, lockpick: 1, peek: 1, lock: 1, unlock: 1, force: 1, improvise: 1 };
   var bound = null;
   var applying = false;
 
@@ -205,6 +205,19 @@
       var rule = peekRule(wall);
       return { ok: true, action: "peek", ajar: !!wall.ajar, los: rule, log: wall.ajar ? "Door ajar" : "Door shut" };
     }
+    if (action === "lock") {
+      var dc = ctx.lockDc != null && ctx.lockDc !== "" ? num(ctx.lockDc) : (num(wall.lockDc) || 15);
+      if (!(dc > 0)) dc = 15;
+      wall.locked = true;
+      wall.lockDc = dc;
+      if (wall.forceDc == null || wall.forceDc === "") wall.forceDc = 15;
+      if (ctx.allowRetries != null) wall.allowRetries = !!ctx.allowRetries;
+      return { ok: true, action: "lock", wall: wall, log: "Door locked" };
+    }
+    if (action === "unlock") {
+      wall.locked = false;
+      return { ok: true, action: "unlock", wall: wall, log: "Door unlocked" };
+    }
     if (action === "lockpick") {
       if (!wall.locked) return { ok: true, success: true, already: true, locked: false, log: "Door is not locked" };
       var rolled = lockpick(wall, ctx.sheet, ctx.rng, ctx.forced);
@@ -231,6 +244,13 @@
     if (isSecret(wall) && !ctx.dm) return { reach: false, actions: [], hidden: true };
     var gate = inReach(ctx.token, wall, !!ctx.dm, ctx.reachFt);
     if (!gate.ok) return { reach: false, feet: gate.feet, actions: [], toast: reachToast(gate.feet) };
+    if (ctx.dm) {
+      var dmactions = [];
+      dmactions.push(wall.open ? { id: "close", label: "Close" } : { id: "open", label: "Open" });
+      dmactions.push(wall.locked ? { id: "unlock", label: "Unlock" } : { id: "lock", label: "Lock" });
+      if (!wall.open) dmactions.push({ id: "peek", label: wall.ajar ? "Shut peek" : "Peek" });
+      return { reach: true, feet: gate.feet, actions: dmactions, dm: true };
+    }
     var actions = [];
     actions.push(wall.open ? { id: "close", label: "Close" } : { id: "open", label: "Open" });
     if (wall.locked && !wall.open) {

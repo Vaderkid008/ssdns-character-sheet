@@ -250,7 +250,8 @@
     var res = Loot.resolve(box, action, sheet, Math.random, forced || undefined);
     if (res.notice) toast(res.notice);
     if (res.reason && !res.ok) toast(res.reason);
-    if (res.success && !Loot.blocked(box) && action !== "leave" && action !== "lockpick-no") await finishOpen(box, false);
+    var unlockOnly = action === "lockpick-yes" || action === "force" || action === "pick" || action === "improv";
+    if (res.success && !Loot.blocked(box) && !unlockOnly && action !== "leave" && action !== "lockpick-no") await finishOpen(box, false);
     else { paintCard(); refreshMapMenu(box); }
     return res;
   }
@@ -269,7 +270,8 @@
       return;
     }
     L().resolve(box, msg.action, sheetOf(box), Math.random, { nat: msg.nat, total: msg.total });
-    if (msg.success && !L().blocked(box)) finishOpen(box, false);
+    var remoteUnlock = msg.action === "lockpick-yes" || msg.action === "force" || msg.action === "pick" || msg.action === "improv";
+    if (msg.success && !L().blocked(box) && !remoteUnlock) finishOpen(box, false);
     else { paintCard(); refreshMapMenu(box); }
   }
   async function openCurrent() {
