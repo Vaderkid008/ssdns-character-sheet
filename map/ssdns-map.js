@@ -7978,7 +7978,14 @@ function showChestMenu(token) {
     });
     el.appendChild(menu);
     bindFloatingMenu(menu, hideChestMenu);
+    menu.addEventListener("click", () => {
+      const tok = menu._anchorToken;
+      requestAnimationFrame(() => {
+        if (tok && menu.isConnected && !menu.hidden && role !== "dm") anchorChestMenu(menu, tok);
+      });
+    });
   }
+  menu._anchorToken = token;
   menu.setAttribute('data-box', token.lootBoxId || (token.loot && token.loot.id) || '');
   menu.setAttribute('data-token', token.id || '');
   menu.hidden = false;
