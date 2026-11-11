@@ -1194,6 +1194,21 @@
     }).filter(function (row) { return row.targetId; });
   }
 
+  /* DM size override. 1, 2, and 4 are grid squares from the clicked cell. Spell default leaves the zone alone. */
+  function sizeFootprint(zone, mode) {
+    var n = mode === "1" || mode === 1 || mode === "2" || mode === 2 || mode === "4" || mode === 4 ? Number(mode) : 0;
+    if (!zone || !n) return zone;
+    var next = Object.assign({}, zone);
+    next.gridBox = true;
+    next.squares = n;
+    next.footprint = n;
+    next.shape = "square";
+    next.side = n * 5;
+    next.radius = n * 2.5;
+    next.sizeMode = String(n);
+    return next;
+  }
+
   root.SSDNSSpellZones = {
     book: BOOK,
     norm: norm,
@@ -1202,6 +1217,7 @@
     defersCast: defersCast,
     dressArea: dressArea,
     buildZone: buildZone,
+    sizeFootprint: sizeFootprint,
     place: place,
     settle: settle,
     overlaps: overlaps,

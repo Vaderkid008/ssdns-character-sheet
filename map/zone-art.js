@@ -68,6 +68,14 @@
     var cell = num(px) || 70;
     var ox = num(zone.origin.x) * cell;
     var oy = num(zone.origin.y) * cell;
+    if (zone.gridBox) {
+      var cells = Math.max(1, Math.round(num(zone.squares) || 1));
+      var box = cells * cell;
+      return {
+        kind: "square", slug: spec.slug, rings: !!spec.rings,
+        x: ox, y: oy, size: box, sideFt: cells * 5, cell: cell
+      };
+    }
     if (spec.kind === "circle") {
       var rFt = radiusFt(zone);
       return {

@@ -1283,6 +1283,14 @@ if (role === 'dm') {
         <label>Caster
           <select data-act="zoneCaster" aria-label="Zone caster"><option value="">None</option></select>
         </label>
+        <label>Size
+          <select data-act="zoneSize" aria-label="Zone size">
+            <option value="spell">Spell default</option>
+            <option value="1">1×1</option>
+            <option value="2">2×2</option>
+            <option value="4">4×4</option>
+          </select>
+        </label>
         <label class="ssm-range" title="Tie this zone to that caster's concentration. Off, and no caster, leaves it on the map by itself."><input type="checkbox" data-act="zoneConc"> Concentration</label>
         <div data-act="zoneFacing" hidden>
           <button type="button" data-act="zoneTurn" data-dir="-1" title="Turn the wall, line, or cone left">Turn left</button>
@@ -3015,6 +3023,14 @@ function traceZone(zone, px) {
   if (!zone || !zone.origin || !state.scene) return false;
   const wx = zone.origin.x * px;
   const wy = zone.origin.y * px;
+  if (zone.gridBox && Number(zone.squares) > 0) {
+    const s = worldToScreen(wx, wy);
+    const cell = px * (state.view.zoom || 1);
+    const n = Number(zone.squares);
+    ctx.beginPath();
+    ctx.rect(s.x, s.y, n * cell, n * cell);
+    return true;
+  }
   if (zone.shape !== "wall") {
     const c = worldToScreen(wx, wy);
     const r = Math.max(2, ((Number(zone.radius) || 0) / 5) * px * (state.view.zoom || 1));
@@ -3903,7 +3919,8 @@ function readZonePlace() {
     casterId: casterId,
     casterName: caster ? (caster.name || caster.label || "") : "",
     conc: conc,
-    facing: state.zoneFace || 0
+    facing: state.zoneFace || 0,
+    size: (q("zoneSize") && q("zoneSize").value) || "spell"
   };
 }
 function paintZoneFacing() {
@@ -3973,6 +3990,7 @@ function placeManualZone(cell, form) {
     casterName: form.casterName || ""
   });
   if (!zone) { toast("That spell is not a lasting zone"); return null; }
+  if (Z.sizeFootprint && form.size && form.size !== "spell") zone = Z.sizeFootprint(zone, form.size);
   applyZoneClock(zone, form.dur);
   zone.conc = !!(form.conc && form.casterId);
   if (!form.casterId) { zone.casterId = ""; zone.conc = false; }
@@ -13923,6 +13941,43 @@ function mapRest(kind) {
   }
   sheet.applyRest(kind);
 }
+function dropConcZones(casterId, spell) {
+  const list = spellZoneList();
+  const want = String(spell || "").toLowerCase().replace(/-/g, " ");
+  const next = list.filter(z => {
+    if (!z || !z.conc) return true;
+    const who = String(z.casterId || z.casterUid || "");
+    if (casterId && who && who !== String(casterId)) return true;
+    if (want) {
+      const name = String(z.spell || z.key || "").toLowerCase().replace(/-/g, " ");
+      if (name && name !== want) return true;
+    }
+    return false;
+  });
+  if (next.length !== list.length) setSpellZones(next, {});
+}
+function endShownConc(tokenId) {
+  const tok = (state.tokens || []).find(t => t && t.id === tokenId) || null;
+  const card = lookupCard(tokenId) || {};
+  const spell = card.conc || "";
+  const casterId = (tok && (tok.ownerUid || tok.combatantId)) || tokenId || "";
+  dropConcZones(casterId, spell);
+  if (role === "dm" && window.DMCC && typeof window.DMCC.pushCommand === "function" && tok && tok.ownerUid) {
+    window.DMCC.pushCommand({ type: "end_conc", to: tok.ownerUid, payload: { reason: "DM", spell: spell }, from: window.DMCC.state && window.DMCC.state.uid });
+  }
+  toast(spell ? ("Concentration ended: " + spell) : "Concentration ended");
+}
+document.addEventListener("click", (ev) => {
+  const act = ev.target && ev.target.getAttribute && ev.target.getAttribute("data-act");
+  if (act === "endConc") {
+    ev.preventDefault();
+    if (window.SSDNSSheet && window.SSDNSSheet.endConcentration) window.SSDNSSheet.endConcentration("choice");
+  }
+  if (act === "dmEndConc") {
+    ev.preventDefault();
+    endShownConc(state.drawerTokenId || "");
+  }
+});
 if (q('shortRestBtn')) q('shortRestBtn').addEventListener('click', () => mapRest('short'));
 if (q('longRestBtn')) q('longRestBtn').addEventListener('click', () => mapRest('long'));
 if (q('fxBtn')) {
@@ -16474,12 +16529,14 @@ function syncCombatants(initiative) {
       pill.textContent = label;
     }
     const names = n62PlayerConds();
+    const concNow = names.some(n => String(n).indexOf('Concentrating') === 0);
+    const concBtn = concNow ? ' <button type="button" data-act="endConc">End concentration</button>' : '';
     const conds = q('n62Conds');
-    if (conds) conds.innerHTML = names.length ? names.map(n => '<span class="ssm-cond">' + esc(n) + '</span>').join(' ') : '<span class="n62-none">No conditions</span>';
+    if (conds) conds.innerHTML = names.length ? names.map(n => '<span class="ssm-cond">' + esc(n) + '</span>').join(' ') + concBtn : '<span class="n62-none">No conditions</span>';
     const sum = q('n62CondSum');
     if (sum) sum.textContent = names.length ? (names.length + ' active') : 'none';
     const condBody = q('n62CondBody');
-    if (condBody) condBody.innerHTML = names.length ? names.map(n => '<div class="n62-li"><span>' + esc(n) + '</span></div>').join('') : '<span class="n62-none">No conditions</span>';
+    if (condBody) condBody.innerHTML = names.length ? names.map(n => '<div class="n62-li"><span>' + esc(n) + '</span>' + (String(n).indexOf('Concentrating') === 0 ? concBtn : '') + '</div>').join('') : '<span class="n62-none">No conditions</span>';
     const econ = q('n62Econ');
     if (econ) econ.innerHTML = n62EconHtml();
     const arms = q('n62Arms');
@@ -16524,7 +16581,7 @@ function syncCombatants(initiative) {
     const accOpen = (key) => (ui.acc && ui.acc[key]) ? ' open' : '';
     const names = ((card.conditions) || []).map(condLabel).filter(Boolean);
     if (card.conc && !names.some(n => String(n).indexOf(card.conc) >= 0)) names.unshift('Concentrating · ' + card.conc);
-    const condLine = names.length ? names.map(n => '<span class="ssm-cond">' + esc(n) + '</span>').join(' ') : '<span class="n62-none">No conditions</span>';
+    const condLine = (names.length ? names.map(n => '<span class="ssm-cond">' + esc(n) + '</span>').join(' ') : '<span class="n62-none">No conditions</span>') + (card.conc ? ' <button type="button" data-act="dmEndConc">End concentration</button>' : '');
     const spellList = ((card.spells) || []).map(s => '<div class="n62-li"><span>' + esc(s.name || s.id) + '</span><small>' + (Number(s.level) > 0 ? ('L' + s.level) : 'cantrip') + '</small></div>').join('') || '<span class="n62-none">No spells on this card.</span>';
     const items = window.SSDNSItems && card.items && card.items.length
       ? window.SSDNSItems.drawerRows(card.items, { name: card.name || '', dm: true })
@@ -18645,6 +18702,7 @@ window.addEventListener("ssdns-conc-end", (e) => {
     const dropped = L.dropConcEmitters(spellEmitterList(), detail.casterId || "", detail.spell || "");
     if (dropped.removed && dropped.removed.length) commitEmitters(dropped.emitters);
   }
+  dropConcZones(detail.casterId || "", detail.spell || "");
   if (!L || !L.dropConcDarkness) return;
   const dark = L.dropConcDarkness(spellZoneList(), detail.casterId || "", detail.spell || "");
   if (dark.removed && dark.removed.length) {

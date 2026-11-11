@@ -1793,6 +1793,9 @@
       case "rest":
         if (root.SSDNSSheet) root.SSDNSSheet.applyRest(payload.kind || "short");
         break;
+      case "end_conc":
+        if (root.SSDNSSheet && root.SSDNSSheet.endConcentration) root.SSDNSSheet.endConcentration(payload.reason || "ended");
+        break;
       case "supplies":
         /* L0188 food & water: the DM gives/takes rations and water, ends a day, sets the mode */
         if (root.SSDNSSuppliesSheet) root.SSDNSSuppliesSheet.command(payload);

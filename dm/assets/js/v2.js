@@ -4665,6 +4665,9 @@ async function rest(kind) {
     ids.forEach((id) => {
       const s = DM.state.players[id] && DM.state.players[id].snapshot;
       if (!s) return;
+      s.concSpell = "";
+      s.concentration = "";
+      if (s.spellMarks) s.spellMarks.conc = "";
         if (kind === "long") {
         s.hpCurrent = s.hpMax;
         s.hpTemp = 0;
@@ -4673,6 +4676,13 @@ async function rest(kind) {
       }
     });
     DM.renderPlayers();
+  }
+  const host = window.SSDNSMapHost;
+  if (host && host.spellZones && host.setSpellZones) {
+    try {
+      const left = (host.spellZones() || []).filter((z) => !(z && z.conc));
+      host.setSpellZones(left, {});
+    } catch (eZone) {}
   }
   DM.toast((kind === "long" ? "Long" : "Short") + " rest sent");
 }
