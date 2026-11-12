@@ -182,10 +182,16 @@ window.SSDNSMap = { create(opts) {
     seenSeq[path] = seq;
     return true;
   }
+  /* Realtime Database rejects a write that contains undefined. One field used to
+     drop the whole token, so a linked player never appeared on the other screen. */
+  function rtdbSafe(value) {
+    if (value == null || typeof value !== "object") return value;
+    try { return JSON.parse(JSON.stringify(value)); } catch (e) { return value; }
+  }
   function write(path, value) {
     const seq = Date.now();
     if (!newer(path, seq)) return;
-    if (adapter && adapter.write) adapter.write(path, value, { seq, by: uid });
+    if (adapter && adapter.write) adapter.write(path, rtdbSafe(value), { seq, by: uid });
   }
   function postSlide(id, points) { write('map/public/events/slide', { id, points, seq: Date.now() }); }
   function postPing(ping) { write('map/public/events/ping', ping); }
@@ -217,7 +223,6 @@ window.SSDNSMap = { create(opts) {
       weaponDrop: t.weaponDrop ? { name: t.weaponDrop.name || t.name || '', itemId: t.weaponDrop.itemId || '', dirty: !!t.weaponDrop.dirty, taken: !!t.weaponDrop.taken } : null,
       spellPiece: t.spellPiece || '', zoneId: t.zoneId || '',
       noHpPool: !!t.noHpPool, notTargetable: !!t.notTargetable, noInit: !!t.noInit,
-      partyLight: (t.kind === 'party' || t.storyMarker === 'party') ? t.partyLight !== false : undefined,
       damageBudget: t.spellPiece === 'guardian of faith' ? (Number(t.damageBudget) || 60) : null,
       budgetLeft: t.spellPiece === 'guardian of faith' ? (t.budgetLeft != null ? Number(t.budgetLeft) : (Number(t.damageBudget) || 60)) : null,
       assetDefId: t.assetDefId || '', asset: pubAsset,
@@ -245,6 +250,7 @@ window.SSDNSMap = { create(opts) {
         cash: t.loot.cash ? { es: Number(t.loot.cash.es) || 0, black: Number(t.loot.cash.black) || 0 } : null,
         lock: t.loot.lock || null
       } : null,
+      partyLight: (t.kind === 'party' || t.storyMarker === 'party') ? t.partyLight !== false : null,
       lootState: t.loot ? {
         taken: !!t.loot.taken,
         opened: !!t.loot.opened,
@@ -18833,8 +18839,10 @@ async function boot() {
     }
     if (role === 'dm') {
       viewReady = true;
-      syncPartyFromSnapshot();
+      /* Open the cover before the first player token is stamped, or that token
+         is born on Dusty Spur and the player's scene follows the token, not the cover. */
       if (options.ensureScene) ensureDefaultScene();
+      syncPartyFromSnapshot();
     }
 
     el.classList.remove('hidden');
