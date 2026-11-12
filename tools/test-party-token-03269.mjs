@@ -1,7 +1,7 @@
 /**
  * Party token: one story marker on a big map.
  * The DM places, moves, renames, and removes it. Players see the same square and cannot drag it.
- * It is not a combatant. Sheet 0.3.298 / DMCC 0.2.311.
+ * It is not a combatant. Sheet 0.3.299 / DMCC 0.2.312.
  *   node tools/test-party-token-03269.mjs
  */
 import fs from "node:fs";
@@ -19,12 +19,12 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.298" && ver.dmcc === "0.2.311" && ver.sheetBuild === "sheet-playtest-v03298" && ver.dmccBuild === "dmcc-playtest-v02311");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.298") && !read("database.rules.json").includes("0.3.298"));
+check("ver", ver.sheet === "0.3.299" && ver.dmcc === "0.2.312" && ver.sheetBuild === "sheet-playtest-v03299" && ver.dmccBuild === "dmcc-playtest-v02312");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.299") && !read("database.rules.json").includes("0.3.299"));
 const sheet = read("index.html");
 const dmHtml = read("dm/index.html");
-check("cache.sheet", sheet.includes('data-act="partyTokenBtn"') === false && sheet.includes("map/ssdns-map.js?v=0.3.298-force"));
-check("cache.dm", dmHtml.includes("Party token") === false && dmHtml.includes("../map/ssdns-map.js?v=0.2.311-force"));
+check("cache.sheet", sheet.includes('data-act="partyTokenBtn"') === false && sheet.includes("map/ssdns-map.js?v=0.3.299-force"));
+check("cache.dm", dmHtml.includes("Party token") === false && dmHtml.includes("../map/ssdns-map.js?v=0.2.312-force"));
 check("src.button", read("map/ssdns-map.js").includes('data-act="partyTokenBtn"') && read("map/ssdns-map.js").includes(">Party token</button>"));
 const gun = fs.readFileSync(path.join(root, "assets/images/party-hell-maker.webp"));
 check("src.art", read("map/ssdns-map.js").includes("party-hell-maker.webp") && read("map/ssdns-map.js").includes("dm-only/hell-maker.webp") && read("map/ssdns-map.js").includes("party-six-shooter.svg") && read("map/ssdns-map.js").includes("asset-baggage-cart"));

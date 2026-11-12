@@ -1,5 +1,5 @@
 /**
- * Doors, empty chests, and map cards (sheet 0.3.298 / DMCC 0.2.311).
+ * Doors, empty chests, and map cards (sheet 0.3.299 / DMCC 0.2.312).
  * A closed door blocks a crossing and not the squares on either side.
  * New chests start empty. Pick lock unlocks; Open reveals the loot.
  * Dragging the Token card does not drop movement waypoints.
@@ -19,7 +19,7 @@ function check(id, cond, detail) {
 }
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.298" && ver.dmcc === "0.2.311");
+check("ver", ver.sheet === "0.3.299" && ver.dmcc === "0.2.312");
 
 const context = { console, Math, Date, JSON, parseInt, isFinite, Number, String, Object, Array, Map, Set };
 context.window = context;

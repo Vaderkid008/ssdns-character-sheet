@@ -1,6 +1,6 @@
 /**
  * DM map toolbar cleanup. Moved controls keep their actions.
- * Real mouse, DM demo table. Sheet 0.3.298 / DMCC 0.2.311.
+ * Real mouse, DM demo table. Sheet 0.3.299 / DMCC 0.2.312.
  *   node tools/test-dm-toolbar-03298.mjs
  */
 import fs from "node:fs";
@@ -15,7 +15,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(fs.readFileSync(path.join(root, "version.json"), "utf8"));
-check("ver", ver.sheet === "0.3.298" && ver.dmcc === "0.2.311");
+check("ver", ver.sheet === "0.3.299" && ver.dmcc === "0.2.312");
 
 const browser = await puppeteer.launch({
   executablePath: "/usr/local/bin/google-chrome",
@@ -154,7 +154,7 @@ for (const width of [1280, 1600]) {
     check("act.floor", /Select a token/i.test(await toast()));
     await clickMenu("showSceneBtn");
     await new Promise((r) => setTimeout(r, 40));
-    check("act.show", /Floors pushed/i.test(await toast()));
+    check("act.show", /Showing /i.test(await toast()));
     await page.evaluate(() => { window.prompt = () => '[{"x1":0,"y1":0,"x2":1,"y2":0}]'; });
     await page.click('[data-act="importWallsBtn"]');
     await new Promise((r) => setTimeout(r, 40));

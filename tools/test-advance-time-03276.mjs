@@ -18,8 +18,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush() { return new Promise((resolve) => setTimeout(resolve, 0)); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.298" && ver.dmcc === "0.2.311");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.298") && !read("database.rules.json").includes("0.3.298"));
+check("ver", ver.sheet === "0.3.299" && ver.dmcc === "0.2.312");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.299") && !read("database.rules.json").includes("0.3.299"));
 
 const v2 = read("dm/assets/js/v2.js");
 const map = read("map/ssdns-map.js");

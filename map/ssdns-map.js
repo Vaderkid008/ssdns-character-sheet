@@ -640,9 +640,9 @@ toolbar.innerHTML = `
       <div class="ssm-maps-menu" id="ssm-maps-menu" data-act="mapsMenu" hidden>
         <button data-act="betweenBtn" type="button" title="Show the Between Encounters cover to the table. Players follow. Fog stays off and the scene starts bright. Raise the Grid slider to put squares on it.">Between encounters</button>
         <button data-act="assetsBtn" class="ssm-maps-btn" type="button" title="Asset library for this room">Assets</button>
-        <button data-act="myViewBtn" type="button">My view</button>
-        <button data-act="setFloorBtn" type="button">Set floor</button>
-        <button data-act="showSceneBtn" type="button">Show to players</button>
+        <button data-act="myViewBtn" type="button" title="Look at the floor picked in this list. Players stay on their own map.">My view</button>
+        <button data-act="setFloorBtn" type="button" title="Move the selected token onto the floor picked in this list.">Set floor</button>
+        <button data-act="showSceneBtn" type="button" title="Move every player token onto the map you are looking at, and show that map to the table.">Show to players</button>
         <button data-act="mapsLibraryBtn" type="button" title="Built-in maps, my maps, and the world folder">All maps…</button>
       </div>
       <select data-act="sceneSelect" hidden aria-hidden="true"></select>
@@ -10016,6 +10016,31 @@ function seatPlayers(id, moveTokens) {
   });
   postScenes();
 }
+/* The player follows their own token. Publishing the seat list alone leaves them
+   on the old map. Show to players moves those tokens onto the map open now. */
+function showToPlayers() {
+  if (role !== "dm") return;
+  const id = activeSceneId();
+  const name = floorName(id);
+  saveScene(id);
+  if (!shared.playerScenes) shared.playerScenes = {};
+  const moved = [];
+  (state.tokens || []).forEach(t => {
+    if (!t || !t.ownerUid || isPartyToken(t)) return;
+    shared.playerScenes[t.ownerUid] = id;
+    if ((t.sceneId || "") === id) return;
+    t.sceneId = id;
+    if (shared.tokens[t.id]) shared.tokens[t.id].sceneId = id;
+    saveToken(t.id);
+    moved.push(t.name || t.label || "a player");
+  });
+  partyList().forEach(p => {
+    const u = p && (p.uid || p.id);
+    if (u) shared.playerScenes[u] = id;
+  });
+  postScenes();
+  toast(moved.length ? ("Showing " + name + " to " + moved.join(", ")) : ("Showing " + name + ". No player tokens to move."));
+}
 function showBetweenEncounters(opts) {
   opts = opts || {};
   if (role !== 'dm') return false;
@@ -14817,7 +14842,7 @@ function douseSelected(out) {
     const sel = q('sceneSelect');
     swapScene(sel.value);
     flashBtn('myViewBtn');
-    toast('My view: ' + sel.options[sel.selectedIndex].text);
+    toast('My view: ' + sel.options[sel.selectedIndex].text + '. Players stay put.');
   });
   if (q('dmEditBtn')) {
     paintDmEdit();
@@ -14842,8 +14867,8 @@ function douseSelected(out) {
     renderTurnStrip();
   });
   q('showSceneBtn').addEventListener('click', () => {
-    postScenes();
-    toast('Floors pushed to players');
+    showToPlayers();
+    flashBtn('showSceneBtn');
   });
   q('addTokenBtn').addEventListener('click', () => { addEnemyToken(); flashBtn('addTokenBtn'); });
   if (q('bestiaryBtn')) { q('bestiaryBtn').addEventListener('click', () => toggleBestiary()); bindBestiaryDrop(); }
@@ -15328,17 +15353,22 @@ function followPlayerScene() {
   loadSceneImage(sid);
 }
 async function loadSceneImage(sceneId, opts) {
-  const scene = SCENES.find(s => s.id === sceneId) || builtinScenes()[0];
+  const found = SCENES.find(s => s.id === sceneId);
+  const scene = found || { id: sceneId, name: floorName(sceneId), grid: (state.scene && state.scene.grid) || {} };
   if (state.scene) {
     const before = state.scene.grid || {};
-    state.scene.grid = sceneGrid(scene);
-    state.scene.mapId = scene.id;
+    state.scene.grid = found ? sceneGrid(scene) : before;
+    state.scene.mapId = sceneId;
     const g = state.scene.grid;
     if ((opts && opts.center) || before.cols !== g.cols || before.rows !== g.rows) {
       state.view.x = (g.cols * g.px) / 2;
       state.view.y = (g.rows * g.px) / 2;
     }
     if (g.show === false) fitBackdrop();
+  }
+  if (!found || !(scene.src || scene.img)) {
+    draw();
+    return;
   }
   const img = new Image();
   img.src = scene.src || asset(scene.img);
