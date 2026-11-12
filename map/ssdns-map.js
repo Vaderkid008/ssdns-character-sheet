@@ -217,6 +217,10 @@ window.SSDNSMap = { create(opts) {
       sceneId: t.sceneId || activeSceneId() || 'scn_dustyspur01', image: t.image || '',
       veil: !!t.veil,
       ownerUid: t.ownerUid || '', controlledBy: t.controlledBy || [],
+      sheetId: t.sheetId || '', combatantId: t.combatantId || '',
+      tempHp: Number(t.tempHp) || 0,
+      exhaustion: Number(t.exhaustion) || 0,
+      concentration: t.concentration || '',
       ownerCanMove: t.ownerCanMove !== false, locked: !!t.locked,
       playerActive: t.playerActive === true,
       copyOf: t.copyOf || '',
@@ -458,6 +462,10 @@ function applySharedToTokens() {
       }
       t.veil = !!s.veil;
       t.sheetId = s.sheetId || t.sheetId || '';
+      if (s.combatantId) t.combatantId = s.combatantId;
+      if (s.tempHp != null) t.tempHp = Number(s.tempHp) || 0;
+      if (s.exhaustion != null) t.exhaustion = Number(s.exhaustion) || 0;
+      if (s.concentration != null) t.concentration = s.concentration || '';
       t.playerActive = s.playerActive === true;
       t.copyOf = s.copyOf || '';
       t.allowCopySwitch = s.allowCopySwitch !== false;
@@ -9713,7 +9721,6 @@ function canonicalPlayerToken(uid) {
     copy.kind = canon.kind;
     saveToken(want);
   }
-  const extras = [];
   function keepSpellControl(t, id) {
     if (!t || !(t.spellPiece || t.kind === "spell" || t.zoneId)) return false;
     const who = t.ownerUid || uid;
@@ -9726,18 +9733,20 @@ function canonicalPlayerToken(uid) {
     saveToken(id);
     return true;
   }
+  /* A second token for the same player is a duplicate the DM asked for, or a
+     token they were granted. Do not delete it. Only a spell piece loses the
+     owner link and keeps control. */
   state.tokens.forEach(t => {
     if (!(t && t.ownerUid === uid && t.id !== want)) return;
-    if (!keepSpellControl(t, t.id)) extras.push(t.id);
+    keepSpellControl(t, t.id);
   });
   Object.keys(shared.tokens || {}).forEach(id => {
     const t = shared.tokens[id];
-    if (!(t && t.ownerUid === uid && id !== want) || extras.indexOf(id) >= 0) return;
+    if (!(t && t.ownerUid === uid && id !== want)) return;
     const live = state.tokens.find(tok => tok && tok.id === id);
     if (live) return;
-    if (!keepSpellControl(t, id)) extras.push(id);
+    keepSpellControl(t, id);
   });
-  if (extras.length) removeMapTokens(extras, { keepOwner: true, silent: true });
   return state.tokens.find(t => t && t.id === want) || null;
 }
 function dedupePlayerTokens() {
@@ -10290,10 +10299,20 @@ function mirrorSheetState(token) {
     other.conditions = token.conditions ? token.conditions.slice() : [];
     other.conditionSpells = token.conditionSpells ? Object.assign({}, token.conditionSpells) : {};
     other.status = token.status || "";
+    other.concentration = token.concentration || "";
+    other.tempHp = Number(token.tempHp) || 0;
+    other.exhaustion = Number(token.exhaustion) || 0;
+    if (token.hp != null && token.hp !== "") other.hp = token.hp;
+    if (token.maxHp != null && token.maxHp !== "") other.maxHp = token.maxHp;
     if (shared.tokens[other.id]) {
       shared.tokens[other.id].conditions = other.conditions.slice();
       shared.tokens[other.id].conditionSpells = Object.assign({}, other.conditionSpells);
       shared.tokens[other.id].status = other.status;
+      shared.tokens[other.id].concentration = other.concentration;
+      shared.tokens[other.id].tempHp = other.tempHp;
+      shared.tokens[other.id].exhaustion = other.exhaustion;
+      if (other.hp != null && other.hp !== "") shared.tokens[other.id].hp = other.hp;
+      if (other.maxHp != null && other.maxHp !== "") shared.tokens[other.id].maxHp = other.maxHp;
     }
     if (role === "dm") saveToken(other.id);
   });
@@ -14409,8 +14428,9 @@ function removeMapTokens(ids, opts) {
   state.tokens = state.tokens.filter(t => !list.includes(t.id));
   goneInfo.forEach(info => {
     buryToken(info.id);
-    if (info.combatantId) buryToken(info.combatantId);
-    if (info.ownerUid && !opts.keepOwner) {
+    const stillThere = (id) => state.tokens.some(tok => tok && (tok.id === id || tok.combatantId === id));
+    if (info.combatantId && !stillThere(info.combatantId)) buryToken(info.combatantId);
+    if (info.ownerUid && !opts.keepOwner && !state.tokens.some(tok => tok && tok.ownerUid === info.ownerUid)) {
       dismissedMap()[info.ownerUid] = true;
       write('map/dm/dismissed/' + info.ownerUid, true);
     }
@@ -14440,6 +14460,11 @@ function removeMapTokens(ids, opts) {
     if (fields.name) t.name = fields.name;
     if (fields.label) t.label = String(fields.label).slice(0, 16);
     if (fields.combatantId) t.combatantId = fields.combatantId;
+    if (fields.sheetId) t.sheetId = fields.sheetId;
+    if (fields.tempHp != null && fields.tempHp !== "") t.tempHp = Number(fields.tempHp) || 0;
+    if (fields.exhaustion != null && fields.exhaustion !== "") t.exhaustion = Number(fields.exhaustion) || 0;
+    if (fields.concentration != null) t.concentration = String(fields.concentration || "");
+    if (Array.isArray(fields.lights)) t.lights = fields.lights.map(l => Object.assign({}, l));
     if (fields.image && !t.image) t.image = fields.image;
     if (Array.isArray(fields.conditions)) {
       const names = [];
@@ -14469,11 +14494,17 @@ function removeMapTokens(ids, opts) {
     if (t.name) copy.name = t.name;
     if (t.label) copy.label = t.label;
     if (t.combatantId) copy.combatantId = t.combatantId;
+    if (t.sheetId) copy.sheetId = t.sheetId;
+    copy.tempHp = Number(t.tempHp) || 0;
+    copy.exhaustion = Number(t.exhaustion) || 0;
+    copy.concentration = t.concentration || "";
+    if (Array.isArray(t.lights)) copy.lights = t.lights.map(l => Object.assign({}, l));
     if (t.image) {
       copy.image = t.image;
       loadTokenImage(t);
     }
     saveToken(t.id);
+    mirrorSheetState(t);
     draw();
     return t;
   }
@@ -14488,16 +14519,20 @@ function removeMapTokens(ids, opts) {
     const want = playerTokenId(linkUid);
     const linkName = patch.name || ((partyList().find(p => p && (p.uid || p.id) === linkUid) || {}).name) || 'them';
     const others = ownedTokenIds(linkUid, t.id);
-    const canonLive = state.tokens.find(tok => tok && tok.id === want && tok.id !== t.id);
-    /* An extra piece (Spiritual Weapon, a summon) must not become the PC or delete that token. */
-    if (canonLive && t.kind !== "player") {
+    const alreadyTheirs = (state.tokens || []).find(tok => tok && tok.id !== t.id && tok.ownerUid === linkUid && !isPartyToken(tok) && !tok.spellPiece);
+    /* Granting another token never replaces the character or changes which map they are looking at. */
+    if (alreadyTheirs) {
       keepPc = true;
       t.controlledBy = t.controlledBy || [];
       if (!t.controlledBy.includes(linkUid)) t.controlledBy.push(linkUid);
-      if (t.ownerUid === linkUid) t.ownerUid = "";
+      if (!t.copyOf && t.kind !== "player") {
+        if (t.ownerUid === linkUid) t.ownerUid = "";
+      }
+      t.playerActive = false;
       const preGrant = shared.tokens[t.id] || (shared.tokens[t.id] = { id: t.id });
       preGrant.controlledBy = t.controlledBy.slice();
       preGrant.ownerUid = t.ownerUid || "";
+      preGrant.playerActive = false;
       saveToken(t.id);
       postGrant(t);
       toast(linkName + " can move this token. Their character token stays.");
@@ -15379,18 +15414,26 @@ function douseSelected(out) {
     if (!who) { toast('No player to grant'); return; }
     const list = selectedTokens().filter(t => !isPartyToken(t));
     if (!list.length) { toast(selectedTokens().some(isPartyToken) ? 'The party token stays with the DM' : 'Select a token'); return; }
+    const activeId = activeOwned(who) && activeOwned(who).id;
     list.forEach(t => {
       t.controlledBy = t.controlledBy || [];
       if (grant && !t.controlledBy.includes(who)) t.controlledBy.push(who);
       if (!grant) t.controlledBy = t.controlledBy.filter(u => u !== who);
       if (grant && t.ownerUid === who) t.ownerCanMove = true;
       if (!grant && t.ownerUid === who) t.ownerCanMove = false;
+      /* Control is a permission. It does not move the active view or take the sheet link. */
+      if (t.ownerUid !== who) t.playerActive = false;
       if (!shared.tokens[t.id]) shared.tokens[t.id] = { id: t.id };
-      shared.tokens[t.id].controlledBy = t.controlledBy;
+      shared.tokens[t.id].controlledBy = t.controlledBy.slice();
       shared.tokens[t.id].ownerCanMove = t.ownerCanMove !== false;
+      shared.tokens[t.id].playerActive = t.playerActive === true;
+      shared.tokens[t.id].ownerUid = t.ownerUid || "";
+      shared.tokens[t.id].sheetId = t.sheetId || shared.tokens[t.id].sheetId || "";
+      shared.tokens[t.id].combatantId = t.combatantId || shared.tokens[t.id].combatantId || "";
       postGrant(t);
       saveToken(t.id);
     });
+    if (activeId && activeOwned(who) && activeOwned(who).id !== activeId) setActiveCopy(activeId, true);
     toast((grant ? 'Granted ' : 'Revoked ') + who);
     draw();
   }
@@ -19738,6 +19781,11 @@ return {
           sheetId: t.sheetId || "",
           combatantId: t.combatantId || "",
           conditions: (t.conditions || []).slice(),
+          lights: (t.lights || []).map(l => ({ id: l.id || "", bright: Number(l.bright) || 0, dim: Number(l.dim) || 0 })),
+          hp: t.hp != null && t.hp !== "" ? Number(t.hp) : null,
+          tempHp: Number(t.tempHp) || 0,
+          exhaustion: Number(t.exhaustion) || 0,
+          concentration: t.concentration || "",
           playerActive: t.playerActive === true,
           copyOf: t.copyOf || "",
           allowCopySwitch: t.allowCopySwitch !== false

@@ -1,5 +1,5 @@
 /**
- * Hunger of Hadar feed dice (sheet 0.3.300 / DMCC 0.2.313).
+ * Hunger of Hadar feed dice (sheet 0.3.301 / DMCC 0.2.314).
  * The live cast posted "— = 0" plus the words "2d6", and the combat feed
  * painted an empty die for each unrolled formula. This drives the announce,
  * the public line builder, and the die painter the feed actually uses.
@@ -20,8 +20,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.300" && version.sheetBuild === "sheet-playtest-v03300");
-check("ver.dmcc", version.dmcc === "0.2.313" && version.dmccBuild === "dmcc-playtest-v02313");
+check("ver.sheet", version.sheet === "0.3.301" && version.sheetBuild === "sheet-playtest-v03301");
+check("ver.dmcc", version.dmcc === "0.2.314" && version.dmccBuild === "dmcc-playtest-v02314");
 
 const context = { console, Math, Date, JSON, parseInt, isFinite, Number, String, Object, Array, RegExp };
 context.window = context;
