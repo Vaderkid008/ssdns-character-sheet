@@ -660,6 +660,11 @@ toolbar.innerHTML = `
     </div>` : ``}
 `;
 el.appendChild(toolbar);
+const toolbarMain = document.createElement('div');
+toolbarMain.className = 'ssm-toolbar-main';
+const moveTools = toolbar.querySelector('[data-act="moveTools"]');
+while (toolbar.firstChild && toolbar.firstChild !== moveTools) toolbarMain.appendChild(toolbar.firstChild);
+toolbar.insertBefore(toolbarMain, toolbar.firstChild);
 if (role === 'dm') {
   const strip = document.createElement('div');
   strip.className = 'ssm-floor-strip ssm-map-ui';
@@ -671,13 +676,8 @@ if (role === 'dm') {
     const id = btn.getAttribute('data-floor');
     if (id) swapScene(id);
   });
-  el.appendChild(strip);
+  toolbar.appendChild(strip);
 }
-const toolbarMain = document.createElement('div');
-toolbarMain.className = 'ssm-toolbar-main';
-const moveTools = toolbar.querySelector('[data-act="moveTools"]');
-while (toolbar.firstChild && toolbar.firstChild !== moveTools) toolbarMain.appendChild(toolbar.firstChild);
-toolbar.insertBefore(toolbarMain, toolbar.firstChild);
 if (window.SSDNSDice && window.SSDNSDice.mount) {
   const diceBar = document.createElement('div');
   diceBar.className = 'dice-bar dice-bar-map';
@@ -10125,11 +10125,27 @@ function paintPreps(px) {
     ctx.lineWidth = 2;
     ctx.stroke();
     ctx.setLineDash([]);
-    ctx.globalAlpha = 0.9;
-    ctx.fillStyle = "#f3e6c8";
-    ctx.font = "11px system-ui";
+    ctx.globalAlpha = 1;
     ctx.textAlign = "center";
-    ctx.fillText(g.name || "ghost", s.x, s.y + 4);
+    ctx.textBaseline = "middle";
+    ctx.font = "bold 11px system-ui";
+    ctx.fillStyle = "#f3e6c8";
+    ctx.fillText(g.name || "Ghost", s.x, s.y - r - 8);
+    const tag = "(prep)";
+    ctx.font = "bold 10px system-ui";
+    const tw = ((ctx.measureText(tag).width) || 36) + 12;
+    const th = 14;
+    const tx = s.x - tw / 2;
+    const ty = s.y + r + 4;
+    ctx.fillStyle = "rgba(20,16,12,0.94)";
+    ctx.strokeStyle = "#e2c56a";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.rect(tx, ty, tw, th);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#e2c56a";
+    ctx.fillText(tag, s.x, ty + th / 2);
     ctx.restore();
   });
 }

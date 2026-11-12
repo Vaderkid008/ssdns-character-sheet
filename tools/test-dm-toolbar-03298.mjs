@@ -38,6 +38,27 @@ async function boot(page) {
   return errs;
 }
 
+function stripClear(page) {
+  return page.evaluate(() => {
+    const rect = (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) return null;
+      return { l: r.left, t: r.top, r: r.right, b: r.bottom };
+    };
+    const hit = (a, b) => !!(a && b && a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t);
+    const strip = rect("[data-act='floorStrip']");
+    return {
+      has: !!strip,
+      hitReset: hit(strip, rect("[data-act='reset']")),
+      hitMaps: hit(strip, rect("[data-act='mapsBtn']")),
+      hitGrid: hit(strip, rect("[data-act='strength']")),
+      hitZoom: hit(strip, rect("[data-act='zoomLabel']")),
+      hitNext: hit(strip, rect(".ssm-turnstrip .btn-next"))
+    };
+  });
+}
 function homeOf(page, act) {
   return page.evaluate((act) => {
     const el = document.querySelector('[data-act="' + act + '"]');
@@ -51,9 +72,14 @@ for (const width of [1280, 1600]) {
   const page = await browser.newPage();
   await page.setViewport({ width, height: 800 });
   const errs = await boot(page);
+  await page.waitForSelector("[data-act='floorStrip'] [data-floor]", { timeout: 8000 });
+  const before = await stripClear(page);
+  check("strip.clear." + width, before.has && !before.hitReset && !before.hitMaps && !before.hitGrid && !before.hitZoom && !before.hitNext, JSON.stringify(before));
   await page.evaluate(() => { const b = document.querySelector("#btnMapFull"); if (b) b.click(); });
   await new Promise((r) => setTimeout(r, 300));
   const tag = String(width);
+  const full = await stripClear(page);
+  check("strip.clear." + tag + ".full", full.has && !full.hitReset && !full.hitMaps && !full.hitGrid && !full.hitZoom && !full.hitNext, JSON.stringify(full));
 
   const bar = await page.evaluate(() => {
     const el = document.querySelector(".ssm-toolbar-main") || document.querySelector(".ssdns-toolbar");
