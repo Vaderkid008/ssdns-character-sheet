@@ -309,8 +309,8 @@ await flush(20);
 const linked = publicBag(live, "DUST");
 const linkedIds = Object.keys(linked);
 const linkFrame = lastFrame(player2.el.querySelector("canvas")).filter((row) => row.text === "Wade");
-/* B2: an explicit link keeps the new token's square. dedupe.one below still keeps the old id. */
-check("link.reuses", linkedIds.length === 1 && linkedIds[0] === "ply_wade" && enemyPos && linked.ply_wade.pos.x === enemyPos.x && linked.ply_wade.pos.y === enemyPos.y && linkFrame.length === 1, JSON.stringify({ ids: linkedIds, pos: linked.ply_wade && linked.ply_wade.pos, enemyPos, labels: linkFrame.length }));
+/* Granting the enemy does not replace Wade. His token stays on its square. The enemy stays put and Wade can move it. */
+check("link.keeps", linkedIds.indexOf("ply_wade") >= 0 && linkedIds.indexOf(enemyId) >= 0 && linked.ply_wade.pos.x === 13 && linked.ply_wade.pos.y === 10 && enemyPos && linked[enemyId].pos.x === enemyPos.x && (linked[enemyId].controlledBy || []).indexOf("wade") >= 0 && linkFrame.length >= 1, JSON.stringify({ ids: linkedIds, wade: linked.ply_wade && linked.ply_wade.pos, enemy: linked[enemyId] && linked[enemyId].pos }));
 
 const dupe = fakeFirebase();
 const ada = "ada.b";
@@ -353,7 +353,7 @@ const dupeDm = await bootMap(w, {
 await flush(30);
 const cleaned = publicBag(dupe, "DUPE");
 const cleanedIds = Object.keys(cleaned);
-check("dedupe.one", cleanedIds.length === 1 && cleanedIds[0] === adaId && cleaned[adaId].pos.x === 8 && cleaned[adaId].pos.y === 9 && cleaned[adaId].ownerUid === ada, JSON.stringify({ ids: cleanedIds, pos: cleaned[adaId] && cleaned[adaId].pos }));
+check("dedupe.keepsTwins", cleanedIds.indexOf(adaId) >= 0 && cleanedIds.indexOf("tok_legacy") >= 0 && cleaned[adaId].pos.x === 8 && cleaned[adaId].sheetId === ada && cleaned.tok_legacy.ownerUid === ada && cleaned.tok_legacy.sheetId === ada, JSON.stringify({ ids: cleanedIds }));
 dupeDm.api.destroy();
 dm2.api.destroy();
 player2.api.destroy();
