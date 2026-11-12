@@ -1,5 +1,5 @@
 /**
- * Doors, empty chests, and map cards (sheet 0.3.295 / DMCC 0.2.308).
+ * Doors, empty chests, and map cards (sheet 0.3.296 / DMCC 0.2.309).
  * A closed door blocks a crossing and not the squares on either side.
  * New chests start empty. Pick lock unlocks; Open reveals the loot.
  * Dragging the Token card does not drop movement waypoints.
@@ -19,7 +19,7 @@ function check(id, cond, detail) {
 }
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.295" && ver.dmcc === "0.2.308");
+check("ver", ver.sheet === "0.3.296" && ver.dmcc === "0.2.309");
 
 const context = { console, Math, Date, JSON, parseInt, isFinite, Number, String, Object, Array, Map, Set };
 context.window = context;
@@ -169,15 +169,19 @@ const bar = await page.$('[data-act="tokenCmd"] [data-float-drag]');
 const marks0 = await page.evaluate(() => document.querySelector("#mapMount").dataset.moveMarks || "0");
 const pos0 = await page.evaluate((id) => window.SSDNSMapHost.tokenPos(id), southId);
 if (bar) {
-  const b = await bar.boundingBox();
   for (let i = 0; i < 3; i++) {
-    await page.mouse.move(b.x + 20, b.y + 10);
+    const live = await page.$('[data-act="tokenCmd"] [data-float-drag]');
+    const box = live && await live.boundingBox();
+    if (!box) break;
+    await page.mouse.move(box.x + 30, box.y + 10);
     await page.mouse.down();
-    await page.mouse.move(b.x + 70 + i * 12, b.y + 28, { steps: 4 });
+    await page.mouse.move(box.x + 78, box.y + 30, { steps: 4 });
     await page.mouse.up();
     await new Promise((r) => setTimeout(r, 40));
   }
-  await page.mouse.move(b.x + 24, b.y + 8);
+  const endBar = await page.$('[data-act="tokenCmd"] [data-float-drag]');
+  const endBox = endBar && await endBar.boundingBox();
+  if (endBox) await page.mouse.move(endBox.x + 24, endBox.y + 8);
   await new Promise((r) => setTimeout(r, 80));
 }
 const card = await page.evaluate((id) => ({

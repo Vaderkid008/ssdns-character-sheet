@@ -1,6 +1,6 @@
 /**
  * COA #13 — bomb / timer stays in DM tools, and the unlinked drawer
- * no longer parks it beside the link picker (sheet 0.3.295 / DMCC 0.2.308).
+ * no longer parks it beside the link picker (sheet 0.3.296 / DMCC 0.2.309).
  *   node tools/test-bomb-drawer-03249.mjs
  * rules.js is not regenerated. Arm / Defuse / Trigger are not retimed.
  */
@@ -42,9 +42,9 @@ check("panel.kept", timers.includes('data-act="bombArm"') && timers.includes('da
 check("asset.untouched", map.includes('data-asset-act') && map.slice(map.indexOf("if (assetTok)"), map.indexOf("const card = lookupCard")).indexOf("bombToolsHtml") < 0);
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.295" && ver.dmcc === "0.2.308" && ver.sheetBuild === "sheet-playtest-v03295" && ver.dmccBuild === "dmcc-playtest-v02308");
+check("ver", ver.sheet === "0.3.296" && ver.dmcc === "0.2.309" && ver.sheetBuild === "sheet-playtest-v03296" && ver.dmccBuild === "dmcc-playtest-v02309");
 const rules = read("assets/data/rules.js");
-check("rules.clean", !rules.includes("0.3.295") && !rules.includes("0.2.308") && !read("database.rules.json").includes("0.3.295"));
+check("rules.clean", !rules.includes("0.3.296") && !rules.includes("0.2.309") && !read("database.rules.json").includes("0.3.296"));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");
