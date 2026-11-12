@@ -1097,6 +1097,15 @@ select:-webkit-autofill {
     width: 100%;
     height: auto;
   }
+  #mapMount.ssdns-map.ssdns-role-dm.ssm-token-dock .ssm-view-fog {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+  }
+  #mapMount.ssdns-map.ssdns-role-dm.ssm-token-dock .ssm-view-fog button {
+    width: 100%;
+  }
   #mapMount.ssdns-map.ssdns-role-dm.ssm-token-dock > .ssm-prop-dock,
   #mapMount.ssdns-map.ssdns-role-dm.ssm-token-dock > .ssm-drawer:not(.placed) {
     grid-area: token;

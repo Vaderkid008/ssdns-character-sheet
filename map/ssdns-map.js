@@ -630,28 +630,23 @@ toolbar.innerHTML = `
   <button data-act="helpBtn">?</button>
   <span data-act="zoomLabel">1.00×</span>
   <button data-act="reset">Reset view</button>
-  <button data-act="fxBtn" type="button" class="ssm-fx-btn" title="Attack effects on the map (firing lines). Saved for you on this device.">Effects: ON</button>
+  ${role === 'dm' ? `` : `<button data-act="fxBtn" type="button" class="ssm-fx-btn" title="Attack effects on the map (firing lines). Saved for you on this device.">Effects: ON</button>
   <button data-act="condPillBtn" type="button" class="ssm-cond-pill-btn" title="Condition pills on tokens. Normal is the olive and gold word over the token. Compact is a smaller bubble. Saved for you on this device.">Pills: Normal</button>
-  ${role === 'dm' ? `<button data-act="showDownedBtn" type="button" class="ssm-fx-btn" aria-pressed="false" title="Unconscious and 0 HP tokens stay out of targeting and saves. Turn this on to include them. The room follows this switch.">Show downed: OFF</button>` : ``}
-  ${role === 'dm'
-    ? `<button data-act="challengeBtn" type="button" class="ssm-challenge" title="Challenge picked players. Same check picker as the DMCC bar.">Challenge</button>
-    <button data-act="shortRestBtn" type="button" title="Short rest for every seated player. Same command as Fight → Short rest (party).">Short rest (party)</button>
-    <button data-act="longRestBtn" type="button" title="Long rest for every seated player. Same command as Fight → Long rest (party).">Long rest (party)</button>`
-    : `<button data-act="shortRestBtn" type="button" title="Short rest on this character. Same as the sheet Short rest, including the tools prompt.">Short rest</button>
-    <button data-act="longRestBtn" type="button" title="Long rest on this character. Same as the sheet Long rest.">Long rest</button>`}
-  ${role === 'dm' ? `
-    <button data-act="fogBtn" class="active">Fog: ON</button>
-    <button data-act="showFovBtn" class="active">Show Player FOV: ON</button>
-    <button data-act="mapsBtn" class="ssm-maps-btn" title="Maps: built-in, my maps, world">Maps ▾</button>
-    <button data-act="betweenBtn" type="button" title="Show the Between Encounters cover to the table. Players follow. Fog stays off and the scene starts bright. Raise the Grid slider to put squares on it.">Between encounters</button>
-    <button data-act="assetsBtn" class="ssm-maps-btn" title="Asset library for this room">Assets</button>
-    <select data-act="sceneSelect" hidden aria-hidden="true"></select>
-    <button data-act="myViewBtn">My view</button>
-    <button data-act="setFloorBtn">Set floor</button>
-    <button data-act="dmEditBtn" type="button" aria-pressed="false" title="Free-move any token. Walls, reach, and Move feet are ignored. Off keeps click-to-walk.">Edit tokens</button>
-    <button data-act="showSceneBtn">Show to players</button>
-    <button data-act="importWallsBtn">Import Walls</button>
-  ` : ``}
+  <button data-act="shortRestBtn" type="button" title="Short rest on this character. Same as the sheet Short rest, including the tools prompt.">Short rest</button>
+  <button data-act="longRestBtn" type="button" title="Long rest on this character. Same as the sheet Long rest.">Long rest</button>`}
+  ${role === 'dm' ? `<button data-act="challengeBtn" type="button" class="ssm-challenge" title="Challenge picked players. Same check picker as the DMCC bar.">Challenge</button>
+    <div class="ssm-maps-cluster" data-act="mapsCluster">
+      <button data-act="mapsBtn" class="ssm-maps-btn" type="button" title="Maps, the cover, and whose floor this is" aria-expanded="false" aria-controls="ssm-maps-menu">Maps ▾</button>
+      <div class="ssm-maps-menu" id="ssm-maps-menu" data-act="mapsMenu" hidden>
+        <button data-act="betweenBtn" type="button" title="Show the Between Encounters cover to the table. Players follow. Fog stays off and the scene starts bright. Raise the Grid slider to put squares on it.">Between encounters</button>
+        <button data-act="assetsBtn" class="ssm-maps-btn" type="button" title="Asset library for this room">Assets</button>
+        <button data-act="myViewBtn" type="button">My view</button>
+        <button data-act="setFloorBtn" type="button">Set floor</button>
+        <button data-act="showSceneBtn" type="button">Show to players</button>
+        <button data-act="mapsLibraryBtn" type="button" title="Built-in maps, my maps, and the world folder">All maps…</button>
+      </div>
+      <select data-act="sceneSelect" hidden aria-hidden="true"></select>
+    </div>` : ``}
 `;
 el.appendChild(toolbar);
 const toolbarMain = document.createElement('div');
@@ -1166,7 +1161,15 @@ if (role === 'dm') {
     <label title="When on, the same character may pick this lock again, and may try to force a container again."><input data-act="lockAllowRetries" type="checkbox"> Allow retries</label>
     <label title="When on, a player without thieves' tools may improvise a Dex check at disadvantage. Default off."><input data-act="improviseLocks" type="checkbox"> Allow improvised lockpicking</label>
     <button type="button" data-act="resetLockBtn" title="Clear every character's attempt on the selected door or chest.">Reset attempts</button>
-    <div class="panel-title">Fog</div>
+    <div class="panel-title">View &amp; Fog</div>
+    <div class="ssm-view-fog" data-act="viewFog">
+      <button data-act="fxBtn" type="button" class="ssm-fx-btn" title="Attack effects on the map (firing lines). Saved for you on this device.">Effects: ON</button>
+      <button data-act="condPillBtn" type="button" class="ssm-cond-pill-btn" title="Condition pills on tokens. Normal is the olive and gold word over the token. Compact is a smaller bubble. Saved for you on this device.">Pills: Normal</button>
+      <button data-act="showDownedBtn" type="button" class="ssm-fx-btn" aria-pressed="false" title="Unconscious and 0 HP tokens stay out of targeting and saves. Turn this on to include them. The room follows this switch.">Show downed: OFF</button>
+      <button data-act="fogBtn" class="active" type="button">Fog: ON</button>
+      <button data-act="showFovBtn" class="active" type="button">Show Player FOV: ON</button>
+      <button data-act="dmEditBtn" type="button" aria-pressed="false" title="Free-move any token. Walls, reach, and Move feet are ignored. Off keeps click-to-walk.">Edit tokens</button>
+    </div>
     <button data-act="revealFogBtn" type="button">Reveal: Box</button>
     <select data-act="revealShape" aria-label="Reveal shape">
       <option value="box">Box</option>
@@ -1204,6 +1207,7 @@ if (role === 'dm') {
     <button data-act="undoWallBtn">Undo Wall</button>
     <button data-act="clearWallsBtn">Clear Walls</button>
     <button data-act="snapBtn">Snap: ON</button>
+    <button data-act="importWallsBtn" type="button">Import Walls</button>
     <button data-act="wallsVisBtn" class="active">Walls: ON</button>
   `;
   el.appendChild(leftbar);
@@ -1213,6 +1217,10 @@ if (role === 'dm') {
   rightbar.innerHTML = `
     <div class="ssm-right-scroll">
     <div class="panel-title">DM Tools</div>
+    <div class="ssm-rest-tools" data-act="partyRest">
+      <button data-act="shortRestBtn" type="button" title="Short rest for every seated player. Same command as Fight → Short rest (party).">Short rest (party)</button>
+      <button data-act="longRestBtn" type="button" title="Long rest for every seated player. Same command as Fight → Long rest (party).">Long rest (party)</button>
+    </div>
     <div class="ssm-move-tools" data-act="moveTools" role="group" aria-label="Token moves">
       <button type="button" data-act="lockBtn">Lock</button>
       <button type="button" data-act="undoBtn">Undo Move</button>
@@ -14764,10 +14772,42 @@ function douseSelected(out) {
     q('showFovBtn').classList.toggle('active', state.showPlayerFov);
     draw();
   });
-  q('mapsBtn').addEventListener('click', () => {
+  function openMapLibrary() {
     if (window.SSDNSMapLibrary && window.SSDNSMapLibrary.open) window.SSDNSMapLibrary.open(libraryApi());
     else toast('Map menu not loaded');
+  }
+  function placeMapsMenu() {
+    const btn = q('mapsBtn');
+    const menu = q('mapsMenu');
+    if (!btn || !menu) return;
+    const r = btn.getBoundingClientRect();
+    menu.style.left = Math.max(8, Math.round(r.left)) + 'px';
+    menu.style.top = Math.round(r.bottom + 4) + 'px';
+  }
+  if (q('mapsBtn')) q('mapsBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const menu = q('mapsMenu');
+    if (!menu) { openMapLibrary(); return; }
+    menu.hidden = !menu.hidden;
+    q('mapsBtn').setAttribute('aria-expanded', menu.hidden ? 'false' : 'true');
+    if (!menu.hidden) placeMapsMenu();
   });
+  if (q('mapsLibraryBtn')) q('mapsLibraryBtn').addEventListener('click', () => openMapLibrary());
+  if (q('mapsMenu')) {
+    q('mapsMenu').addEventListener('click', (e) => {
+      if (!(e.target && e.target.closest && e.target.closest('button'))) return;
+      q('mapsMenu').hidden = true;
+      if (q('mapsBtn')) q('mapsBtn').setAttribute('aria-expanded', 'false');
+    });
+    document.addEventListener('click', (e) => {
+      const menu = q('mapsMenu');
+      const cluster = q('mapsCluster');
+      if (!menu || menu.hidden) return;
+      if (cluster && cluster.contains(e.target)) return;
+      menu.hidden = true;
+      if (q('mapsBtn')) q('mapsBtn').setAttribute('aria-expanded', 'false');
+    });
+  }
   if (q('betweenBtn')) q('betweenBtn').addEventListener('click', () => showBetweenEncounters());
   if (q('assetsBtn')) q('assetsBtn').addEventListener('click', () => {
     if (window.SSDNSAssetLibrary && window.SSDNSAssetLibrary.open) window.SSDNSAssetLibrary.open(assetApi());
