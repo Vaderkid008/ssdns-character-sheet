@@ -106,6 +106,45 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, .45);
 }
 .ssdns-map .ssm-maps-menu[hidden] { display: none; }
+.ssdns-map .ssm-floor-strip {
+  position: absolute;
+  top: 72px;
+  left: 168px;
+  right: 168px;
+  z-index: 12;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  pointer-events: auto;
+  font-size: 12px;
+}
+.ssdns-map .ssm-floor-strip:empty { display: none; }
+.ssdns-map .ssm-floor-strip button {
+  width: auto;
+  text-align: left;
+  background: rgba(20, 16, 12, .92);
+  color: #f3e6c8;
+  border: 1px solid #c4a35a;
+  border-radius: 4px;
+  padding: 3px 8px;
+}
+.ssdns-map .ssm-move-pick {
+  position: absolute;
+  top: 78px;
+  left: 8px;
+  z-index: 91;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 220px;
+  padding: 8px;
+  background: rgba(20, 16, 12, .97);
+  color: #f3e6c8;
+  border: 1px solid #c4a35a;
+  border-radius: 6px;
+}
+.ssdns-map .ssm-move-pick[hidden] { display: none; }
+.ssdns-map .ssm-floor-badge { margin: 0 0 6px; color: #e2c56a; font-size: 12px; }
 .ssdns-map .ssm-maps-menu button { width: 100%; text-align: left; white-space: nowrap; }
 .ssdns-map .ssm-view-fog,
 .ssdns-map .ssm-rest-tools {
