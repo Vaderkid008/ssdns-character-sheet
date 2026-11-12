@@ -1,6 +1,6 @@
 /**
  * Open menus stay where they opened.
- * Real mouse, 1280x800 and 1600x900. Sheet 0.3.296 / DMCC 0.2.309.
+ * Real mouse, 1280x800 and 1600x900. Sheet 0.3.297 / DMCC 0.2.310.
  *   node tools/test-menu-stability-03295.mjs
  */
 import fs from "node:fs";
@@ -15,7 +15,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(fs.readFileSync(path.join(root, "version.json"), "utf8"));
-check("ver", ver.sheet === "0.3.296" && ver.dmcc === "0.2.309");
+check("ver", ver.sheet === "0.3.297" && ver.dmcc === "0.2.310");
 
 function samePos(a, b) {
   return !!(a && b && Math.abs(a.x - b.x) <= 1 && Math.abs(a.y - b.y) <= 1);

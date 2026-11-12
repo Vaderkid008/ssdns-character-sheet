@@ -1,5 +1,5 @@
 /**
- * Phase 2 last generic casts (sheet 0.3.296 / DMCC 0.2.309).
+ * Phase 2 last generic casts (sheet 0.3.297 / DMCC 0.2.310).
  * Bless, Fog Cloud, and Mage Hand dust the circles they already draw.
  * Polymorph and Banishment dust when the shot arrives.
  * Healing Word, Invisibility, and Pass Without Trace share that same plain circle, so they get a puff too.
@@ -19,8 +19,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.296" && ver.dmcc === "0.2.309" && ver.sheetBuild === "sheet-playtest-v03296" && ver.dmccBuild === "dmcc-playtest-v02309");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.296") && !read("database.rules.json").includes("0.3.296"));
+check("ver", ver.sheet === "0.3.297" && ver.dmcc === "0.2.310" && ver.sheetBuild === "sheet-playtest-v03297" && ver.dmccBuild === "dmcc-playtest-v02310");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.297") && !read("database.rules.json").includes("0.3.297"));
 check("bestiary.kept", read("dm/assets/js/v2.js").includes("bestiary.json?v=0.2.249-spell-tokens"));
 check("fullscreen.guard", read("map/ssdns-map.js").includes("A 0×0 read during fullscreen must not replace it."));
 check("prior.kept", read("map/ssdns-map-fx.js").includes("darkvoid:") && read("map/ssdns-map-fx.js").includes("function stormIdle"));
