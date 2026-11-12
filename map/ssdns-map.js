@@ -218,6 +218,9 @@ window.SSDNSMap = { create(opts) {
       veil: !!t.veil,
       ownerUid: t.ownerUid || '', controlledBy: t.controlledBy || [],
       ownerCanMove: t.ownerCanMove !== false, locked: !!t.locked,
+      playerActive: t.playerActive === true,
+      copyOf: t.copyOf || '',
+      allowCopySwitch: t.allowCopySwitch !== false,
       label: t.label || t.name || '', size: t.size || 1, name: t.name || '',
       kind: t.kind || '', storyMarker: t.storyMarker || '', lootBoxId: t.lootBoxId || '',
       weaponDrop: t.weaponDrop ? { name: t.weaponDrop.name || t.name || '', itemId: t.weaponDrop.itemId || '', dirty: !!t.weaponDrop.dirty, taken: !!t.weaponDrop.taken } : null,
@@ -317,6 +320,7 @@ window.SSDNSMap = { create(opts) {
     if (patch && patch.skulker != null) safe.skulker = !!patch.skulker;
     if (patch && patch.devilsSight != null) safe.devilsSight = !!patch.devilsSight;
     if (patch && patch.facing != null) safe.facing = Number(patch.facing) || 0;
+    if (patch && patch.playerActive != null) safe.playerActive = !!patch.playerActive;
     write('map/public/tokens/' + token.id + '/patch', safe);
   }
   // About 6 Hz. Inside the 5–8 Hz cap, and only when the cell changed.
@@ -454,6 +458,9 @@ function applySharedToTokens() {
       }
       t.veil = !!s.veil;
       t.sheetId = s.sheetId || t.sheetId || '';
+      t.playerActive = s.playerActive === true;
+      t.copyOf = s.copyOf || '';
+      t.allowCopySwitch = s.allowCopySwitch !== false;
       if (s.spellPiece) t.ownerUid = s.ownerUid || '';
       else if (s.ownerUid) t.ownerUid = s.ownerUid;
       if (s.combatantId) t.combatantId = s.combatantId;
@@ -532,6 +539,8 @@ const state = {
   /* Ghost Plan retired (BG3 movement). The flag stays so old drag branches cannot come back on. */
   offline: false,
   ghostPlan: false,
+  prepOn: false,
+  preps: {},
   moveHover: null,
   moveConfirm: { mode: "click", pending: null },
   moveReachKey: "",
@@ -640,9 +649,11 @@ toolbar.innerHTML = `
       <div class="ssm-maps-menu" id="ssm-maps-menu" data-act="mapsMenu" hidden>
         <button data-act="betweenBtn" type="button" title="Show the Between Encounters cover to the table. Players follow. Fog stays off and the scene starts bright. Raise the Grid slider to put squares on it.">Between encounters</button>
         <button data-act="assetsBtn" class="ssm-maps-btn" type="button" title="Asset library for this room">Assets</button>
-        <button data-act="myViewBtn" type="button">My view</button>
-        <button data-act="setFloorBtn" type="button">Set floor</button>
-        <button data-act="showSceneBtn" type="button">Show to players</button>
+        <button data-act="myViewBtn" type="button" title="Look at the floor picked in this list. Players stay on their own map.">My view</button>
+        <button data-act="setFloorBtn" type="button" title="Move the selected token onto the floor picked in this list.">Set floor</button>
+        <button data-act="showSceneBtn" type="button" title="Move party here. Everyone's active token comes to this map: a prep ghost lands on its square, anyone without one arrives at the map entry. Copies stay put. Nothing moves until you press this.">Move party here</button>
+        <button data-act="movePickBtn" type="button" title="Pick Everyone or certain players, then move only those onto this map.">Choose who moves…</button>
+        <button data-act="prepBtn" type="button" title="Place grey ghosts on this map. Players cannot see them. Move party here turns a ghost into that player's real square.">Prep this map</button>
         <button data-act="mapsLibraryBtn" type="button" title="Built-in maps, my maps, and the world folder">All maps…</button>
       </div>
       <select data-act="sceneSelect" hidden aria-hidden="true"></select>
@@ -654,6 +665,19 @@ toolbarMain.className = 'ssm-toolbar-main';
 const moveTools = toolbar.querySelector('[data-act="moveTools"]');
 while (toolbar.firstChild && toolbar.firstChild !== moveTools) toolbarMain.appendChild(toolbar.firstChild);
 toolbar.insertBefore(toolbarMain, toolbar.firstChild);
+if (role === 'dm') {
+  const strip = document.createElement('div');
+  strip.className = 'ssm-floor-strip ssm-map-ui';
+  strip.setAttribute('data-act', 'floorStrip');
+  strip.addEventListener('click', (e) => {
+    const btn = e.target && e.target.closest ? e.target.closest('[data-floor]') : null;
+    if (!btn) return;
+    e.stopPropagation();
+    const id = btn.getAttribute('data-floor');
+    if (id) swapScene(id);
+  });
+  toolbar.appendChild(strip);
+}
 if (window.SSDNSDice && window.SSDNSDice.mount) {
   const diceBar = document.createElement('div');
   diceBar.className = 'dice-bar dice-bar-map';
@@ -2433,7 +2457,7 @@ function fogCovers(x, y) {
    sight test yet; the light punch still clips on walls. Grid units (squares). */
 function playerSceneOf(viewerUid) {
   if (role === 'player' && viewerUid === uid) return getPlayerScene();
-  const own = state.tokens.find(t => t && t.ownerUid === viewerUid);
+  const own = activeOwned(viewerUid);
   return (own && own.sceneId) || (shared.playerScenes && shared.playerScenes[viewerUid]) || 'scn_dustyspur01';
 }
 function visionModeOf(sd) { return sd && sd.visionMode === 'party' ? 'party' : 'own'; }
@@ -2646,8 +2670,8 @@ function zoneViewer(sight) {
   const pick = (mine.length ? mine : bubbles).filter(Boolean);
   if (pick.length) return pick;
   if (role === 'player') {
-    const t = (state.tokens || []).find(tok => tok && tok.ownerUid === uid && tok.pos);
-    if (!t) return [];
+    const t = myMapToken() || activeOwned(uid);
+    if (!t || !t.pos) return [];
     return [{ x: t.pos.x + (t.size || 1) / 2, y: t.pos.y + (t.size || 1) / 2, devilsSight: !!t.devilsSight, uid: uid }];
   }
   return [];
@@ -3053,8 +3077,8 @@ function zoneStyle(key) {
 }
 function zonePaintViewer() {
   if (role !== "player") return null;
-  const t = (state.tokens || []).find(tok => tok && tok.ownerUid === uid && tok.pos);
-  if (!t) return { x: 0, y: 0, devilsSight: false };
+  const t = myMapToken() || activeOwned(uid);
+  if (!t || !t.pos) return { x: 0, y: 0, devilsSight: false };
   return { x: t.pos.x + (t.size || 1) / 2, y: t.pos.y + (t.size || 1) / 2, devilsSight: !!t.devilsSight };
 }
 function traceZone(zone, px) {
@@ -5843,6 +5867,9 @@ function draw() {
   paintBlast();
   paintBlastBanner();
   paintZoneBlind();
+  if (role === "dm") paintPreps(px);
+  renderFloorStrip();
+  renderCopySwitch();
   refreshSelectedPanel();
   if (ctx.setTransform) {
     const dpr = Math.min((typeof window !== 'undefined' && window.devicePixelRatio) || 1, 2);
@@ -8496,7 +8523,8 @@ function focusLootChest(boxId) {
 const seenAssetReq = {};
 function assetLib() { return window.SSDNSAssetLibrary || null; }
 function myMapToken() {
-  return (state.tokens || []).find(t => t && t.ownerUid === uid && onViewedScene(t)) || null;
+  const here = (state.tokens || []).filter(t => t && t.ownerUid === uid && onViewedScene(t) && !isPartyToken(t));
+  return here.find(t => t.playerActive) || here[0] || null;
 }
 function assetReachNeed(token) {
   const a = token && token.asset;
@@ -10016,6 +10044,427 @@ function seatPlayers(id, moveTokens) {
   });
   postScenes();
 }
+/* One player can hold several tokens. The active one is the map they are looking at.
+   Sheet identity (owner, sheet, combatant) is shared. Position and scene are not. */
+function ownerTokens(ownerUid) {
+  if (!ownerUid) return [];
+  return (state.tokens || []).filter(t => t && t.ownerUid === ownerUid && !isPartyToken(t));
+}
+function activeOwned(ownerUid) {
+  const list = ownerTokens(ownerUid);
+  return list.find(t => t.playerActive === true) || list[0] || null;
+}
+function tokenWho(t) {
+  return (t && (t.name || t.label)) || "A player";
+}
+function entryCell(sceneId, index) {
+  const sd = sceneData(sceneId);
+  const spawns = Array.isArray(sd.spawns) ? sd.spawns.filter(s => s && s.pos && (s.side === "party" || /^P/i.test(String(s.tag || "")))) : [];
+  const n = index || 0;
+  const spawn = spawns[n] || spawns[0];
+  if (spawn && spawn.pos) {
+    return {
+      x: Math.round(Number(spawn.pos.x) || 0) + (spawns[n] ? 0 : n),
+      y: Math.round(Number(spawn.pos.y) || 0)
+    };
+  }
+  const sc = allScenes().find(s => s && s.id === sceneId);
+  const g = (sc && sc.grid) || { cols: 30, rows: 20 };
+  return {
+    x: Math.max(0, Math.floor((Number(g.cols) || 30) / 2) + n),
+    y: Math.max(0, Math.floor((Number(g.rows) || 20) / 2))
+  };
+}
+function savePreps() {
+  if (role !== "dm") return;
+  write("map/dm/preps", state.preps || {});
+}
+function placePrep(ownerUid, x, y) {
+  if (role !== "dm" || !ownerUid) return null;
+  const sid = activeSceneId();
+  const tok = activeOwned(ownerUid) || ownerTokens(ownerUid)[0];
+  if (!state.preps) state.preps = {};
+  if (!state.preps[sid]) state.preps[sid] = {};
+  state.preps[sid][ownerUid] = {
+    x: Math.round(Number(x) || 0),
+    y: Math.round(Number(y) || 0),
+    name: tok ? tokenWho(tok) : ownerUid
+  };
+  savePreps();
+  draw();
+  return state.preps[sid][ownerUid];
+}
+function prepAt(wx, wy) {
+  const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
+  const x = Math.floor(wx / px);
+  const y = Math.floor(wy / px);
+  const bag = (state.preps && state.preps[activeSceneId()]) || {};
+  let found = null;
+  Object.keys(bag).forEach(owner => {
+    const g = bag[owner];
+    if (g && g.x === x && g.y === y) found = { ownerUid: owner, x: g.x, y: g.y, name: g.name || owner };
+  });
+  return found;
+}
+function paintPreps(px) {
+  if (role !== "dm" || !state.scene) return;
+  const bag = (state.preps && state.preps[activeSceneId()]) || {};
+  Object.keys(bag).forEach(owner => {
+    const g = bag[owner];
+    if (!g) return;
+    const s = worldToScreen((g.x + 0.5) * px, (g.y + 0.5) * px);
+    const r = (px * (state.view.zoom || 1)) / 2 * 0.85;
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(180,180,180,0.35)";
+    ctx.fill();
+    ctx.setLineDash([4, 3]);
+    ctx.strokeStyle = "#d9d9d9";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "bold 11px system-ui";
+    ctx.fillStyle = "#f3e6c8";
+    ctx.fillText(g.name || "Ghost", s.x, s.y - r - 8);
+    const tag = "(prep)";
+    ctx.font = "bold 10px system-ui";
+    const tw = ((ctx.measureText(tag).width) || 36) + 12;
+    const th = 14;
+    const tx = s.x - tw / 2;
+    const ty = s.y + r + 4;
+    ctx.fillStyle = "rgba(20,16,12,0.94)";
+    ctx.strokeStyle = "#e2c56a";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.rect(tx, ty, tw, th);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#e2c56a";
+    ctx.fillText(tag, s.x, ty + th / 2);
+    ctx.restore();
+  });
+}
+function landToken(t, sceneId, cell) {
+  t.sceneId = sceneId;
+  if (!t.pos) t.pos = { x: cell.x, y: cell.y };
+  t.pos.x = cell.x;
+  t.pos.y = cell.y;
+  if (shared.tokens[t.id]) {
+    shared.tokens[t.id].sceneId = sceneId;
+    shared.tokens[t.id].pos = { x: cell.x, y: cell.y };
+    shared.tokens[t.id].ownerUid = t.ownerUid || shared.tokens[t.id].ownerUid || "";
+    shared.tokens[t.id].sheetId = t.sheetId || shared.tokens[t.id].sheetId || "";
+    shared.tokens[t.id].combatantId = t.combatantId || shared.tokens[t.id].combatantId || "";
+  }
+  const active = activeOwned(t.ownerUid);
+  if (!shared.playerScenes) shared.playerScenes = {};
+  if (!active || active.id === t.id) shared.playerScenes[t.ownerUid] = sceneId;
+  saveToken(t.id);
+}
+/* Move party here. Ghosts on this map become the real square. Anyone else who is
+   not already here arrives at the map entry (party spawn, else the center).
+   A copy that is not the active token stays on its own map. Fog on each map stays. */
+function movePartyHere(uids) {
+  if (role !== "dm") return [];
+  const id = activeSceneId();
+  const name = floorName(id);
+  saveScene(id);
+  const wanted = Array.isArray(uids) && uids.length ? uids : null;
+  const moved = [];
+  let arrivals = 0;
+  const seen = {};
+  (state.tokens || []).forEach(t => {
+    if (!t || !t.ownerUid || isPartyToken(t) || seen[t.ownerUid]) return;
+    const active = activeOwned(t.ownerUid);
+    if (!active || active.id !== t.id) return;
+    seen[t.ownerUid] = 1;
+    if (wanted && wanted.indexOf(t.ownerUid) < 0 && wanted.indexOf(t.id) < 0) return;
+    const ghost = state.preps && state.preps[id] && state.preps[id][t.ownerUid];
+    const already = (t.sceneId || "") === id;
+    if (already && !ghost) return;
+    const cell = ghost ? { x: ghost.x, y: ghost.y } : entryCell(id, arrivals++);
+    landToken(t, id, cell);
+    if (ghost) delete state.preps[id][t.ownerUid];
+    moved.push(tokenWho(t));
+  });
+  if (state.preps && state.preps[id] && !Object.keys(state.preps[id]).length) delete state.preps[id];
+  savePreps();
+  postScenes();
+  const line = moved.length
+    ? ("Showing " + name + ". " + moved.map(n => n + " moved to " + name).join(". ") + ".")
+    : ("Showing " + name + ". Players stay where they already are.");
+  toast(line);
+  renderFloorStrip();
+  draw();
+  return moved;
+}
+function showToPlayers() {
+  return movePartyHere(null);
+}
+function sendTokenTo(tokenId, sceneId) {
+  if (role !== "dm" || !sceneId) return false;
+  const t = state.tokens.find(tok => tok && tok.id === tokenId);
+  if (!t || !t.ownerUid || isPartyToken(t)) { toast("Pick a player token"); return false; }
+  const ghost = state.preps && state.preps[sceneId] && state.preps[sceneId][t.ownerUid];
+  const active = activeOwned(t.ownerUid);
+  const useGhost = !!(ghost && active && active.id === t.id);
+  landToken(t, sceneId, useGhost ? { x: ghost.x, y: ghost.y } : entryCell(sceneId, 0));
+  if (useGhost) {
+    delete state.preps[sceneId][t.ownerUid];
+    if (!Object.keys(state.preps[sceneId]).length) delete state.preps[sceneId];
+    savePreps();
+  }
+  saveScene(sceneId);
+  postScenes();
+  toast(tokenWho(t) + " moved to " + floorName(sceneId) + ".");
+  renderFloorStrip();
+  draw();
+  return true;
+}
+function duplicateToken(tokenId) {
+  if (role !== "dm") return null;
+  const src = state.tokens.find(t => t && t.id === tokenId);
+  if (!src || !src.ownerUid || isPartyToken(src)) { toast("Pick a player token"); return null; }
+  const copy = JSON.parse(JSON.stringify(src, (k, v) => k === "_img" ? undefined : v));
+  copy.id = "dup_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  copy.copyOf = src.id;
+  copy.playerActive = false;
+  copy.allowCopySwitch = src.allowCopySwitch !== false;
+  copy.sceneId = activeSceneId();
+  const beside = (src.sceneId || "") === copy.sceneId && src.pos
+    ? { x: src.pos.x + 1, y: src.pos.y }
+    : entryCell(copy.sceneId, 0);
+  copy.pos = { x: beside.x, y: beside.y };
+  copy.ownerUid = src.ownerUid;
+  copy.sheetId = src.sheetId || "";
+  copy.combatantId = src.combatantId || "";
+  copy.conditions = src.conditions ? src.conditions.slice() : [];
+  shared.tokens[copy.id] = JSON.parse(JSON.stringify(copy));
+  state.tokens.push(copy);
+  saveToken(copy.id);
+  if (copy.image) loadTokenImage(copy);
+  toast("Duplicate of " + tokenWho(src) + " on " + floorName(copy.sceneId) + ". " + tokenWho(src) + "'s view stays put.");
+  renderFloorStrip();
+  draw();
+  return copy.id;
+}
+function setActiveCopy(tokenId, fromRemote) {
+  const t = (state.tokens || []).find(tok => tok && tok.id === tokenId) || (shared.tokens && shared.tokens[tokenId]);
+  if (!t || !t.ownerUid) return false;
+  if (role !== "dm" && t.ownerUid !== uid) return false;
+  if (role !== "dm" && t.allowCopySwitch === false) { toast("The DM locked which copy you view"); return false; }
+  ownerTokens(t.ownerUid).forEach(other => {
+    other.playerActive = other.id === t.id;
+    if (shared.tokens[other.id]) shared.tokens[other.id].playerActive = other.playerActive;
+  });
+  if (!shared.playerScenes) shared.playerScenes = {};
+  shared.playerScenes[t.ownerUid] = t.sceneId || activeSceneId();
+  if (role === "dm") {
+    ownerTokens(t.ownerUid).forEach(other => saveToken(other.id));
+    postScenes();
+  } else if (!fromRemote) publishPlayerPatch(t, { playerActive: true });
+  if (role === "player") followPlayerScene();
+  renderCopySwitch();
+  renderFloorStrip();
+  draw();
+  return true;
+}
+function setCopySwitch(ownerUid, allowed) {
+  if (role !== "dm") return;
+  ownerTokens(ownerUid).forEach(t => {
+    t.allowCopySwitch = !!allowed;
+    if (shared.tokens[t.id]) shared.tokens[t.id].allowCopySwitch = !!allowed;
+    saveToken(t.id);
+  });
+}
+function mirrorSheetState(token) {
+  if (!token || !token.ownerUid) return;
+  ownerTokens(token.ownerUid).forEach(other => {
+    if (other.id === token.id) return;
+    if ((other.sheetId || "") !== (token.sheetId || "") && other.sheetId && token.sheetId) return;
+    other.conditions = token.conditions ? token.conditions.slice() : [];
+    other.conditionSpells = token.conditionSpells ? Object.assign({}, token.conditionSpells) : {};
+    other.status = token.status || "";
+    if (shared.tokens[other.id]) {
+      shared.tokens[other.id].conditions = other.conditions.slice();
+      shared.tokens[other.id].conditionSpells = Object.assign({}, other.conditionSpells);
+      shared.tokens[other.id].status = other.status;
+    }
+    if (role === "dm") saveToken(other.id);
+  });
+}
+function floorStripText() {
+  const groups = {};
+  (state.tokens || []).forEach(t => {
+    if (!t || !t.ownerUid || isPartyToken(t)) return;
+    const sid = t.sceneId || "scn_dustyspur01";
+    if (!groups[sid]) groups[sid] = [];
+    const active = activeOwned(t.ownerUid);
+    const label = tokenWho(t) + (active && active.id === t.id ? "" : " (copy)");
+    if (groups[sid].indexOf(label) < 0) groups[sid].push(label);
+  });
+  Object.keys(state.preps || {}).forEach(sid => {
+    const bag = state.preps[sid] || {};
+    Object.keys(bag).forEach(owner => {
+      if (!groups[sid]) groups[sid] = [];
+      const label = (bag[owner].name || owner) + " (prep)";
+      if (groups[sid].indexOf(label) < 0) groups[sid].push(label);
+    });
+  });
+  return Object.keys(groups).map(sid => floorName(sid) + ": " + groups[sid].join(", ")).join(" · ");
+}
+function renderFloorStrip() {
+  if (role !== "dm") return;
+  const strip = q("floorStrip");
+  if (!strip) return;
+  const text = floorStripText();
+  if (strip.dataset.sig === text) return;
+  strip.dataset.sig = text;
+  const groups = {};
+  (state.tokens || []).forEach(t => {
+    if (!t || !t.ownerUid || isPartyToken(t)) return;
+    const sid = t.sceneId || "scn_dustyspur01";
+    if (!groups[sid]) groups[sid] = [];
+    const active = activeOwned(t.ownerUid);
+    const label = tokenWho(t) + (active && active.id === t.id ? "" : " (copy)");
+    if (groups[sid].indexOf(label) < 0) groups[sid].push(label);
+  });
+  Object.keys(state.preps || {}).forEach(sid => {
+    Object.keys(state.preps[sid] || {}).forEach(owner => {
+      if (!groups[sid]) groups[sid] = [];
+      const label = ((state.preps[sid][owner] && state.preps[sid][owner].name) || owner) + " (prep)";
+      if (groups[sid].indexOf(label) < 0) groups[sid].push(label);
+    });
+  });
+  strip.innerHTML = Object.keys(groups).map(sid =>
+    '<button type="button" data-floor="' + esc(sid) + '">' + esc(floorName(sid) + ": " + groups[sid].join(", ")) + "</button>"
+  ).join("");
+}
+function renderCopySwitch() {
+  if (role !== "player") return;
+  const mine = ownerTokens(uid);
+  let box = q("copyView");
+  const locked = mine.some(t => t.allowCopySwitch === false);
+  if (mine.length < 2 || locked) {
+    if (box) box.hidden = true;
+    return;
+  }
+  if (!box) {
+    const label = document.createElement("label");
+    label.setAttribute("data-act", "copyView");
+    label.className = "ssm-copy-view";
+    label.innerHTML = 'View <select data-act="copyPick" aria-label="Which copy you are looking at"></select>';
+    const main = el.querySelector(".ssm-toolbar-main") || toolbar;
+    main.appendChild(label);
+    box = label;
+    box.querySelector("select").addEventListener("change", (e) => setActiveCopy(e.target.value, false));
+  }
+  box.hidden = false;
+  const sel = box.querySelector("select");
+  const active = activeOwned(uid);
+  const sig = mine.map(t => t.id + ":" + (t.sceneId || "") + ":" + (t.playerActive ? "1" : "0")).join("|");
+  if (sel.dataset.sig === sig) return;
+  sel.dataset.sig = sig;
+  sel.innerHTML = mine.map(t => '<option value="' + esc(t.id) + '"' + (active && active.id === t.id ? " selected" : "") + ">" + esc(floorName(t.sceneId)) + "</option>").join("");
+}
+function floorToolsHtml(token) {
+  if (!token || !token.ownerUid || isPartyToken(token)) return "";
+  const maps = allScenes().map(s => '<option value="' + esc(s.id) + '">' + esc(s.name || s.id) + "</option>").join("");
+  const active = activeOwned(token.ownerUid);
+  const here = active && active.id === token.id;
+  return '<div class="ssm-floor-tools" data-act="floorTools">' +
+    '<p class="ssm-floor-badge">On ' + esc(floorName(token.sceneId)) + (here ? " · active view" : " · copy") + "</p>" +
+    '<label>Send to <select data-act="sendTo" data-token="' + esc(token.id) + '" aria-label="Send to"><option value="">Send to…</option>' + maps + "</select></label>" +
+    '<button type="button" data-act="makeCopy" data-token="' + esc(token.id) + '">Duplicate on this map</button>' +
+    '<label class="ssm-line"><input data-act="copyActive" data-token="' + esc(token.id) + '" type="checkbox"' + (here ? " checked" : "") + "> Active view</label>" +
+    '<label class="ssm-line"><input data-act="copySwitch" data-token="' + esc(token.id) + '" type="checkbox"' + (token.allowCopySwitch !== false ? " checked" : "") + "> Player can switch copies</label>" +
+    "</div>";
+}
+function bindFloorTools(root) {
+  if (!root || !root.querySelector) return;
+  const send = root.querySelector('[data-act="sendTo"]');
+  if (send && send.dataset.bound !== "1") {
+    send.dataset.bound = "1";
+    send.addEventListener("change", () => {
+      const dest = send.value;
+      if (!dest) return;
+      const id = send.getAttribute("data-token");
+      const t = state.tokens.find(tok => tok && tok.id === id);
+      if (t && (t.sceneId || "") === dest) return;
+      sendTokenTo(id, dest);
+      renderDrawer();
+    });
+  }
+  const copyBtn = root.querySelector('[data-act="makeCopy"]');
+  if (copyBtn && copyBtn.dataset.bound !== "1") {
+    copyBtn.dataset.bound = "1";
+    copyBtn.addEventListener("click", () => {
+      const id = duplicateToken(copyBtn.getAttribute("data-token"));
+      if (id) {
+        state.drawerTokenId = id;
+        renderDrawer();
+      }
+    });
+  }
+  const activeBox = root.querySelector('[data-act="copyActive"]');
+  if (activeBox && activeBox.dataset.bound !== "1") {
+    activeBox.dataset.bound = "1";
+    activeBox.addEventListener("change", () => {
+      if (activeBox.checked) setActiveCopy(activeBox.getAttribute("data-token"), false);
+    });
+  }
+  const allowBox = root.querySelector('[data-act="copySwitch"]');
+  if (allowBox && allowBox.dataset.bound !== "1") {
+    allowBox.dataset.bound = "1";
+    allowBox.addEventListener("change", () => {
+      const t = state.tokens.find(tok => tok && tok.id === allowBox.getAttribute("data-token"));
+      if (t) setCopySwitch(t.ownerUid, allowBox.checked);
+    });
+  }
+}
+function openMovePick() {
+  let panel = q("movePick");
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.className = "ssm-move-pick ssm-map-ui";
+    panel.setAttribute("data-act", "movePick");
+    panel.addEventListener("click", (e) => e.stopPropagation());
+    el.appendChild(panel);
+  }
+  const owners = [];
+  const seen = {};
+  (state.tokens || []).forEach(t => {
+    if (!t || !t.ownerUid || isPartyToken(t) || seen[t.ownerUid]) return;
+    const active = activeOwned(t.ownerUid);
+    if (!active || active.id !== t.id) return;
+    seen[t.ownerUid] = 1;
+    owners.push(t);
+  });
+  panel.innerHTML = "<p>Move onto " + esc(floorName(activeSceneId())) + "</p>" +
+    '<label><input type="checkbox" data-act="moveEveryone" checked> Everyone</label>' +
+    owners.map(t => '<label><input type="checkbox" data-owner="' + esc(t.ownerUid) + '" checked disabled> ' + esc(tokenWho(t)) + "</label>").join("") +
+    '<button type="button" data-act="moveGo">Move</button>';
+  const every = panel.querySelector('[data-act="moveEveryone"]');
+  if (every) every.addEventListener("change", () => {
+    panel.querySelectorAll("[data-owner]").forEach(box => {
+      box.disabled = !!every.checked;
+      if (every.checked) box.checked = true;
+    });
+  });
+  const go = panel.querySelector('[data-act="moveGo"]');
+  if (go) go.addEventListener("click", () => {
+    const all = !!(every && every.checked);
+    const ids = all ? null : [].map.call(panel.querySelectorAll("[data-owner]:checked"), box => box.getAttribute("data-owner"));
+    movePartyHere(ids);
+    panel.hidden = true;
+  });
+  panel.hidden = false;
+}
 function showBetweenEncounters(opts) {
   opts = opts || {};
   if (role !== 'dm') return false;
@@ -11518,6 +11967,21 @@ function onPointerDown(e) {
       return;
     }
     const hit = hitTest(w.x, w.y);
+    if (role === 'dm' && state.prepOn && !state.tool && e.button === 0 && !hit) {
+      const ghost = prepAt(w.x, w.y);
+      if (ghost) {
+        state.drag = { prep: ghost.ownerUid, sx: e.clientX, sy: e.clientY, ox: ghost.x, oy: ghost.y, moved: false };
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+        return;
+      }
+      const sel = state.selected;
+      if (sel && sel.ownerUid && !isPartyToken(sel)) {
+        const cellPx = (state.scene.grid && state.scene.grid.px) || 70;
+        placePrep(sel.ownerUid, Math.floor(w.x / cellPx), Math.floor(w.y / cellPx));
+        toast((sel.name || sel.label || 'Player') + ' ghost placed. Players still see the real token.');
+        return;
+      }
+    }
     if (state.reposition && role === 'dm' && e.button === 0 && !state.tool) {
       const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
       finishReposition({ x: Math.floor(w.x / px), y: Math.floor(w.y / px) });
@@ -11696,6 +12160,22 @@ function onPointerMove(e) {
   if (state.tool === 'wall' && state.wallStart) draw();
   if (state.tool === 'room' && state.roomStart) draw();
   if (pointers.size === 1 && state.drag) {
+    if (state.drag.prep) {
+      const mdx = e.clientX - (state.drag.sx || 0);
+      const mdy = e.clientY - (state.drag.sy || 0);
+      if (!state.drag.moved && Math.hypot(mdx, mdy) < 4) return;
+      state.drag.moved = true;
+      const w = pointerWorld(e);
+      const gpx = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
+      const sid = activeSceneId();
+      const bag = state.preps && state.preps[sid] && state.preps[sid][state.drag.prep];
+      if (bag) {
+        bag.x = Math.floor(w.x / gpx);
+        bag.y = Math.floor(w.y / gpx);
+      }
+      draw();
+      return;
+    }
     if (state.drag.pan) {
       e.preventDefault();
       e.stopPropagation();
@@ -11799,6 +12279,13 @@ function onPointerMove(e) {
 function onPointerUp(e) {
   if (!state.drag) {
     if (e && e.pointerId != null && e.pointerId !== -1) pointers.delete(e.pointerId);
+    return;
+  }
+  if (state.drag.prep) {
+    if (state.drag.moved) savePreps();
+    state.drag = null;
+    if (e && e.pointerId != null && e.pointerId !== -1) pointers.delete(e.pointerId);
+    draw();
     return;
   }
   if (pointerOverMapUi(e) && state.drag) {
@@ -14446,6 +14933,7 @@ if (role === 'dm') {
       if (idx >= 0) t.conditions.splice(idx, 1);
       else t.conditions.push(cond);
       if (shared.tokens[t.id]) shared.tokens[t.id].conditions = [...t.conditions];
+      mirrorSheetState(t);
     });
     targets.forEach(t => saveToken(t.id));
     flashBtn('condToggleBtn');
@@ -14817,7 +15305,7 @@ function douseSelected(out) {
     const sel = q('sceneSelect');
     swapScene(sel.value);
     flashBtn('myViewBtn');
-    toast('My view: ' + sel.options[sel.selectedIndex].text);
+    toast('My view: ' + sel.options[sel.selectedIndex].text + '. Players stay put.');
   });
   if (q('dmEditBtn')) {
     paintDmEdit();
@@ -14832,7 +15320,10 @@ function douseSelected(out) {
     targets.forEach(t => {
       t.sceneId = sceneId;
       if (shared.tokens[t.id]) shared.tokens[t.id].sceneId = sceneId;
-      if (t.ownerUid) shared.playerScenes[t.ownerUid] = sceneId;
+      if (t.ownerUid) {
+        const active = activeOwned(t.ownerUid);
+        if (!active || active.id === t.id) shared.playerScenes[t.ownerUid] = sceneId;
+      }
       saveToken(t.id);
     });
     postScenes();
@@ -14842,8 +15333,16 @@ function douseSelected(out) {
     renderTurnStrip();
   });
   q('showSceneBtn').addEventListener('click', () => {
-    postScenes();
-    toast('Floors pushed to players');
+    showToPlayers();
+    flashBtn('showSceneBtn');
+  });
+  if (q('movePickBtn')) q('movePickBtn').addEventListener('click', () => openMovePick());
+  if (q('prepBtn')) q('prepBtn').addEventListener('click', () => {
+    state.prepOn = !state.prepOn;
+    q('prepBtn').classList.toggle('active', state.prepOn);
+    toast(state.prepOn
+      ? 'Prep on. Select a player token, then click an empty square. The ghost stays invisible to players.'
+      : 'Prep off.');
   });
   q('addTokenBtn').addEventListener('click', () => { addEnemyToken(); flashBtn('addTokenBtn'); });
   if (q('bestiaryBtn')) { q('bestiaryBtn').addEventListener('click', () => toggleBestiary()); bindBestiaryDrop(); }
@@ -15317,7 +15816,7 @@ function migrateGlobalToScenes() {
 }
 function getPlayerScene() {
   if (role !== 'player') return state.dmView || 'scn_dustyspur01';
-  const my = state.tokens.find(t => t.ownerUid === uid);
+  const my = activeOwned(uid);
   return my?.sceneId || shared.playerScenes?.[uid] || 'scn_dustyspur01';
 }
 function followPlayerScene() {
@@ -15328,17 +15827,22 @@ function followPlayerScene() {
   loadSceneImage(sid);
 }
 async function loadSceneImage(sceneId, opts) {
-  const scene = SCENES.find(s => s.id === sceneId) || builtinScenes()[0];
+  const found = SCENES.find(s => s.id === sceneId);
+  const scene = found || { id: sceneId, name: floorName(sceneId), grid: (state.scene && state.scene.grid) || {} };
   if (state.scene) {
     const before = state.scene.grid || {};
-    state.scene.grid = sceneGrid(scene);
-    state.scene.mapId = scene.id;
+    state.scene.grid = found ? sceneGrid(scene) : before;
+    state.scene.mapId = sceneId;
     const g = state.scene.grid;
     if ((opts && opts.center) || before.cols !== g.cols || before.rows !== g.rows) {
       state.view.x = (g.cols * g.px) / 2;
       state.view.y = (g.rows * g.px) / 2;
     }
     if (g.show === false) fitBackdrop();
+  }
+  if (!found || !(scene.src || scene.img)) {
+    draw();
+    return;
   }
   const img = new Image();
   img.src = scene.src || asset(scene.img);
@@ -16939,7 +17443,7 @@ function syncCombatants(initiative) {
     return drawerHeadHtml(card.name || bag.tokenId, n62CallPretty(card), { gear: true }) +
       '<div class="ssm-drawer-body n62">' +
       (bag.pending || '') +
-      '<div class="n62-zone"><div class="n62-zlabel">1 · Identity</div>' + n62Identity(card) + (bag.death || '') +
+      '<div class="n62-zone"><div class="n62-zlabel">1 · Identity</div>' + n62Identity(card) + floorToolsHtml(tokenByRef(bag.tokenId)) + (bag.death || '') +
       '<div class="n62-conds">' + condLine + '</div>' +
       (bag.tactics ? '<div class="ssm-tactics">' + esc(bag.tactics) + '</div>' : '') + '</div>' +
       '<div data-act="n62Full"' + (full ? '' : ' hidden') + '>' +
@@ -17671,6 +18175,7 @@ function syncCombatants(initiative) {
     releasePanelFocus(panel);
     const done = () => {
       const next = q('drawer');
+      bindFloorTools(next);
       writePanelScroll(next, keep);
       schedulePanelScroll(next, keep);
     };
@@ -17800,6 +18305,7 @@ function syncCombatants(initiative) {
         group('Custom', option('custom', custom)) +
         '</select>' +
         '<p class="ssm-tactics">Players can be laid out before a fight. A bestiary or custom enemy is added on the Fight tab and linked here.</p>' +
+        floorToolsHtml(bare) +
         lightDrawerHtml(bare) +
         strayFuseHtml(bare) +
         '</div>';
@@ -18059,6 +18565,7 @@ function syncCombatants(initiative) {
       drawerHeadHtml(card.name || tokenId, card.kind || '') +
       '<div class="ssm-drawer-body">' +
       lightDrawerHtml(state.tokens.find(t => t && t.id === tokenId)) +
+      floorToolsHtml(state.tokens.find(t => t && t.id === tokenId)) +
       pendingBannerHtml(tokenId) +
       drawerVitalsHtml(card.ac, hp, speedBit, noHpPool, true) +
       deathLine +
@@ -18641,6 +19148,7 @@ function syncCombatants(initiative) {
       if (value.label != null) cosmetic.label = value.label;
       if (value.veil != null) cosmetic.veil = !!value.veil;
       if (value.facing != null) cosmetic.facing = Number(value.facing) || 0;
+      if (value.playerActive != null) cosmetic.playerActive = !!value.playerActive;
       /* Non-DM clients paint the patch as sent. The DM re-merges so dmDoused and a hand torch/darkvision win. */
       if (role !== 'dm') {
         if (value.lights) cosmetic.lights = value.lights;
@@ -18649,6 +19157,7 @@ function syncCombatants(initiative) {
         if (value.devilsSight != null) cosmetic.devilsSight = !!value.devilsSight;
       }
       Object.assign(t, cosmetic);
+      if (value.playerActive === true) setActiveCopy(id, true);
       /* ownerCanMove:false never reaches here (canControlBy). The snapshot write covers that case. */
       if (role === 'dm' && (value.lights || value.darkvision != null || value.skulker != null)) {
         const live = state.tokens.find(tok => tok && tok.id === id) || t;
@@ -19208,6 +19717,35 @@ return {
   /* token size: read-only footprints for tests/tools. Same visibility as drawing: players never get hidden tokens. */
   /* B6: the floor this client is drawing, plus occupancy and hit-test on that floor only. */
   viewedScene: function () { return activeSceneId(); },
+  layers: function () {
+    return {
+      strip: floorStripText,
+      preps: function () { return JSON.parse(JSON.stringify(state.preps || {})); },
+      prepOn: function (on) { state.prepOn = !!on; if (q('prepBtn')) q('prepBtn').classList.toggle('active', state.prepOn); },
+      prep: placePrep,
+      moveParty: movePartyHere,
+      send: sendTokenTo,
+      duplicate: duplicateToken,
+      setActive: function (id) { return setActiveCopy(id, false); },
+      activeId: function (ownerUid) { const t = activeOwned(ownerUid); return t ? t.id : ""; },
+      tokens: function () {
+        return (state.tokens || []).filter(t => t && t.ownerUid && !isPartyToken(t)).map(t => ({
+          id: t.id,
+          ownerUid: t.ownerUid,
+          sceneId: t.sceneId || "",
+          x: t.pos ? t.pos.x : 0,
+          y: t.pos ? t.pos.y : 0,
+          sheetId: t.sheetId || "",
+          combatantId: t.combatantId || "",
+          conditions: (t.conditions || []).slice(),
+          playerActive: t.playerActive === true,
+          copyOf: t.copyOf || "",
+          allowCopySwitch: t.allowCopySwitch !== false
+        }));
+      },
+      openCard: function (id) { openDrawer(id); const card = q('drawer'); return !!(card && card.querySelector('[data-act="sendTo"]')); }
+    };
+  },
   squareTaken: function (x, y, ignoreId) {
     const skip = {};
     if (ignoreId) skip[ignoreId] = 1;

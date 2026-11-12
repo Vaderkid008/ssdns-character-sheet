@@ -68,7 +68,7 @@
   min-width: 0;
   padding: 8px 12px; border-radius: 6px;
   display: flex; gap: 8px; align-items: center; font-size: 13px;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   overflow: hidden;
 }
 .ssdns-map .ssdns-toolbar .ssm-toolbar-main {
@@ -106,6 +106,52 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, .45);
 }
 .ssdns-map .ssm-maps-menu[hidden] { display: none; }
+.ssdns-map .ssm-floor-strip {
+  position: static;
+  grid-area: auto;
+  flex: 1 0 100%;
+  order: 5;
+  z-index: 2;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  pointer-events: auto;
+  font-size: 12px;
+}
+.ssdns-map .ssm-floor-strip:empty { display: none; }
+.ssdns-map .ssm-floor-strip button {
+  flex: 0 0 auto;
+  width: auto;
+  text-align: left;
+  white-space: nowrap;
+  background: rgba(20, 16, 12, .92);
+  color: #f3e6c8;
+  border: 1px solid #c4a35a;
+  border-radius: 4px;
+  padding: 3px 8px;
+}
+.ssdns-map .ssm-move-pick {
+  position: absolute;
+  top: 78px;
+  left: 8px;
+  z-index: 91;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 220px;
+  padding: 8px;
+  background: rgba(20, 16, 12, .97);
+  color: #f3e6c8;
+  border: 1px solid #c4a35a;
+  border-radius: 6px;
+}
+.ssdns-map .ssm-move-pick[hidden] { display: none; }
+.ssdns-map .ssm-floor-badge { margin: 0 0 6px; color: #e2c56a; font-size: 12px; }
 .ssdns-map .ssm-maps-menu button { width: 100%; text-align: left; white-space: nowrap; }
 .ssdns-map .ssm-view-fog,
 .ssdns-map .ssm-rest-tools {
@@ -668,7 +714,7 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
 }
 body.map-fullscreen #mapMount .ssdns-toolbar {
   z-index: 4;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   background: #16130f;
 }
 body.map-fullscreen #mapMount .dice-bar.dice-bar-map {
@@ -1736,7 +1782,7 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
   .ssdns-chathead, .ssm-tools, .ssdns-leftbar, .ssdns-rightbar {
     flex-wrap: wrap;
   }
-  .ssdns-map .ssdns-toolbar { flex-wrap: nowrap; overflow: hidden; }
+  .ssdns-map .ssdns-toolbar { flex-wrap: wrap; overflow: hidden; }
   .ssdns-map .ssdns-toolbar .ssm-toolbar-main { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .ssdns-map button, .ssdns-chathead button, .name-mode button, .ssdns-chat-overlay-bar button, .ssdns-chat-overlay-form button, .ssm-turnstrip .btn,
   .ssdns-chat-filters button, .ssm-chat-tab, body.ssdns-chat-pop button {
@@ -1975,6 +2021,7 @@ body.map-fullscreen #mapMount > canvas.ssm-fx {
   box-shadow: none;
   border-radius: 0;
   overflow: hidden;
+  flex-wrap: wrap;
 }
 .ssm-turnstrip .ssm-strip-tools .ssdns-toolbar button,
 .ssm-turnstrip .ssm-strip-tools .ssdns-toolbar select {

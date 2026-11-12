@@ -34,7 +34,7 @@ check("src.noBleedKept", mapSrc.includes("if (w.open || (w.window && !w.shut)) c
 check("src.doorMenu", mapSrc.includes('data-act="doorMenu"') && mapSrc.includes("doorInteract: function") && mapSrc.includes("tryDoorClick"));
 check("src.clock", v2.includes("SSDNSAssets.onRound") && v2.includes("SSDNSInteract.onCombatStart"));
 check("src.hooks", read("map/interact-timers.js").includes("SSDNSAssets.registerAction") && read("map/asset-library.js").includes('handlers["door:" + doorAct]'));
-check("src.cache", read("index.html").includes("interact-timers.js?v=0.3.298-strayfuse") && read("dm/index.html").includes("interact-timers.js?v=0.2.311-strayfuse"));
+check("src.cache", read("index.html").includes("interact-timers.js?v=0.3.300-strayfuse") && read("dm/index.html").includes("interact-timers.js?v=0.2.313-strayfuse"));
 
 const context = {
   console, Math, Date, JSON, parseInt, isFinite, Number, String, Object, Array,

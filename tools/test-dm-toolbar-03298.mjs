@@ -1,6 +1,6 @@
 /**
  * DM map toolbar cleanup. Moved controls keep their actions.
- * Real mouse, DM demo table. Sheet 0.3.298 / DMCC 0.2.311.
+ * Real mouse, DM demo table. Sheet 0.3.300 / DMCC 0.2.313.
  *   node tools/test-dm-toolbar-03298.mjs
  */
 import fs from "node:fs";
@@ -15,7 +15,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(fs.readFileSync(path.join(root, "version.json"), "utf8"));
-check("ver", ver.sheet === "0.3.298" && ver.dmcc === "0.2.311");
+check("ver", ver.sheet === "0.3.300" && ver.dmcc === "0.2.313");
 
 const browser = await puppeteer.launch({
   executablePath: "/usr/local/bin/google-chrome",
@@ -38,6 +38,27 @@ async function boot(page) {
   return errs;
 }
 
+function stripClear(page) {
+  return page.evaluate(() => {
+    const rect = (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) return null;
+      return { l: r.left, t: r.top, r: r.right, b: r.bottom };
+    };
+    const hit = (a, b) => !!(a && b && a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t);
+    const strip = rect("[data-act='floorStrip']");
+    return {
+      has: !!strip,
+      hitReset: hit(strip, rect("[data-act='reset']")),
+      hitMaps: hit(strip, rect("[data-act='mapsBtn']")),
+      hitGrid: hit(strip, rect("[data-act='strength']")),
+      hitZoom: hit(strip, rect("[data-act='zoomLabel']")),
+      hitNext: hit(strip, rect(".ssm-turnstrip .btn-next"))
+    };
+  });
+}
 function homeOf(page, act) {
   return page.evaluate((act) => {
     const el = document.querySelector('[data-act="' + act + '"]');
@@ -51,9 +72,14 @@ for (const width of [1280, 1600]) {
   const page = await browser.newPage();
   await page.setViewport({ width, height: 800 });
   const errs = await boot(page);
+  await page.waitForSelector("[data-act='floorStrip'] [data-floor]", { timeout: 8000 });
+  const before = await stripClear(page);
+  check("strip.clear." + width, before.has && !before.hitReset && !before.hitMaps && !before.hitGrid && !before.hitZoom && !before.hitNext, JSON.stringify(before));
   await page.evaluate(() => { const b = document.querySelector("#btnMapFull"); if (b) b.click(); });
   await new Promise((r) => setTimeout(r, 300));
   const tag = String(width);
+  const full = await stripClear(page);
+  check("strip.clear." + tag + ".full", full.has && !full.hitReset && !full.hitMaps && !full.hitGrid && !full.hitZoom && !full.hitNext, JSON.stringify(full));
 
   const bar = await page.evaluate(() => {
     const el = document.querySelector(".ssm-toolbar-main") || document.querySelector(".ssdns-toolbar");
@@ -154,7 +180,7 @@ for (const width of [1280, 1600]) {
     check("act.floor", /Select a token/i.test(await toast()));
     await clickMenu("showSceneBtn");
     await new Promise((r) => setTimeout(r, 40));
-    check("act.show", /Floors pushed/i.test(await toast()));
+    check("act.show", /Showing /i.test(await toast()));
     await page.evaluate(() => { window.prompt = () => '[{"x1":0,"y1":0,"x2":1,"y2":0}]'; });
     await page.click('[data-act="importWallsBtn"]');
     await new Promise((r) => setTimeout(r, 40));
