@@ -2983,5 +2983,13 @@ body.map-phone #mapMount.ssdns-map {
   background: #c9a227;
   flex: 1 0 100%;
 }
-.ssdns-map.ssm-phone .ssm-token-cmd { z-index: 36; }
+.ssdns-map.ssm-phone .ssdns-toolbar .ssm-toolbar-main {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+.ssdns-map.ssm-phone .ssm-token-cmd {
+  z-index: 36;
+  max-width: calc(100% - 8px);
+  box-sizing: border-box;
+}
 .ssdns-map.ssm-phone .ssm-token-cmd button { min-height: 44px; min-width: 44px; }

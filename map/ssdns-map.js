@@ -5313,7 +5313,7 @@ function draw() {
 
   const sight = role === 'player' ? sightFor(uid, getPlayerScene()) : null;
   const sightGun = role === 'player' ? playerSightWeapon() : null;
-  const sightMine = role === 'player' ? state.tokens.find(t => t.ownerUid === uid) : null;
+  const sightMine = role === 'player' ? (actingToken() || state.tokens.find(t => t.ownerUid === uid)) : null;
   if (role === 'player') noteSightChange();
   // map image — for players with fog on, only draw inside vision/revealed areas
   if (img) {
@@ -6609,7 +6609,7 @@ function rangeButtonNote(attack, targetId, shooterId) {
   if (pointPlacedSpell(attack)) return null;
   if (!window.SSDNSRangeRings || !window.SSDNSRangeRings.resolve || !attack || !targetId) return null;
   const shooter = tokenByRef(shooterId) ||
-    (role === 'player' ? (state.tokens || []).find(t => t && t.ownerUid === uid) : null);
+    (role === 'player' ? (actingToken() || (state.tokens || []).find(t => t && t.ownerUid === uid)) : null);
   const tgt = tokenByRef(targetId);
   if (!shooter || !tgt || !shooter.pos || !tgt.pos) return null;
   const id = String(attack.id || '');
@@ -7122,6 +7122,7 @@ function clampMenu(menu, left, top) {
   if (!menu || !el) return;
   const frameW = el.clientWidth || 0;
   const frameH = el.clientHeight || 0;
+  if (frameW > 16) menu.style.maxWidth = Math.max(96, frameW - 8) + "px";
   if (frameH > 0 && menu.dataset.menuAnchored !== "1") menu.style.maxHeight = Math.max(96, frameH - 8) + "px";
   const w = menu.offsetWidth || 220;
   const h = Math.min(menu.offsetHeight || 64, frameH > 0 ? frameH - 8 : 64);
@@ -10119,6 +10120,23 @@ function activeOwned(ownerUid) {
   const list = ownerTokens(ownerUid);
   return list.find(t => t.playerActive === true) || list[0] || null;
 }
+/* The token whose square, size, and reach the player is using.
+   A grant wins. Otherwise the active copy of their own character. */
+function actingToken() {
+  if (role !== "player") return null;
+  if (state.grantView) {
+    const g = (state.tokens || []).find(t => t && t.id === state.grantView && t.pos);
+    if (g) return g;
+  }
+  return activeOwned(uid);
+}
+function onControlledTurn(token) {
+  if (!fightOn() || role === "dm" || !token) return false;
+  const T = window.SSDNSTurn;
+  const row = T && T.current ? T.current(state.initiative) : null;
+  const rowTok = tokenForRow(row);
+  return !!(rowTok && rowTok.id === token.id && canControl(token));
+}
 function tokenWho(t) {
   return (t && (t.name || t.label)) || "A player";
 }
@@ -10840,8 +10858,8 @@ function activeMover() {
     const token = tokenForRow(row);
     if (!token || token.locked) return null;
     if (role === 'dm') return canControl(token) ? token : null;
-    if (!canControl(token) || turnBlocksMove()) return null;
-    if (token.ownerUid && token.ownerUid !== uid && !(row && row.playerId === uid)) return null;
+    if (!canControl(token)) return null;
+    if (turnBlocksMove() && !onControlledTurn(token)) return null;
     return token;
   }
   if (role === 'player') {
@@ -10861,6 +10879,15 @@ function budgetFor(token) {
   }
   const T = window.SSDNSTurn;
   if (role === 'player' && T && window.SSDNSActionPips && window.SSDNSActionPips.state) {
+    const grant = typeof activeGrantSheet === "function" ? activeGrantSheet() : null;
+    const grantTok = grant ? actingToken() : null;
+    if (grant && grantTok && onControlledTurn(grantTok)) {
+      const sp = Math.max(0, Number(grant.speed) || 30);
+      const row = rowForToken(grantTok);
+      const stored = (state.initiative && state.initiative.markers && row && state.initiative.markers[row.id]) || {};
+      const mv = T.moveLeft(stored, sp);
+      return { free: false, active: true, left: mv.left, max: mv.max, speed: sp, dash: !!stored.dash, disengage: !!stored.disengage, local: true };
+    }
     const m = window.SSDNSActionPips.state() || {};
     const sp = window.SSDNSTurnLock && window.SSDNSTurnLock.speed ? window.SSDNSTurnLock.speed() : 30;
     const mv = T.moveLeft(m, sp);
@@ -11738,7 +11765,7 @@ function canDrag(token) {
   if (!token) return false;
   if (token.locked) return false;
   if (!canControl(token)) return false;
-  if (turnBlocksMove()) return false;
+  if (turnBlocksMove() && !onControlledTurn(token)) return false;
   return true;
 }
 function beastClick(e) {
@@ -11884,6 +11911,7 @@ function performTouchTap(e, tapId) {
     toast("You can't see that.");
     return;
   }
+  if (hit) followControlledCard(hit);
   if (hit && !state.tool) {
     const pile = tokensSharingSquare(hit);
     const choices = shareChoices(pile);
@@ -12344,6 +12372,7 @@ function onPointerDown(e) {
         state.selected = hit;
         showCommandMenu(hit);
         if (!state.moveArmed || !state.moveMode) {
+          followControlledCard(hit);
           if (role === 'dm') openDrawer(hit.id);
           draw();
           return;
@@ -12359,6 +12388,7 @@ function onPointerDown(e) {
       const dmPropDrag = role === 'dm' && isPropTok(hit);
       if (!dmEditing() && !state.moveArmed && !dmPropDrag) {
         showCommandMenu(hit);
+        followControlledCard(hit);
         if (role === 'dm') openDrawer(hit.id);
         draw();
         return;
@@ -12391,6 +12421,7 @@ function onPointerDown(e) {
       if (hit.kind === 'asset') showAssetMenu(hit);
     } else if (hit && role === 'player') {
       selectToken(hit);
+      followControlledCard(hit);
       if (isPartyToken(hit)) {
         hideCommandMenu();
         toast('The DM moves the party token');
@@ -12810,11 +12841,13 @@ function onPointerUp(e) {
   }
   pointers.delete(e.pointerId);
   const deferDrawer = state.drag && state.drag.deferDrawer;
+  const dropFollow = wasTokenDrag && state.drag && state.drag.token ? state.drag.token : null;
   if (pointers.size === 0) {
     state.drag = null;
     if (canvas) delete canvas.dataset.touchLift;
     noteDragKind();
   }
+  if (dropFollow) followControlledCard(dropFollow);
   if (deferDrawer && role === 'dm') openDrawer(deferDrawer);
   state.fogStart = null;
   state.regionStart = null;
@@ -14790,6 +14823,10 @@ function removeMapTokens(ids, opts) {
     if (fields.concentration != null) t.concentration = String(fields.concentration || "");
     if (fields.ac != null && fields.ac !== "") t.ac = Number(fields.ac);
     if (fields.speed != null && fields.speed !== "") t.speed = Number(fields.speed);
+    if (fields.size != null && fields.size !== "") t.size = tokSquares(fields.size);
+    if (fields.pos && fields.pos.x != null && fields.pos.y != null) {
+      t.pos = { x: Number(fields.pos.x), y: Number(fields.pos.y) };
+    }
     if (Array.isArray(fields.attacks) || typeof fields.attacks === "string") t.attacks = fields.attacks;
     if (Array.isArray(fields.spells) || typeof fields.spells === "string") t.spells = fields.spells;
     if (Array.isArray(fields.lights)) t.lights = fields.lights.map(l => Object.assign({}, l));
@@ -14820,6 +14857,8 @@ function removeMapTokens(ids, opts) {
     if (t.hp != null && t.hp !== "") copy.hp = t.hp;
     if (t.maxHp != null && t.maxHp !== "") copy.maxHp = t.maxHp;
     if (t.name) copy.name = t.name;
+    if (t.size != null) copy.size = t.size;
+    if (t.pos) copy.pos = { x: t.pos.x, y: t.pos.y };
     if (t.label) copy.label = t.label;
     if (t.combatantId) copy.combatantId = t.combatantId;
     if (t.sheetId) copy.sheetId = t.sheetId;
@@ -16385,7 +16424,11 @@ function syncCombatants(initiative) {
         const T = window.SSDNSTurn;
         const cur = T && T.current ? T.current(state.initiative) : order[turn];
         const name = (cur && (cur.name || cur.id)) || 'Someone';
-        const mine = role === 'player' && cur && cur.kind === 'player' && (cur.playerId === uid || cur.id === uid || cur.ownerUid === uid);
+        const rowTok = tokenForRow(cur);
+        const mine = role === 'player' && cur && (
+          (cur.kind === 'player' && (cur.playerId === uid || cur.id === uid || cur.ownerUid === uid)) ||
+          (rowTok && canControl(rowTok))
+        );
         showTurnPop(mine ? 'YOUR TURN' : (name + "'s turn"));
       }
     }
@@ -16484,7 +16527,8 @@ function syncCombatants(initiative) {
     const len = order.length || 1;
     /* 0.2.77: the DM keeps the strip with no fight running ("No fight running" + Roll Initiative);
        players still see it only while there is a turn order. */
-    strip.hidden = !order.length && role !== 'dm';
+    const fightStarted = !!(state.initiative && state.initiative.started);
+    strip.hidden = role !== 'dm' && (!order.length || !fightStarted);
     if (role === 'dm' && toolbar.parentNode) toolbar.parentNode.removeChild(toolbar);
     strip.innerHTML = '';
     strip.classList.toggle('is-idle', !order.length);
@@ -16960,7 +17004,11 @@ function syncCombatants(initiative) {
         id: a.id || (prefix + i),
         name: a.name || a.label || "Attack",
         toHit: a.toHit != null ? String(a.toHit) : "",
-        damage: a.damage || a.dmg || ""
+        damage: a.damage || a.dmg || "",
+        kind: a.kind || "",
+        range: a.range || a.reach || "",
+        reach: a.reach != null ? a.reach : "",
+        properties: a.properties || ""
       }));
     }
     if (typeof raw === "string" && raw.trim()) return actionsFromText(raw, prefix);
@@ -17067,6 +17115,15 @@ function syncCombatants(initiative) {
     if (!sheet) return;
     const act = (sheet.attacks || []).concat(sheet.spells || []).find(a => a && a.id === id);
     if (!act) return;
+    const actor = actingToken();
+    const targetId = state.playerTarget || "";
+    if (targetId && targetId !== FREE_SHOT) {
+      const verdict = rangeButtonNote(act, targetId, (actor && actor.id) || sheet.tokenId);
+      if (verdict && verdict.blocked) {
+        toast(verdict.button || "Out of range");
+        return;
+      }
+    }
     const bonus = parseInt(String(act.toHit || "").replace(/[^+-\d]/g, ""), 10);
     const mod = isFinite(bonus) ? bonus : 0;
     const die = 1 + Math.floor(Math.random() * 20);
@@ -17075,6 +17132,21 @@ function syncCombatants(initiative) {
     state.grantLog.push({ id: id, tokenId: sheet.tokenId, name: act.name || "", die: die, total: total, line: line });
     toast(line);
     emit("chat:send", { text: line });
+  }
+  /* A tap on a token this player controls shows that token on the card.
+     Own tokens and duplicates share the character sheet. A grant shows that token's sheet. */
+  function followControlledCard(token) {
+    if (role !== "player" || !token || isPartyToken(token)) return false;
+    const grant = state.grants && state.grants[token.id];
+    const owned = token.ownerUid === uid;
+    if (!grant && !owned) return false;
+    state.grantView = grant ? token.id : "";
+    if (owned && !grant && ownerTokens(uid).length > 1 && token.allowCopySwitch !== false) {
+      setActiveCopy(token.id, false);
+    }
+    paintGrantSwitch();
+    paintPlayerFight();
+    return state.grantView;
   }
   function paintGrantSwitch() {
     const card = q("playerCard");
@@ -17260,7 +17332,8 @@ function syncCombatants(initiative) {
     } else if (String(id).indexOf('gunroll:') === 0 || String(id).indexOf('melee:') === 0 || String(id).indexOf('offhand:') === 0 || String(id).indexOf('fan:') === 0 || String(id).indexOf('spell:') === 0 || id === 'pact') {
       const card = playerFightModel();
       const attack = ((card && card.attacks) || []).concat((card && card.spells) || []).find(a => a && a.id === id);
-      const verdict = armRange(attack || { id: id }, targetId, uid);
+      const actor = actingToken();
+      const verdict = armRange(attack || { id: id }, targetId, (actor && actor.id) || uid);
       if (verdict && verdict.blocked) {
         if (window.SSDNSRangeRings && window.SSDNSRangeRings.clear) window.SSDNSRangeRings.clear();
         toast(verdict.button || 'Out of range');
@@ -18114,9 +18187,9 @@ function syncCombatants(initiative) {
     const root = n62on ? (q('playerCard') || slot) : slot;
     const card = playerFightModel();
     const nameEl = q('playerName');
-    if (nameEl && card.name) nameEl.textContent = card.name;
+    if (nameEl) nameEl.textContent = card.name || "My token";
     const dockLabel = q('playerDockLabel');
-    if (dockLabel && card.name) dockLabel.textContent = card.name;
+    if (dockLabel) dockLabel.textContent = card.name || "My token";
     paintAddMine();
     paintRoleBadge();
     const stats = q('playerStats');
@@ -18145,9 +18218,11 @@ function syncCombatants(initiative) {
       const off = o.disabled ? ' disabled' : '';
       return '<option value="' + esc(o.id) + '"' + off + on + '>' + esc(o.label || 'No target') + '</option>';
     }).join('');
+    const actorNow = actingToken();
+    const shooterId = (actorNow && actorNow.id) || uid;
     const attacks = (card.attacks || []).map(a => {
       const rowTarget = (state.rowTargets && state.rowTargets[a.id]) || state.playerTarget || '';
-      const verdict = rangeButtonNote(a, rowTarget, uid);
+      const verdict = rangeButtonNote(a, rowTarget, shooterId);
       let text = attackLine(a);
       let off = '';
       if (verdict && verdict.blocked) { text = verdict.button || 'Out of range'; off = ' disabled'; }
@@ -18164,7 +18239,7 @@ function syncCombatants(initiative) {
     const playerShove = (() => {
       const Shove = window.SSDNSShove;
       const aim = state.playerTarget || '';
-      const selfTok = (state.tokens || []).find(t => t && t.ownerUid === uid);
+      const selfTok = actorNow || (state.tokens || []).find(t => t && t.ownerUid === uid);
       const aimTok = aim ? (tokenByRef(aim) || (state.tokens || []).find(t => t && (t.id === aim || tokenCombatant(t.id) === aim))) : null;
       const feet = selfTok && aimTok ? feetBetween(selfTok, aimTok) : null;
       const opt = document.querySelector('#atkTarget') && document.querySelector('#atkTarget').selectedOptions && document.querySelector('#atkTarget').selectedOptions[0];
@@ -18189,7 +18264,7 @@ function syncCombatants(initiative) {
     }).join('');
     const spellButtons = groupedSpells(card.spells || [], s => {
       const spellTarget = (state.rowTargets && state.rowTargets[s.id]) || state.playerTarget || '';
-      const verdict = rangeButtonNote(s, spellTarget, uid);
+      const verdict = rangeButtonNote(s, spellTarget, shooterId);
       const meta = [
         s.kind === 'save' ? 'save' : (s.kind === 'attack' ? 'attack' : (s.kind && s.kind !== 'none' ? s.kind : '')),
         s.dc !== '' && s.dc != null && s.kind === 'save' ? 'DC ' + s.dc : '',
@@ -20292,6 +20367,13 @@ return {
     paintGrantSwitch();
     paintPlayerFight();
     return state.grantView;
+  },
+  aim: function (id) {
+    state.playerTarget = id || "";
+    state.aimBlank = !state.playerTarget;
+    paintPlayerFight();
+    const btn = el.querySelector("[data-act='playerAttack']");
+    return btn ? { text: String(btn.textContent || "").replace(/\s+/g, " ").trim(), disabled: !!btn.disabled } : null;
   },
   grantCard: function () {
     try { return playerFightModel(); } catch (e) { return null; }

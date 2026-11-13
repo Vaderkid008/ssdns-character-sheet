@@ -1709,6 +1709,14 @@
       var roundEl = $("#turnRound");
       var whoEl = $("#turnWho");
       var names = $("#turnNames");
+      /* Turn order stays hidden until the DM starts the fight. Rolling initiative
+         does not open this strip or change the map. */
+      if (order.length && !(init && init.started)) {
+        panel.hidden = true;
+        stripExpanded = false;
+        syncStripMode();
+        return;
+      }
       if (!order.length) {
         var inRoom = root.SSDNSDmJoin && root.SSDNSDmJoin.isJoined && root.SSDNSDmJoin.isJoined();
         var room = root.SSDNSDmJoin && root.SSDNSDmJoin.roomCode && root.SSDNSDmJoin.roomCode();
@@ -1761,13 +1769,13 @@
       lastStrip = { order: order, turn: turn, mine: !!mine, cur: cur, round: round };
       var liveTurn = !!(init && init.started);
       var expandSig = liveTurn ? (String(round) + ":" + String(cur.id || turn)) : "";
+      /* Do not force the strip open. A new turn keeps the chips condensed
+         unless the player already expanded them. */
       if (!liveTurn) {
         if (stripExpandSig) { stripExpanded = false; turnOpen = ""; }
         stripExpandSig = "";
       } else if (expandSig !== stripExpandSig) {
-        stripExpanded = true;
         stripExpandSig = expandSig;
-        turnOpen = chipKey(cur, turn);
       }
       paintTurnStrip();
       panel.classList.toggle("your-turn", !!mine);

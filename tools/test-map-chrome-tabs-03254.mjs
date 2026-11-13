@@ -1,6 +1,6 @@
 /**
  * Map chrome tabs stay inside the parchment frame
- * (sheet 0.3.305 / DMCC 0.2.318).
+ * (sheet 0.3.306 / DMCC 0.2.319).
  *   node tools/test-map-chrome-tabs-03254.mjs
  * rules.js is not regenerated.
  */
@@ -35,8 +35,8 @@ check("playerStrip.contained", map.includes(".ssdns-map > .ssm-turnhost { grid-a
 check("fullscreen.guard", read("map/ssdns-map.js").includes("A 0×0 read during fullscreen must not replace it."));
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.305" && ver.dmcc === "0.2.318" && ver.sheetBuild === "sheet-playtest-v03305" && ver.dmccBuild === "dmcc-playtest-v02318");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.305") && !read("database.rules.json").includes("0.3.305"));
+check("ver", ver.sheet === "0.3.306" && ver.dmcc === "0.2.319" && ver.sheetBuild === "sheet-playtest-v03306" && ver.dmccBuild === "dmcc-playtest-v02319");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.306") && !read("database.rules.json").includes("0.3.306"));
 check("bestiary.kept", read("dm/assets/js/v2.js").includes("bestiary.json?v=0.2.249-spell-tokens"));
 
 if (failures.length) {

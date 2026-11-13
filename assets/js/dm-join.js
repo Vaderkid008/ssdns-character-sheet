@@ -679,8 +679,9 @@
     }
     if (/initiative/i.test(String(entry.label || ""))) {
       try {
-        await fb.set(fb.ref(state.db, roomPath("playerInit/" + state.uid)), {
-          ts: entry.ts, init: Number(entry.result) || 0, name: entry.characterName || entry.who, from: state.uid
+        var initKey = entry.tokenId ? (state.uid + "__" + entry.tokenId) : state.uid;
+        await fb.set(fb.ref(state.db, roomPath("playerInit/" + initKey)), {
+          ts: entry.ts, init: Number(entry.result) || 0, name: entry.characterName || entry.who, from: state.uid, tokenId: entry.tokenId || ""
         });
         fadeToast("Initiative: " + (Number(entry.result) || 0), 4500);
       } catch (err) { console.warn("[DM Join] initiative", err); }
@@ -1579,6 +1580,53 @@
     });
     root.document.body.appendChild(host);
   }
+  function showInitPrompt(payload) {
+    payload = payload || {};
+    var d = root.document;
+    if (!d || !d.body) return;
+    var old = d.getElementById("ssdnsInitPrompt");
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+    var name = String(payload.name || "").replace(/[&<>"]/g, "");
+    var title = name ? ("Roll initiative for " + name) : "Roll initiative";
+    var box = d.createElement("div");
+    box.id = "ssdnsInitPrompt";
+    box.setAttribute("role", "dialog");
+    box.setAttribute("aria-modal", "true");
+    box.setAttribute("aria-label", title);
+    box.style.cssText = "position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);";
+    var card = d.createElement("div");
+    card.style.cssText = "background:#1c1814;color:#f0e4cf;border:1px solid #c9a227;border-radius:12px;padding:16px 18px;max-width:340px;width:calc(100% - 32px);font:16px/1.4 system-ui,sans-serif;";
+    card.innerHTML = "<b data-act=\"initPromptTitle\" style=\"display:block;font-size:18px;margin:0 0 8px\">" + title + "</b><p style=\"margin:0 0 12px\">The DM called for initiative. Roll now.</p>";
+    var btn = d.createElement("button");
+    btn.type = "button";
+    btn.setAttribute("data-act", "initPromptRoll");
+    btn.textContent = "Roll";
+    btn.style.cssText = "min-height:44px;padding:8px 16px;background:#3a3228;color:#f0e4cf;border:1px solid #c9a227;border-radius:8px;font:700 16px system-ui";
+    btn.addEventListener("click", function () {
+      if (box.parentNode) box.parentNode.removeChild(box);
+      if (payload.tokenId) {
+        var bonus = Number(payload.bonus) || 0;
+        var nat = 1 + Math.floor(Math.random() * 20);
+        var total = nat + bonus;
+        var formula = "1d20" + (bonus ? ((bonus > 0 ? "+" : "") + bonus) : "");
+        fadeToast((name || "Token") + " initiative: " + total, 5000);
+        postRoll({
+          label: "Initiative",
+          formula: formula,
+          result: total,
+          detail: String(nat) + (bonus ? ((bonus > 0 ? "+" : "") + bonus) : ""),
+          nat: nat,
+          tokenId: payload.tokenId,
+          characterName: name
+        });
+      } else if (root.SSDNSSheet && root.SSDNSSheet.rollInitiative) {
+        root.SSDNSSheet.rollInitiative();
+      }
+    });
+    card.appendChild(btn);
+    box.appendChild(card);
+    d.body.appendChild(box);
+  }
   function handleCommand(cmd) {
     var payload = cmd.payload || {};
     switch (cmd.type) {
@@ -1589,10 +1637,7 @@
         openChallenge(payload);
         break;
       case "init_prompt":
-        fadeToast("Roll initiative!", 5000);
-        toast("Roll initiative!", "Roll", function () {
-          if (root.SSDNSSheet && root.SSDNSSheet.rollInitiative) root.SSDNSSheet.rollInitiative();
-        }, Math.max(3000, Number(payload.wait) || 8000));
+        showInitPrompt(payload);
         break;
       case "init_set":
         fadeToast("Initiative: " + (payload.init != null ? payload.init : "?") + (payload.auto ? " (auto-rolled)" : ""), 5000);

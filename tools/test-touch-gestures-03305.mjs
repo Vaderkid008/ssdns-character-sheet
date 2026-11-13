@@ -1,5 +1,5 @@
 /**
- * Touch map gestures (sheet 0.3.305 / DMCC 0.2.318).
+ * Touch map gestures (sheet 0.3.306 / DMCC 0.2.319).
  * One finger pans, even on a token. A quick tap opens the token menu.
  * A press-and-hold then a drag moves a token the user controls.
  * Pinch zooms. A mouse drag on the desktop still selects instead of panning.
@@ -23,9 +23,9 @@ function check(id, cond, detail) {
 }
 
 const version = JSON.parse(fs.readFileSync(path.join(root, "version.json"), "utf8"));
-check("ver.sheet", version.sheet === "0.3.305" && version.sheetBuild === "sheet-playtest-v03305");
-check("ver.dmcc", version.dmcc === "0.2.318" && version.dmccBuild === "dmcc-playtest-v02318");
-check("rules.clean", !fs.readFileSync(path.join(root, "assets/data/rules.js"), "utf8").includes("0.3.305") && !fs.readFileSync(path.join(root, "database.rules.json"), "utf8").includes("0.3.305"));
+check("ver.sheet", version.sheet === "0.3.306" && version.sheetBuild === "sheet-playtest-v03306");
+check("ver.dmcc", version.dmcc === "0.2.319" && version.dmccBuild === "dmcc-playtest-v02319");
+check("rules.clean", !fs.readFileSync(path.join(root, "assets/data/rules.js"), "utf8").includes("0.3.306") && !fs.readFileSync(path.join(root, "database.rules.json"), "utf8").includes("0.3.306"));
 const css = fs.readFileSync(path.join(root, "map/ssdns-map.css"), "utf8");
 check("css.callout", css.includes("-webkit-touch-callout: none") && css.includes("user-select: none"));
 
@@ -447,4 +447,4 @@ if (failures.length) {
   failures.forEach((line) => console.log(" - " + line));
   process.exit(1);
 }
-console.log("touch gestures 0.3.305 ok");
+console.log("touch gestures 0.3.306 ok");

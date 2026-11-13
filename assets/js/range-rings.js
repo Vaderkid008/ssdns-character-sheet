@@ -126,6 +126,8 @@
     var meleeGroup = /melee/.test(group);
     var melee = meleeGroup || kind === "melee" || thrown || (!pair && !coneFt && !rangedGroup && (!range || range === "—" || range === "-"));
     var reach = /reach/i.test(properties) ? 10 : 5;
+    var stated = feetOf(spec.reach != null && spec.reach !== "" ? spec.reach : (melee ? range : ""));
+    if (melee && stated) reach = stated;
     var scope = !!(spec.scope || /scope/i.test(String(spec.mod || "")));
     var carbine = group === "carbine" || /carbine/i.test(name);
     var handy = !!(spec.handy || (cat && cat.handy) || /handy/i.test(properties));

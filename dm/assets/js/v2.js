@@ -8976,6 +8976,17 @@ function freshInit(pid, since) {
   if (since && row.ts && Date.parse(row.ts) && Date.parse(row.ts) < since - 1000) return null;
   return n;
 }
+function controllerUid(row) {
+  if (!row || row.kind === "player") return "";
+  const listed = Array.isArray(row.controlledBy) ? row.controlledBy.filter(Boolean) : [];
+  if (listed.length) return listed[0];
+  const host = window.SSDNSMapHost;
+  const id = row.mapTokenId || "";
+  if (!host || typeof host.tokenBoxes !== "function" || !id) return "";
+  const tok = (host.tokenBoxes() || []).find((t) => t && t.id === id);
+  const who = tok && Array.isArray(tok.controlledBy) ? tok.controlledBy.filter(Boolean) : [];
+  return who[0] || "";
+}
 function rollInitiativeForAll(opts) {
   opts = opts || {};
   const wait = opts.wait != null ? opts.wait : INIT_WAIT_MS;
@@ -8987,16 +8998,35 @@ function rollInitiativeForAll(opts) {
   const status = $("#rollInitStatus");
   const btn = $("#btnRollInitAll");
   fight.order.forEach((row) => {
-    if (row.kind === "player") return;
+    if (!row || row.kind === "player") return;
+    if (controllerUid(row)) return;
     row.init = d20() + (Number(row.initBonus) || 0);
   });
   const players = fight.order.filter((r) => r && r.kind === "player");
+  const granted = fight.order.filter((r) => r && r.kind !== "player" && controllerUid(r));
   players.forEach((row) => {
     const pid = row.playerId || row.id;
     if (!playerIsOnline(pid)) return;
-    DM.pushCommand({ type: "init_prompt", to: pid, quiet: true, payload: { round: fight.round, wait: wait }, from: DM.state.uid });
+    DM.pushCommand({ type: "init_prompt", to: pid, quiet: true, payload: { round: fight.round, wait: wait, name: row.name || "" }, from: DM.state.uid });
   });
-  if (status) status.textContent = players.length ? "Waiting for players to roll…" : "";
+  granted.forEach((row) => {
+    const pid = controllerUid(row);
+    if (!playerIsOnline(pid)) return;
+    DM.pushCommand({
+      type: "init_prompt",
+      to: pid,
+      quiet: true,
+      payload: {
+        round: fight.round,
+        wait: wait,
+        tokenId: row.mapTokenId || row.id || "",
+        name: row.name || "Token",
+        bonus: Number(row.initBonus) || 0
+      },
+      from: DM.state.uid
+    });
+  });
+  if (status) status.textContent = (players.length || granted.length) ? "Waiting for players to roll…" : "";
   if (btn) btn.disabled = true;
   saveRemoteTable();
   renderFight();
@@ -9015,6 +9045,18 @@ function rollInitiativeForAll(opts) {
       row.initFrom = "auto";
       auto.push(row.name || pid);
       DM.pushCommand({ type: "init_set", to: pid, quiet: true, payload: { init: row.init, auto: true, name: row.name || "" }, from: DM.state.uid });
+    });
+    granted.forEach((row) => {
+      const pid = controllerUid(row);
+      const key = pid + "__" + (row.mapTokenId || row.id || "");
+      const posted = freshInit(key, since);
+      if (posted != null) {
+        row.init = posted;
+        row.initFrom = "sheet";
+        return;
+      }
+      row.init = d20() + (Number(row.initBonus) || 0);
+      row.initFrom = "auto";
     });
     sortInitiative();
     saveRemoteTable();
