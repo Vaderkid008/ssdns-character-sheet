@@ -530,6 +530,10 @@ const NO_TARGET = '__none';
 const state = {
   scene: null,
   tokens: [],
+  /* Stat blocks the DM granted this player. Keyed by token id. Not the character sheet. */
+  grants: {},
+  grantView: "",
+  grantLog: [],
   room: null,
   view: { x: 0, y: 0, zoom: 1 },
   /* Last canvas size that was actually paintable. A 0×0 read during fullscreen must not replace it. */
@@ -14508,6 +14512,10 @@ function removeMapTokens(ids, opts) {
     if (fields.tempHp != null && fields.tempHp !== "") t.tempHp = Number(fields.tempHp) || 0;
     if (fields.exhaustion != null && fields.exhaustion !== "") t.exhaustion = Number(fields.exhaustion) || 0;
     if (fields.concentration != null) t.concentration = String(fields.concentration || "");
+    if (fields.ac != null && fields.ac !== "") t.ac = Number(fields.ac);
+    if (fields.speed != null && fields.speed !== "") t.speed = Number(fields.speed);
+    if (Array.isArray(fields.attacks) || typeof fields.attacks === "string") t.attacks = fields.attacks;
+    if (Array.isArray(fields.spells) || typeof fields.spells === "string") t.spells = fields.spells;
     if (Array.isArray(fields.lights)) t.lights = fields.lights.map(l => Object.assign({}, l));
     if (fields.image && !t.image) t.image = fields.image;
     if (Array.isArray(fields.conditions)) {
@@ -15476,6 +15484,7 @@ function douseSelected(out) {
       shared.tokens[t.id].combatantId = t.combatantId || shared.tokens[t.id].combatantId || "";
       postGrant(t);
       saveToken(t.id);
+      publishGrantSheet(t, who, grant);
     });
     if (activeId && activeOwned(who) && activeOwned(who).id !== activeId) setActiveCopy(activeId, true);
     toast((grant ? 'Granted ' : 'Revoked ') + who);
@@ -16652,7 +16661,174 @@ function syncCombatants(initiative) {
     if (!explicitBlank && !explicitFree) state.lastAimId = pick.sticky || "";
     return pick.value;
   }
+  /* One line of a bestiary attack string: "Hooves +6 (2d4+4 bludgeoning)". */
+  function actionsFromText(text, prefix) {
+    return String(text || "").split(",").map(s => s.trim()).filter(Boolean).map((chunk, i) => {
+      const hit = chunk.match(/^(.+?)\s+([+-]\d+)\b(?:\s*\(([^)]*)\))?/);
+      if (!hit) return { id: prefix + i, name: chunk, toHit: "", damage: "" };
+      return { id: prefix + i, name: hit[1].trim(), toHit: hit[2], damage: (hit[3] || "").trim() };
+    });
+  }
+  function grantAttacksOf(raw, prefix) {
+    if (Array.isArray(raw)) {
+      return raw.filter(Boolean).map((a, i) => ({
+        id: a.id || (prefix + i),
+        name: a.name || a.label || "Attack",
+        toHit: a.toHit != null ? String(a.toHit) : "",
+        damage: a.damage || a.dmg || ""
+      }));
+    }
+    if (typeof raw === "string" && raw.trim()) return actionsFromText(raw, prefix);
+    return [];
+  }
+  /* What the controlling player may see. HP stays off the public token.
+     This copy goes only to that player's inbox. */
+  function grantSheetOf(t) {
+    let card = null;
+    if (t && typeof host.getCard === "function") {
+      try { card = host.getCard(t.id) || (t.combatantId && host.getCard(t.combatantId)) || null; } catch (e) { card = null; }
+    }
+    const noHp = !!(t && t.noHpPool) || !!(card && card.noHpPool);
+    const hp = card && card.hp ? card.hp : null;
+    const cur = hp && hp.cur != null && hp.cur !== "" ? Number(hp.cur) : (t && t.hp != null && t.hp !== "" ? Number(t.hp) : null);
+    const max = hp && hp.max != null && hp.max !== "" ? Number(hp.max) : (t && t.maxHp != null && t.maxHp !== "" ? Number(t.maxHp) : null);
+    const attacks = grantAttacksOf((card && card.attacks) || (t && t.attacks), "grantatk:");
+    const spells = grantAttacksOf((card && card.spells) || (t && t.spells), "grantspell:").map((s, i) => {
+      const src = Array.isArray(card && card.spells) ? card.spells[i] : (Array.isArray(t && t.spells) ? t.spells[i] : null);
+      return Object.assign(s, {
+        kind: (src && src.kind) || "",
+        dc: src && src.dc != null ? String(src.dc) : "",
+        level: src && src.level != null ? src.level : ""
+      });
+    });
+    return {
+      tokenId: t.id,
+      name: (card && card.name) || t.name || t.label || "Token",
+      kind: t.kind || (card && card.kind) || "",
+      ac: card && card.ac != null ? card.ac : (t.ac != null ? t.ac : null),
+      hp: noHp ? null : cur,
+      maxHp: noHp ? null : max,
+      tempHp: Number(t.tempHp) || (hp && Number(hp.temp)) || 0,
+      speed: card && card.speed != null && card.speed !== "" ? card.speed : (t.speed != null ? t.speed : null),
+      noHpPool: noHp,
+      attacks: attacks,
+      spells: spells
+    };
+  }
+  function publishGrantSheet(t, who, grant) {
+    if (!t || !who || !adapter || !adapter.write) return;
+    const path = "inbox/" + who + "/grant_" + t.id;
+    if (!grant) {
+      if (adapter.remove) adapter.remove(path);
+      else adapter.write(path, null);
+      return;
+    }
+    const sheet = grantSheetOf(t);
+    adapter.write(path, {
+      id: "grant_" + t.id,
+      ts: new Date().toISOString(),
+      type: "grant_sheet",
+      to: who,
+      tokenId: t.id,
+      sheet: sheet
+    });
+  }
+  function grantFightCard(sheet) {
+    return {
+      name: sheet.name || "Token",
+      ac: sheet.ac != null ? sheet.ac : null,
+      hp: { cur: sheet.noHpPool ? null : sheet.hp, max: sheet.noHpPool ? null : sheet.maxHp, temp: sheet.tempHp || 0 },
+      speed: sheet.speed != null && sheet.speed !== "" ? sheet.speed : 30,
+      attacks: (sheet.attacks || []).map(a => Object.assign({ enabled: true }, a)),
+      spells: (sheet.spells || []).map(s => Object.assign({ enabled: true }, s)),
+      kind: sheet.kind || "npc",
+      calling: "",
+      items: []
+    };
+  }
+  function activeGrantSheet() {
+    if (role !== "player" || !state.grantView) return null;
+    const sheet = state.grants && state.grants[state.grantView];
+    return sheet || null;
+  }
+  function takeGrantRow(id, value, into) {
+    if (String(id).indexOf("grant_") !== 0) return;
+    const tokenId = (value && value.tokenId) || String(id).slice(6);
+    if (!tokenId) return;
+    if (!value || value.type === "grant_sheet_revoke" || !value.sheet || (value.to && value.to !== uid)) {
+      if (into === state.grants) delete state.grants[tokenId];
+      return;
+    }
+    into[tokenId] = value.sheet;
+  }
+  function ingestGrant(path, value) {
+    if (role !== "player") return;
+    const parts = String(path || "").split("/");
+    if (parts[0] !== "inbox") return;
+    if (parts.length <= 2) {
+      const tree = value && typeof value === "object" ? value : {};
+      const next = {};
+      Object.keys(tree).forEach(id => takeGrantRow(id, tree[id], next));
+      state.grants = next;
+    } else {
+      takeGrantRow(parts[parts.length - 1], value, state.grants);
+    }
+    if (state.grantView && !state.grants[state.grantView]) state.grantView = "";
+    paintGrantSwitch();
+    paintPlayerFight();
+  }
+  function rollGrantAction(id) {
+    const sheet = activeGrantSheet();
+    if (!sheet) return;
+    const act = (sheet.attacks || []).concat(sheet.spells || []).find(a => a && a.id === id);
+    if (!act) return;
+    const bonus = parseInt(String(act.toHit || "").replace(/[^+-\d]/g, ""), 10);
+    const mod = isFinite(bonus) ? bonus : 0;
+    const die = 1 + Math.floor(Math.random() * 20);
+    const total = die + mod;
+    const line = (sheet.name || "Token") + " — " + (act.name || "Attack") + ": " + die + (mod ? (mod > 0 ? "+" : "") + mod : "") + " = " + total + (act.damage ? " · " + act.damage : "");
+    state.grantLog.push({ id: id, tokenId: sheet.tokenId, name: act.name || "", die: die, total: total, line: line });
+    toast(line);
+    emit("chat:send", { text: line });
+  }
+  function paintGrantSwitch() {
+    const card = q("playerCard");
+    if (!card || role !== "player") return;
+    const head = card.querySelector(".ssm-card-head");
+    if (!head) return;
+    const list = Object.keys(state.grants || {}).map(id => state.grants[id]).filter(s => s && s.tokenId);
+    let box = head.querySelector("[data-act='grantSwitchBox']");
+    if (!list.length) {
+      if (box) box.remove();
+      state.grantView = "";
+      return;
+    }
+    if (!box) {
+      box = document.createElement("label");
+      box.className = "ssm-grant";
+      box.setAttribute("data-act", "grantSwitchBox");
+      box.innerHTML = 'Acting as <select data-act="grantSwitch" aria-label="Acting as"></select>';
+      head.insertBefore(box, head.firstChild);
+      box.querySelector("select").addEventListener("change", (e) => {
+        state.grantView = e.target.value || "";
+        paintPlayerFight();
+      });
+    }
+    const sel = box.querySelector("select");
+    const sig = list.map(s => s.tokenId + ":" + (s.name || "")).join("|");
+    if (sel.dataset.sig !== sig) {
+      sel.dataset.sig = sig;
+      sel.innerHTML = '<option value="">My character</option>' + list.map(s =>
+        '<option value="' + esc(s.tokenId) + '">' + esc(s.name || s.tokenId) + "</option>"
+      ).join("");
+    }
+    const want = state.grantView && state.grants[state.grantView] ? state.grantView : "";
+    state.grantView = want;
+    if (sel.value !== want) sel.value = want;
+  }
   function playerFightModel() {
+    const granted = activeGrantSheet();
+    if (granted) return grantFightCard(granted);
     if (typeof host.ownCard === 'function') {
       try {
         const own = host.ownCard();
@@ -16775,6 +16951,10 @@ function syncCombatants(initiative) {
   }
   function runPlayer(id, extra) {
     if (!id) return;
+    if (String(id).indexOf("grantatk:") === 0 || String(id).indexOf("grantspell:") === 0) {
+      rollGrantAction(id);
+      return;
+    }
     extra = extra || {};
     const tokenId = state.selected ? state.selected.id : null;
     const targetId = extra.targetId != null ? extra.targetId : ((state.rowTargets && state.rowTargets[id]) || state.playerTarget || '');
@@ -17410,6 +17590,14 @@ function syncCombatants(initiative) {
       reactBtn;
   }
   function n62PlayerConds() {
+    if (state.grantView && state.grants && state.grants[state.grantView]) {
+      const names = [];
+      const t = (state.tokens || []).find(tok => tok && tok.id === state.grantView);
+      if (t) {
+        try { tokenConditions(t).forEach(c => { const n = condLabel(c); if (n && names.indexOf(n) < 0) names.push(n); }); } catch (e) {}
+      }
+      return names;
+    }
     const names = [];
     const add = (c) => {
       const n = condLabel(c);
@@ -17631,6 +17819,7 @@ function syncCombatants(initiative) {
   function paintPlayerFight() {
     const slot = q('actionSlot');
     if (!slot) return;
+    paintGrantSwitch();
     /* 0.3.228: the player card is the scrolling menu. A pick rebuilds the rows
        under the focused control, and the browser then jumps that scroller to the top. */
     const panel = (slot.closest && slot.closest('.ssdns-playercard')) || q('playerCard') || slot;
@@ -19390,6 +19579,11 @@ function syncCombatants(initiative) {
     unsubs.push(adapter.subscribe('map/public/tokens', (value, meta) => {
       handlePublicToken(meta && meta.path, value, meta);
     }));
+    if (role === 'player' && uid) {
+      unsubs.push(adapter.subscribe('inbox/' + uid, (value, meta) => {
+        ingestGrant(meta && meta.path, value);
+      }));
+    }
     unsubs.push(adapter.subscribe('map/public/scenes', (value, meta) => {
       const path = meta && meta.path || '';
       const sid = path.split('/').pop();
@@ -19788,6 +19982,19 @@ return {
   pushFeed,
   requestDraw,
   relayout,
+  grants: function () {
+    return Object.keys(state.grants || {}).map(id => state.grants[id]).filter(Boolean);
+  },
+  useGrant: function (id) {
+    state.grantView = id && state.grants && state.grants[id] ? id : "";
+    paintGrantSwitch();
+    paintPlayerFight();
+    return state.grantView;
+  },
+  grantCard: function () {
+    try { return playerFightModel(); } catch (e) { return null; }
+  },
+  grantLog: function () { return (state.grantLog || []).slice(); },
   recenterOnMine,
   syncPhoneChrome,
   phoneMap: phoneMapMode,

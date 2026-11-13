@@ -1582,6 +1582,9 @@
   function handleCommand(cmd) {
     var payload = cmd.payload || {};
     switch (cmd.type) {
+      case "grant_sheet":
+        /* The map reads this from the inbox. It must not change the character sheet. */
+        break;
       case "challenge":
         openChallenge(payload);
         break;

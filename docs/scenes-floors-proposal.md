@@ -1,6 +1,6 @@
 # Scenes and floors
 
-A proposal for how the map should grow. No code in this note. Sheet 0.3.302 is only the token-link fix. Each phase below is its own draft and waits for Press.
+A proposal for how the map should grow. No code in this note. Sheet 0.3.303 is only the token-link fix. Each phase below is its own draft and waits for Press.
 
 ## What we have today
 
@@ -18,7 +18,7 @@ One word, "scene," means the picture, the floor, and the place. Dusty Spur's sal
 
 The floor strip lists maps, not a place made of floors. Prep and Go live in the Maps menu, not on the place you are staging.
 
-A token id, an owner, a sheet id, and a combatant id have all been asked to mean "this is the character." Linking a second token used to delete the first. That is the bug fixed in 0.3.302.
+A token id, an owner, a sheet id, and a combatant id have all been asked to mean "this is the character." Linking a second token used to delete the first. That is the bug fixed in 0.3.303.
 
 ## The clean model
 
@@ -120,7 +120,7 @@ Encounter Bot, Story, and Art can write this JSON and the DM imports it. Loading
 
 Each one is a draft. Nothing merges until Press.
 
-1. **Names and links (this is mostly data, after 0.3.302).** Wrap every current map as a one-floor scene. Old `sceneId`s still open. The character token stays the sheet. No new buttons yet.
+1. **Names and links (this is mostly data, after 0.3.303).** Wrap every current map as a one-floor scene. Old `sceneId`s still open. The character token stays the sheet. No new buttons yet.
 2. **Scene Builder.** Create, reorder, remove floors, link stairs, set spawns, save, export, import. Pack maps and library maps are the floors you add.
 3. **Encounter packs (showcase).** Chests with items and DCs, hidden bestiary tokens, party spawns, JSON in and out. Enough for Encounter Bot to author the spoiler-free showcase and for the DM to load it into a room.
 4. **Play.** Walking stairs asks for the landing. Split party across floors. Optional faint view of the floor above or below.
@@ -132,6 +132,6 @@ The party is on the saloon floor. The DM opens the cellar floor and clicks Prep.
 ## Risks
 
 - Grouping floors wrong (street inside the saloon) is a content choice. Default is one floor per current map. A person groups them.
-- Two sources of "the character" (token id and sheet id) caused the token to vanish. 0.3.302 keeps one character token and treats every other grant as control.
+- Two sources of "the character" (token id and sheet id) caused the token to vanish. 0.3.303 keeps one character token and treats every other grant as control.
 - Import must refuse character HP so a pack cannot overwrite a sheet.
 - Fog stays per floor. Do not invent explored-fog memory in the first phase.

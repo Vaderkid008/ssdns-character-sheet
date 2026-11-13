@@ -1,6 +1,6 @@
 /**
  * DM container popup edits contents and publishes them on the loot object.
- * Sheet 0.3.302 / DMCC 0.2.315.
+ * Sheet 0.3.303 / DMCC 0.2.316.
  *   node tools/test-container-contents-03282.mjs
  */
 import fs from "node:fs";

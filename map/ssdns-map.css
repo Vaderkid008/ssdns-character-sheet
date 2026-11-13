@@ -2871,6 +2871,20 @@ body.map-fullscreen #mapMount:has(> .ssm-turnstrip:not([hidden])) .ssdns-toolbar
   color-scheme: dark;
   border: 1px solid var(--drawer-row-edge);
 }
+.ssdns-playercard .ssm-grant {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 0 100%;
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: #e8c36a;
+}
+.ssdns-playercard .ssm-grant select {
+  flex: 1;
+  min-height: 36px;
+  min-width: 0;
+}
 
 /* Phone map (sheet 0.3.302). The grid is the screen. The token card is a bottom
    drawer. A bar above the map holds Back and My token. Desktop does not get

@@ -1,5 +1,5 @@
 /**
- * Pointer tests for map menus (sheet 0.3.302 / DMCC 0.2.315).
+ * Pointer tests for map menus (sheet 0.3.303 / DMCC 0.2.316).
  * Close X, Escape, and a title-bar drag on the token menu, container card,
  * loot window, DM pop-up, and the which-one chooser. Also the lock, improvise,
  * unlock, and dropped-item paths.
@@ -20,7 +20,7 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.302" && ver.dmcc === "0.2.315");
+check("ver", ver.sheet === "0.3.303" && ver.dmcc === "0.2.316");
 
 const dom = new JSDOM("<!doctype html><html><head></head><body></body></html>", { url: "http://localhost/dm/", pretendToBeVisual: true, runScripts: "dangerously" });
 const w = dom.window;
