@@ -1,6 +1,6 @@
 /**
  * Bomb / timer stays on assets. Creature drawers do not show it or write token.asset.
- * Sheet 0.3.301 / DMCC 0.2.314.
+ * Sheet 0.3.304 / DMCC 0.2.317.
  *   node tools/test-stray-fuse-03283.mjs
  */
 import fs from "node:fs";
@@ -18,8 +18,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.301" && ver.dmcc === "0.2.314" && ver.sheetBuild === "sheet-playtest-v03301" && ver.dmccBuild === "dmcc-playtest-v02314");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.301") && !read("database.rules.json").includes("0.3.301"));
+check("ver", ver.sheet === "0.3.304" && ver.dmcc === "0.2.317" && ver.sheetBuild === "sheet-playtest-v03304" && ver.dmccBuild === "dmcc-playtest-v02317");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.304") && !read("database.rules.json").includes("0.3.304"));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/dm/", pretendToBeVisual: true, runScripts: "dangerously" });
 const w = dom.window;

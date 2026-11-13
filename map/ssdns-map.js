@@ -198,7 +198,7 @@ window.SSDNSMap = { create(opts) {
   function postScenes() { write('map/public/playerScenes', shared.playerScenes || {}); }
   function postGrant(t) { write('map/public/tokens/' + t.id, publicToken(t)); }
 
-  let shared = { tokens: {}, playerScenes: {}, scenes: {}, fogRevealed: false };
+  let shared = { tokens: {}, playerScenes: {}, scenes: {}, places: {}, fogRevealed: false };
 
   function publicToken(t) {
     if (!t || t.hidden) return null;
@@ -10317,6 +10317,27 @@ function mirrorSheetState(token) {
     if (role === "dm") saveToken(other.id);
   });
 }
+function refreshPlaces() {
+  const api = window.SSDNSPlaces;
+  if (!api || typeof api.migrate !== "function") return shared.places || {};
+  const scenes = allScenes().concat(worldMaps());
+  const ids = [];
+  Object.keys(shared.scenes || {}).forEach(id => ids.push(id));
+  (state.tokens || []).forEach(t => { if (t && t.sceneId) ids.push(t.sceneId); });
+  const next = api.migrate({ scenes: scenes, ids: ids, places: shared.places || {} });
+  const before = JSON.stringify(shared.places || {});
+  const after = JSON.stringify(next.places || {});
+  shared.places = next.places || {};
+  if (role === "dm" && before !== after) write("map/dm/places", shared.places);
+  return shared.places;
+}
+function siblingFloors(mapId) {
+  const api = window.SSDNSPlaces;
+  if (!api || typeof api.resolve !== "function") return [];
+  const hit = api.resolve(shared.places || {}, mapId || activeSceneId());
+  if (!hit || !hit.place) return [];
+  return (hit.place.floors || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+}
 function floorStripText() {
   const groups = {};
   (state.tokens || []).forEach(t => {
@@ -10335,7 +10356,15 @@ function floorStripText() {
       if (groups[sid].indexOf(label) < 0) groups[sid].push(label);
     });
   });
-  return Object.keys(groups).map(sid => floorName(sid) + ": " + groups[sid].join(", ")).join(" · ");
+  const floors = siblingFloors(activeSceneId());
+  floors.forEach(f => { if (f && f.mapId && !groups[f.mapId]) groups[f.mapId] = []; });
+  const order = floors.map(f => f.mapId).concat(Object.keys(groups).filter(id => !floors.some(f => f.mapId === id)));
+  return order.map(sid => {
+    const floor = floors.filter(f => f.mapId === sid)[0];
+    const people = groups[sid] || [];
+    if (people.length) return floorName(sid) + ": " + people.join(", ");
+    return (floor && floor.name) || floorName(sid);
+  }).join(" · ");
 }
 function renderFloorStrip() {
   if (role !== "dm") return;
@@ -10360,9 +10389,16 @@ function renderFloorStrip() {
       if (groups[sid].indexOf(label) < 0) groups[sid].push(label);
     });
   });
-  strip.innerHTML = Object.keys(groups).map(sid =>
-    '<button type="button" data-floor="' + esc(sid) + '">' + esc(floorName(sid) + ": " + groups[sid].join(", ")) + "</button>"
-  ).join("");
+  const floors = siblingFloors(activeSceneId());
+  floors.forEach(f => { if (f && f.mapId && !groups[f.mapId]) groups[f.mapId] = []; });
+  const order = floors.map(f => f.mapId).concat(Object.keys(groups).filter(id => !floors.some(f => f.mapId === id)));
+  strip.innerHTML = order.map(sid => {
+    const floor = floors.filter(f => f.mapId === sid)[0];
+    const people = groups[sid] || [];
+    const label = people.length ? (floorName(sid) + ": " + people.join(", ")) : ((floor && floor.name) || floorName(sid));
+    const on = sid === activeSceneId() ? " is-on" : "";
+    return '<button type="button" class="ssm-floor' + on + '" data-floor="' + esc(sid) + '">' + esc(label) + "</button>";
+  }).join("");
 }
 function renderCopySwitch() {
   if (role !== "player") return;
@@ -19327,7 +19363,15 @@ function syncCombatants(initiative) {
         Object.keys(value).forEach(id => { if (value[id] && value[id].id) library[id] = value[id]; });
         try { localStorage.setItem('ssdns.maps.v1', JSON.stringify(library)); } catch (e) {}
         fillSceneSelect();
+        refreshPlaces();
+        renderFloorStrip();
         if (window.SSDNSMapLibrary && window.SSDNSMapLibrary.refresh) window.SSDNSMapLibrary.refresh();
+      }));
+      unsubs.push(adapter.subscribe('map/dm/places', (value) => {
+        if (!value || typeof value !== 'object') return;
+        shared.places = value;
+        refreshPlaces();
+        renderFloorStrip();
       }));
       unsubs.push(adapter.subscribe('map/dm/assetLibrary', (value) => { absorbAssetLibrary(value); }));
       unsubs.push(adapter.subscribe('map/dm/dismissed', (value, meta) => {
@@ -19353,6 +19397,12 @@ function libraryApi() {
     library: () => library,
     current: activeSceneId,
     swap: swapScene,
+    places: function () { return refreshPlaces(); },
+    placeOf: function (id) {
+      const api = window.SSDNSPlaces;
+      if (!api) return null;
+      return api.resolve(shared.places || {}, id || activeSceneId());
+    },
     snapshot: snapshotScene,
     restore: restoreSnapshot,
     save: saveLibraryEntry,
@@ -19439,6 +19489,8 @@ async function boot() {
 
     el.classList.remove('hidden');
     paintZoom();
+    refreshPlaces();
+    renderFloorStrip();
     resize();
   } catch (err) {
     console.error(err);
