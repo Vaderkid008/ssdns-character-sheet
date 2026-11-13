@@ -1,5 +1,5 @@
 /**
- * DM link badge (sheet 0.3.303 / DMCC 0.2.316).
+ * DM link badge (sheet 0.3.304 / DMCC 0.2.317).
  * ⚠ only on an unlinked player token. Enemies get no mark. A linked player token keeps ⛓.
  * The player map shows neither.
  *   node tools/test-unlinked-badge-03265.mjs
@@ -19,8 +19,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.303" && ver.dmcc === "0.2.316" && ver.sheetBuild === "sheet-playtest-v03303" && ver.dmccBuild === "dmcc-playtest-v02316");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.303") && !read("database.rules.json").includes("0.3.303"));
+check("ver", ver.sheet === "0.3.304" && ver.dmcc === "0.2.317" && ver.sheetBuild === "sheet-playtest-v03304" && ver.dmccBuild === "dmcc-playtest-v02317");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.304") && !read("database.rules.json").includes("0.3.304"));
 check("src.gate", read("map/ssdns-map.js").includes("tokenWantsSheetLink(t)") && read("map/ssdns-map.js").includes("Bestiary enemies, monsters, and NPC hostiles"));
 
 function fakeFirebase() {
