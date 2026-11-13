@@ -159,6 +159,7 @@ window.SSDNSMap = { create(opts) {
   const unsubs = [];
   const seenSeq = {};
   let raf = 0, animRaf = 0, dead = false;
+  let phoneWas = false;
   let fxShake = { x: 0, y: 0 };
   let fxShaking = false;
   let fxFrameOn = false;
@@ -2125,6 +2126,16 @@ function viewBox() {
   if (state.layoutBox && state.layoutBox.w > 1 && state.layoutBox.h > 1) return state.layoutBox;
   return { w: 1, h: 1 };
 }
+/* Phones only. A wide desktop stays on the mouse layout. A landscape phone is short
+   and not wide enough to be a tablet, so it counts even though it is past 720px. */
+function phoneMapMode() {
+  const w = window.innerWidth || 0;
+  const h = window.innerHeight || 0;
+  if (w > 0 && w < 720) return true;
+  const shortSide = Math.min(w, h);
+  const longSide = Math.max(w, h);
+  return shortSide > 0 && shortSide <= 500 && longSide <= 932;
+}
 /* Full screen can report 0×0 while the grid settles. Writing that into the bitmap
    clears the board, and the next observation often never comes, so the map stays black
    until the button is pressed again. Keep the last good buffer and try once layout lands. */
@@ -2216,6 +2227,7 @@ function resize() {
   }
   layoutTries = 0;
   if (isBackdropScene()) fitBackdrop();
+  syncPhoneChrome();
   draw();
 }
 function noteLootForce(on) {
@@ -2274,6 +2286,37 @@ function screenToWorld(sx, sy) {
     x: (sx - box.w / 2) / state.view.zoom + state.view.x,
     y: (sy - box.h / 2) / state.view.zoom + state.view.y
   };
+}
+function mapWorldSize() {
+  const g = state.scene && state.scene.grid;
+  const px = (g && g.px) || 70;
+  return { w: Math.max(1, (g && g.cols) || 1) * px, h: Math.max(1, (g && g.rows) || 1) * px };
+}
+/* Keep the camera over the map. A finger that runs past the edge stops, instead of
+   dragging the picture away and taking the page with it. Desktop panning is unchanged. */
+function clampCamera() {
+  if (!phoneMapMode() || !state.scene || isBackdropScene()) return;
+  const box = viewBox();
+  if (!(box.w > 2) || !(box.h > 2)) return;
+  const world = mapWorldSize();
+  const zoom = state.view.zoom || 1;
+  const viewW = box.w / zoom;
+  const viewH = box.h / zoom;
+  if (viewW >= world.w) state.view.x = world.w / 2;
+  else state.view.x = Math.max(viewW / 2, Math.min(world.w - viewW / 2, state.view.x));
+  if (viewH >= world.h) state.view.y = world.h / 2;
+  else state.view.y = Math.max(viewH / 2, Math.min(world.h - viewH / 2, state.view.y));
+}
+function recenterOnMine() {
+  const me = typeof activeOwned === 'function' ? activeOwned(uid) : null;
+  const tok = me || (state.tokens || []).find(t => t && t.ownerUid === uid && t.pos);
+  if (!tok || !tok.pos || !state.scene) return false;
+  const px = state.scene.grid.px || 70;
+  state.view.x = (tok.pos.x + (tok.size || 1) / 2) * px;
+  state.view.y = (tok.pos.y + (tok.size || 1) / 2) * px;
+  clampCamera();
+  draw();
+  return true;
 }
 function localXY(e) {
   const r = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : { left: 0, top: 0 };
@@ -12202,6 +12245,7 @@ function onPointerMove(e) {
       const dy = (e.clientY - state.drag.sy) / state.view.zoom;
       state.view.x = state.drag.vx - dx;
       state.view.y = state.drag.vy - dy;
+      clampCamera();
     } else if (state.drag.ruler && state.ruler) {
       const w = pointerWorld(e);
       state.ruler.x2 = w.x;
@@ -15472,7 +15516,14 @@ function douseSelected(out) {
     applyTokenDock(card);
     bindTokenDrag(card);
     const minBtn = q('playerCardMin');
-    if (minBtn) minBtn.addEventListener('click', () => toggleTokenShut(card));
+    if (minBtn) minBtn.addEventListener('click', (ev) => {
+      if (card.dataset.phoneSwipe === '1') {
+        card.dataset.phoneSwipe = '';
+        ev.preventDefault();
+        return;
+      }
+      toggleTokenShut(card);
+    });
     const dockBtn = q('playerDock');
     if (dockBtn) dockBtn.addEventListener('click', () => {
       const st = tokenDockState();
@@ -17903,8 +17954,88 @@ function syncCombatants(initiative) {
       if (name) label.textContent = name;
     }
   }
+  function setPhoneDrawer(panel, shut) {
+    if (!panel) return;
+    panel.classList.toggle('min', !!shut);
+    el.classList.toggle('ssm-phone-shut', !!shut);
+    const btn = panel.querySelector('[data-act="playerCardMin"]');
+    if (btn) {
+      btn.setAttribute('aria-expanded', shut ? 'false' : 'true');
+      btn.title = shut ? 'Show token card' : 'Hide token card';
+    }
+  }
+  function syncPhoneChrome() {
+    const card = q('playerCard');
+    const on = phoneMapMode() && role === 'player' && !!card;
+    el.classList.toggle('ssm-phone', on);
+    if (on === phoneWas) return;
+    phoneWas = on;
+    if (!on) {
+      el.classList.remove('ssm-phone-shut');
+      if (card && card.dataset.phoneInit) {
+        delete card.dataset.phoneInit;
+        applyTokenDock(card);
+      }
+      return;
+    }
+    card.dataset.phoneInit = '1';
+    card.classList.remove('placed', 'ssm-float');
+    card.style.left = '';
+    card.style.top = '';
+    card.style.right = '';
+    card.style.bottom = '';
+    setPhoneDrawer(card, true);
+  }
+  /* A finger on the card header opens and closes the bottom drawer. It does not
+     pick the card up and float it, and it does not scroll the sheet. */
+  function phoneDrawerGesture(panel, e) {
+    if (!phoneMapMode() || !panel.classList.contains('ssdns-playercard')) return false;
+    const head = e.target.closest && e.target.closest('.ssm-card-head');
+    if (!head || !panel.contains(head)) return false;
+    const pid = e.pointerId;
+    const y0 = e.clientY;
+    const x0 = e.clientX;
+    let swiped = false;
+    const move = (ev) => {
+      if (ev.pointerId !== pid || swiped) return;
+      const dy = ev.clientY - y0;
+      const dx = ev.clientX - x0;
+      if (Math.abs(dy) < 28 || Math.abs(dy) < Math.abs(dx)) return;
+      swiped = true;
+      panel.dataset.phoneSwipe = '1';
+      setPhoneDrawer(panel, dy > 0);
+      try { ev.preventDefault(); } catch (err) {}
+    };
+    const up = (ev) => {
+      if (ev.pointerId !== pid) return;
+      document.removeEventListener('pointermove', move, true);
+      document.removeEventListener('pointerup', up, true);
+      document.removeEventListener('pointercancel', up, true);
+      if (swiped) return;
+      if (Math.hypot(ev.clientX - x0, ev.clientY - y0) >= 8) return;
+      const onBtn = ev.target.closest && ev.target.closest('[data-act="playerCardMin"]');
+      if (!onBtn) setPhoneDrawer(panel, !panel.classList.contains('min'));
+    };
+    document.addEventListener('pointermove', move, true);
+    document.addEventListener('pointerup', up, true);
+    document.addEventListener('pointercancel', up, true);
+    return true;
+  }
   function applyTokenDock(panel) {
     if (!panel) return;
+    if (phoneMapMode() && panel.classList.contains('ssdns-playercard')) {
+      syncPhoneChrome();
+      if (!panel.dataset.phoneInit) {
+        panel.dataset.phoneInit = '1';
+        panel.classList.remove('placed', 'ssm-float');
+        panel.style.left = '';
+        panel.style.top = '';
+        panel.style.right = '';
+        panel.style.bottom = '';
+        setPhoneDrawer(panel, true);
+      }
+      return;
+    }
     const st = tokenDockState();
     const playerCard = panel.classList.contains('ssdns-playercard');
     if (st.mode === 'float' && isFinite(st.x) && isFinite(st.y)) {
@@ -17956,6 +18087,10 @@ function syncCombatants(initiative) {
   }
   function toggleTokenShut(panel) {
     if (!panel) return;
+    if (phoneMapMode() && panel.classList.contains('ssdns-playercard')) {
+      setPhoneDrawer(panel, !panel.classList.contains('min'));
+      return;
+    }
     const floating = panel.classList.contains('placed') || panel.classList.contains('ssm-float');
     if (floating) {
       panel.classList.toggle('min');
@@ -17978,6 +18113,7 @@ function syncCombatants(initiative) {
   function bindTokenDrag(panel) {
     let drag = null;
     on(panel, 'pointerdown', (e) => {
+      if (phoneDrawerGesture(panel, e)) return;
       const head = e.target.closest && (e.target.closest('.ssm-drawer-head') || e.target.closest('.ssm-card-head'));
       if (!head || !panel.contains(head)) return;
       if (e.target.closest && e.target.closest('button, a, input, select, textarea, label')) return;
@@ -19425,6 +19561,7 @@ async function boot() {
     if (!isBackdropScene() && me) {
       state.view.x = (me.pos.x + 0.5) * px;
       state.view.y = (me.pos.y + 0.5) * px;
+      clampCamera();
     } else if (!isBackdropScene()) {
       state.view.x = (cols * px) / 2;
       state.view.y = (rows * px) / 2;
@@ -19651,6 +19788,10 @@ return {
   pushFeed,
   requestDraw,
   relayout,
+  recenterOnMine,
+  syncPhoneChrome,
+  phoneMap: phoneMapMode,
+  camera: function () { return { x: state.view.x, y: state.view.y, zoom: state.view.zoom }; },
   noteLootForce,
   refreshCard,
   refreshStrip: fillStripMarkers,

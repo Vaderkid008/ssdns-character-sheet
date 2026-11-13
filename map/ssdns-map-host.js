@@ -56,6 +56,83 @@
     var pageEl = $("page-map");
     return !!(pageEl && !pageEl.hidden && !document.body.classList.contains("printing"));
   }
+  /* Same rule as the map: under 720px, or a short landscape phone. A desktop window stays out. */
+  function phoneMapMode() {
+    var w = window.innerWidth || 0;
+    var h = window.innerHeight || 0;
+    if (w > 0 && w < 720) return true;
+    var shortSide = Math.min(w, h);
+    var longSide = Math.max(w, h);
+    return shortSide > 0 && shortSide <= 500 && longSide <= 932;
+  }
+  var phoneScroll = null;
+  var phoneOverflow = "";
+  function ensurePhoneBar() {
+    var bar = $("mapPhoneBar");
+    if (bar) return bar;
+    bar = document.createElement("div");
+    bar.id = "mapPhoneBar";
+    bar.className = "ssm-phone-bar";
+    bar.hidden = true;
+    bar.innerHTML = '<button type="button" id="mapPhoneBack">Back</button><span class="ssm-phone-title">Map</span><button type="button" id="mapPhoneMe">My token</button>';
+    document.body.appendChild(bar);
+    var backBtn = bar.querySelector("#mapPhoneBack");
+    var meBtn = bar.querySelector("#mapPhoneMe");
+    /* A pan calls preventDefault, and the click that follows a finger can be dropped.
+       pointerup still arrives, so Back and My token work on the next tap. */
+    backBtn.addEventListener("pointerup", function (e) { if (!e.button) leavePhoneMap(true); });
+    backBtn.addEventListener("click", function () { leavePhoneMap(true); });
+    var meAt = 0;
+    function recenterFromBar() {
+      if (Date.now() - meAt < 400) return;
+      meAt = Date.now();
+      if (map && map.recenterOnMine) map.recenterOnMine();
+    }
+    meBtn.addEventListener("pointerup", function (e) { if (!e.button) recenterFromBar(); });
+    meBtn.addEventListener("click", recenterFromBar);
+    return bar;
+  }
+  function enterPhoneMap() {
+    if (isDmPage() || !phoneMapMode() || !mapTabOpen() || !map) return;
+    var el = mountEl();
+    if (!el || el.hidden) return;
+    if (!document.body.classList.contains("map-phone")) {
+      phoneScroll = window.scrollY || 0;
+      phoneOverflow = document.documentElement.style.overflow || "";
+      document.documentElement.style.overflow = "hidden";
+      document.body.style.overflow = "hidden";
+      document.body.classList.add("map-phone");
+    }
+    var bar = ensurePhoneBar();
+    bar.hidden = false;
+    if (map.syncPhoneChrome) map.syncPhoneChrome();
+    if (map.relayout) map.relayout();
+  }
+  function leavePhoneMap(restore) {
+    var was = document.body.classList.contains("map-phone");
+    document.body.classList.remove("map-phone");
+    document.documentElement.style.overflow = phoneOverflow || "";
+    document.body.style.overflow = "";
+    var bar = $("mapPhoneBar");
+    if (bar) bar.hidden = true;
+    if (map && map.syncPhoneChrome) map.syncPhoneChrome();
+    if (!was || !restore) return;
+    var y = phoneScroll == null ? 0 : phoneScroll;
+    var main = $("tab-main");
+    if (main && main.getAttribute("aria-selected") !== "true") main.click();
+    window.scrollTo(0, y);
+    var tab = $("tab-main");
+    if (!tab) return;
+    var r = tab.getBoundingClientRect();
+    if (r.top < 0 || r.bottom > window.innerHeight) tab.scrollIntoView({ block: "center", inline: "nearest" });
+  }
+  function syncPhoneMap() {
+    if (isDmPage() || !phoneMapMode() || !mapTabOpen() || !map || !mountEl() || mountEl().hidden) {
+      if (document.body.classList.contains("map-phone")) leavePhoneMap(false);
+      return;
+    }
+    enterPhoneMap();
+  }
   function undockTurnPanel() {
     var panel = turnPanelEl();
     var el = mountEl();
@@ -116,7 +193,10 @@
       try { map.destroy(); } catch (e) {}
     }
     map = null;
-    if (root.document && root.document.body) root.document.body.classList.remove("map-fullscreen");
+    if (root.document && root.document.body) {
+      root.document.body.classList.remove("map-fullscreen");
+      leavePhoneMap(false);
+    }
     var btn = $("btnMapFull");
     if (btn) btn.textContent = "Full screen";
   }
@@ -913,7 +993,21 @@
     var Join = root.SSDNSDmJoin;
     if (!Join || !Join.isJoined || !Join.isJoined() || !Join.live) return null;
     var live = Join.live();
-    if (!live || !live.joined || !live.roomCode || !live.db || !live.fb || !live.uid) return null;
+    if (!live || !live.joined || !live.roomCode || !live.uid) return null;
+    if (!live.db || !live.fb) {
+      if (!live.local) return null;
+      return {
+        role: "player",
+        uid: live.uid,
+        roomCode: live.roomCode,
+        demo: true,
+        local: true,
+        seed: live.seed || null,
+        db: null,
+        fb: null,
+        dmUid: ""
+      };
+    }
     return {
       role: "player",
       uid: live.uid,
@@ -952,7 +1046,7 @@
       var again = roomContext();
       if (!again || again.roomCode !== ctx.roomCode || again.uid !== ctx.uid) return;
       var adapter = ctx.demo
-        ? root.SSDNSMapFirebase.memory({ role: ctx.role })
+        ? root.SSDNSMapFirebase.memory({ role: ctx.role, store: ctx.seed ? { pub: ctx.seed, dm: {} } : undefined })
         : root.SSDNSMapFirebase.create({ db: ctx.db, fb: ctx.fb, roomCode: ctx.roomCode, uid: ctx.uid, role: ctx.role });
       var initiative = null;
       if (isDmPage() && root.DMCC && root.DMCC.state && root.DMCC.state.table) initiative = root.DMCC.state.table.initiative || null;
@@ -1039,6 +1133,7 @@
       });
       mountedKey = key;
       dockTurnPanel();
+      syncPhoneMap();
       if (map.refreshPlayers) map.refreshPlayers();
       syncInitiative();
       if (!ctx.demo && ctx.fb && ctx.fb.get && ctx.db) {
@@ -1121,7 +1216,11 @@
     var pageMap = $("page-map");
     if (pageMap && !isDmPage() && typeof MutationObserver === "function" && !pageMap.dataset.turnDock) {
       pageMap.dataset.turnDock = "1";
-      try { new MutationObserver(function () { dockTurnPanel(); }).observe(pageMap, { attributes: true, attributeFilter: ["hidden"] }); } catch (e) {}
+      try { new MutationObserver(function () { dockTurnPanel(); syncPhoneMap(); }).observe(pageMap, { attributes: true, attributeFilter: ["hidden"] }); } catch (e) {}
+    }
+    if (!window.__ssdnsPhoneMapResize) {
+      window.__ssdnsPhoneMapResize = 1;
+      window.addEventListener("resize", function () { syncPhoneMap(); });
     }
     syncRoom();
   }
@@ -1205,6 +1304,8 @@
     releaseToken: releaseToken,
     tokensLoaded: tokensLoaded,
     tokenBoxes: function () { return map && typeof map.tokenBoxes === "function" ? map.tokenBoxes() : []; },
+    camera: function () { return map && typeof map.camera === "function" ? map.camera() : null; },
+    phoneMap: function () { return phoneMapMode(); },
     drawerTokenId: function () { return map && typeof map.drawerTokenId === "function" ? map.drawerTokenId() : ""; },
     tokenForCombatant: tokenForCombatant,
     combatantForToken: function (id) {
