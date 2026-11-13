@@ -1,6 +1,6 @@
 /**
  * DM map toolbar cleanup. Moved controls keep their actions.
- * Real mouse, DM demo table. Sheet 0.3.304 / DMCC 0.2.317.
+ * Real mouse, DM demo table. Sheet 0.3.305 / DMCC 0.2.318.
  *   node tools/test-dm-toolbar-03298.mjs
  */
 import fs from "node:fs";
@@ -15,7 +15,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(fs.readFileSync(path.join(root, "version.json"), "utf8"));
-check("ver", ver.sheet === "0.3.304" && ver.dmcc === "0.2.317");
+check("ver", ver.sheet === "0.3.305" && ver.dmcc === "0.2.318");
 
 const browser = await puppeteer.launch({
   executablePath: "/usr/local/bin/google-chrome",

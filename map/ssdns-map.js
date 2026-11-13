@@ -5569,6 +5569,15 @@ function draw() {
     let portraitGrey = nudge && nudge.grey ? nudge.grey : 0;
     if (portraitGrey < 1 && tokenIsEnfeebled(t)) portraitGrey = 1;
     if (nudge && (nudge.dx || nudge.dy)) ctx.translate(nudge.dx || 0, nudge.dy || 0);
+    if (state.drag && state.drag.lift && state.drag.token && state.drag.token.id === t.id) {
+      ctx.save();
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.beginPath();
+      ctx.ellipse(s.x, s.y + r * 0.55, r * 0.72, Math.max(3, r * 0.18), 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      ctx.translate(0, -10);
+    }
     if (isHidden && role === 'dm') ctx.globalAlpha = 0.4;
     if (isChestProp(t)) {
       paintChestProp(ctx, t, px);
@@ -11759,6 +11768,193 @@ function assetClick(e) {
   applyCursor();
   return true;
 }
+/* Touch uses map gestures. A mouse click keeps the desktop path below. */
+const TOUCH_HOLD_MS = 380;
+const TOUCH_SLOP = 12;
+let touchHoldTimer = 0;
+function touchPointer(e) {
+  return !!(e && e.pointerType === "touch");
+}
+function noteDragKind() {
+  if (!el) return;
+  const d = state.drag;
+  if (!d) { delete el.dataset.dragKind; return; }
+  const kind = d.select ? "select" : d.token ? "token" : d.ruler ? "ruler" : d.wall ? "wall" : (d.brush || d.square || d.fog) ? "fog" : d.pan ? "pan" : "";
+  if (kind) el.dataset.dragKind = kind;
+  else delete el.dataset.dragKind;
+}
+function cancelTouchHold() {
+  if (touchHoldTimer) clearTimeout(touchHoldTimer);
+  touchHoldTimer = 0;
+}
+function touchToolDrag() {
+  const d = state.drag;
+  if (!d) return false;
+  return !!(d.wall || d.room || d.fog || d.square || d.brush || d.ruler || d.region || d.spellOrb || d.prep);
+}
+/* A fight still spends feet by tapping Move, then a square. Press-and-hold is the
+   free slide a mouse drag already does outside that, for a token this user controls. */
+function holdMayDrag(hit) {
+  if (!hit || !canDrag(hit) || isPartyToken(hit)) return false;
+  if (!dmEditing() && fightOn() && activeMover() && activeMover().id === hit.id && moveApi()) return false;
+  return true;
+}
+function beginTouchPan(e) {
+  const w = pointerWorld(e);
+  const hit = hitTest(w.x, w.y);
+  const gpx = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
+  state.drag = {
+    pan: true,
+    touch: true,
+    sx: e.clientX,
+    sy: e.clientY,
+    vx: state.view.x,
+    vy: state.view.y,
+    moved: false,
+    clickMove: false,
+    dismissMenu: false,
+    tapToken: hit ? hit.id : ""
+  };
+  if (hit && holdMayDrag(hit)) {
+    state.drag.hold = { id: hit.id, ox: Math.round(w.x / gpx - 0.5), oy: Math.round(w.y / gpx - 0.5) };
+    cancelTouchHold();
+    touchHoldTimer = setTimeout(promoteTouchHold, TOUCH_HOLD_MS);
+  }
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+}
+function promoteTouchHold() {
+  touchHoldTimer = 0;
+  const drag = state.drag;
+  if (!drag || !drag.touch || !drag.hold || drag.moved || drag.token || state.pinch) return;
+  const hit = state.tokens.find(t => t && t.id === drag.hold.id);
+  if (!hit || !holdMayDrag(hit)) return;
+  state.selectedIds = [hit.id];
+  state.selected = hit;
+  drag.pan = false;
+  drag.token = hit;
+  drag.lift = true;
+  drag.ox = drag.hold.ox;
+  drag.oy = drag.hold.oy;
+  drag.starts = {};
+  drag.starts[hit.id] = { x: hit.pos.x, y: hit.pos.y };
+  drag.deferDrawer = role === "dm" && !isPropTok(hit) ? hit.id : "";
+  if (hit.kind === "asset") showAssetMenu(hit);
+  try { if (navigator.vibrate) navigator.vibrate(12); } catch (err) {}
+  if (canvas) canvas.dataset.touchLift = "1";
+  noteDragKind();
+  draw();
+}
+function beginTouchPinch() {
+  const pts = [...pointers.values()];
+  if (pts.length < 2) return;
+  cancelTouchHold();
+  const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1;
+  const mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+  state.pinch = { dist: dist, zoom: state.view.zoom || 1, world: screenToWorld(mid.x, mid.y) };
+  if (state.drag && state.drag.touch && !state.drag.token) {
+    state.drag.moved = true;
+    state.drag.tapToken = "";
+    state.drag.lift = false;
+  }
+}
+function applyTouchPinch() {
+  if (!state.pinch) return;
+  const pts = [...pointers.values()];
+  if (pts.length < 2) return;
+  const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1;
+  const mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+  const next = Math.max(0.25, Math.min(4, state.pinch.zoom * (dist / state.pinch.dist)));
+  state.view.zoom = next;
+  const box = viewBox();
+  state.view.x = state.pinch.world.x - (mid.x - box.w / 2) / next;
+  state.view.y = state.pinch.world.y - (mid.y - box.h / 2) / next;
+  clampCamera();
+  paintZoom();
+  draw();
+}
+function performTouchTap(e, tapId) {
+  const w = pointerWorld(e);
+  const hit = tapId ? state.tokens.find(t => t && t.id === tapId) : null;
+  if (state.reposition && role === "dm" && !state.tool) {
+    const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
+    finishReposition({ x: Math.floor(w.x / px), y: Math.floor(w.y / px) });
+    return;
+  }
+  if (hit && hit.kind === "asset" && role !== "dm" && !tokenSeenBy(hit, sightFor(uid, getPlayerScene()))) {
+    toast("You can't see that.");
+    return;
+  }
+  if (hit && !state.tool) {
+    const pile = tokensSharingSquare(hit);
+    const choices = shareChoices(pile);
+    if (choices.length > 1 && pile.some(isPropTok)) {
+      showChooser(choices);
+      return;
+    }
+  }
+  if (hit && isPropTok(hit) && role !== "dm") {
+    selectToken(hit);
+    return;
+  }
+  if (hit && state.pendingTarget && role === "dm") {
+    selectToken(hit);
+    return;
+  }
+  if (hit && (canDrag(hit) || (role === "dm" && hit.locked))) {
+    state.selectedIds = [hit.id];
+    state.selected = hit;
+    if (hit.locked && role === "dm") {
+      showCommandMenu(hit);
+      openDrawer(hit.id);
+      draw();
+      return;
+    }
+    if (!dmEditing() && fightOn() && activeMover() && activeMover().id === hit.id && moveApi()) {
+      showCommandMenu(hit);
+      if (!state.moveArmed || !state.moveMode) {
+        if (role === "dm") openDrawer(hit.id);
+        draw();
+        return;
+      }
+      tryClickMove(cellUnderEvent(e));
+      return;
+    }
+    if (!dmEditing() && !state.moveArmed && !(role === "dm" && isPropTok(hit))) {
+      showCommandMenu(hit);
+      if (role === "dm") openDrawer(hit.id);
+      draw();
+      return;
+    }
+    showCommandMenu(hit);
+    if (role === "dm") openDrawer(hit.id);
+    if (hit.kind === "asset") showAssetMenu(hit);
+    draw();
+    return;
+  }
+  if (hit && role === "player") {
+    selectToken(hit);
+    if (isPartyToken(hit)) {
+      hideCommandMenu();
+      toast("The DM moves the party token");
+      draw();
+      return;
+    }
+    showCommandMenu(hit);
+    if (hit.locked) toast("That token is locked");
+    else if (canControl(hit) && turnBlocksMove()) toast("It isn't your turn. Your token moves on your turn.");
+    else toast("No permission to move that token");
+    return;
+  }
+  if (tryDoorClick(e, w)) return;
+  if (!hit && !state.tool) closeMapMenus();
+  if (state.moveArmed && !state.tool) {
+    tryClickMove(cellUnderEvent(e));
+    cancelTokenCommand("ground");
+    return;
+  }
+  if (!state.moveArmed && !state.tool) hideCommandMenu();
+  draw();
+}
 function onPointerDown(e) {
   if (pointerOverMapUi(e)) return;
   pointers.set(e.pointerId, Object.assign({ t: Date.now() }, localXY(e)));
@@ -12050,6 +12246,9 @@ function onPointerDown(e) {
       state.drag = { ruler: true };
       return;
     }
+    if (touchPointer(e) && !state.tool && e.button !== 1 && e.button !== 2) {
+      beginTouchPan(e);
+    } else {
     const w = pointerWorld(e);
     if (role === 'dm' && !state.tool && e.button === 0 && state.scene) {
       const cellPx = state.scene.grid.px || 70;
@@ -12217,11 +12416,14 @@ function onPointerDown(e) {
         state.drag = { pan: true, sx: e.clientX, sy: e.clientY, vx: state.view.x, vy: state.view.y, clickMove: state.moveArmed && !state.tool && e.button === 0, dismissMenu: !state.moveArmed && !state.tool && e.button === 0 };
       }
     }
+    }
   }
+  if (pointers.size >= 2 && touchPointer(e) && !touchToolDrag()) beginTouchPinch();
+  noteDragKind();
   e.preventDefault();
 }
 function onPointerMove(e) {
-  if (state.drag && e.buttons === 0) {
+  if (state.drag && e.buttons === 0 && !touchPointer(e)) {
     onPointerUp(e);
     return;
   }
@@ -12259,6 +12461,10 @@ function onPointerMove(e) {
     return;
   }
   pointers.set(e.pointerId, localXY(e));
+  if (state.pinch && pointers.size >= 2) {
+    applyTouchPinch();
+    return;
+  }
   if (state.tool === 'wall' && state.wallStart) draw();
   if (state.tool === 'room' && state.roomStart) draw();
   if (pointers.size === 1 && state.drag) {
@@ -12279,6 +12485,14 @@ function onPointerMove(e) {
       return;
     }
     if (state.drag.pan) {
+      if (state.drag.touch) {
+        const tdx = e.clientX - state.drag.sx;
+        const tdy = e.clientY - state.drag.sy;
+        if (!state.drag.moved && Math.hypot(tdx, tdy) >= TOUCH_SLOP) {
+          state.drag.moved = true;
+          cancelTouchHold();
+        }
+      }
       e.preventDefault();
       e.stopPropagation();
       const dx = (e.clientX - state.drag.sx) / state.view.zoom;
@@ -12378,11 +12592,33 @@ function onPointerMove(e) {
     }
     draw();
   } else if (polyLive) draw();
+  noteDragKind();
 }
 function onPointerUp(e) {
+  if (state.pinch) {
+    if (e && e.pointerId != null && e.pointerId !== -1) pointers.delete(e.pointerId);
+    if (pointers.size < 2) {
+      state.pinch = null;
+      cancelTouchHold();
+      if (state.drag && state.drag.touch && !state.drag.token) state.drag = null;
+      if (canvas) delete canvas.dataset.touchLift;
+    }
+    draw();
+    return;
+  }
   if (!state.drag) {
     if (e && e.pointerId != null && e.pointerId !== -1) pointers.delete(e.pointerId);
     return;
+  }
+  if (state.drag.touch && !state.drag.moved && e.type !== "blur" && (state.drag.pan || state.drag.token)) {
+    cancelTouchHold();
+    const tapId = state.drag.tapToken || (state.drag.token && state.drag.token.id) || "";
+    state.drag.clickMove = false;
+    state.drag.dismissMenu = false;
+    state.drag.pan = false;
+    state.drag.token = null;
+    state.drag.lift = false;
+    performTouchTap(e, tapId);
   }
   if (state.drag.prep) {
     if (state.drag.moved) savePreps();
@@ -12574,7 +12810,11 @@ function onPointerUp(e) {
   }
   pointers.delete(e.pointerId);
   const deferDrawer = state.drag && state.drag.deferDrawer;
-  if (pointers.size === 0) state.drag = null;
+  if (pointers.size === 0) {
+    state.drag = null;
+    if (canvas) delete canvas.dataset.touchLift;
+    noteDragKind();
+  }
   if (deferDrawer && role === 'dm') openDrawer(deferDrawer);
   state.fogStart = null;
   state.regionStart = null;
@@ -14717,6 +14957,8 @@ on(el, 'pointerdown', e => { if (e.button === 1 && e.target !== canvas) swallowM
 on(canvas, 'mousedown', swallowMiddle);
 on(el, 'mousedown', swallowMiddle);
 on(canvas, 'contextmenu', e => e.preventDefault());
+on(canvas, 'selectstart', e => e.preventDefault());
+on(canvas, 'gesturestart', e => e.preventDefault());
 on(canvas, 'auxclick', swallowMiddle);
 on(el, 'auxclick', swallowMiddle);
 on(canvas, 'pointermove', (e) => {
@@ -14730,16 +14972,23 @@ on(canvas, 'pointermove', (e) => {
   }
   onPointerMove(e);
 });
+function ignoreTouchCancel(e) {
+  return !!(touchPointer(e) && state.drag && state.drag.touch && !state.drag.moved);
+}
+function onPointerCancel(e) {
+  if (ignoreTouchCancel(e)) return;
+  onPointerUp(e);
+}
 on(canvas, 'pointerup', onPointerUp);
-on(canvas, 'pointercancel', onPointerUp);
-on(canvas, 'lostpointercapture', onPointerUp);
+on(canvas, 'pointercancel', onPointerCancel);
+on(canvas, 'lostpointercapture', onPointerCancel);
 /* Release over a menu, outside the canvas, or after the window loses focus.
    The menu stops pointerup on its way up, so the canvas listener never sees it. */
 document.addEventListener('pointerup', onPointerUp, true);
-document.addEventListener('pointercancel', onPointerUp, true);
-document.addEventListener('lostpointercapture', onPointerUp, true);
+document.addEventListener('pointercancel', onPointerCancel, true);
+document.addEventListener('lostpointercapture', onPointerCancel, true);
 document.addEventListener('pointermove', (e) => {
-  if (state.drag && e.buttons === 0) onPointerUp(e);
+  if (state.drag && e.buttons === 0 && !touchPointer(e)) onPointerUp(e);
 }, true);
 window.addEventListener('blur', () => {
   if (!state.drag) return;
@@ -19438,6 +19687,7 @@ function syncCombatants(initiative) {
     state.drawerOpen = false;
     state.drawerTokenId = null;
     state.pendingTarget = null;
+    cancelTouchHold();
     if (raf) cancelAnimationFrame(raf);
     if (animRaf) cancelAnimationFrame(animRaf);
     fxStopAll();

@@ -1,6 +1,6 @@
 /**
  * Container controls sit in their own section, ahead of Fog.
- * Sheet 0.3.304 / DMCC 0.2.317. Layout only.
+ * Sheet 0.3.305 / DMCC 0.2.318. Layout only.
  *   node tools/test-container-section-03284.mjs
  */
 import fs from "node:fs";
@@ -18,8 +18,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.304" && ver.dmcc === "0.2.317" && ver.sheetBuild === "sheet-playtest-v03304" && ver.dmccBuild === "dmcc-playtest-v02317");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.304") && !read("database.rules.json").includes("0.3.304"));
+check("ver", ver.sheet === "0.3.305" && ver.dmcc === "0.2.318" && ver.sheetBuild === "sheet-playtest-v03305" && ver.dmccBuild === "dmcc-playtest-v02318");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.305") && !read("database.rules.json").includes("0.3.305"));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/dm/", pretendToBeVisual: true, runScripts: "dangerously" });
 const w = dom.window;
