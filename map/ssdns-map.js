@@ -159,6 +159,7 @@ window.SSDNSMap = { create(opts) {
   const unsubs = [];
   const seenSeq = {};
   let raf = 0, animRaf = 0, dead = false;
+  let phoneWas = false;
   let fxShake = { x: 0, y: 0 };
   let fxShaking = false;
   let fxFrameOn = false;
@@ -529,6 +530,10 @@ const NO_TARGET = '__none';
 const state = {
   scene: null,
   tokens: [],
+  /* Stat blocks the DM granted this player. Keyed by token id. Not the character sheet. */
+  grants: {},
+  grantView: "",
+  grantLog: [],
   room: null,
   view: { x: 0, y: 0, zoom: 1 },
   /* Last canvas size that was actually paintable. A 0×0 read during fullscreen must not replace it. */
@@ -2125,6 +2130,16 @@ function viewBox() {
   if (state.layoutBox && state.layoutBox.w > 1 && state.layoutBox.h > 1) return state.layoutBox;
   return { w: 1, h: 1 };
 }
+/* Phones only. A wide desktop stays on the mouse layout. A landscape phone is short
+   and not wide enough to be a tablet, so it counts even though it is past 720px. */
+function phoneMapMode() {
+  const w = window.innerWidth || 0;
+  const h = window.innerHeight || 0;
+  if (w > 0 && w < 720) return true;
+  const shortSide = Math.min(w, h);
+  const longSide = Math.max(w, h);
+  return shortSide > 0 && shortSide <= 500 && longSide <= 932;
+}
 /* Full screen can report 0×0 while the grid settles. Writing that into the bitmap
    clears the board, and the next observation often never comes, so the map stays black
    until the button is pressed again. Keep the last good buffer and try once layout lands. */
@@ -2216,6 +2231,7 @@ function resize() {
   }
   layoutTries = 0;
   if (isBackdropScene()) fitBackdrop();
+  syncPhoneChrome();
   draw();
 }
 function noteLootForce(on) {
@@ -2274,6 +2290,37 @@ function screenToWorld(sx, sy) {
     x: (sx - box.w / 2) / state.view.zoom + state.view.x,
     y: (sy - box.h / 2) / state.view.zoom + state.view.y
   };
+}
+function mapWorldSize() {
+  const g = state.scene && state.scene.grid;
+  const px = (g && g.px) || 70;
+  return { w: Math.max(1, (g && g.cols) || 1) * px, h: Math.max(1, (g && g.rows) || 1) * px };
+}
+/* Keep the camera over the map. A finger that runs past the edge stops, instead of
+   dragging the picture away and taking the page with it. Desktop panning is unchanged. */
+function clampCamera() {
+  if (!phoneMapMode() || !state.scene || isBackdropScene()) return;
+  const box = viewBox();
+  if (!(box.w > 2) || !(box.h > 2)) return;
+  const world = mapWorldSize();
+  const zoom = state.view.zoom || 1;
+  const viewW = box.w / zoom;
+  const viewH = box.h / zoom;
+  if (viewW >= world.w) state.view.x = world.w / 2;
+  else state.view.x = Math.max(viewW / 2, Math.min(world.w - viewW / 2, state.view.x));
+  if (viewH >= world.h) state.view.y = world.h / 2;
+  else state.view.y = Math.max(viewH / 2, Math.min(world.h - viewH / 2, state.view.y));
+}
+function recenterOnMine() {
+  const me = typeof activeOwned === 'function' ? activeOwned(uid) : null;
+  const tok = me || (state.tokens || []).find(t => t && t.ownerUid === uid && t.pos);
+  if (!tok || !tok.pos || !state.scene) return false;
+  const px = state.scene.grid.px || 70;
+  state.view.x = (tok.pos.x + (tok.size || 1) / 2) * px;
+  state.view.y = (tok.pos.y + (tok.size || 1) / 2) * px;
+  clampCamera();
+  draw();
+  return true;
 }
 function localXY(e) {
   const r = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : { left: 0, top: 0 };
@@ -12238,6 +12285,7 @@ function onPointerMove(e) {
       const dy = (e.clientY - state.drag.sy) / state.view.zoom;
       state.view.x = state.drag.vx - dx;
       state.view.y = state.drag.vy - dy;
+      clampCamera();
     } else if (state.drag.ruler && state.ruler) {
       const w = pointerWorld(e);
       state.ruler.x2 = w.x;
@@ -14500,6 +14548,10 @@ function removeMapTokens(ids, opts) {
     if (fields.tempHp != null && fields.tempHp !== "") t.tempHp = Number(fields.tempHp) || 0;
     if (fields.exhaustion != null && fields.exhaustion !== "") t.exhaustion = Number(fields.exhaustion) || 0;
     if (fields.concentration != null) t.concentration = String(fields.concentration || "");
+    if (fields.ac != null && fields.ac !== "") t.ac = Number(fields.ac);
+    if (fields.speed != null && fields.speed !== "") t.speed = Number(fields.speed);
+    if (Array.isArray(fields.attacks) || typeof fields.attacks === "string") t.attacks = fields.attacks;
+    if (Array.isArray(fields.spells) || typeof fields.spells === "string") t.spells = fields.spells;
     if (Array.isArray(fields.lights)) t.lights = fields.lights.map(l => Object.assign({}, l));
     if (fields.image && !t.image) t.image = fields.image;
     if (Array.isArray(fields.conditions)) {
@@ -15468,6 +15520,7 @@ function douseSelected(out) {
       shared.tokens[t.id].combatantId = t.combatantId || shared.tokens[t.id].combatantId || "";
       postGrant(t);
       saveToken(t.id);
+      publishGrantSheet(t, who, grant);
     });
     if (activeId && activeOwned(who) && activeOwned(who).id !== activeId) setActiveCopy(activeId, true);
     toast((grant ? 'Granted ' : 'Revoked ') + who);
@@ -15508,7 +15561,14 @@ function douseSelected(out) {
     applyTokenDock(card);
     bindTokenDrag(card);
     const minBtn = q('playerCardMin');
-    if (minBtn) minBtn.addEventListener('click', () => toggleTokenShut(card));
+    if (minBtn) minBtn.addEventListener('click', (ev) => {
+      if (card.dataset.phoneSwipe === '1') {
+        card.dataset.phoneSwipe = '';
+        ev.preventDefault();
+        return;
+      }
+      toggleTokenShut(card);
+    });
     const dockBtn = q('playerDock');
     if (dockBtn) dockBtn.addEventListener('click', () => {
       const st = tokenDockState();
@@ -16637,7 +16697,174 @@ function syncCombatants(initiative) {
     if (!explicitBlank && !explicitFree) state.lastAimId = pick.sticky || "";
     return pick.value;
   }
+  /* One line of a bestiary attack string: "Hooves +6 (2d4+4 bludgeoning)". */
+  function actionsFromText(text, prefix) {
+    return String(text || "").split(",").map(s => s.trim()).filter(Boolean).map((chunk, i) => {
+      const hit = chunk.match(/^(.+?)\s+([+-]\d+)\b(?:\s*\(([^)]*)\))?/);
+      if (!hit) return { id: prefix + i, name: chunk, toHit: "", damage: "" };
+      return { id: prefix + i, name: hit[1].trim(), toHit: hit[2], damage: (hit[3] || "").trim() };
+    });
+  }
+  function grantAttacksOf(raw, prefix) {
+    if (Array.isArray(raw)) {
+      return raw.filter(Boolean).map((a, i) => ({
+        id: a.id || (prefix + i),
+        name: a.name || a.label || "Attack",
+        toHit: a.toHit != null ? String(a.toHit) : "",
+        damage: a.damage || a.dmg || ""
+      }));
+    }
+    if (typeof raw === "string" && raw.trim()) return actionsFromText(raw, prefix);
+    return [];
+  }
+  /* What the controlling player may see. HP stays off the public token.
+     This copy goes only to that player's inbox. */
+  function grantSheetOf(t) {
+    let card = null;
+    if (t && typeof host.getCard === "function") {
+      try { card = host.getCard(t.id) || (t.combatantId && host.getCard(t.combatantId)) || null; } catch (e) { card = null; }
+    }
+    const noHp = !!(t && t.noHpPool) || !!(card && card.noHpPool);
+    const hp = card && card.hp ? card.hp : null;
+    const cur = hp && hp.cur != null && hp.cur !== "" ? Number(hp.cur) : (t && t.hp != null && t.hp !== "" ? Number(t.hp) : null);
+    const max = hp && hp.max != null && hp.max !== "" ? Number(hp.max) : (t && t.maxHp != null && t.maxHp !== "" ? Number(t.maxHp) : null);
+    const attacks = grantAttacksOf((card && card.attacks) || (t && t.attacks), "grantatk:");
+    const spells = grantAttacksOf((card && card.spells) || (t && t.spells), "grantspell:").map((s, i) => {
+      const src = Array.isArray(card && card.spells) ? card.spells[i] : (Array.isArray(t && t.spells) ? t.spells[i] : null);
+      return Object.assign(s, {
+        kind: (src && src.kind) || "",
+        dc: src && src.dc != null ? String(src.dc) : "",
+        level: src && src.level != null ? src.level : ""
+      });
+    });
+    return {
+      tokenId: t.id,
+      name: (card && card.name) || t.name || t.label || "Token",
+      kind: t.kind || (card && card.kind) || "",
+      ac: card && card.ac != null ? card.ac : (t.ac != null ? t.ac : null),
+      hp: noHp ? null : cur,
+      maxHp: noHp ? null : max,
+      tempHp: Number(t.tempHp) || (hp && Number(hp.temp)) || 0,
+      speed: card && card.speed != null && card.speed !== "" ? card.speed : (t.speed != null ? t.speed : null),
+      noHpPool: noHp,
+      attacks: attacks,
+      spells: spells
+    };
+  }
+  function publishGrantSheet(t, who, grant) {
+    if (!t || !who || !adapter || !adapter.write) return;
+    const path = "inbox/" + who + "/grant_" + t.id;
+    if (!grant) {
+      if (adapter.remove) adapter.remove(path);
+      else adapter.write(path, null);
+      return;
+    }
+    const sheet = grantSheetOf(t);
+    adapter.write(path, {
+      id: "grant_" + t.id,
+      ts: new Date().toISOString(),
+      type: "grant_sheet",
+      to: who,
+      tokenId: t.id,
+      sheet: sheet
+    });
+  }
+  function grantFightCard(sheet) {
+    return {
+      name: sheet.name || "Token",
+      ac: sheet.ac != null ? sheet.ac : null,
+      hp: { cur: sheet.noHpPool ? null : sheet.hp, max: sheet.noHpPool ? null : sheet.maxHp, temp: sheet.tempHp || 0 },
+      speed: sheet.speed != null && sheet.speed !== "" ? sheet.speed : 30,
+      attacks: (sheet.attacks || []).map(a => Object.assign({ enabled: true }, a)),
+      spells: (sheet.spells || []).map(s => Object.assign({ enabled: true }, s)),
+      kind: sheet.kind || "npc",
+      calling: "",
+      items: []
+    };
+  }
+  function activeGrantSheet() {
+    if (role !== "player" || !state.grantView) return null;
+    const sheet = state.grants && state.grants[state.grantView];
+    return sheet || null;
+  }
+  function takeGrantRow(id, value, into) {
+    if (String(id).indexOf("grant_") !== 0) return;
+    const tokenId = (value && value.tokenId) || String(id).slice(6);
+    if (!tokenId) return;
+    if (!value || value.type === "grant_sheet_revoke" || !value.sheet || (value.to && value.to !== uid)) {
+      if (into === state.grants) delete state.grants[tokenId];
+      return;
+    }
+    into[tokenId] = value.sheet;
+  }
+  function ingestGrant(path, value) {
+    if (role !== "player") return;
+    const parts = String(path || "").split("/");
+    if (parts[0] !== "inbox") return;
+    if (parts.length <= 2) {
+      const tree = value && typeof value === "object" ? value : {};
+      const next = {};
+      Object.keys(tree).forEach(id => takeGrantRow(id, tree[id], next));
+      state.grants = next;
+    } else {
+      takeGrantRow(parts[parts.length - 1], value, state.grants);
+    }
+    if (state.grantView && !state.grants[state.grantView]) state.grantView = "";
+    paintGrantSwitch();
+    paintPlayerFight();
+  }
+  function rollGrantAction(id) {
+    const sheet = activeGrantSheet();
+    if (!sheet) return;
+    const act = (sheet.attacks || []).concat(sheet.spells || []).find(a => a && a.id === id);
+    if (!act) return;
+    const bonus = parseInt(String(act.toHit || "").replace(/[^+-\d]/g, ""), 10);
+    const mod = isFinite(bonus) ? bonus : 0;
+    const die = 1 + Math.floor(Math.random() * 20);
+    const total = die + mod;
+    const line = (sheet.name || "Token") + " — " + (act.name || "Attack") + ": " + die + (mod ? (mod > 0 ? "+" : "") + mod : "") + " = " + total + (act.damage ? " · " + act.damage : "");
+    state.grantLog.push({ id: id, tokenId: sheet.tokenId, name: act.name || "", die: die, total: total, line: line });
+    toast(line);
+    emit("chat:send", { text: line });
+  }
+  function paintGrantSwitch() {
+    const card = q("playerCard");
+    if (!card || role !== "player") return;
+    const head = card.querySelector(".ssm-card-head");
+    if (!head) return;
+    const list = Object.keys(state.grants || {}).map(id => state.grants[id]).filter(s => s && s.tokenId);
+    let box = head.querySelector("[data-act='grantSwitchBox']");
+    if (!list.length) {
+      if (box) box.remove();
+      state.grantView = "";
+      return;
+    }
+    if (!box) {
+      box = document.createElement("label");
+      box.className = "ssm-grant";
+      box.setAttribute("data-act", "grantSwitchBox");
+      box.innerHTML = 'Acting as <select data-act="grantSwitch" aria-label="Acting as"></select>';
+      head.insertBefore(box, head.firstChild);
+      box.querySelector("select").addEventListener("change", (e) => {
+        state.grantView = e.target.value || "";
+        paintPlayerFight();
+      });
+    }
+    const sel = box.querySelector("select");
+    const sig = list.map(s => s.tokenId + ":" + (s.name || "")).join("|");
+    if (sel.dataset.sig !== sig) {
+      sel.dataset.sig = sig;
+      sel.innerHTML = '<option value="">My character</option>' + list.map(s =>
+        '<option value="' + esc(s.tokenId) + '">' + esc(s.name || s.tokenId) + "</option>"
+      ).join("");
+    }
+    const want = state.grantView && state.grants[state.grantView] ? state.grantView : "";
+    state.grantView = want;
+    if (sel.value !== want) sel.value = want;
+  }
   function playerFightModel() {
+    const granted = activeGrantSheet();
+    if (granted) return grantFightCard(granted);
     if (typeof host.ownCard === 'function') {
       try {
         const own = host.ownCard();
@@ -16760,6 +16987,10 @@ function syncCombatants(initiative) {
   }
   function runPlayer(id, extra) {
     if (!id) return;
+    if (String(id).indexOf("grantatk:") === 0 || String(id).indexOf("grantspell:") === 0) {
+      rollGrantAction(id);
+      return;
+    }
     extra = extra || {};
     const tokenId = state.selected ? state.selected.id : null;
     const targetId = extra.targetId != null ? extra.targetId : ((state.rowTargets && state.rowTargets[id]) || state.playerTarget || '');
@@ -17395,6 +17626,14 @@ function syncCombatants(initiative) {
       reactBtn;
   }
   function n62PlayerConds() {
+    if (state.grantView && state.grants && state.grants[state.grantView]) {
+      const names = [];
+      const t = (state.tokens || []).find(tok => tok && tok.id === state.grantView);
+      if (t) {
+        try { tokenConditions(t).forEach(c => { const n = condLabel(c); if (n && names.indexOf(n) < 0) names.push(n); }); } catch (e) {}
+      }
+      return names;
+    }
     const names = [];
     const add = (c) => {
       const n = condLabel(c);
@@ -17616,6 +17855,7 @@ function syncCombatants(initiative) {
   function paintPlayerFight() {
     const slot = q('actionSlot');
     if (!slot) return;
+    paintGrantSwitch();
     /* 0.3.228: the player card is the scrolling menu. A pick rebuilds the rows
        under the focused control, and the browser then jumps that scroller to the top. */
     const panel = (slot.closest && slot.closest('.ssdns-playercard')) || q('playerCard') || slot;
@@ -17939,8 +18179,88 @@ function syncCombatants(initiative) {
       if (name) label.textContent = name;
     }
   }
+  function setPhoneDrawer(panel, shut) {
+    if (!panel) return;
+    panel.classList.toggle('min', !!shut);
+    el.classList.toggle('ssm-phone-shut', !!shut);
+    const btn = panel.querySelector('[data-act="playerCardMin"]');
+    if (btn) {
+      btn.setAttribute('aria-expanded', shut ? 'false' : 'true');
+      btn.title = shut ? 'Show token card' : 'Hide token card';
+    }
+  }
+  function syncPhoneChrome() {
+    const card = q('playerCard');
+    const on = phoneMapMode() && role === 'player' && !!card;
+    el.classList.toggle('ssm-phone', on);
+    if (on === phoneWas) return;
+    phoneWas = on;
+    if (!on) {
+      el.classList.remove('ssm-phone-shut');
+      if (card && card.dataset.phoneInit) {
+        delete card.dataset.phoneInit;
+        applyTokenDock(card);
+      }
+      return;
+    }
+    card.dataset.phoneInit = '1';
+    card.classList.remove('placed', 'ssm-float');
+    card.style.left = '';
+    card.style.top = '';
+    card.style.right = '';
+    card.style.bottom = '';
+    setPhoneDrawer(card, true);
+  }
+  /* A finger on the card header opens and closes the bottom drawer. It does not
+     pick the card up and float it, and it does not scroll the sheet. */
+  function phoneDrawerGesture(panel, e) {
+    if (!phoneMapMode() || !panel.classList.contains('ssdns-playercard')) return false;
+    const head = e.target.closest && e.target.closest('.ssm-card-head');
+    if (!head || !panel.contains(head)) return false;
+    const pid = e.pointerId;
+    const y0 = e.clientY;
+    const x0 = e.clientX;
+    let swiped = false;
+    const move = (ev) => {
+      if (ev.pointerId !== pid || swiped) return;
+      const dy = ev.clientY - y0;
+      const dx = ev.clientX - x0;
+      if (Math.abs(dy) < 28 || Math.abs(dy) < Math.abs(dx)) return;
+      swiped = true;
+      panel.dataset.phoneSwipe = '1';
+      setPhoneDrawer(panel, dy > 0);
+      try { ev.preventDefault(); } catch (err) {}
+    };
+    const up = (ev) => {
+      if (ev.pointerId !== pid) return;
+      document.removeEventListener('pointermove', move, true);
+      document.removeEventListener('pointerup', up, true);
+      document.removeEventListener('pointercancel', up, true);
+      if (swiped) return;
+      if (Math.hypot(ev.clientX - x0, ev.clientY - y0) >= 8) return;
+      const onBtn = ev.target.closest && ev.target.closest('[data-act="playerCardMin"]');
+      if (!onBtn) setPhoneDrawer(panel, !panel.classList.contains('min'));
+    };
+    document.addEventListener('pointermove', move, true);
+    document.addEventListener('pointerup', up, true);
+    document.addEventListener('pointercancel', up, true);
+    return true;
+  }
   function applyTokenDock(panel) {
     if (!panel) return;
+    if (phoneMapMode() && panel.classList.contains('ssdns-playercard')) {
+      syncPhoneChrome();
+      if (!panel.dataset.phoneInit) {
+        panel.dataset.phoneInit = '1';
+        panel.classList.remove('placed', 'ssm-float');
+        panel.style.left = '';
+        panel.style.top = '';
+        panel.style.right = '';
+        panel.style.bottom = '';
+        setPhoneDrawer(panel, true);
+      }
+      return;
+    }
     const st = tokenDockState();
     const playerCard = panel.classList.contains('ssdns-playercard');
     if (st.mode === 'float' && isFinite(st.x) && isFinite(st.y)) {
@@ -17992,6 +18312,10 @@ function syncCombatants(initiative) {
   }
   function toggleTokenShut(panel) {
     if (!panel) return;
+    if (phoneMapMode() && panel.classList.contains('ssdns-playercard')) {
+      setPhoneDrawer(panel, !panel.classList.contains('min'));
+      return;
+    }
     const floating = panel.classList.contains('placed') || panel.classList.contains('ssm-float');
     if (floating) {
       panel.classList.toggle('min');
@@ -18014,6 +18338,7 @@ function syncCombatants(initiative) {
   function bindTokenDrag(panel) {
     let drag = null;
     on(panel, 'pointerdown', (e) => {
+      if (phoneDrawerGesture(panel, e)) return;
       const head = e.target.closest && (e.target.closest('.ssm-drawer-head') || e.target.closest('.ssm-card-head'));
       if (!head || !panel.contains(head)) return;
       if (e.target.closest && e.target.closest('button, a, input, select, textarea, label')) return;
@@ -19290,6 +19615,11 @@ function syncCombatants(initiative) {
     unsubs.push(adapter.subscribe('map/public/tokens', (value, meta) => {
       handlePublicToken(meta && meta.path, value, meta);
     }));
+    if (role === 'player' && uid) {
+      unsubs.push(adapter.subscribe('inbox/' + uid, (value, meta) => {
+        ingestGrant(meta && meta.path, value);
+      }));
+    }
     unsubs.push(adapter.subscribe('map/public/scenes', (value, meta) => {
       const path = meta && meta.path || '';
       const sid = path.split('/').pop();
@@ -19475,6 +19805,7 @@ async function boot() {
     if (!isBackdropScene() && me) {
       state.view.x = (me.pos.x + 0.5) * px;
       state.view.y = (me.pos.y + 0.5) * px;
+      clampCamera();
     } else if (!isBackdropScene()) {
       state.view.x = (cols * px) / 2;
       state.view.y = (rows * px) / 2;
@@ -19703,6 +20034,23 @@ return {
   pushFeed,
   requestDraw,
   relayout,
+  grants: function () {
+    return Object.keys(state.grants || {}).map(id => state.grants[id]).filter(Boolean);
+  },
+  useGrant: function (id) {
+    state.grantView = id && state.grants && state.grants[id] ? id : "";
+    paintGrantSwitch();
+    paintPlayerFight();
+    return state.grantView;
+  },
+  grantCard: function () {
+    try { return playerFightModel(); } catch (e) { return null; }
+  },
+  grantLog: function () { return (state.grantLog || []).slice(); },
+  recenterOnMine,
+  syncPhoneChrome,
+  phoneMap: phoneMapMode,
+  camera: function () { return { x: state.view.x, y: state.view.y, zoom: state.view.zoom }; },
   noteLootForce,
   refreshCard,
   refreshStrip: fillStripMarkers,

@@ -2871,3 +2871,114 @@ body.map-fullscreen #mapMount:has(> .ssm-turnstrip:not([hidden])) .ssdns-toolbar
   color-scheme: dark;
   border: 1px solid var(--drawer-row-edge);
 }
+.ssdns-playercard .ssm-grant {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 0 100%;
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: #e8c36a;
+}
+.ssdns-playercard .ssm-grant select {
+  flex: 1;
+  min-height: 36px;
+  min-width: 0;
+}
+
+/* Phone map (sheet 0.3.302). The grid is the screen. The token card is a bottom
+   drawer. A bar above the map holds Back and My token. Desktop does not get
+   .ssm-phone or body.map-phone, so this block does not restyle it. */
+.ssm-phone-bar { display: none; }
+body.map-phone .ssm-phone-bar {
+  display: flex;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 410;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: calc(4px + env(safe-area-inset-top, 0px)) 8px 4px;
+  background: #16130f;
+  color: #f0e4cf;
+  border-bottom: 1px solid #8a6a3a;
+  box-sizing: border-box;
+  touch-action: manipulation;
+}
+body.map-phone .ssm-phone-bar[hidden] { display: none !important; }
+body.map-phone .ssm-phone-bar button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 12px;
+  background: #3a3228;
+  color: #f0e4cf;
+  border: 1px solid #c9a227;
+  border-radius: 6px;
+  font: 700 15px/1 system-ui, sans-serif;
+}
+body.map-phone .ssm-phone-bar .ssm-phone-title {
+  flex: 1;
+  text-align: center;
+  font: 600 16px/1 system-ui, sans-serif;
+  color: #e8c36a;
+}
+body.map-phone #mapMount.ssdns-map {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: calc(48px + env(safe-area-inset-top, 0px));
+  z-index: 400;
+  width: 100vw;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 0;
+}
+.ssdns-map.ssm-phone {
+  touch-action: manipulation;
+  overflow: hidden;
+}
+.ssdns-map.ssm-phone > canvas { touch-action: none; }
+.ssdns-map.ssm-phone > .ssdns-playercard {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: auto !important;
+  bottom: 8px;
+  width: auto !important;
+  max-width: none;
+  max-height: min(46vh, 420px);
+  z-index: 24;
+  margin: 0;
+  border-radius: 14px 14px 8px 8px;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+}
+.ssdns-map.ssm-phone > .ssdns-playercard.min {
+  max-height: 72px;
+  overflow: hidden;
+}
+.ssdns-map.ssm-phone > .ssdns-playercard .ssm-card-head {
+  flex-wrap: wrap;
+  justify-content: center;
+  min-height: 44px;
+  touch-action: none;
+  cursor: pointer;
+}
+.ssdns-map.ssm-phone > .ssdns-playercard .ssm-card-head::before {
+  content: "";
+  display: block;
+  width: 40px;
+  height: 4px;
+  margin: 4px auto 2px;
+  border-radius: 4px;
+  background: #c9a227;
+  flex: 1 0 100%;
+}
+.ssdns-map.ssm-phone .ssm-token-cmd { z-index: 36; }
+.ssdns-map.ssm-phone .ssm-token-cmd button { min-height: 44px; min-width: 44px; }
