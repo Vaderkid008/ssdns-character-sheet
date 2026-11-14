@@ -679,8 +679,8 @@
         bar.appendChild(twoLab);
         bar.appendChild(visLab);
         bar.appendChild(el("button", { type: "button", "data-act": "linkTake", "data-floor": floor.id, "data-link": link.id }, "Take link"));
-        bar.appendChild(el("button", { type: "button", "data-act": "linkRemove", "data-floor": floor.id, "data-link": link.id, "aria-label": "Remove link" }, "×"));
         line.appendChild(kind);
+        line.appendChild(el("button", { type: "button", "data-act": "linkRemove", "data-floor": floor.id, "data-link": link.id, "aria-label": "Remove link" }, "×"));
         line.appendChild(destPick);
         line.appendChild(bar);
         links.appendChild(line);

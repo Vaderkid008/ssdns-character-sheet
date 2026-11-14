@@ -345,7 +345,7 @@ try {
     two.dispatchEvent(new Event("change", { bubbles: true }));
     const host = document.createElement("div");
     host.className = "ssdns-map";
-    host.style.cssText = "position:relative;width:420px;height:auto;overflow:visible;background:#14110e;";
+    host.style.cssText = "position:relative;width:330px;height:auto;overflow:visible;background:#14110e;";
     document.body.appendChild(host);
     host.appendChild(panel);
     panel.style.visibility = "visible";
@@ -354,12 +354,24 @@ try {
     panel.style.top = "0";
     panel.style.right = "auto";
     panel.style.left = "auto";
-    panel.style.width = "400px";
+    panel.style.width = "330px";
     panel.style.maxHeight = "none";
     panel.style.height = "auto";
     panel.style.overflow = "visible";
   });
   await page.locator("[data-act='sceneBuilder']").screenshot({ path: path.join(OUT, "cards.png"), timeout: 20000 });
+  const rows = await page.evaluate(() => {
+    const links = [].slice.call(document.querySelectorAll(".ssm-scene-link"));
+    return links.map((line) => {
+      const kind = line.querySelector("[data-act='linkKind']").getBoundingClientRect();
+      const ex = line.querySelector("[data-act='linkRemove']").getBoundingClientRect();
+      const bar = line.querySelector(".ssm-scene-linkbar").getBoundingClientRect();
+      const kids = [].slice.call(line.querySelectorAll(".ssm-scene-linkbar > *")).map((n) => n.getBoundingClientRect());
+      const alone = kids.filter((r, i) => !kids.some((o, j) => j !== i && Math.abs(o.top - r.top) < 6));
+      return { same: Math.abs(kind.top - ex.top) < 8 && ex.left >= kind.right - 2, below: ex.top > bar.top - 4, orphans: alone.length };
+    });
+  });
+  check("ui.linkRow", rows.length === 2 && rows.every((r) => r.same && !r.below && r.orphans === 0), JSON.stringify(rows));
   await page.evaluate(() => {
     window.map.maps().swap("scn_dustyspur01");
     const fog = document.querySelector("[data-act='fogBtn']");
