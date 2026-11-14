@@ -45,25 +45,55 @@
   function floorOf(scene, id) {
     return (scene.floors || []).filter(function (f) { return f && (f.id === id || f.mapId === id); })[0] || null;
   }
+  var COLORS = ["#c9a227", "#6aa8e8", "#e07a4a", "#7dba6a", "#c46b8a"];
+  function freshGroup(name, i, isDefault) {
+    return { id: nid("grp"), name: String(name || "Party").slice(0, 40), color: COLORS[(i || 0) % COLORS.length], isDefault: !!isDefault };
+  }
+  function groupsOf(f) {
+    var groups = (f.groups || []).filter(Boolean).map(function (g, i) {
+      return {
+        id: g.id || nid("grp"),
+        name: String(g.name || "Party").slice(0, 40),
+        color: g.color || COLORS[i % COLORS.length],
+        isDefault: !!g.isDefault
+      };
+    });
+    if (!groups.length) groups.push(freshGroup("Party", 0, true));
+    if (!groups.some(function (g) { return g.isDefault; })) groups[0].isDefault = true;
+    var fallback = groups.filter(function (g) { return g.isDefault; })[0].id;
+    var buckets = {};
+    groups.forEach(function (g) { buckets[g.id] = []; });
+    (f.spawns || []).filter(Boolean).forEach(function (sp, i) {
+      var gid = sp.groupId && buckets[sp.groupId] ? sp.groupId : fallback;
+      buckets[gid].push({
+        id: sp.id || nid("spawn"),
+        groupId: gid,
+        n: sp.n != null ? num(sp.n) : (i + 1),
+        x: num(sp.x),
+        y: num(sp.y)
+      });
+    });
+    var spawns = [];
+    groups.forEach(function (g) {
+      buckets[g.id].sort(function (a, b) { return a.n - b.n || String(a.id).localeCompare(String(b.id)); });
+      buckets[g.id].forEach(function (sp, i) { sp.n = i + 1; sp.name = g.name; spawns.push(sp); });
+    });
+    return { groups: groups, spawns: spawns };
+  }
   function tidy(scene) {
     scene = clone(scene) || blank();
     if (!scene.id) scene.id = nid("scene");
     scene.name = String(scene.name || "New scene").slice(0, 80);
     scene.floors = (scene.floors || []).filter(function (f) { return f && f.mapId; }).map(function (f, i) {
+      var packed = groupsOf(f);
       return {
         id: f.id || f.mapId,
         mapId: String(f.mapId),
         name: String(f.name || f.mapId).slice(0, 80),
         order: i,
         source: f.source || "pack",
-        spawns: (f.spawns || []).filter(Boolean).map(function (sp) {
-          return {
-            id: sp.id || nid("spawn"),
-            name: String(sp.name || "Party").slice(0, 40),
-            x: num(sp.x),
-            y: num(sp.y)
-          };
-        }),
+        groups: packed.groups,
+        spawns: packed.spawns,
         stairs: Array.isArray(f.stairs) ? f.stairs : []
       };
     });
@@ -82,6 +112,7 @@
       name: String(map.name || map.id).slice(0, 80),
       order: scene.floors.length,
       source: map.source || "pack",
+      groups: [freshGroup("Party", 0, true)],
       spawns: [],
       stairs: []
     });
@@ -124,18 +155,39 @@
     if (floorOf(scene, floorId)) scene.startFloorId = floorOf(scene, floorId).id;
     return scene;
   }
+  function defaultGroup(floor) {
+    return (floor.groups || []).filter(function (g) { return g.isDefault; })[0] || (floor.groups || [])[0] || null;
+  }
+  function addGroup(scene, floorId, name) {
+    scene = tidy(scene);
+    var floor = floorOf(scene, floorId);
+    if (!floor) return scene;
+    floor.groups.push(freshGroup(name || ("Group " + (floor.groups.length + 1)), floor.groups.length, floor.groups.length === 0));
+    return tidy(scene);
+  }
+  function renameGroup(scene, floorId, groupId, name) {
+    scene = tidy(scene);
+    var floor = floorOf(scene, floorId);
+    if (!floor) return scene;
+    floor.groups.forEach(function (g) { if (g.id === groupId) g.name = String(name || g.name).slice(0, 40); });
+    return scene;
+  }
+  function setDefaultGroup(scene, floorId, groupId) {
+    scene = tidy(scene);
+    var floor = floorOf(scene, floorId);
+    if (!floor || !floor.groups.some(function (g) { return g.id === groupId; })) return scene;
+    floor.groups.forEach(function (g) { g.isDefault = g.id === groupId; });
+    return scene;
+  }
   function addSpawn(scene, floorId, spawn) {
     scene = tidy(scene);
     var floor = floorOf(scene, floorId);
     if (!floor) return scene;
     spawn = spawn || {};
-    floor.spawns.push({
-      id: spawn.id || nid("spawn"),
-      name: String(spawn.name || "Party").slice(0, 40),
-      x: num(spawn.x),
-      y: num(spawn.y)
-    });
-    return scene;
+    var group = floor.groups.filter(function (g) { return g.id === spawn.groupId; })[0] || defaultGroup(floor);
+    var n = 1 + floor.spawns.filter(function (sp) { return sp.groupId === group.id; }).length;
+    floor.spawns.push({ id: spawn.id || nid("spawn"), groupId: group.id, n: spawn.n != null ? num(spawn.n) : n, x: num(spawn.x), y: num(spawn.y) });
+    return tidy(scene);
   }
   function setSpawn(scene, floorId, spawnId, patch) {
     scene = tidy(scene);
@@ -143,17 +195,72 @@
     if (!floor) return scene;
     floor.spawns.forEach(function (sp) {
       if (sp.id !== spawnId) return;
-      if (patch.name != null) sp.name = String(patch.name).slice(0, 40);
       if (patch.x != null) sp.x = num(patch.x);
       if (patch.y != null) sp.y = num(patch.y);
+      if (patch.groupId) sp.groupId = patch.groupId;
     });
-    return scene;
+    return tidy(scene);
   }
   function removeSpawn(scene, floorId, spawnId) {
     scene = tidy(scene);
     var floor = floorOf(scene, floorId);
     if (floor) floor.spawns = floor.spawns.filter(function (sp) { return sp.id !== spawnId; });
-    return scene;
+    return tidy(scene);
+  }
+  function groupSpots(floor, groupId) {
+    var group = (floor.groups || []).filter(function (g) { return g.id === groupId; })[0] || defaultGroup(floor);
+    if (!group) return [];
+    return (floor.spawns || []).filter(function (sp) { return sp.groupId === group.id; }).slice().sort(function (a, b) { return a.n - b.n; });
+  }
+  /* Player 1 takes spot 1. People past the last spot take the nearest open square. */
+  function assignLandings(spots, count, grid) {
+    spots = (spots || []).slice().sort(function (a, b) { return (a.n || 0) - (b.n || 0); });
+    var cols = Math.max(1, (grid && grid.cols) || 30);
+    var rows = Math.max(1, (grid && grid.rows) || 20);
+    var used = {};
+    function key(x, y) { return x + "," + y; }
+    var out = [];
+    var origin = spots.length ? spots[spots.length - 1] : { x: Math.floor(cols / 2), y: Math.floor(rows / 2) };
+    for (var i = 0; i < count; i++) {
+      if (i < spots.length) {
+        out.push({ n: spots[i].n, x: spots[i].x, y: spots[i].y, overflow: false });
+        used[key(spots[i].x, spots[i].y)] = 1;
+      } else {
+        var best = null;
+        var bestD = 1e9;
+        for (var y = 0; y < rows; y++) {
+          for (var x = 0; x < cols; x++) {
+            if (used[key(x, y)]) continue;
+            var d = Math.max(Math.abs(x - origin.x), Math.abs(y - origin.y));
+            if (d < bestD) { bestD = d; best = { x: x, y: y }; }
+          }
+        }
+        if (!best) best = { x: (origin.x + i) % cols, y: origin.y };
+        used[key(best.x, best.y)] = 1;
+        out.push({ n: 0, x: best.x, y: best.y, overflow: true });
+      }
+    }
+    return out;
+  }
+  function exportLibrary(store) {
+    var lib = readLibrary(store);
+    return JSON.stringify({ format: KEY, scenes: lib.scenes }, null, 2);
+  }
+  function importLibrary(store, raw) {
+    var incoming = typeof raw === "string" ? JSON.parse(raw) : (raw || {});
+    var scenes = incoming.scenes && typeof incoming.scenes === "object" ? incoming.scenes : {};
+    var lib = readLibrary(store);
+    var added = 0;
+    var updated = 0;
+    Object.keys(scenes).forEach(function (id) {
+      var scene = tidy(Object.assign({ id: id }, scenes[id] || {}));
+      if (!scene.id) return;
+      if (lib.scenes[scene.id]) updated += 1;
+      else added += 1;
+      lib.scenes[scene.id] = scene;
+    });
+    writeLibrary(store, lib);
+    return { added: added, updated: updated, total: Object.keys(lib.scenes).length };
   }
   function saveScene(store, scene) {
     var lib = readLibrary(store);
@@ -227,11 +334,22 @@
         encounters: scene.encounters == null ? null : clone(scene.encounters)
       };
     }
+    var sceneSpawns = {};
     scene.floors.forEach(function (f) {
+      var groups = (f.groups || []).map(function (g) {
+        return {
+          id: g.id, name: g.name, color: g.color, isDefault: !!g.isDefault,
+          spots: (f.spawns || []).filter(function (sp) { return sp.groupId === g.id; }).map(function (sp) {
+            return { id: sp.id, n: sp.n, x: sp.x, y: sp.y };
+          })
+        };
+      });
+      sceneSpawns[f.mapId] = { groups: groups };
       (f.spawns || []).forEach(function (sp) {
         if (!preps[f.mapId]) preps[f.mapId] = {};
         var key = "spawn_" + sp.id;
-        if (!preps[f.mapId][key]) preps[f.mapId][key] = { x: sp.x, y: sp.y, name: sp.name, prep: true };
+        var group = (f.groups || []).filter(function (g) { return g.id === sp.groupId; })[0];
+        if (!preps[f.mapId][key]) preps[f.mapId][key] = { x: sp.x, y: sp.y, n: sp.n, name: (group && group.name) || "Party", color: group && group.color, prep: true };
       });
     });
     return {
@@ -244,7 +362,8 @@
       keptFloors: kept,
       tokensSame: JSON.stringify(tokens) === JSON.stringify(room.tokens || []),
       scenesSame: JSON.stringify(scenes) === JSON.stringify(room.scenes || {}),
-      packSame: packIds.join(",") === (room.packIds || []).join(",")
+      packSame: packIds.join(",") === (room.packIds || []).join(","),
+      sceneSpawns: sceneSpawns
     };
   }
 
@@ -296,33 +415,51 @@
     panel.appendChild(addRow);
     var list = el("ol", { class: "ssm-scene-floors", "data-act": "floorList" });
     draft.floors.forEach(function (floor, index) {
-      var row = el("li", { "data-floor": floor.id, draggable: "true" });
-      var bar = el("div", { class: "ssm-scene-floorbar" });
-      bar.appendChild(el("span", { class: "ssm-scene-handle", "data-act": "floorDrag", title: "Drag to reorder" }, "⋮⋮"));
+      var row = el("li", { class: "ssm-scene-card", "data-floor": floor.id, draggable: "true" });
+      var title = el("div", { class: "ssm-scene-title" });
+      title.appendChild(el("span", { class: "ssm-scene-handle", "data-act": "floorDrag", title: "Drag to reorder" }, "⋮⋮"));
       var fname = el("input", { type: "text", "data-act": "floorName", "data-floor": floor.id, "aria-label": "Floor name", maxlength: "80" });
       fname.value = floor.name;
-      bar.appendChild(fname);
-      if (draft.startFloorId === floor.id) bar.appendChild(el("span", { class: "ssm-scene-start" }, "Start"));
-      else bar.appendChild(el("button", { type: "button", "data-act": "floorStart", "data-floor": floor.id }, "Set start"));
-      bar.appendChild(el("button", { type: "button", "data-act": "floorUp", "data-floor": floor.id, "aria-label": "Move floor up" }, "Up"));
-      bar.appendChild(el("button", { type: "button", "data-act": "floorDown", "data-floor": floor.id, "aria-label": "Move floor down" }, "Down"));
-      bar.appendChild(el("button", { type: "button", "data-act": "floorRemove", "data-floor": floor.id }, "Remove"));
-      row.appendChild(bar);
+      title.appendChild(fname);
+      row.appendChild(title);
+      var actions = el("div", { class: "ssm-scene-actions" });
+      if (draft.startFloorId === floor.id) actions.appendChild(el("span", { class: "ssm-scene-start" }, "Start"));
+      else actions.appendChild(el("button", { type: "button", "data-act": "floorStart", "data-floor": floor.id }, "Set start"));
+      actions.appendChild(el("button", { type: "button", "data-act": "floorUp", "data-floor": floor.id, "aria-label": "Move floor up" }, "Up"));
+      actions.appendChild(el("button", { type: "button", "data-act": "floorDown", "data-floor": floor.id, "aria-label": "Move floor down" }, "Down"));
+      actions.appendChild(el("button", { type: "button", "data-act": "floorRemove", "data-floor": floor.id }, "Remove"));
+      row.appendChild(actions);
       var spawns = el("div", { class: "ssm-scene-spawns" });
-      spawns.appendChild(el("span", { class: "ssm-scene-k" }, "Party spawns"));
-      floor.spawns.forEach(function (sp) {
-        var line = el("div", { class: "ssm-scene-spawn" });
-        var sn = el("input", { type: "text", "data-act": "spawnName", "data-floor": floor.id, "data-spawn": sp.id, "aria-label": "Spawn name" });
-        sn.value = sp.name;
-        var sx = el("input", { type: "text", inputmode: "numeric", "data-act": "spawnX", "data-floor": floor.id, "data-spawn": sp.id, "aria-label": "Spawn column" });
-        sx.value = String(sp.x);
-        var sy = el("input", { type: "text", inputmode: "numeric", "data-act": "spawnY", "data-floor": floor.id, "data-spawn": sp.id, "aria-label": "Spawn row" });
-        sy.value = String(sp.y);
-        line.appendChild(sn); line.appendChild(sx); line.appendChild(sy);
-        line.appendChild(el("button", { type: "button", "data-act": "spawnRemove", "data-floor": floor.id, "data-spawn": sp.id }, "Remove"));
-        spawns.appendChild(line);
+      spawns.appendChild(el("div", { class: "ssm-scene-k" }, "Spawn groups"));
+      (floor.groups || []).forEach(function (group) {
+        var block = el("div", { class: "ssm-scene-group", "data-group": group.id });
+        var head = el("div", { class: "ssm-scene-grouphead" });
+        head.appendChild(el("i", { class: "ssm-scene-swatch", style: "background:" + group.color }));
+        var gname = el("input", { type: "text", "data-act": "groupName", "data-floor": floor.id, "data-group": group.id, "aria-label": "Spawn group name" });
+        gname.value = group.name;
+        head.appendChild(gname);
+        if (group.isDefault) head.appendChild(el("span", { class: "ssm-scene-start" }, "Default"));
+        else head.appendChild(el("button", { type: "button", "data-act": "groupDefault", "data-floor": floor.id, "data-group": group.id }, "Make default"));
+        var place = el("button", { type: "button", "data-act": "spawnPlace", "data-floor": floor.id, "data-group": group.id }, "Place spawn");
+        if (panel._arm && panel._arm.floorId === floor.id && panel._arm.groupId === group.id) place.className = "is-on";
+        head.appendChild(place);
+        block.appendChild(head);
+        (floor.spawns || []).filter(function (sp) { return sp.groupId === group.id; }).forEach(function (sp) {
+          var line = el("div", { class: "ssm-scene-spawn" });
+          line.appendChild(el("b", null, String(sp.n)));
+          line.appendChild(el("span", null, group.name));
+          var hx = el("input", { type: "hidden", "data-act": "spawnX", "data-floor": floor.id, "data-spawn": sp.id });
+          hx.value = String(sp.x);
+          var hy = el("input", { type: "hidden", "data-act": "spawnY", "data-floor": floor.id, "data-spawn": sp.id });
+          hy.value = String(sp.y);
+          line.appendChild(hx);
+          line.appendChild(hy);
+          line.appendChild(el("button", { type: "button", "data-act": "spawnRemove", "data-floor": floor.id, "data-spawn": sp.id, "aria-label": "Remove spawn" }, "×"));
+          block.appendChild(line);
+        });
+        spawns.appendChild(block);
       });
-      spawns.appendChild(el("button", { type: "button", "data-act": "spawnAdd", "data-floor": floor.id }, "Add spawn"));
+      spawns.appendChild(el("button", { type: "button", "data-act": "groupAdd", "data-floor": floor.id }, "New group"));
       row.appendChild(spawns);
       row.appendChild(el("p", { class: "ssm-scene-stairs", "data-act": "stairsHook" }, "Stairs and ladders: next update. This floor keeps an empty link list."));
       if (index === draft.floors.length - 1) row.setAttribute("data-last", "1");
@@ -330,6 +467,12 @@
     });
     if (!draft.floors.length) list.appendChild(el("li", { class: "ssm-scene-empty" }, "No floors yet."));
     panel.appendChild(list);
+    var port = el("div", { class: "ssm-scene-tools" });
+    port.appendChild(el("button", { type: "button", "data-act": "sceneExport" }, "Export library"));
+    port.appendChild(el("button", { type: "button", "data-act": "sceneImport" }, "Import library"));
+    var file = el("input", { type: "file", accept: "application/json", "data-act": "sceneImportFile", hidden: "hidden" });
+    port.appendChild(file);
+    panel.appendChild(port);
     panel.appendChild(el("h3", null, "Scene library"));
     var saved = Object.keys(lib.scenes || {}).map(function (id) { return lib.scenes[id]; });
     saved.sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
@@ -382,6 +525,7 @@
       if (ev.key === "Escape") {
         ev.preventDefault();
         ev.stopPropagation();
+        if (panel._arm) { panel._arm = null; if (opts.onDisarm) opts.onDisarm(); draw(); return; }
         if (panel._confirmDelete) { panel._confirmDelete = ""; draw(); return; }
         close();
       }
@@ -410,8 +554,22 @@
       else if (act === "floorDown") draft = moveFloor(draft, floorId, 1);
       else if (act === "floorRemove") draft = removeFloor(draft, floorId);
       else if (act === "floorStart") draft = setStart(draft, floorId);
-      else if (act === "spawnAdd") draft = addSpawn(draft, floorId, { name: "Party", x: 1, y: 1 });
+      else if (act === "groupAdd") draft = addGroup(draft, floorId, "Group " + ((floorOf(draft, floorId).groups || []).length + 1));
+      else if (act === "groupDefault") draft = setDefaultGroup(draft, floorId, btn.getAttribute("data-group"));
+      else if (act === "spawnPlace") {
+        var gid = btn.getAttribute("data-group");
+        panel._arm = { floorId: floorId, groupId: gid };
+        if (opts.onArm) opts.onArm({ floorId: floorId, groupId: gid, mapId: (floorOf(draft, floorId) || {}).mapId, groupName: ((floorOf(draft, floorId).groups || []).filter(function (g) { return g.id === gid; })[0] || {}).name });
+      }
       else if (act === "spawnRemove") draft = removeSpawn(draft, floorId, btn.getAttribute("data-spawn"));
+      else if (act === "sceneExport") {
+        if (opts.onExport) opts.onExport(exportLibrary(store));
+      }
+      else if (act === "sceneImport") {
+        var picker = panel.querySelector("[data-act='sceneImportFile']");
+        if (picker) picker.click();
+        return;
+      }
       else if (act === "sceneOpen") { draft = tidy(readLibrary(store).scenes[sceneId] || draft); panel._confirmDelete = ""; }
       else if (act === "sceneLoad") {
         var saved = readLibrary(store).scenes[sceneId];
@@ -429,13 +587,23 @@
       var act = node.getAttribute("data-act");
       if (act === "sceneName") draft.name = node.value;
       else if (act === "floorName") draft = renameFloor(draft, node.getAttribute("data-floor"), node.value);
-      else if (act === "spawnName" || act === "spawnX" || act === "spawnY") {
+      else if (act === "groupName") draft = renameGroup(draft, node.getAttribute("data-floor"), node.getAttribute("data-group"), node.value);
+      else if (act === "spawnX" || act === "spawnY") {
         var patch = {};
-        if (act === "spawnName") patch.name = node.value;
         if (act === "spawnX") patch.x = node.value;
         if (act === "spawnY") patch.y = node.value;
         draft = setSpawn(draft, node.getAttribute("data-floor"), node.getAttribute("data-spawn"), patch);
       }
+    });
+    panel.addEventListener("change", function (ev) {
+      var node = ev.target;
+      if (!node || node.getAttribute("data-act") !== "sceneImportFile" || !node.files || !node.files[0]) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        try { importLibrary(store, String(reader.result || "")); } catch (e) { return; }
+        draw();
+      };
+      reader.readAsText(node.files[0]);
     });
     panel.addEventListener("dragstart", function (ev) {
       var row = ev.target && ev.target.closest && ev.target.closest("[data-floor]");
@@ -462,7 +630,39 @@
       draw();
     });
     draw();
-    live = { el: panel, draft: function () { return tidy(draft); }, store: store };
+    function commit(next) { draft = tidy(next); if (opts.onChange) opts.onChange(draft); draw(); return draft; }
+    live = {
+      el: panel,
+      store: store,
+      draft: function () { return tidy(draft); },
+      arm: function () { return panel._arm || null; },
+      disarm: function () { panel._arm = null; draw(); },
+      dropAt: function (x, y) {
+        if (!panel._arm) return null;
+        draft = addSpawn(draft, panel._arm.floorId, { groupId: panel._arm.groupId, x: x, y: y });
+        if (opts.onChange) opts.onChange(tidy(draft));
+        draw();
+        var floor = floorOf(draft, panel._arm.floorId);
+        var list = floor ? floor.spawns.filter(function (sp) { return sp.groupId === panel._arm.groupId; }) : [];
+        return list[list.length - 1] || null;
+      },
+      moveGhost: function (spawnId, x, y) {
+        draft.floors.forEach(function (f) {
+          if (f.spawns.some(function (sp) { return sp.id === spawnId; })) draft = setSpawn(draft, f.id, spawnId, { x: x, y: y });
+        });
+        if (opts.onChange) opts.onChange(tidy(draft));
+        return tidy(draft);
+      },
+      removeGhost: function (spawnId) {
+        draft.floors.forEach(function (f) {
+          if (f.spawns.some(function (sp) { return sp.id === spawnId; })) draft = removeSpawn(draft, f.id, spawnId);
+        });
+        if (opts.onChange) opts.onChange(tidy(draft));
+        draw();
+        return tidy(draft);
+      }
+    };
+    void commit;
     var first = panel.querySelector("[data-act='sceneName']");
     if (first && first.focus) { try { first.focus(); } catch (e) {} }
     return live;
@@ -483,9 +683,16 @@
     moveFloor: moveFloor,
     reorder: reorder,
     setStart: setStart,
+    addGroup: addGroup,
+    renameGroup: renameGroup,
+    setDefaultGroup: setDefaultGroup,
     addSpawn: addSpawn,
     setSpawn: setSpawn,
     removeSpawn: removeSpawn,
+    groupSpots: groupSpots,
+    assignLandings: assignLandings,
+    exportLibrary: exportLibrary,
+    importLibrary: importLibrary,
     readLibrary: readLibrary,
     saveScene: saveScene,
     renameScene: renameScene,
@@ -494,6 +701,25 @@
     loadIntoRoom: loadIntoRoom,
     open: open,
     close: close,
-    isOpen: isOpen
+    isOpen: isOpen,
+    draft: function () { return live && live.draft ? live.draft() : null; },
+    arming: function () { return live && live.arm ? live.arm() : null; },
+    disarm: function () { if (live && live.disarm) live.disarm(); },
+    dropAt: function (x, y) { return live && live.dropAt ? live.dropAt(x, y) : null; },
+    moveGhost: function (id, x, y) { return live && live.moveGhost ? live.moveGhost(id, x, y) : null; },
+    removeGhost: function (id) { return live && live.removeGhost ? live.removeGhost(id) : null; },
+    spotsOnMap: function (mapId) {
+      var scene = live && live.draft ? live.draft() : null;
+      var out = [];
+      if (!scene) return out;
+      (scene.floors || []).forEach(function (f) {
+        if (f.mapId !== mapId) return;
+        (f.spawns || []).forEach(function (sp) {
+          var g = (f.groups || []).filter(function (gr) { return gr.id === sp.groupId; })[0];
+          out.push({ id: sp.id, n: sp.n, x: sp.x, y: sp.y, groupId: sp.groupId, name: g ? g.name : "Party", color: g ? g.color : COLORS[0] });
+        });
+      });
+      return out;
+    }
   };
 })(typeof window !== "undefined" ? window : globalThis);

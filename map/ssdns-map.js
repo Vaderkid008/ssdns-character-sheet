@@ -783,7 +783,15 @@ on(document, 'keydown', e => {
       return;
     }
   }
-  if (e.key === 'Escape') {
+    if (e.key === 'Escape') {
+    if (state.spawnArm) {
+      e.preventDefault();
+      state.spawnArm = null;
+      if (window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.disarm) window.SSDNSSceneBuilder.disarm();
+      toast("Spawn placement off.");
+      draw();
+      return;
+    }
     if (state.placeAsset) {
       e.preventDefault();
       state.placeAsset = null;
@@ -5938,7 +5946,7 @@ function draw() {
   paintBlast();
   paintBlastBanner();
   paintZoneBlind();
-  if (role === "dm") paintPreps(px);
+  if (role === "dm") { paintPreps(px); paintSceneGhosts(px); }
   renderFloorStrip();
   renderCopySwitch();
   refreshSelectedPanel();
@@ -10392,6 +10400,65 @@ function paintPreps(px) {
     ctx.restore();
   });
 }
+function sceneGhostsNow() {
+  const B = window.SSDNSSceneBuilder;
+  if (!B || typeof B.spotsOnMap !== "function") return [];
+  return B.spotsOnMap(activeSceneId()) || [];
+}
+function paintSceneGhosts(px) {
+  if (role !== "dm" || !state.scene) return;
+  sceneGhostsNow().forEach(g => {
+    const drag = state.drag && state.drag.sceneSpawn === g.id && state.drag.moved;
+    const x = drag ? state.drag.gx : g.x;
+    const y = drag ? state.drag.gy : g.y;
+    const s = worldToScreen((x + 0.5) * px, (y + 0.5) * px);
+    const r = (px * (state.view.zoom || 1)) / 2 * 0.72;
+    ctx.save();
+    ctx.globalAlpha = 0.72;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = g.color || "#c9a227";
+    ctx.fill();
+    ctx.setLineDash([3, 3]);
+    ctx.strokeStyle = "#f6e7c4";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#1a140c";
+    ctx.font = "bold " + Math.max(12, Math.round(r)) + "px system-ui";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(g.n || ""), s.x, s.y);
+    ctx.font = "bold 11px system-ui";
+    ctx.fillStyle = "#f6e7c4";
+    ctx.fillText(g.name || "Spawn", s.x, s.y - r - 10);
+    ctx.fillStyle = "#2a120f";
+    ctx.beginPath();
+    ctx.arc(s.x + r * 0.72, s.y - r * 0.72, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#f3e6c8";
+    ctx.font = "bold 12px system-ui";
+    ctx.fillText("×", s.x + r * 0.72, s.y - r * 0.72);
+    ctx.restore();
+  });
+}
+function sceneGhostHit(wx, wy) {
+  const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
+  const spots = sceneGhostsNow();
+  let found = null;
+  let onX = false;
+  spots.forEach(g => {
+    const s = worldToScreen((g.x + 0.5) * px, (g.y + 0.5) * px);
+    const r = (px * (state.view.zoom || 1)) / 2 * 0.72;
+    const p = worldToScreen(wx, wy);
+    const dx = p.x - (s.x + r * 0.72);
+    const dy = p.y - (s.y - r * 0.72);
+    if (Math.hypot(dx, dy) <= 10) { found = g; onX = true; return; }
+    if (Math.hypot(p.x - s.x, p.y - s.y) <= r + 2) found = g;
+  });
+  return found ? { ghost: found, onX: onX } : null;
+}
 function landToken(t, sceneId, cell) {
   t.sceneId = sceneId;
   if (!t.pos) t.pos = { x: cell.x, y: cell.y };
@@ -10412,14 +10479,41 @@ function landToken(t, sceneId, cell) {
 /* Move party here. Ghosts on this map become the real square. Anyone else who is
    not already here arrives at the map entry (party spawn, else the center).
    A copy that is not the active token stays on its own map. Fog on each map stays. */
-function movePartyHere(uids) {
+function openSpawnGroupPick(groups, done) {
+  let panel = q("spawnGroupPick");
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.className = "ssm-move-pick ssm-map-ui";
+    panel.setAttribute("data-act", "spawnGroupPick");
+    panel.addEventListener("click", (e) => e.stopPropagation());
+    panel.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); panel.hidden = true; } });
+    el.appendChild(panel);
+  }
+  const preset = (groups.filter(g => g.isDefault)[0] || groups[0] || {}).id || "";
+  panel.innerHTML = "<p>Which spawn group?</p>" +
+    groups.map(g => '<label><input type="radio" name="spawnGroup" value="' + esc(g.id) + '"' + (g.id === preset ? " checked" : "") + "> " + esc(g.name || "Group") + "</label>").join("") +
+    '<button type="button" data-act="spawnGroupGo">Move</button>';
+  const go = panel.querySelector("[data-act='spawnGroupGo']");
+  if (go) go.addEventListener("click", () => {
+    const picked = panel.querySelector("input[name='spawnGroup']:checked");
+    panel.hidden = true;
+    if (picked && done) done(picked.value);
+  });
+  panel.hidden = false;
+}
+function movePartyHere(uids, groupId) {
   if (role !== "dm") return [];
   const id = activeSceneId();
   const name = floorName(id);
   saveScene(id);
-  const wanted = Array.isArray(uids) && uids.length ? uids : null;
-  const moved = [];
-  let arrivals = 0;
+    const wanted = Array.isArray(uids) && uids.length ? uids : null;
+  const groups = (shared.sceneSpawns && shared.sceneSpawns[id] && shared.sceneSpawns[id].groups) || [];
+  if (groups.length > 1 && !groupId) {
+    openSpawnGroupPick(groups, (picked) => movePartyHere(uids, picked));
+    return [];
+  }
+  const group = groups.filter(g => g.id === groupId)[0] || groups.filter(g => g.isDefault)[0] || groups[0] || null;
+  const movers = [];
   const seen = {};
   (state.tokens || []).forEach(t => {
     if (!t || !t.ownerUid || isPartyToken(t) || seen[t.ownerUid]) return;
@@ -10430,9 +10524,22 @@ function movePartyHere(uids) {
     const ghost = state.preps && state.preps[id] && state.preps[id][t.ownerUid];
     const already = (t.sceneId || "") === id;
     if (already && !ghost) return;
-    const cell = ghost ? { x: ghost.x, y: ghost.y } : entryCell(id, arrivals++);
+    movers.push({ token: t, ghost: ghost });
+  });
+  const sc = allScenes().find(s => s && s.id === id);
+  const grid = sc && sc.grid ? sc.grid : { cols: 30, rows: 20 };
+  const spots = (group && group.spots) || [];
+  const plan = spots.length && window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.assignLandings
+    ? window.SSDNSSceneBuilder.assignLandings(spots, movers.length, grid)
+    : [];
+  const moved = [];
+  let extra = 0;
+  movers.forEach((row, i) => {
+    const t = row.token;
+    const spot = plan[i];
+    const cell = row.ghost ? { x: row.ghost.x, y: row.ghost.y } : (spot ? { x: spot.x, y: spot.y } : entryCell(id, extra++));
     landToken(t, id, cell);
-    if (ghost) delete state.preps[id][t.ownerUid];
+    if (row.ghost) delete state.preps[id][t.ownerUid];
     moved.push(tokenWho(t));
   });
   if (state.preps && state.preps[id] && !Object.keys(state.preps[id]).length) delete state.preps[id];
@@ -12456,6 +12563,43 @@ function onPointerDown(e) {
       return;
     }
     const hit = hitTest(w.x, w.y);
+    if (role === 'dm' && !state.tool && state.scene) {
+      const ghostHit = sceneGhostHit(w.x, w.y);
+      if (ghostHit && e.button === 2) {
+        e.preventDefault();
+        if (window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.removeGhost) window.SSDNSSceneBuilder.removeGhost(ghostHit.ghost.id);
+        draw();
+        return;
+      }
+      if (ghostHit && ghostHit.onX && e.button === 0) {
+        e.preventDefault();
+        if (window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.removeGhost) window.SSDNSSceneBuilder.removeGhost(ghostHit.ghost.id);
+        draw();
+        return;
+      }
+      if (ghostHit && e.button === 0) {
+        state.drag = { sceneSpawn: ghostHit.ghost.id, sx: e.clientX, sy: e.clientY, ox: ghostHit.ghost.x, oy: ghostHit.ghost.y, gx: ghostHit.ghost.x, gy: ghostHit.ghost.y, moved: false, touch: e.pointerType === "touch" };
+        if (e.pointerType === "touch") {
+          state.drag.hold = setTimeout(() => {
+            if (state.drag && state.drag.sceneSpawn === ghostHit.ghost.id && !state.drag.moved) {
+              if (window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.removeGhost) window.SSDNSSceneBuilder.removeGhost(ghostHit.ghost.id);
+              state.drag = null;
+              draw();
+            }
+          }, 450);
+        }
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+        return;
+      }
+      if (state.spawnArm && e.button === 0 && !ghostHit) {
+        const gpx = (state.scene.grid && state.scene.grid.px) || 70;
+        if (window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.dropAt) {
+          window.SSDNSSceneBuilder.dropAt(Math.floor(w.x / gpx), Math.floor(w.y / gpx));
+        }
+        draw();
+        return;
+      }
+    }
     if (role === 'dm' && state.prepOn && !state.tool && e.button === 0 && !hit) {
       const ghost = prepAt(w.x, w.y);
       if (ghost) {
@@ -12659,6 +12803,19 @@ function onPointerMove(e) {
   if (state.tool === 'wall' && state.wallStart) draw();
   if (state.tool === 'room' && state.roomStart) draw();
   if (pointers.size === 1 && state.drag) {
+    if (state.drag.sceneSpawn) {
+      const mdx = e.clientX - (state.drag.sx || 0);
+      const mdy = e.clientY - (state.drag.sy || 0);
+      if (!state.drag.moved && Math.hypot(mdx, mdy) < 4) return;
+      state.drag.moved = true;
+      if (state.drag.hold) { clearTimeout(state.drag.hold); state.drag.hold = null; }
+      const w = pointerWorld(e);
+      const gpx = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
+      state.drag.gx = Math.floor(w.x / gpx);
+      state.drag.gy = Math.floor(w.y / gpx);
+      draw();
+      return;
+    }
     if (state.drag.prep) {
       const mdx = e.clientX - (state.drag.sx || 0);
       const mdy = e.clientY - (state.drag.sy || 0);
@@ -12810,6 +12967,16 @@ function onPointerUp(e) {
     state.drag.token = null;
     state.drag.lift = false;
     performTouchTap(e, tapId);
+  }
+  if (state.drag.sceneSpawn) {
+    if (state.drag.hold) clearTimeout(state.drag.hold);
+    if (state.drag.moved && window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.moveGhost) {
+      window.SSDNSSceneBuilder.moveGhost(state.drag.sceneSpawn, state.drag.gx, state.drag.gy);
+    }
+    state.drag = null;
+    if (e && e.pointerId != null && e.pointerId !== -1) pointers.delete(e.pointerId);
+    draw();
+    return;
   }
   if (state.drag.prep) {
     if (state.drag.moved) savePreps();
@@ -15868,6 +16035,7 @@ function douseSelected(out) {
     });
     shared.places = result.places;
     state.preps = result.preps;
+    shared.sceneSpawns = Object.assign({}, shared.sceneSpawns || {}, result.sceneSpawns || {});
     write("map/dm/places", shared.places);
     savePreps();
     renderFloorStrip();
@@ -15881,7 +16049,28 @@ function douseSelected(out) {
     if (menu) menu.hidden = true;
     if (q("mapsBtn")) q("mapsBtn").setAttribute("aria-expanded", "false");
     closeMapMenus("scene");
-    window.SSDNSSceneBuilder.open(el, { role: role, maps: sceneCatalog, onLoad: adoptSavedScene });
+    window.SSDNSSceneBuilder.open(el, {
+      role: role,
+      maps: sceneCatalog,
+      onLoad: adoptSavedScene,
+      onArm: (info) => {
+        state.spawnArm = info || null;
+        if (info && info.mapId && info.mapId !== activeSceneId()) swapScene(info.mapId);
+        toast("Click squares to drop " + ((info && info.groupName) || "spawn") + " ghosts. Esc stops.");
+        draw();
+      },
+      onDisarm: () => { state.spawnArm = null; draw(); },
+      onChange: () => draw(),
+      onExport: (text) => {
+        const blob = new Blob([text], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "ssdns-scene-library.json";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        toast("Scene library exported.");
+      }
+    });
   }
   if (q('mapsBtn')) q('mapsBtn').addEventListener('click', (e) => {
     e.stopPropagation();

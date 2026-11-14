@@ -3046,7 +3046,7 @@ body.map-phone #mapMount.ssdns-map {
   max-height: calc(100% - 64px);
   overflow: auto;
   box-sizing: border-box;
-  background: rgba(20, 16, 12, 0.97);
+  background: #14110e;
   color: #f0e4cf;
   border: 1px solid #8a6a3a;
   border-radius: 8px;
@@ -3071,8 +3071,15 @@ body.map-phone #mapMount.ssdns-map {
 .ssdns-map .ssm-scene-builder button { background: #3a3228; color: #f0e4cf; border: 1px solid #5a4e40; border-radius: 4px; padding: 6px 8px; cursor: pointer; }
 .ssdns-map .ssm-scene-note, .ssdns-map .ssm-scene-stairs, .ssdns-map .ssm-scene-empty { margin: 4px 0; color: #cbb892; font-size: 12px; }
 .ssdns-map .ssm-scene-floors, .ssdns-map .ssm-scene-library { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.ssdns-map .ssm-scene-floorbar, .ssdns-map .ssm-scene-spawn { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-.ssdns-map .ssm-scene-floorbar input { flex: 1 1 100%; }
+.ssdns-map .ssm-scene-card { display: flex; flex-direction: column; gap: 8px; padding: 8px; border: 1px solid #5a4e40; border-radius: 8px; background: #1c1814; }
+.ssdns-map .ssm-scene-title { display: flex; gap: 6px; align-items: center; }
+.ssdns-map .ssm-scene-title input { flex: 1 1 auto; }
+.ssdns-map .ssm-scene-actions, .ssdns-map .ssm-scene-grouphead, .ssdns-map .ssm-scene-spawn { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.ssdns-map .ssm-scene-spawns { display: flex; flex-direction: column; gap: 6px; }
+.ssdns-map .ssm-scene-k { display: block; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: #e2c56a; }
+.ssdns-map .ssm-scene-swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: 0 0 12px; }
+.ssdns-map .ssm-scene-grouphead input { flex: 1 1 120px; }
+.ssdns-map .ssm-scene-builder button.is-on { background: #6b5420; border-color: #e2c56a; }
 .ssdns-map .ssm-scene-handle { cursor: grab; color: #c9a227; padding: 4px; }
 .ssdns-map .ssm-scene-start { color: #e2c56a; font-size: 11px; font-weight: 700; }
 .ssdns-map .ssm-scene-spawn input[data-act="spawnX"],
