@@ -1,6 +1,7 @@
 /* DM Scene Builder. A scene is a named stack of floors the DM saves on this device
    and can load into any room. Pack files and room maps are never rewritten.
-   Stairs are stored and left empty until the next slice. Encounter pieces stay null. */
+   Each floor.stairs entry is a link (stairs, ladder, or door) plus its landing.
+   Encounter pieces stay null. Players do not walk links yet. */
 (function (root) {
   "use strict";
   var KEY = "ssdns.sceneLibrary.v1";
@@ -98,9 +99,107 @@
       };
     });
     if (!floorOf(scene, scene.startFloorId)) scene.startFloorId = (scene.floors[0] && scene.floors[0].id) || "";
-    scene.stairs = Array.isArray(scene.stairs) ? scene.stairs : [];
+    tidyStairs(scene);
     if (!Object.prototype.hasOwnProperty.call(scene, "encounters")) scene.encounters = null;
     return scene;
+  }
+  function linkKind(kind) {
+    return kind === "down" || kind === "ladder" || kind === "door" || kind === "up" ? kind : "up";
+  }
+  function optNum(v) {
+    if (v == null || v === "") return null;
+    return num(v);
+  }
+  function oppositeKind(kind) {
+    if (kind === "up") return "down";
+    if (kind === "down") return "up";
+    return linkKind(kind);
+  }
+  function findLink(scene, linkId) {
+    var found = null;
+    (scene.floors || []).forEach(function (f) {
+      (f.stairs || []).forEach(function (s) { if (s && s.id === linkId) found = { floor: f, link: s }; });
+    });
+    return found;
+  }
+  function tidyStairs(scene) {
+    var floors = scene.floors || [];
+    var byId = {};
+    floors.forEach(function (f) {
+      f.stairs = (f.stairs || []).filter(Boolean).map(function (link) {
+        var dest = floors.filter(function (d) {
+          return d !== f && (d.id === link.destFloorId || d.mapId === link.destFloorId || d.id === link.destMapId || d.mapId === link.destMapId);
+        })[0] || null;
+        var row = {
+          id: link.id || nid("link"),
+          kind: linkKind(link.kind),
+          x: num(link.x),
+          y: num(link.y),
+          destFloorId: dest ? dest.id : "",
+          destMapId: dest ? dest.mapId : "",
+          landX: dest ? optNum(link.landX) : null,
+          landY: dest ? optNum(link.landY) : null,
+          twoWay: !!link.twoWay,
+          pairId: link.pairId || "",
+          visible: !!link.visible
+        };
+        if (!dest) { row.twoWay = false; row.pairId = ""; }
+        byId[row.id] = row;
+        return row;
+      });
+    });
+    floors.forEach(function (f) {
+      f.stairs.forEach(function (link) {
+        if (link.pairId && !byId[link.pairId]) link.pairId = "";
+      });
+    });
+    scene.stairs = [];
+  }
+  function syncPair(scene, floor, link) {
+    var ready = !!(link.twoWay && link.destFloorId && link.landX != null && link.landY != null);
+    if (!ready) {
+      if (link.pairId) {
+        var old = findLink(scene, link.pairId);
+        if (old) old.floor.stairs = old.floor.stairs.filter(function (s) { return s.id !== link.pairId; });
+        link.pairId = "";
+      }
+      return;
+    }
+    var dest = floorOf(scene, link.destFloorId);
+    if (!dest || dest.id === floor.id) { link.twoWay = false; return; }
+    var back = link.pairId ? findLink(scene, link.pairId) : null;
+    if (back && back.floor.id !== dest.id) {
+      back.floor.stairs = back.floor.stairs.filter(function (s) { return s.id !== back.link.id; });
+      link.pairId = "";
+      back = null;
+    }
+    if (!back) {
+      var made = {
+        id: nid("link"),
+        kind: oppositeKind(link.kind),
+        x: link.landX,
+        y: link.landY,
+        destFloorId: floor.id,
+        destMapId: floor.mapId,
+        landX: link.x,
+        landY: link.y,
+        twoWay: true,
+        pairId: link.id,
+        visible: false
+      };
+      dest.stairs.push(made);
+      link.pairId = made.id;
+      return;
+    }
+    back.link.kind = oppositeKind(link.kind);
+    back.link.x = link.landX;
+    back.link.y = link.landY;
+    back.link.destFloorId = floor.id;
+    back.link.destMapId = floor.mapId;
+    back.link.landX = link.x;
+    back.link.landY = link.y;
+    back.link.twoWay = true;
+    back.link.pairId = link.id;
   }
   function addFloor(scene, map) {
     scene = tidy(scene);
@@ -206,6 +305,82 @@
     var floor = floorOf(scene, floorId);
     if (floor) floor.spawns = floor.spawns.filter(function (sp) { return sp.id !== spawnId; });
     return tidy(scene);
+  }
+  function addLink(scene, floorId, link) {
+    scene = tidy(scene);
+    var floor = floorOf(scene, floorId);
+    if (!floor) return scene;
+    link = link || {};
+    floor.stairs.push({
+      id: link.id || nid("link"),
+      kind: linkKind(link.kind),
+      x: num(link.x),
+      y: num(link.y),
+      destFloorId: link.destFloorId || "",
+      destMapId: link.destMapId || "",
+      landX: optNum(link.landX),
+      landY: optNum(link.landY),
+      twoWay: !!link.twoWay,
+      pairId: link.pairId || "",
+      visible: !!link.visible
+    });
+    return tidy(scene);
+  }
+  function setLink(scene, floorId, linkId, patch) {
+    scene = tidy(scene);
+    var hit = findLink(scene, linkId);
+    if (!hit) return scene;
+    if (floorId && hit.floor.id !== floorId && hit.floor.mapId !== floorId) return scene;
+    var link = hit.link;
+    patch = patch || {};
+    if (patch.kind) link.kind = linkKind(patch.kind);
+    if (patch.x != null) link.x = num(patch.x);
+    if (patch.y != null) link.y = num(patch.y);
+    if (patch.destFloorId != null) {
+      var dest = floorOf(scene, patch.destFloorId);
+      link.destFloorId = dest && dest.id !== hit.floor.id ? dest.id : "";
+      link.destMapId = dest && dest.id !== hit.floor.id ? dest.mapId : "";
+      if (!link.destFloorId) { link.landX = null; link.landY = null; }
+    }
+    if (patch.landX != null) link.landX = num(patch.landX);
+    if (patch.landY != null) link.landY = num(patch.landY);
+    if (patch.twoWay != null) link.twoWay = !!patch.twoWay;
+    if (patch.visible != null) link.visible = !!patch.visible;
+    syncPair(scene, hit.floor, link);
+    return tidy(scene);
+  }
+  function removeLink(scene, floorId, linkId) {
+    scene = tidy(scene);
+    var hit = findLink(scene, linkId);
+    if (!hit) return scene;
+    if (floorId && hit.floor.id !== floorId && hit.floor.mapId !== floorId) return scene;
+    var pairId = hit.link.pairId;
+    hit.floor.stairs = hit.floor.stairs.filter(function (s) { return s.id !== linkId; });
+    if (pairId) {
+      var pair = findLink(scene, pairId);
+      if (pair) { pair.link.pairId = ""; pair.link.twoWay = false; }
+    }
+    return tidy(scene);
+  }
+  function stairsForRoom(scene, floor) {
+    return (floor.stairs || []).map(function (link) {
+      var dest = (scene.floors || []).filter(function (d) {
+        return d.id === link.destFloorId || d.mapId === link.destMapId || d.mapId === link.destFloorId;
+      })[0];
+      return {
+        id: link.id,
+        kind: link.kind,
+        x: link.x,
+        y: link.y,
+        destFloorId: dest ? dest.mapId : (link.destMapId || ""),
+        destMapId: dest ? dest.mapId : (link.destMapId || ""),
+        landX: link.landX,
+        landY: link.landY,
+        twoWay: !!link.twoWay,
+        pairId: link.pairId || "",
+        visible: !!link.visible
+      };
+    });
   }
   function groupSpots(floor, groupId) {
     var group = (floor.groups || []).filter(function (g) { return g.id === groupId; })[0] || defaultGroup(floor);
@@ -314,13 +489,18 @@
     var floors = [];
     var kept = [];
     scene.floors.forEach(function (f) {
-      if (claimed[f.mapId] && claimed[f.mapId] !== scene.id) kept.push(f.mapId);
-      else floors.push({
+      var stairs = stairsForRoom(scene, f);
+      if (claimed[f.mapId] && claimed[f.mapId] !== scene.id) {
+        kept.push(f.mapId);
+        var owner = places[claimed[f.mapId]];
+        var row = owner && (owner.floors || []).filter(function (fl) { return fl && fl.mapId === f.mapId; })[0];
+        if (row && stairs.length) row.stairs = stairs;
+      } else floors.push({
         id: f.mapId,
         mapId: f.mapId,
         name: f.name,
         order: floors.length,
-        stairs: f.stairs || []
+        stairs: stairs
       });
     });
     if (floors.length) {
@@ -385,7 +565,7 @@
   }
   function paint(panel, draft, lib, maps) {
     var focus = document.activeElement;
-    var focusKey = focus && panel.contains(focus) ? (focus.getAttribute("data-act") || "") + ":" + (focus.getAttribute("data-floor") || "") + ":" + (focus.getAttribute("data-spawn") || "") : "";
+    var focusKey = focus && panel.contains(focus) ? (focus.getAttribute("data-act") || "") + ":" + (focus.getAttribute("data-floor") || "") + ":" + (focus.getAttribute("data-spawn") || "") + ":" + (focus.getAttribute("data-link") || "") : "";
     var focusVal = focus && panel.contains(focus) && "value" in focus ? focus.value : null;
     panel.innerHTML = "";
     var head = el("div", { class: "ssm-scene-head" });
@@ -461,7 +641,52 @@
       });
       spawns.appendChild(el("button", { type: "button", "data-act": "groupAdd", "data-floor": floor.id }, "New group"));
       row.appendChild(spawns);
-      row.appendChild(el("p", { class: "ssm-scene-stairs", "data-act": "stairsHook" }, "Stairs and ladders: next update. This floor keeps an empty link list."));
+      var links = el("div", { class: "ssm-scene-links" });
+      links.appendChild(el("div", { class: "ssm-scene-k" }, "Links"));
+      var placeLink = el("button", { type: "button", "data-act": "linkPlace", "data-floor": floor.id }, "Place link");
+      if (panel._linkArm && panel._linkArm.mode === "marker" && panel._linkArm.floorId === floor.id) placeLink.className = "is-on";
+      links.appendChild(placeLink);
+      (floor.stairs || []).forEach(function (link) {
+        var line = el("div", { class: "ssm-scene-link", "data-link": link.id });
+        var kind = el("select", { "data-act": "linkKind", "data-floor": floor.id, "data-link": link.id, "aria-label": "Link kind" });
+        [["up", "Stairs up"], ["down", "Stairs down"], ["ladder", "Ladder"], ["door", "Door/Passage"]].forEach(function (pair) {
+          kind.appendChild(el("option", { value: pair[0] }, pair[1]));
+        });
+        kind.value = link.kind || "up";
+        var destPick = el("select", { "data-act": "linkDest", "data-floor": floor.id, "data-link": link.id, "aria-label": "Destination floor" });
+        destPick.appendChild(el("option", { value: "" }, "Destination floor…"));
+        draft.floors.forEach(function (other) {
+          if (!other || other.id === floor.id) return;
+          destPick.appendChild(el("option", { value: other.id }, other.name || other.mapId));
+        });
+        destPick.value = link.destFloorId || "";
+        var landLabel = link.landX == null ? "Place landing" : ("Landing " + link.landX + "," + link.landY);
+        var land = el("button", { type: "button", "data-act": "linkLand", "data-floor": floor.id, "data-link": link.id }, landLabel);
+        if (!link.destFloorId) land.disabled = true;
+        if (panel._linkArm && panel._linkArm.mode === "landing" && panel._linkArm.linkId === link.id) land.className = "is-on";
+        var two = el("input", { type: "checkbox", "data-act": "linkTwoWay", "data-floor": floor.id, "data-link": link.id });
+        if (link.twoWay) two.checked = true;
+        var twoLab = el("label");
+        twoLab.appendChild(two);
+        twoLab.appendChild(document.createTextNode("Two-way"));
+        var vis = el("input", { type: "checkbox", "data-act": "linkVisible", "data-floor": floor.id, "data-link": link.id });
+        if (link.visible) vis.checked = true;
+        var visLab = el("label");
+        visLab.appendChild(vis);
+        visLab.appendChild(document.createTextNode("Players see this"));
+        var bar = el("div", { class: "ssm-scene-linkbar" });
+        bar.appendChild(land);
+        bar.appendChild(twoLab);
+        bar.appendChild(visLab);
+        bar.appendChild(el("button", { type: "button", "data-act": "linkTake", "data-floor": floor.id, "data-link": link.id }, "Take link"));
+        line.appendChild(kind);
+        line.appendChild(el("button", { type: "button", "data-act": "linkRemove", "data-floor": floor.id, "data-link": link.id, "aria-label": "Remove link" }, "×"));
+        line.appendChild(destPick);
+        line.appendChild(bar);
+        links.appendChild(line);
+      });
+      links.appendChild(el("p", { class: "ssm-scene-stairs" }, "Players stepping onto a link comes in a later update. Take link moves the tokens you selected."));
+      row.appendChild(links);
       if (index === draft.floors.length - 1) row.setAttribute("data-last", "1");
       list.appendChild(row);
     });
@@ -498,7 +723,8 @@
     });
     panel.appendChild(libList);
     if (focusKey) {
-      var again = panel.querySelector('[data-act="' + focusKey.split(":")[0] + '"]' + (focusKey.split(":")[1] ? '[data-floor="' + focusKey.split(":")[1] + '"]' : "") + (focusKey.split(":")[2] ? '[data-spawn="' + focusKey.split(":")[2] + '"]' : ""));
+      var focusParts = focusKey.split(":");
+      var again = panel.querySelector('[data-act="' + focusParts[0] + '"]' + (focusParts[1] ? '[data-floor="' + focusParts[1] + '"]' : "") + (focusParts[2] ? '[data-spawn="' + focusParts[2] + '"]' : "") + (focusParts[3] ? '[data-link="' + focusParts[3] + '"]' : ""));
       if (again && again.focus) {
         try { again.focus(); if (focusVal != null && "value" in again) again.value = focusVal; } catch (e) {}
       }
@@ -525,7 +751,7 @@
       if (ev.key === "Escape") {
         ev.preventDefault();
         ev.stopPropagation();
-        if (panel._arm) { panel._arm = null; if (opts.onDisarm) opts.onDisarm(); draw(); return; }
+        if (panel._arm || panel._linkArm) { panel._arm = null; panel._linkArm = null; if (opts.onDisarm) opts.onDisarm(); draw(); return; }
         if (panel._confirmDelete) { panel._confirmDelete = ""; draw(); return; }
         close();
       }
@@ -534,11 +760,13 @@
     panel.addEventListener("click", function (ev) {
       var btn = ev.target && ev.target.closest && ev.target.closest("[data-act]");
       if (!btn || !panel.contains(btn)) return;
+      var tag = btn.tagName;
+      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
       var act = btn.getAttribute("data-act");
       var floorId = btn.getAttribute("data-floor");
       var sceneId = btn.getAttribute("data-id");
       if (act === "sceneClose") close();
-      else if (act === "sceneNew") { draft = blank("New scene"); panel._confirmDelete = ""; }
+      else if (act === "sceneNew") { draft = blank("New scene"); panel._confirmDelete = ""; panel._arm = null; panel._linkArm = null; }
       else if (act === "sceneSave") { draft = saveScene(store, draft); }
       else if (act === "sceneDuplicate") {
         draft = saveScene(store, draft);
@@ -558,10 +786,30 @@
       else if (act === "groupDefault") draft = setDefaultGroup(draft, floorId, btn.getAttribute("data-group"));
       else if (act === "spawnPlace") {
         var gid = btn.getAttribute("data-group");
+        panel._linkArm = null;
         panel._arm = { floorId: floorId, groupId: gid };
-        if (opts.onArm) opts.onArm({ floorId: floorId, groupId: gid, mapId: (floorOf(draft, floorId) || {}).mapId, groupName: ((floorOf(draft, floorId).groups || []).filter(function (g) { return g.id === gid; })[0] || {}).name });
+        if (opts.onArm) opts.onArm({ kind: "spawn", floorId: floorId, groupId: gid, mapId: (floorOf(draft, floorId) || {}).mapId, groupName: ((floorOf(draft, floorId).groups || []).filter(function (g) { return g.id === gid; })[0] || {}).name });
       }
       else if (act === "spawnRemove") draft = removeSpawn(draft, floorId, btn.getAttribute("data-spawn"));
+      else if (act === "linkPlace") {
+        panel._arm = null;
+        panel._linkArm = { mode: "marker", floorId: floorId };
+        var armedFloor = floorOf(draft, floorId) || {};
+        if (opts.onArm) opts.onArm({ kind: "link", mode: "marker", floorId: floorId, mapId: armedFloor.mapId });
+      }
+      else if (act === "linkLand") {
+        var landLink = findLink(draft, btn.getAttribute("data-link"));
+        if (!landLink || !landLink.link.destFloorId) return;
+        var destFloor = floorOf(draft, landLink.link.destFloorId);
+        panel._arm = null;
+        panel._linkArm = { mode: "landing", floorId: landLink.floor.id, linkId: landLink.link.id, mapId: destFloor && destFloor.mapId };
+        if (opts.onArm) opts.onArm({ kind: "link", mode: "landing", floorId: landLink.floor.id, linkId: landLink.link.id, mapId: destFloor && destFloor.mapId });
+      }
+      else if (act === "linkRemove") draft = removeLink(draft, floorId, btn.getAttribute("data-link"));
+      else if (act === "linkTake") {
+        var takeHit = findLink(draft, btn.getAttribute("data-link"));
+        if (takeHit && opts.onTake) opts.onTake(takeHit.link, takeHit.floor);
+      }
       else if (act === "sceneExport") {
         if (opts.onExport) opts.onExport(exportLibrary(store));
       }
@@ -597,7 +845,20 @@
     });
     panel.addEventListener("change", function (ev) {
       var node = ev.target;
-      if (!node || node.getAttribute("data-act") !== "sceneImportFile" || !node.files || !node.files[0]) return;
+      if (!node || !panel.contains(node)) return;
+      var act = node.getAttribute("data-act");
+      if (act === "linkKind" || act === "linkDest" || act === "linkTwoWay" || act === "linkVisible") {
+        var patch = {};
+        if (act === "linkKind") patch.kind = node.value;
+        if (act === "linkDest") patch.destFloorId = node.value;
+        if (act === "linkTwoWay") patch.twoWay = !!node.checked;
+        if (act === "linkVisible") patch.visible = !!node.checked;
+        draft = setLink(draft, node.getAttribute("data-floor"), node.getAttribute("data-link"), patch);
+        if (opts.onChange) opts.onChange(tidy(draft));
+        draw();
+        return;
+      }
+      if (act !== "sceneImportFile" || !node.files || !node.files[0]) return;
       var reader = new FileReader();
       reader.onload = function () {
         try { importLibrary(store, String(reader.result || "")); } catch (e) { return; }
@@ -635,8 +896,8 @@
       el: panel,
       store: store,
       draft: function () { return tidy(draft); },
-      arm: function () { return panel._arm || null; },
-      disarm: function () { panel._arm = null; draw(); },
+      arm: function () { return panel._linkArm || panel._arm || null; },
+      disarm: function () { panel._arm = null; panel._linkArm = null; draw(); },
       dropAt: function (x, y) {
         if (!panel._arm) return null;
         draft = addSpawn(draft, panel._arm.floorId, { groupId: panel._arm.groupId, x: x, y: y });
@@ -657,6 +918,47 @@
         draft.floors.forEach(function (f) {
           if (f.spawns.some(function (sp) { return sp.id === spawnId; })) draft = removeSpawn(draft, f.id, spawnId);
         });
+        if (opts.onChange) opts.onChange(tidy(draft));
+        draw();
+        return tidy(draft);
+      },
+      dropLink: function (x, y) {
+        if (!panel._linkArm) return null;
+        var made = null;
+        if (panel._linkArm.mode === "landing") {
+          draft = setLink(draft, panel._linkArm.floorId, panel._linkArm.linkId, { landX: x, landY: y });
+          var hit = findLink(draft, panel._linkArm.linkId);
+          made = hit ? hit.link : null;
+        } else {
+          draft = addLink(draft, panel._linkArm.floorId, { x: x, y: y, kind: "up" });
+          var floor = floorOf(draft, panel._linkArm.floorId);
+          made = floor && floor.stairs.length ? floor.stairs[floor.stairs.length - 1] : null;
+        }
+        panel._linkArm = null;
+        if (opts.onChange) opts.onChange(tidy(draft));
+        draw();
+        return made;
+      },
+      moveLink: function (linkId, x, y) {
+        var hit = findLink(draft, linkId);
+        if (!hit) return tidy(draft);
+        draft = setLink(draft, hit.floor.id, linkId, { x: x, y: y });
+        if (opts.onChange) opts.onChange(tidy(draft));
+        draw();
+        return tidy(draft);
+      },
+      removeLink: function (linkId) {
+        var hit = findLink(draft, linkId);
+        if (!hit) return tidy(draft);
+        draft = removeLink(draft, hit.floor.id, linkId);
+        if (opts.onChange) opts.onChange(tidy(draft));
+        draw();
+        return tidy(draft);
+      },
+      setLink: function (linkId, patch) {
+        var hit = findLink(draft, linkId);
+        if (!hit) return tidy(draft);
+        draft = setLink(draft, hit.floor.id, linkId, patch || {});
         if (opts.onChange) opts.onChange(tidy(draft));
         draw();
         return tidy(draft);
@@ -689,6 +991,9 @@
     addSpawn: addSpawn,
     setSpawn: setSpawn,
     removeSpawn: removeSpawn,
+    addLink: addLink,
+    setLink: setLink,
+    removeLink: removeLink,
     groupSpots: groupSpots,
     assignLandings: assignLandings,
     exportLibrary: exportLibrary,
@@ -708,6 +1013,32 @@
     dropAt: function (x, y) { return live && live.dropAt ? live.dropAt(x, y) : null; },
     moveGhost: function (id, x, y) { return live && live.moveGhost ? live.moveGhost(id, x, y) : null; },
     removeGhost: function (id) { return live && live.removeGhost ? live.removeGhost(id) : null; },
+    dropLink: function (x, y) { return live && live.dropLink ? live.dropLink(x, y) : null; },
+    moveLink: function (id, x, y) { return live && live.moveLink ? live.moveLink(id, x, y) : null; },
+    removeLinkMark: function (id) { return live && live.removeLink ? live.removeLink(id) : null; },
+    setLinkMark: function (id, patch) { return live && live.setLink ? live.setLink(id, patch) : null; },
+    linksOnMap: function (mapId) {
+      var scene = live && live.draft ? live.draft() : null;
+      var markers = [];
+      var landings = [];
+      if (!scene) return { markers: markers, landings: landings };
+      (scene.floors || []).forEach(function (f) {
+        (f.stairs || []).forEach(function (link) {
+          var row = {
+            id: link.id, kind: link.kind, x: link.x, y: link.y,
+            destFloorId: link.destFloorId, destMapId: link.destMapId,
+            landX: link.landX, landY: link.landY, twoWay: !!link.twoWay,
+            pairId: link.pairId || "", visible: !!link.visible,
+            mapId: f.mapId, floorId: f.id, floorName: f.name
+          };
+          if (!mapId || f.mapId === mapId) markers.push(row);
+          if (link.landX != null && link.landY != null && link.destMapId && (!mapId || link.destMapId === mapId) && f.mapId !== link.destMapId) {
+            landings.push({ id: link.id, kind: link.kind, x: link.landX, y: link.landY, mapId: link.destMapId, visible: !!link.visible, from: f.mapId });
+          }
+        });
+      });
+      return { markers: markers, landings: landings };
+    },
     spotsOnMap: function (mapId) {
       var scene = live && live.draft ? live.draft() : null;
       var out = [];
