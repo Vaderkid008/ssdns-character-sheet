@@ -26,6 +26,7 @@
     byId[row[0]] = row[1];
     byName[norm(row[1])] = row[0];
   });
+  byId["healing-libation"] = "Healing Libation";
   byName[norm("Snakebite antivenin")] = "snakebite-antivenin-antitoxin";
   byName[norm("Caltrops / jack-nails")] = "caltrops-jack-nails-bag-of-20";
   byName[norm("Field glass")] = "field-glass-spyglass";
@@ -121,13 +122,16 @@
     } catch (e) {}
     return "";
   }
+  var SLUG_FILE = { "healing-libation": "assay-tonic-trail-draught" };
   function slugFor(item) {
     if (!item) return "";
     if (typeof item === "string") {
+      if (SLUG_FILE[item]) return SLUG_FILE[item];
       if (byId[item]) return item;
       return byName[norm(item)] || "";
     }
-    var id = item.id || "";
+    var id = item.id || item.catalogId || "";
+    if (SLUG_FILE[id]) return SLUG_FILE[id];
     if (id && byId[id]) return id;
     return byName[norm(item.name || "")] || "";
   }

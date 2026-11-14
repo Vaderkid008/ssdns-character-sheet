@@ -11,8 +11,9 @@
 
   root.SSDNS_ITEM_CATALOG = [
     {
-      id: "assay-tonic-trail-draught",
+      id: "healing-libation",
       name: "Healing Libation",
+      alias: ["assay-tonic-trail-draught"],
       type: "consumable",
       description: "A corked vial of cloudy red trail draught. Tastes like pennies.",
       effect: { kind: "heal", dice: "2d4+2" },

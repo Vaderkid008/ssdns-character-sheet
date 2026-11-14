@@ -72,7 +72,7 @@ check("v13.noKeyRow", !Object.values(tables).some((t) => JSON.stringify(t.rows).
 check("v12.slugs", tables["act1-saddlebag"].rows.common.find((r) => r.id === "slugs-12-ga-10").w === 3 && tables["act1-saddlebag"].rows.common.find((r) => r.id === "slugs-410-10").w === 1);
 check("v12.dynamiteArrow", tables["act1-saddlebag"].rows.common.find((r) => r.id === "arrows-dynamite-1").w === 2);
 check("v12.buckOnly", tables["act1-saddlebag"].rows.common.some((r) => r.id === "shells-12-ga-10" && r.w === 5) && !JSON.stringify(tables).includes("slugs-10-ga-10") && !JSON.stringify(tables).includes("slug-shells"));
-check("v12.supply", ["hardtack-jerky-1-day", "whiskey-bottle", "cartridges-medium-20", "assay-tonic-trail-draught"].map((id) => tables["act1-supply-crate"].rows.common.find((r) => r.id === id).w).join() === "9,7,8,3");
+check("v12.supply", ["hardtack-jerky-1-day", "whiskey-bottle", "cartridges-medium-20", "healing-libation"].map((id) => tables["act1-supply-crate"].rows.common.find((r) => r.id === id).w).join() === "9,7,8,3");
 const gear = read("assets/data/item-catalog-gear.js");
 check("catalog.slugs", /"id": "slugs-410-10"/.test(gear) && /"price": 50/.test(gear) && /"id": "slugs-12-ga-10"/.test(gear) && /"price": 100/.test(gear) && /"id": "slugs-10-ga-10"/.test(gear) && /"price": 200/.test(gear));
 check("catalog.dynamiteArrow", /"id": "arrows-dynamite-1"/.test(gear) && /"weight": 1\.05/.test(gear) && /"forSale": false/.test(gear));

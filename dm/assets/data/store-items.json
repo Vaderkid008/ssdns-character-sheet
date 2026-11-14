@@ -2991,7 +2991,8 @@
     "ref_price_es": 10000
   },
   {
-    "id": "assay-tonic-trail-draught",
+    "id": "healing-libation",
+    "alias": "assay-tonic-trail-draught",
     "name": "Healing Libation",
     "category": "healing",
     "price_es": 5000,
