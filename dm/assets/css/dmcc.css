@@ -1072,6 +1072,23 @@ select:-webkit-autofill {
       "dice dice dice token"
       "left stage right token";
   }
+  #mapMount.ssdns-map.ssm-scene-open:has(.ssdns-leftbar):has(.ssdns-rightbar) {
+    grid-template-columns: minmax(120px, 160px) minmax(200px, 1fr) minmax(110px, 148px) minmax(260px, 320px);
+    grid-template-areas:
+      "strip strip strip strip"
+      "bar bar bar bar"
+      "dice dice dice dice"
+      "left stage right builder"
+      "dock dock dock dock";
+  }
+  #mapMount.ssdns-map.ssdns-role-dm.ssm-token-dock.ssm-token-right.ssm-scene-open:has(.ssdns-leftbar):has(.ssdns-rightbar) {
+    grid-template-columns: 148px minmax(160px, 1fr) max-content minmax(280px, 340px) 320px;
+    grid-template-areas:
+      "strip strip strip strip token"
+      "bar bar bar bar token"
+      "dice dice dice dice token"
+      "left stage right builder token";
+  }
   #mapMount.ssdns-map.ssdns-role-dm.ssm-token-dock .ssdns-leftbar {
     width: 148px;
     max-width: 148px;

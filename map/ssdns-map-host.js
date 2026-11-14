@@ -1316,6 +1316,10 @@
     grantLog: function () { return map && typeof map.grantLog === "function" ? map.grantLog() : []; },
     fxLog: function () { return map && typeof map.fxLog === "function" ? map.fxLog() : []; },
     camera: function () { return map && typeof map.camera === "function" ? map.camera() : null; },
+    lookAt: function (x, y, zoom) {
+      if (!map || typeof map.lookAt !== "function") return null;
+      try { return map.lookAt(x, y, zoom); } catch (e) { return null; }
+    },
     phoneMap: function () { return phoneMapMode(); },
     drawerTokenId: function () { return map && typeof map.drawerTokenId === "function" ? map.drawerTokenId() : ""; },
     tokenForCombatant: tokenForCombatant,

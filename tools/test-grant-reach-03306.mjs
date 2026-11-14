@@ -2,7 +2,7 @@
  * A granted creature attacks from its own square and size.
  * Dust Devil Bite vs an adjacent Large Giant Scorpion, and vs a 1x1, is in reach.
  * The same bite is out of range across the room. Initiative order stays hidden until the DM starts it.
- * Sheet 0.3.310 / DMCC 0.2.323.
+ * Sheet 0.3.311 / DMCC 0.2.324.
  *   node tools/test-grant-reach-03306.mjs
  */
 import fs from "node:fs";
@@ -18,8 +18,8 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.310" && ver.dmcc === "0.2.323" && ver.sheetBuild === "sheet-playtest-v03310" && ver.dmccBuild === "dmcc-playtest-v02323");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.310") && !read("database.rules.json").includes("0.3.310"));
+check("ver", ver.sheet === "0.3.311" && ver.dmcc === "0.2.324" && ver.sheetBuild === "sheet-playtest-v03311" && ver.dmccBuild === "dmcc-playtest-v02324");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.311") && !read("database.rules.json").includes("0.3.311"));
 
 function makeWindow() {
   const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/dm/", pretendToBeVisual: true, runScripts: "dangerously" });
@@ -140,5 +140,5 @@ if (failures.length) {
   failures.forEach((line) => console.log(" - " + line));
   process.exit(1);
 }
-console.log("grant reach 0.3.310 ok");
+console.log("grant reach 0.3.311 ok");
 process.exit(0);
