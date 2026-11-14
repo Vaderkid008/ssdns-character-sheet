@@ -1,5 +1,5 @@
 /**
- * DM instance edit (sheet 0.3.312 / DMCC 0.2.325).
+ * DM instance edit (sheet 0.3.313 / DMCC 0.2.326).
  * Max HP, AC, speed, and added gear stay on the placed token.
  * The library card and a second copy keep the catalog values.
  * The max HP field sits with the enemy-drawer HP bar. Players do not get it.
@@ -19,8 +19,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.312" && version.sheetBuild === "sheet-playtest-v03312");
-check("ver.dmcc", version.dmcc === "0.2.325" && version.dmccBuild === "dmcc-playtest-v02325");
+check("ver.sheet", version.sheet === "0.3.313" && version.sheetBuild === "sheet-playtest-v03313");
+check("ver.dmcc", version.dmcc === "0.2.326" && version.dmccBuild === "dmcc-playtest-v02326");
 check("rules.untouched", !read("assets/data/rules.js").includes("editInstance") && !read("database.rules.json").includes("enemyMaxHp"));
 
 const ctx = { window: {}, console };

@@ -2,7 +2,7 @@
  * Granting control of a second token must not remove the character.
  * The sheet link survives every map move. Duplicates stay linked.
  * Two clients, one mocked RTDB. Undefined writes are dropped.
- * Sheet 0.3.312 / DMCC 0.2.325.
+ * Sheet 0.3.313 / DMCC 0.2.326.
  *   node tools/test-token-continuity-03301.mjs
  */
 import fs from "node:fs";
@@ -16,8 +16,8 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.312" && ver.dmcc === "0.2.325");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.312") && !read("database.rules.json").includes("0.3.312"));
+check("ver", ver.sheet === "0.3.313" && ver.dmcc === "0.2.326");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.313") && !read("database.rules.json").includes("0.3.313"));
 
 function undefs(v, path, out) {
   if (v === undefined) { out.push(path); return; }

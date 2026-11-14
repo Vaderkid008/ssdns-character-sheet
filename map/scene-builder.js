@@ -85,6 +85,18 @@
     scene = clone(scene) || blank();
     if (!scene.id) scene.id = nid("scene");
     scene.name = String(scene.name || "New scene").slice(0, 80);
+    if (scene.encounters && Array.isArray(scene.encounters.floors)) {
+      scene.encounters.floors.forEach(function (row) {
+        if (!row) return;
+        var floor = (scene.floors || []).filter(function (f) {
+          return f && (f.id === row.floorId || f.mapId === row.mapId || f.id === row.id || f.mapId === row.floorId);
+        })[0];
+        if (!floor) return;
+        floor.encounters = floor.encounters || { containers: [], enemies: [] };
+        (row.containers || []).forEach(function (c) { floor.encounters.containers.push(c); });
+        (row.enemies || []).forEach(function (e) { floor.encounters.enemies.push(e); });
+      });
+    }
     scene.floors = (scene.floors || []).filter(function (f) { return f && f.mapId; }).map(function (f, i) {
       var packed = groupsOf(f);
       return {
@@ -95,13 +107,110 @@
         source: f.source || "pack",
         groups: packed.groups,
         spawns: packed.spawns,
-        stairs: Array.isArray(f.stairs) ? f.stairs : []
+        stairs: Array.isArray(f.stairs) ? f.stairs : [],
+        encounters: tidyFloorEnc(f.encounters)
       };
     });
     if (!floorOf(scene, scene.startFloorId)) scene.startFloorId = (scene.floors[0] && scene.floors[0].id) || "";
     tidyStairs(scene);
-    if (!Object.prototype.hasOwnProperty.call(scene, "encounters")) scene.encounters = null;
+    scene.encounters = encounterSummary(scene);
     return scene;
+  }
+  function tidyItems(items) {
+    if (typeof items === "string") items = items.split(/\n+/);
+    return (items || []).map(function (it, i) {
+      if (it == null || it === "") return null;
+      if (typeof it === "string") {
+        var text = it.trim();
+        var qty = 1;
+        var named = text.replace(/\s+x\s*(\d+)\s*$/i, function (_, n) { qty = num(n) || 1; return ""; }).trim();
+        return { id: "item_" + i, name: named.slice(0, 80), qty: qty || 1, catalogId: "" };
+      }
+      return {
+        id: it.id || ("item_" + i),
+        name: String(it.name || it.catalogId || "Item").slice(0, 80),
+        qty: num(it.qty) || 1,
+        catalogId: String(it.catalogId || "")
+      };
+    }).filter(function (it) { return it && it.name; });
+  }
+  function tidyFloorEnc(raw) {
+    raw = raw || {};
+    return {
+      containers: (raw.containers || []).filter(Boolean).map(function (c) {
+        var kind = c.kind === "strongbox" ? "strongbox" : "chest";
+        return {
+          id: c.id || nid("box"),
+          kind: kind,
+          name: String(c.name || (kind === "strongbox" ? "Strongbox" : "Chest")).slice(0, 80),
+          x: num(c.x),
+          y: num(c.y),
+          items: tidyItems(c.items),
+          lockDc: Math.max(0, num(c.lockDc)),
+          forceDc: c.forceDc == null || c.forceDc === "" ? (kind === "strongbox" ? 25 : 15) : Math.max(0, num(c.forceDc)),
+          unlocked: !!c.unlocked,
+          allowRetries: !!c.allowRetries,
+          improvise: !!c.improvise
+        };
+      }),
+      enemies: (raw.enemies || []).filter(Boolean).map(function (e) {
+        return {
+          id: e.id || nid("foe"),
+          bestiaryId: String(e.bestiaryId || ""),
+          name: String(e.name || e.bestiaryId || "Enemy").slice(0, 80),
+          x: num(e.x),
+          y: num(e.y),
+          hidden: e.hidden !== false,
+          initGroup: String(e.initGroup || "").slice(0, 40),
+          xp: Math.max(0, num(e.xp)),
+          hp: e.hp == null || e.hp === "" ? null : Math.max(0, num(e.hp))
+        };
+      })
+    };
+  }
+  function encounterSummary(scene) {
+    var xp = 0, containers = 0, enemies = 0, hidden = 0, loot = [];
+    (scene.floors || []).forEach(function (f) {
+      var enc = f.encounters || { containers: [], enemies: [] };
+      containers += enc.containers.length;
+      enc.enemies.forEach(function (e) { enemies += 1; xp += e.xp || 0; if (e.hidden) hidden += 1; });
+      enc.containers.forEach(function (c) {
+        loot.push({ floor: f.name, name: c.name, kind: c.kind, items: (c.items || []).map(function (it) { return it.qty > 1 ? it.name + " x" + it.qty : it.name; }) });
+      });
+    });
+    if (!containers && !enemies) return null;
+    return { xp: xp, containers: containers, enemies: enemies, hidden: hidden, loot: loot };
+  }
+  function lootFromContainer(c) {
+    var enc = tidyFloorEnc({ containers: [c] }).containers[0];
+    var dc = enc.lockDc;
+    return {
+      id: "enc_" + enc.id,
+      name: enc.name,
+      boxType: enc.kind,
+      container: enc.kind,
+      rolled: true,
+      opened: false,
+      taken: false,
+      improvise: !!enc.improvise,
+      contents: enc.items.map(function (it) {
+        return { id: it.catalogId || it.id, catalogId: it.catalogId || "", name: it.name, qty: it.qty, taken: false };
+      }),
+      cash: { es: 0, black: 0, blackId: "", branch: "none" },
+      lock: {
+        dc: dc,
+        difficulty: dc >= 20 ? "Hard" : (dc >= 15 ? "Medium" : (dc > 0 ? "Easy" : "")),
+        unlocked: !!enc.unlocked || !(dc > 0),
+        method: dc > 0 ? ["tools", "force"] : [],
+        jammed: false,
+        jamOnFail: false,
+        allowRetries: !!enc.allowRetries,
+        attempts: {},
+        forceDc: enc.forceDc,
+        forceAttempts: {}
+      },
+      log: ["From the encounter pack"]
+    };
   }
   function linkKind(kind) {
     return kind === "down" || kind === "ladder" || kind === "door" || kind === "up" ? kind : "up";
@@ -362,6 +471,112 @@
     }
     return tidy(scene);
   }
+  function findPiece(scene, id) {
+    var hit = null;
+    (scene.floors || []).forEach(function (floor) {
+      var enc = floor.encounters || { containers: [], enemies: [] };
+      (enc.containers || []).forEach(function (c) { if (c.id === id) hit = { floor: floor, container: c }; });
+      (enc.enemies || []).forEach(function (e) { if (e.id === id) hit = { floor: floor, enemy: e }; });
+    });
+    return hit;
+  }
+  function addContainer(scene, floorId, spec) {
+    scene = tidy(scene);
+    var floor = floorOf(scene, floorId) || scene.floors[0];
+    if (!floor) return scene;
+    spec = spec || {};
+    var kind = spec.kind === "strongbox" ? "strongbox" : "chest";
+    floor.encounters.containers.push({
+      id: nid("box"),
+      kind: kind,
+      name: spec.name || (kind === "strongbox" ? "Strongbox" : "Chest"),
+      x: num(spec.x),
+      y: num(spec.y),
+      items: spec.items || [],
+      lockDc: spec.lockDc == null ? 15 : spec.lockDc,
+      forceDc: spec.forceDc,
+      unlocked: !!spec.unlocked,
+      allowRetries: !!spec.allowRetries,
+      improvise: !!spec.improvise
+    });
+    return tidy(scene);
+  }
+  function setContainer(scene, floorId, boxId, patch) {
+    scene = tidy(scene);
+    var hit = findPiece(scene, boxId);
+    if (!hit || !hit.container) return scene;
+    if (floorId && hit.floor.id !== floorId && hit.floor.mapId !== floorId) return scene;
+    patch = patch || {};
+    if (patch.kind) hit.container.kind = patch.kind === "strongbox" ? "strongbox" : "chest";
+    if (patch.name != null) hit.container.name = String(patch.name);
+    if (patch.x != null) hit.container.x = num(patch.x);
+    if (patch.y != null) hit.container.y = num(patch.y);
+    if (patch.items != null) hit.container.items = patch.items;
+    if (patch.lockDc != null) hit.container.lockDc = patch.lockDc;
+    if (patch.forceDc != null) hit.container.forceDc = patch.forceDc;
+    if (patch.unlocked != null) hit.container.unlocked = !!patch.unlocked;
+    if (patch.allowRetries != null) hit.container.allowRetries = !!patch.allowRetries;
+    if (patch.improvise != null) hit.container.improvise = !!patch.improvise;
+    return tidy(scene);
+  }
+  function removeContainer(scene, floorId, boxId) {
+    scene = tidy(scene);
+    var hit = findPiece(scene, boxId);
+    if (!hit || !hit.container) return scene;
+    if (floorId && hit.floor.id !== floorId && hit.floor.mapId !== floorId) return scene;
+    hit.floor.encounters.containers = hit.floor.encounters.containers.filter(function (c) { return c.id !== boxId; });
+    return tidy(scene);
+  }
+  function addEnemy(scene, floorId, spec) {
+    scene = tidy(scene);
+    var floor = floorOf(scene, floorId) || scene.floors[0];
+    if (!floor) return scene;
+    spec = spec || {};
+    floor.encounters.enemies.push({
+      id: nid("foe"),
+      bestiaryId: spec.bestiaryId || "",
+      name: spec.name || spec.bestiaryId || "Enemy",
+      x: num(spec.x),
+      y: num(spec.y),
+      hidden: spec.hidden !== false,
+      initGroup: spec.initGroup || "",
+      xp: spec.xp || 0,
+      hp: spec.hp == null ? null : spec.hp
+    });
+    return tidy(scene);
+  }
+  function setEnemy(scene, floorId, foeId, patch) {
+    scene = tidy(scene);
+    var hit = findPiece(scene, foeId);
+    if (!hit || !hit.enemy) return scene;
+    if (floorId && hit.floor.id !== floorId && hit.floor.mapId !== floorId) return scene;
+    patch = patch || {};
+    ["bestiaryId", "name", "initGroup"].forEach(function (k) { if (patch[k] != null) hit.enemy[k] = patch[k]; });
+    if (patch.x != null) hit.enemy.x = num(patch.x);
+    if (patch.y != null) hit.enemy.y = num(patch.y);
+    if (patch.hidden != null) hit.enemy.hidden = !!patch.hidden;
+    if (patch.xp != null) hit.enemy.xp = patch.xp;
+    if (patch.hp != null) hit.enemy.hp = patch.hp;
+    return tidy(scene);
+  }
+  function removeEnemy(scene, floorId, foeId) {
+    scene = tidy(scene);
+    var hit = findPiece(scene, foeId);
+    if (!hit || !hit.enemy) return scene;
+    if (floorId && hit.floor.id !== floorId && hit.floor.mapId !== floorId) return scene;
+    hit.floor.encounters.enemies = hit.floor.encounters.enemies.filter(function (e) { return e.id !== foeId; });
+    return tidy(scene);
+  }
+  function revealEnemies(scene, floorId, foeId) {
+    scene = tidy(scene);
+    (scene.floors || []).forEach(function (floor) {
+      if (floorId && floor.id !== floorId && floor.mapId !== floorId) return;
+      (floor.encounters.enemies || []).forEach(function (e) {
+        if (!foeId || e.id === foeId) e.hidden = false;
+      });
+    });
+    return tidy(scene);
+  }
   function stairsForRoom(scene, floor) {
     return (floor.stairs || []).map(function (link) {
       var dest = (scene.floors || []).filter(function (d) {
@@ -425,7 +640,7 @@
     return JSON.stringify({
       name: t.name,
       floors: (t.floors || []).map(function (f) {
-        return { mapId: f.mapId, name: f.name, groups: f.groups, spawns: f.spawns, stairs: f.stairs };
+        return { mapId: f.mapId, name: f.name, groups: f.groups, spawns: f.spawns, stairs: f.stairs, encounters: f.encounters };
       })
     });
   }
@@ -444,16 +659,14 @@
   }
   function kb(n) { return Math.max(1, Math.round(n / 1024)); }
   /* A pack is the same family as a map pack: picture maps, plus the scenes that
-     stack those maps into floors. encounters stays empty until the next slice. */
+     stack those maps into floors. Encounter pieces ride on each floor. */
   function exportScenePack(scenes, lookup) {
     lookup = lookup || function () { return null; };
     var maps = [];
     var seen = {};
     var missing = [];
     var list = (scenes || []).filter(Boolean).map(function (scene) {
-      var copy = tidy(scene);
-      copy.encounters = null;
-      return copy;
+      return tidy(scene);
     });
     list.forEach(function (scene) {
       (scene.floors || []).forEach(function (floor) {
@@ -549,7 +762,6 @@
       var kept = 0;
       function remember(scene) {
         scene = tidy(scene);
-        scene.encounters = null;
         if (Object.keys(idRewrite).length) {
           scene.floors.forEach(function (floor) {
             if (idRewrite[floor.mapId]) floor.mapId = idRewrite[floor.mapId];
@@ -720,7 +932,11 @@
       tokensSame: JSON.stringify(tokens) === JSON.stringify(room.tokens || []),
       scenesSame: JSON.stringify(scenes) === JSON.stringify(room.scenes || {}),
       packSame: packIds.join(",") === (room.packIds || []).join(","),
-      sceneSpawns: sceneSpawns
+      sceneSpawns: sceneSpawns,
+      encounterPieces: scene.floors.map(function (f) {
+        var enc = f.encounters || { containers: [], enemies: [] };
+        return { mapId: f.mapId, floorName: f.name, containers: enc.containers, enemies: enc.enemies };
+      }).filter(function (f) { return f.containers.length || f.enemies.length; })
     };
   }
 
@@ -739,6 +955,84 @@
     wrap.appendChild(document.createTextNode(label));
     wrap.appendChild(input);
     return wrap;
+  }
+  function checkLabel(act, floorId, id, key, on, text) {
+    var box = el("input", { type: "checkbox", "data-act": act, "data-floor": floorId, "data-id": id });
+    if (on) box.checked = true;
+    var lab = el("label");
+    lab.appendChild(box);
+    lab.appendChild(document.createTextNode(text));
+    return lab;
+  }
+  function encounterBlock(panel, draft, floor) {
+    var enc = floor.encounters || { containers: [], enemies: [] };
+    var block = el("div", { class: "ssm-scene-encounter", "data-act": "encounterFloor" });
+    block.appendChild(el("div", { class: "ssm-scene-k" }, "Encounter"));
+    var tools = el("div", { class: "ssm-scene-tools" });
+    var chest = el("button", { type: "button", "data-act": "boxPlace", "data-kind": "chest", "data-floor": floor.id }, "Place chest");
+    var strong = el("button", { type: "button", "data-act": "boxPlace", "data-kind": "strongbox", "data-floor": floor.id }, "Place strongbox");
+    if (panel._encArm && panel._encArm.floorId === floor.id && panel._encArm.kind === "chest") chest.className = "is-on";
+    if (panel._encArm && panel._encArm.floorId === floor.id && panel._encArm.kind === "strongbox") strong.className = "is-on";
+    tools.appendChild(chest);
+    tools.appendChild(strong);
+    var beasts = [];
+    try { beasts = (panel._opts && panel._opts.bestiary && panel._opts.bestiary()) || []; } catch (e) { beasts = []; }
+    var pick = el("select", { "data-act": "foePick", "data-floor": floor.id, "aria-label": "Creature" });
+    if (!beasts.length) pick.appendChild(el("option", { value: "" }, "Enemy"));
+    beasts.forEach(function (b) { pick.appendChild(el("option", { value: b.id }, b.name)); });
+    tools.appendChild(pick);
+    var foe = el("button", { type: "button", "data-act": "foePlace", "data-floor": floor.id }, "Place enemy");
+    if (panel._encArm && panel._encArm.floorId === floor.id && panel._encArm.kind === "enemy") foe.className = "is-on";
+    tools.appendChild(foe);
+    tools.appendChild(el("button", { type: "button", "data-act": "foeRevealAll", "data-floor": floor.id }, "Reveal all"));
+    block.appendChild(tools);
+    enc.containers.forEach(function (box) {
+      var line = el("div", { class: "ssm-scene-piece", "data-box": box.id });
+      var name = el("input", { type: "text", "data-act": "boxName", "data-floor": floor.id, "data-id": box.id, "aria-label": "Container name" });
+      name.value = box.name;
+      line.appendChild(name);
+      line.appendChild(el("button", { type: "button", "data-act": "boxRemove", "data-floor": floor.id, "data-id": box.id, "aria-label": "Remove container" }, "×"));
+      var items = el("textarea", { "data-act": "boxItems", "data-floor": floor.id, "data-id": box.id, "aria-label": "Items, one per line", rows: "2" });
+      items.value = (box.items || []).map(function (it) { return it.qty > 1 ? it.name + " x" + it.qty : it.name; }).join("\n");
+      line.appendChild(items);
+      var nums = el("div", { class: "ssm-scene-linkbar" });
+      nums.appendChild(document.createTextNode("Lock DC"));
+      var lock = el("input", { type: "number", min: "0", "data-act": "boxLock", "data-floor": floor.id, "data-id": box.id, "aria-label": "Lock DC" });
+      lock.value = String(box.lockDc);
+      nums.appendChild(lock);
+      nums.appendChild(document.createTextNode("Force DC"));
+      var force = el("input", { type: "number", min: "0", "data-act": "boxForce", "data-floor": floor.id, "data-id": box.id, "aria-label": "Force DC" });
+      force.value = String(box.forceDc);
+      nums.appendChild(force);
+      line.appendChild(nums);
+      var flags = el("div", { class: "ssm-scene-linkbar" });
+      flags.appendChild(checkLabel("boxUnlocked", floor.id, box.id, "unlocked", box.unlocked, "Unlocked"));
+      flags.appendChild(checkLabel("boxRetries", floor.id, box.id, "retries", box.allowRetries, "Retries"));
+      flags.appendChild(checkLabel("boxImprovise", floor.id, box.id, "improvise", box.improvise, "Improvise"));
+      line.appendChild(flags);
+      line.appendChild(el("p", { class: "ssm-scene-stairs" }, (box.kind === "strongbox" ? "Strongbox" : "Chest") + " at " + box.x + "," + box.y));
+      block.appendChild(line);
+    });
+    enc.enemies.forEach(function (foe) {
+      var line = el("div", { class: "ssm-scene-piece", "data-foe": foe.id });
+      var name = el("input", { type: "text", "data-act": "foeName", "data-floor": floor.id, "data-id": foe.id, "aria-label": "Enemy name" });
+      name.value = foe.name;
+      line.appendChild(name);
+      line.appendChild(el("button", { type: "button", "data-act": "foeRemove", "data-floor": floor.id, "data-id": foe.id, "aria-label": "Remove enemy" }, "×"));
+      var bar = el("div", { class: "ssm-scene-linkbar" });
+      bar.appendChild(checkLabel("foeHidden", floor.id, foe.id, "hidden", foe.hidden, "Starts hidden"));
+      var group = el("input", { type: "text", "data-act": "foeGroup", "data-floor": floor.id, "data-id": foe.id, "aria-label": "Initiative group", placeholder: "Initiative group" });
+      group.value = foe.initGroup || "";
+      bar.appendChild(group);
+      var xp = el("input", { type: "number", min: "0", "data-act": "foeXp", "data-floor": floor.id, "data-id": foe.id, "aria-label": "XP" });
+      xp.value = String(foe.xp || 0);
+      bar.appendChild(xp);
+      bar.appendChild(el("button", { type: "button", "data-act": "foeReveal", "data-floor": floor.id, "data-id": foe.id }, foe.hidden ? "Reveal" : "Shown"));
+      line.appendChild(bar);
+      line.appendChild(el("p", { class: "ssm-scene-stairs" }, (foe.bestiaryId || "Custom") + " at " + foe.x + "," + foe.y));
+      block.appendChild(line);
+    });
+    return block;
   }
   function paint(panel, draft, lib, maps) {
     var focus = document.activeElement;
@@ -864,11 +1158,17 @@
       });
       links.appendChild(el("p", { class: "ssm-scene-stairs" }, "Players stepping onto a link comes in a later update. Take link moves the tokens you selected."));
       row.appendChild(links);
+      row.appendChild(encounterBlock(panel, draft, floor));
       if (index === draft.floors.length - 1) row.setAttribute("data-last", "1");
       list.appendChild(row);
     });
     if (!draft.floors.length) list.appendChild(el("li", { class: "ssm-scene-empty" }, "No floors yet."));
     panel.appendChild(list);
+    if (draft.encounters) {
+      var sum = draft.encounters;
+      var lootLine = (sum.loot || []).map(function (row) { return row.name + (row.items && row.items.length ? " (" + row.items.join(", ") + ")" : ""); }).join("; ");
+      panel.appendChild(el("p", { class: "ssm-scene-stairs", "data-act": "encounterSummary" }, "Encounter: " + sum.xp + " XP · " + sum.enemies + " enemies (" + sum.hidden + " start hidden) · " + sum.containers + " containers" + (lootLine ? " · " + lootLine : "")));
+    }
     var port = el("div", { class: "ssm-scene-tools", "data-act": "scenePackTools" });
     port.appendChild(el("button", { type: "button", "data-act": "sceneExport" }, "Export library"));
     port.appendChild(el("button", { type: "button", "data-act": "sceneImport" }, "Import library"));
@@ -926,6 +1226,7 @@
     var store = storeOf(opts.store);
     var draft = tidy(opts.scene || blank(opts.name));
     var panel = el("section", { class: "ssm-scene-builder ssm-map-ui", "data-act": "sceneBuilder", role: "dialog", "aria-label": "Scene builder" });
+    panel._opts = opts || {};
     parent.appendChild(panel);
     function maps() {
       var list = [];
@@ -939,7 +1240,7 @@
       if (ev.key === "Escape") {
         ev.preventDefault();
         ev.stopPropagation();
-        if (panel._arm || panel._linkArm) { panel._arm = null; panel._linkArm = null; if (opts.onDisarm) opts.onDisarm(); draw(); return; }
+        if (panel._arm || panel._linkArm || panel._encArm) { panel._arm = null; panel._linkArm = null; panel._encArm = null; if (opts.onDisarm) opts.onDisarm(); draw(); return; }
         if (panel._confirmDelete) { panel._confirmDelete = ""; draw(); return; }
         close();
       }
@@ -954,7 +1255,7 @@
       var floorId = btn.getAttribute("data-floor");
       var sceneId = btn.getAttribute("data-id");
       if (act === "sceneClose") close();
-      else if (act === "sceneNew") { draft = blank("New scene"); panel._confirmDelete = ""; panel._arm = null; panel._linkArm = null; }
+      else if (act === "sceneNew") { draft = blank("New scene"); panel._confirmDelete = ""; panel._arm = null; panel._linkArm = null; panel._encArm = null; }
       else if (act === "sceneSave") { draft = saveScene(store, draft); }
       else if (act === "sceneDuplicate") {
         draft = saveScene(store, draft);
@@ -997,6 +1298,35 @@
       else if (act === "linkTake") {
         var takeHit = findLink(draft, btn.getAttribute("data-link"));
         if (takeHit && opts.onTake) opts.onTake(takeHit.link, takeHit.floor);
+      }
+      else if (act === "boxPlace" || act === "foePlace") {
+        panel._arm = null;
+        panel._linkArm = null;
+        var armed = floorOf(draft, floorId) || {};
+        var kind = act === "foePlace" ? "enemy" : (btn.getAttribute("data-kind") || "chest");
+        var spec = { kind: kind, mode: "marker", floorId: floorId, mapId: armed.mapId, name: kind === "strongbox" ? "Strongbox" : "Chest" };
+        if (kind === "enemy") {
+          var pick = panel.querySelector("[data-act='foePick'][data-floor='" + floorId + "']");
+          var beasts = [];
+          try { beasts = (opts.bestiary && opts.bestiary()) || []; } catch (e2) { beasts = []; }
+          var beast = beasts.filter(function (b) { return pick && b.id === pick.value; })[0];
+          spec.name = beast ? beast.name : ((pick && pick.selectedOptions && pick.selectedOptions[0] && pick.selectedOptions[0].text) || "Enemy");
+          spec.bestiaryId = beast ? beast.id : (pick && pick.value) || "";
+          spec.xp = beast ? (beast.xp || 0) : 0;
+          spec.hp = beast && beast.hp != null ? beast.hp : null;
+        }
+        panel._encArm = spec;
+        if (opts.onArm) opts.onArm(spec);
+      }
+      else if (act === "boxRemove") draft = removeContainer(draft, floorId, btn.getAttribute("data-id"));
+      else if (act === "foeRemove") draft = removeEnemy(draft, floorId, btn.getAttribute("data-id"));
+      else if (act === "foeReveal") {
+        draft = revealEnemies(draft, floorId, btn.getAttribute("data-id"));
+        if (opts.onReveal) opts.onReveal(btn.getAttribute("data-id"), (floorOf(draft, floorId) || {}).mapId);
+      }
+      else if (act === "foeRevealAll") {
+        draft = revealEnemies(draft, floorId);
+        if (opts.onRevealAll) opts.onRevealAll((floorOf(draft, floorId) || {}).mapId);
       }
       else if (act === "sceneExport") {
         if (opts.onExport) opts.onExport(exportLibrary(store));
@@ -1051,6 +1381,13 @@
       if (act === "sceneName") draft.name = node.value;
       else if (act === "floorName") draft = renameFloor(draft, node.getAttribute("data-floor"), node.value);
       else if (act === "groupName") draft = renameGroup(draft, node.getAttribute("data-floor"), node.getAttribute("data-group"), node.value);
+      else if (act === "boxName") draft = setContainer(draft, node.getAttribute("data-floor"), node.getAttribute("data-id"), { name: node.value });
+      else if (act === "boxItems") draft = setContainer(draft, node.getAttribute("data-floor"), node.getAttribute("data-id"), { items: node.value });
+      else if (act === "boxLock") draft = setContainer(draft, node.getAttribute("data-floor"), node.getAttribute("data-id"), { lockDc: node.value });
+      else if (act === "boxForce") draft = setContainer(draft, node.getAttribute("data-floor"), node.getAttribute("data-id"), { forceDc: node.value });
+      else if (act === "foeName") draft = setEnemy(draft, node.getAttribute("data-floor"), node.getAttribute("data-id"), { name: node.value });
+      else if (act === "foeGroup") draft = setEnemy(draft, node.getAttribute("data-floor"), node.getAttribute("data-id"), { initGroup: node.value });
+      else if (act === "foeXp") draft = setEnemy(draft, node.getAttribute("data-floor"), node.getAttribute("data-id"), { xp: node.value });
       else if (act === "spawnX" || act === "spawnY") {
         var patch = {};
         if (act === "spawnX") patch.x = node.value;
@@ -1096,6 +1433,22 @@
           draw();
         };
         packReader.readAsText(packFile);
+        return;
+      }
+      if (act === "boxUnlocked" || act === "boxRetries" || act === "boxImprovise") {
+        var boxPatch = {};
+        if (act === "boxUnlocked") boxPatch.unlocked = !!node.checked;
+        if (act === "boxRetries") boxPatch.allowRetries = !!node.checked;
+        if (act === "boxImprovise") boxPatch.improvise = !!node.checked;
+        draft = setContainer(draft, node.getAttribute("data-floor"), node.getAttribute("data-id"), boxPatch);
+        if (opts.onChange) opts.onChange(tidy(draft));
+        draw();
+        return;
+      }
+      if (act === "foeHidden") {
+        draft = setEnemy(draft, node.getAttribute("data-floor"), node.getAttribute("data-id"), { hidden: !!node.checked });
+        if (opts.onChange) opts.onChange(tidy(draft));
+        draw();
         return;
       }
       if (act === "linkKind" || act === "linkDest" || act === "linkTwoWay" || act === "linkVisible") {
@@ -1148,8 +1501,8 @@
       onClose: opts.onClose || null,
       store: store,
       draft: function () { return tidy(draft); },
-      arm: function () { return panel._linkArm || panel._arm || null; },
-      disarm: function () { panel._arm = null; panel._linkArm = null; draw(); },
+      arm: function () { return panel._encArm || panel._linkArm || panel._arm || null; },
+      disarm: function () { panel._arm = null; panel._linkArm = null; panel._encArm = null; draw(); },
       dropAt: function (x, y) {
         if (!panel._arm) return null;
         draft = addSpawn(draft, panel._arm.floorId, { groupId: panel._arm.groupId, x: x, y: y });
@@ -1215,6 +1568,43 @@
         if (opts.onChange) opts.onChange(tidy(draft));
         draw();
         return tidy(draft);
+      },
+      dropEncounter: function (x, y) {
+        if (!panel._encArm) return null;
+        var arm = panel._encArm;
+        var made = null;
+        if (arm.kind === "enemy") {
+          draft = addEnemy(draft, arm.floorId, { x: x, y: y, name: arm.name, bestiaryId: arm.bestiaryId, xp: arm.xp, hp: arm.hp, hidden: true });
+          var floor = floorOf(draft, arm.floorId);
+          made = floor && floor.encounters.enemies[floor.encounters.enemies.length - 1];
+        } else {
+          draft = addContainer(draft, arm.floorId, { kind: arm.kind, x: x, y: y });
+          var boxFloor = floorOf(draft, arm.floorId);
+          made = boxFloor && boxFloor.encounters.containers[boxFloor.encounters.containers.length - 1];
+        }
+        panel._encArm = null;
+        if (opts.onChange) opts.onChange(tidy(draft));
+        if (opts.onDisarm) opts.onDisarm();
+        draw();
+        return made;
+      },
+      moveEncounter: function (id, x, y) {
+        var hit = findPiece(draft, id);
+        if (!hit) return tidy(draft);
+        if (hit.container) draft = setContainer(draft, hit.floor.id, id, { x: x, y: y });
+        else draft = setEnemy(draft, hit.floor.id, id, { x: x, y: y });
+        if (opts.onChange) opts.onChange(tidy(draft));
+        draw();
+        return tidy(draft);
+      },
+      removeEncounter: function (id) {
+        var hit = findPiece(draft, id);
+        if (!hit) return tidy(draft);
+        if (hit.container) draft = removeContainer(draft, hit.floor.id, id);
+        else draft = removeEnemy(draft, hit.floor.id, id);
+        if (opts.onChange) opts.onChange(tidy(draft));
+        draw();
+        return tidy(draft);
       }
     };
     void commit;
@@ -1249,6 +1639,15 @@
     addLink: addLink,
     setLink: setLink,
     removeLink: removeLink,
+    addContainer: addContainer,
+    setContainer: setContainer,
+    removeContainer: removeContainer,
+    addEnemy: addEnemy,
+    setEnemy: setEnemy,
+    removeEnemy: removeEnemy,
+    revealEnemies: revealEnemies,
+    lootFromContainer: lootFromContainer,
+    encounterSummary: encounterSummary,
     groupSpots: groupSpots,
     assignLandings: assignLandings,
     PACK_FORMAT: PACK_FORMAT,
@@ -1272,6 +1671,9 @@
     moveGhost: function (id, x, y) { return live && live.moveGhost ? live.moveGhost(id, x, y) : null; },
     removeGhost: function (id) { return live && live.removeGhost ? live.removeGhost(id) : null; },
     dropLink: function (x, y) { return live && live.dropLink ? live.dropLink(x, y) : null; },
+    dropEncounter: function (x, y) { return live && live.dropEncounter ? live.dropEncounter(x, y) : null; },
+    moveEncounter: function (id, x, y) { return live && live.moveEncounter ? live.moveEncounter(id, x, y) : null; },
+    removeEncounter: function (id) { return live && live.removeEncounter ? live.removeEncounter(id) : null; },
     moveLink: function (id, x, y) { return live && live.moveLink ? live.moveLink(id, x, y) : null; },
     removeLinkMark: function (id) { return live && live.removeLink ? live.removeLink(id) : null; },
     setLinkMark: function (id, patch) { return live && live.setLink ? live.setLink(id, patch) : null; },
@@ -1306,6 +1708,22 @@
         (f.spawns || []).forEach(function (sp) {
           var g = (f.groups || []).filter(function (gr) { return gr.id === sp.groupId; })[0];
           out.push({ id: sp.id, n: sp.n, x: sp.x, y: sp.y, groupId: sp.groupId, name: g ? g.name : "Party", color: g ? g.color : COLORS[0] });
+        });
+      });
+      return out;
+    },
+    piecesOnMap: function (mapId) {
+      var scene = live && live.draft ? live.draft() : null;
+      var out = [];
+      if (!scene) return out;
+      (scene.floors || []).forEach(function (f) {
+        if (mapId && f.mapId !== mapId) return;
+        var enc = f.encounters || { containers: [], enemies: [] };
+        (enc.containers || []).forEach(function (c) {
+          out.push({ id: c.id, kind: c.kind, name: c.name, x: c.x, y: c.y, mapId: f.mapId });
+        });
+        (enc.enemies || []).forEach(function (e) {
+          out.push({ id: e.id, kind: "enemy", name: e.name, x: e.x, y: e.y, hidden: !!e.hidden, mapId: f.mapId });
         });
       });
       return out;

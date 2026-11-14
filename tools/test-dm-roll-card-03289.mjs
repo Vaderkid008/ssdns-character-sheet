@@ -1,5 +1,5 @@
 /**
- * DM compact Challenge cards (sheet 0.3.312 / DMCC 0.2.325).
+ * DM compact Challenge cards (sheet 0.3.313 / DMCC 0.2.326).
  * The component can render anywhere. This draft only turns it on for the DM.
  *   node tools/test-dm-roll-card-03289.mjs
  */
@@ -17,7 +17,7 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.312" && ver.dmcc === "0.2.325");
+check("ver", ver.sheet === "0.3.313" && ver.dmcc === "0.2.326");
 check("rules.clean", !read("assets/data/rules.js").includes("ssdns-roll-cards") && !read("database.rules.json").includes("ssdns-roll-cards"));
 
 const join = read("assets/js/dm-join.js");
