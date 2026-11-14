@@ -10456,7 +10456,16 @@ function onControlledTurn(token) {
 function tokenWho(t) {
   return (t && (t.name || t.label)) || "A player";
 }
-/* Squares already taken on this floor. Party markers and the tokens we are about to move do not count. */
+function floorGrid(sceneId) {
+  const sc = allScenes().find(s => s && s.id === sceneId);
+  return (sc && sc.grid) || { cols: 30, rows: 20 };
+}
+function floorCentre(grid) {
+  return {
+    x: Math.floor((Number(grid.cols) || 30) / 2),
+    y: Math.floor((Number(grid.rows) || 20) / 2)
+  };
+}
 function floorTaken(sceneId, ignoreIds) {
   const used = {};
   const skip = ignoreIds || {};
@@ -10473,13 +10482,18 @@ function floorTaken(sceneId, ignoreIds) {
 function nearestOpenSquare(origin, grid, used) {
   const cols = Math.max(1, Number(grid.cols) || 30);
   const rows = Math.max(1, Number(grid.rows) || 20);
+  const centre = floorCentre(grid);
   const ox = Math.max(0, Math.min(cols - 1, Math.round(Number(origin.x) || 0)));
   const oy = Math.max(0, Math.min(rows - 1, Math.round(Number(origin.y) || 0)));
   let best = null;
   let bestD = 1e9;
+  let fallback = null;
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       if (used[x + "," + y]) continue;
+      const centreSquare = x === centre.x && y === centre.y;
+      if (!fallback) fallback = { x: x, y: y };
+      if (centreSquare) continue;
       const d = Math.max(Math.abs(x - ox), Math.abs(y - oy));
       if (d < bestD || (d === bestD && best && (y < best.y || (y === best.y && x < best.x)))) {
         bestD = d;
@@ -10487,12 +10501,21 @@ function nearestOpenSquare(origin, grid, used) {
       }
     }
   }
-  return best || { x: ox, y: oy };
+  return best || fallback || { x: ox, y: oy };
 }
-/* Set floor, Send to, and Move party here share this order:
-   link landing, default spawn group, other scene spawns, then a square near the map entry.
-   The map centre is not an entry. Two people never take the same square. */
-function floorLandingSpots(sceneId) {
+/* A link this token is standing on, whose other end is the floor we are moving to. */
+function linkUnderFeet(token, destId) {
+  if (!token || !token.pos) return null;
+  const mapId = sceneKey(token);
+  const size = token.size || 1;
+  return liveLinks().find(link => {
+    if (!link || link.mapId !== mapId || link.destMapId !== destId) return false;
+    if (link.landX == null || link.landY == null) return false;
+    return link.x >= token.pos.x && link.x < token.pos.x + size && link.y >= token.pos.y && link.y < token.pos.y + size;
+  }) || null;
+}
+/* Default spawn group (or the group the DM picked), then scene spawns, then a landing from the other floor. */
+function floorArrivalSpots(sceneId, groupId) {
   const spots = [];
   const seen = {};
   function add(x, y) {
@@ -10504,47 +10527,59 @@ function floorLandingSpots(sceneId) {
     seen[key] = 1;
     spots.push({ x: x, y: y });
   }
+  const groups = (shared.sceneSpawns && shared.sceneSpawns[sceneId] && shared.sceneSpawns[sceneId].groups) || [];
+  const chosen = groupId ? groups.filter(g => g && g.id === groupId)[0] : null;
+  const preferred = chosen || groups.filter(g => g && g.isDefault)[0] || null;
+  const group = preferred && (preferred.spots || []).length ? preferred : null;
+  if (group) {
+    (group.spots || []).slice().sort((a, b) => (a.n || 0) - (b.n || 0)).forEach(sp => add(sp.x, sp.y));
+    return spots;
+  }
+  const sd = sceneData(sceneId);
+  const party = Array.isArray(sd.spawns) ? sd.spawns.filter(s => s && s.pos && (s.side === "party" || /^P/i.test(String(s.tag || "")))) : [];
+  if (party.length) {
+    party.forEach(s => add(s.pos.x, s.pos.y));
+    return spots;
+  }
   liveLinks().forEach(link => {
     if (!link || link.destMapId !== sceneId || link.mapId === sceneId) return;
     if (link.landX == null || link.landY == null) return;
     add(link.landX, link.landY);
   });
-  const groups = (shared.sceneSpawns && shared.sceneSpawns[sceneId] && shared.sceneSpawns[sceneId].groups) || [];
-  const preferred = groups.filter(g => g && g.isDefault)[0] || groups[0] || null;
-  ((preferred && preferred.spots) || []).slice().sort((a, b) => (a.n || 0) - (b.n || 0)).forEach(sp => add(sp.x, sp.y));
-  groups.forEach(g => {
-    if (!g || (preferred && g.id === preferred.id)) return;
-    (g.spots || []).slice().sort((a, b) => (a.n || 0) - (b.n || 0)).forEach(sp => add(sp.x, sp.y));
-  });
-  const sd = sceneData(sceneId);
-  const party = Array.isArray(sd.spawns) ? sd.spawns.filter(s => s && s.pos && (s.side === "party" || /^P/i.test(String(s.tag || "")))) : [];
-  party.forEach(s => add(s.pos.x, s.pos.y));
   return spots;
 }
-function floorLandingPlan(sceneId, count, ignoreIds) {
-  const sc = allScenes().find(s => s && s.id === sceneId);
-  const grid = (sc && sc.grid) || { cols: 30, rows: 20 };
-  const used = floorTaken(sceneId, ignoreIds);
-  const spots = floorLandingSpots(sceneId);
-  const entry = spots.length ? spots[0] : { x: 1, y: 1 };
+/* One square per token. Standing on a link uses that landing. Otherwise the arrival list.
+   Extras take the nearest open square to the entry, never the dead centre, and never a shared square. */
+function floorLandingPlan(sceneId, tokens, groupId) {
+  const grid = floorGrid(sceneId);
+  const ignore = {};
+  (tokens || []).forEach(t => { if (t && t.id) ignore[t.id] = 1; });
+  const used = floorTaken(sceneId, ignore);
+  const pool = floorArrivalSpots(sceneId, groupId);
+  const entry = pool.length ? pool[0] : { x: 1, y: 1 };
   const plan = [];
-  const n = Math.max(0, Number(count) || 0);
-  for (let i = 0; i < n; i++) {
+  (tokens || []).forEach(token => {
+    const stood = linkUnderFeet(token, sceneId);
     let cell = null;
-    for (let s = 0; s < spots.length; s++) {
-      if (used[spots[s].x + "," + spots[s].y]) continue;
-      cell = { x: spots[s].x, y: spots[s].y };
-      break;
+    if (stood) {
+      const key = Math.round(stood.landX) + "," + Math.round(stood.landY);
+      if (!used[key]) cell = { x: Math.round(stood.landX), y: Math.round(stood.landY) };
+      else cell = nearestOpenSquare({ x: stood.landX, y: stood.landY }, grid, used);
+    } else {
+      const spot = pool.find(sp => !used[sp.x + "," + sp.y]);
+      if (spot) cell = { x: spot.x, y: spot.y };
+      else cell = nearestOpenSquare(entry, grid, used);
     }
-    if (!cell) cell = nearestOpenSquare(entry, grid, used);
     used[cell.x + "," + cell.y] = 1;
     plan.push(cell);
-  }
+  });
   return plan;
 }
 function entryCell(sceneId, index) {
   const n = Math.max(0, Number(index) || 0);
-  const plan = floorLandingPlan(sceneId, n + 1, {});
+  const blanks = [];
+  for (let i = 0; i < n + 1; i++) blanks.push({ id: "entry_" + i, pos: null });
+  const plan = floorLandingPlan(sceneId, blanks, "");
   return plan[n] || { x: 1, y: 1 };
 }
 function savePreps() {
@@ -11350,9 +11385,10 @@ function landToken(t, sceneId, cell) {
   if (!active || active.id === t.id) shared.playerScenes[t.ownerUid] = sceneId;
   saveToken(t.id);
 }
-/* Move party here. A prep ghost keeps its square. Everyone else lands on a link
-   landing, then the default spawn group, then the other scene spawns, then a
-   square near that entry. Nobody is dropped on the centre, and nobody stacks.
+/* Move party here. A prep ghost keeps its square. Anyone else standing on a link
+   to this floor uses that landing. Otherwise the chosen spawn group, or the default
+   group, then the scene spawns, then the other floor's landing, then a square near
+   the entry. Nobody is dropped on the centre, and nobody stacks.
    A copy that is not the active token stays on its own map. Fog on each map stays. */
 function openSpawnGroupPick(groups, done) {
   let panel = q("spawnGroupPick");
@@ -11382,6 +11418,12 @@ function movePartyHere(uids, groupId) {
   const name = floorName(id);
   saveScene(id);
     const wanted = Array.isArray(uids) && uids.length ? uids : null;
+  const groups = (shared.sceneSpawns && shared.sceneSpawns[id] && shared.sceneSpawns[id].groups) || [];
+  if (groups.length > 1 && !groupId) {
+    openSpawnGroupPick(groups, (picked) => movePartyHere(uids, picked));
+    return [];
+  }
+  const group = groups.filter(g => g.id === groupId)[0] || groups.filter(g => g.isDefault)[0] || groups[0] || null;
   const movers = [];
   const seen = {};
   (state.tokens || []).forEach(t => {
@@ -11397,10 +11439,8 @@ function movePartyHere(uids, groupId) {
   });
   const ghosts = movers.filter(row => row.ghost);
   const fresh = movers.filter(row => !row.ghost);
-  const ignore = {};
-  fresh.forEach(row => { ignore[row.token.id] = 1; });
   ghosts.forEach(row => landToken(row.token, id, { x: row.ghost.x, y: row.ghost.y }));
-  const plan = floorLandingPlan(id, fresh.length, ignore);
+  const plan = floorLandingPlan(id, fresh.map(row => row.token), group && group.id);
   fresh.forEach((row, i) => landToken(row.token, id, plan[i] || { x: 1, y: 1 }));
   const moved = [];
   movers.forEach(row => {
@@ -11428,9 +11468,7 @@ function sendTokenTo(tokenId, sceneId) {
   const ghost = state.preps && state.preps[sceneId] && state.preps[sceneId][t.ownerUid];
   const active = activeOwned(t.ownerUid);
   const useGhost = !!(ghost && active && active.id === t.id);
-  const ignore = {};
-  ignore[t.id] = 1;
-  const cell = useGhost ? { x: ghost.x, y: ghost.y } : (floorLandingPlan(sceneId, 1, ignore)[0] || { x: 1, y: 1 });
+  const cell = useGhost ? { x: ghost.x, y: ghost.y } : (floorLandingPlan(sceneId, [t], "")[0] || { x: 1, y: 1 });
   landToken(t, sceneId, cell);
   if (useGhost) {
     delete state.preps[sceneId][t.ownerUid];
@@ -17303,19 +17341,16 @@ function douseSelected(out) {
     }
     if (!targets.length) { toast("Select a token first"); return []; }
     const moving = targets.filter(t => (t.sceneId || "") !== sceneId);
-    const ignore = {};
-    moving.forEach(t => { ignore[t.id] = 1; });
-    const plan = floorLandingPlan(sceneId, moving.length, ignore);
+    const plan = floorLandingPlan(sceneId, moving, "");
     moving.forEach((t, i) => landToken(t, sceneId, plan[i] || { x: 1, y: 1 }));
     targets.forEach(t => {
-      if ((t.sceneId || "") === sceneId && moving.indexOf(t) < 0) {
-        if (t.ownerUid) {
-          const active = activeOwned(t.ownerUid);
-          if (!shared.playerScenes) shared.playerScenes = {};
-          if (!active || active.id === t.id) shared.playerScenes[t.ownerUid] = sceneId;
-        }
-        saveToken(t.id);
+      if (moving.indexOf(t) >= 0) return;
+      if (t.ownerUid) {
+        const active = activeOwned(t.ownerUid);
+        if (!shared.playerScenes) shared.playerScenes = {};
+        if (!active || active.id === t.id) shared.playerScenes[t.ownerUid] = sceneId;
       }
+      saveToken(t.id);
     });
     postScenes();
     draw();
@@ -17324,11 +17359,11 @@ function douseSelected(out) {
   }
   q('setFloorBtn').addEventListener('click', () => {
     const sel = q('sceneSelect');
-    const sceneId = sel.value;
+    const sceneId = sel && sel.value;
     const moved = setFloor(sceneId);
     if (!moved.length && !(state.selectedIds.length || state.selected)) return;
     flashBtn('setFloorBtn');
-    toast('Floor set to ' + sel.options[sel.selectedIndex].text);
+    toast('Floor set to ' + (sel && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex].text : floorName(sceneId)));
   });
   q('showSceneBtn').addEventListener('click', () => {
     showToPlayers();
@@ -17871,6 +17906,9 @@ function switchFloor(id) {
     draw();
     return true;
   }
+  const picked = state.selectedIds.length ? state.tokens.filter(t => t && state.selectedIds.includes(t.id)) : (state.selected ? [state.selected] : []);
+  const moving = picked.filter(t => t && (t.sceneId || "") !== id);
+  if (moving.length) setFloor(id, moving.map(t => t.id));
   return swapScene(id);
 }
 function stepFloor(dir) {
