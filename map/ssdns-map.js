@@ -7107,6 +7107,87 @@ function closeMapMenus(keep) {
 function floatBar(title) {
   return '<div class="ssm-card-bar" data-float-drag><b>' + title + '</b><button type="button" data-menu-close="1" aria-label="Close">×</button></div>';
 }
+function tokenCmdBar() {
+  return '<div class="ssm-card-bar" data-float-drag><b>Token</b>'
+    + '<select class="ssm-cmd-dock" data-act="tokenCmdDock" aria-label="Token menu position">'
+    + '<option value="">By token</option>'
+    + '<option value="float">Floating</option>'
+    + '<option value="bl">Dock bottom-left</option>'
+    + '<option value="br">Dock bottom-right</option>'
+    + '</select>'
+    + '<button type="button" data-menu-close="1" aria-label="Close">×</button></div>';
+}
+function tokenMenuKey() {
+  return phoneMapMode() ? "ssdns.tokenCmd.phone" : "ssdns.tokenCmd.desktop";
+}
+function readTokenMenuPref() {
+  try {
+    const raw = localStorage.getItem(tokenMenuKey());
+    if (!raw) return { mode: "", pos: null };
+    const o = JSON.parse(raw);
+    const pos = o && o.pos && isFinite(Number(o.pos.left)) && isFinite(Number(o.pos.top))
+      ? { left: Number(o.pos.left), top: Number(o.pos.top) } : null;
+    const mode = o && (o.mode === "float" || o.mode === "bl" || o.mode === "br") ? o.mode : "";
+    return { mode: mode, pos: pos };
+  } catch (e) { return { mode: "", pos: null }; }
+}
+function writeTokenMenuPref(patch) {
+  const cur = readTokenMenuPref();
+  const next = {
+    mode: patch && patch.mode !== undefined ? patch.mode : cur.mode,
+    pos: patch && patch.pos !== undefined ? patch.pos : cur.pos
+  };
+  try { localStorage.setItem(tokenMenuKey(), JSON.stringify(next)); } catch (e) {}
+  return next;
+}
+/* Space the menu may occupy: the visible grid, above the player card. */
+function menuBounds() {
+  const frameW = el.clientWidth || 0;
+  const frameH = el.clientHeight || 0;
+  let left = 4;
+  let top = 4;
+  let right = Math.max(8, frameW - 4);
+  let bottom = Math.max(48, frameH - 4);
+  try {
+    const er = el.getBoundingClientRect();
+    if (canvas && canvas.getBoundingClientRect) {
+      const gr = canvas.getBoundingClientRect();
+      const gL = gr.left - er.left;
+      const gT = gr.top - er.top;
+      const gR = gr.right - er.left;
+      const gB = gr.bottom - er.top;
+      if (gR - gL > 80 && gB - gT > 80) {
+        left = gL + 4;
+        top = gT + 4;
+        right = gR - 4;
+        bottom = gB - 4;
+      }
+    }
+    const viewL = Math.max(er.left, 0);
+    const viewR = Math.min(er.right, window.innerWidth || er.right);
+    const viewT = Math.max(er.top, 0);
+    const viewB = Math.min(er.bottom, window.innerHeight || er.bottom);
+    if (viewR - viewL > 64 && viewB - viewT > 64) {
+      left = Math.max(left, viewL - er.left + 4);
+      right = Math.min(right, viewR - er.left - 4);
+      top = Math.max(top, viewT - er.top + 4);
+      bottom = Math.min(bottom, viewB - er.top - 4);
+    }
+    const card = q("playerCard");
+    if (card && !card.hidden && card.getBoundingClientRect) {
+      const pr = card.getBoundingClientRect();
+      const pTop = pr.top - er.top;
+      const pBottom = pr.bottom - er.top;
+      const pLeft = pr.left - er.left;
+      const pRight = pr.right - er.left;
+      const overlapsX = pRight > left + 8 && pLeft < right - 8;
+      if (overlapsX && pTop < bottom && pBottom > top + 24) bottom = Math.max(top + 48, Math.min(bottom, pTop - 6));
+    }
+  } catch (e) {}
+  if (right < left + 48) right = left + 48;
+  if (bottom < top + 48) bottom = top + 48;
+  return { left: left, top: top, right: right, bottom: bottom, w: frameW, h: frameH };
+}
 function releaseMenuAnchor(menu) {
   if (menu && menu.dataset) delete menu.dataset.menuAnchored;
 }
@@ -7120,19 +7201,44 @@ function anchorMenuOnce(menu, left, top) {
 }
 function clampMenu(menu, left, top) {
   if (!menu || !el) return;
-  const frameW = el.clientWidth || 0;
-  const frameH = el.clientHeight || 0;
-  if (frameW > 16) menu.style.maxWidth = Math.max(96, frameW - 8) + "px";
-  if (frameH > 0 && menu.dataset.menuAnchored !== "1") menu.style.maxHeight = Math.max(96, frameH - 8) + "px";
-  const w = menu.offsetWidth || 220;
-  const h = Math.min(menu.offsetHeight || 64, frameH > 0 ? frameH - 8 : 64);
-  const maxL = Math.max(4, frameW - w - 4);
-  const maxT = Math.max(4, frameH - h - 4);
-  menu.style.left = Math.round(Math.max(4, Math.min(maxL, left))) + "px";
-  menu.style.top = Math.round(Math.max(4, Math.min(maxT, top))) + "px";
+  const box = menuBounds();
+  if (box.w > 16) menu.style.maxWidth = Math.max(96, box.w - 8) + "px";
+  const roomH = Math.max(48, box.bottom - box.top);
+  menu.style.maxHeight = roomH + "px";
+  const w = menu.offsetWidth || 180;
+  const h = Math.min(menu.offsetHeight || 64, roomH);
+  const maxL = Math.max(box.left, box.right - w);
+  const maxT = Math.max(box.top, box.bottom - h);
+  menu.style.left = Math.round(Math.max(box.left, Math.min(maxL, left))) + "px";
+  menu.style.top = Math.round(Math.max(box.top, Math.min(maxT, top))) + "px";
   menu.style.bottom = "auto";
   menu.style.right = "auto";
   menu.dataset.menuAnchored = "1";
+}
+function clearPlayerCard(menu) {
+  const card = q("playerCard");
+  if (!menu || !card || card.hidden || !el) return;
+  let cr, er, mr;
+  try {
+    cr = card.getBoundingClientRect();
+    er = el.getBoundingClientRect();
+    mr = menu.getBoundingClientRect();
+  } catch (e) { return; }
+  const overlap = !(mr.right <= cr.left + 2 || mr.left >= cr.right - 2 || mr.bottom <= cr.top + 2 || mr.top >= cr.bottom - 2);
+  if (!overlap) return;
+  const cardTop = cr.top - er.top;
+  clampMenu(menu, parseFloat(menu.style.left) || 0, cardTop - (menu.offsetHeight || 80) - 6);
+}
+function dockTokenCmd(menu, mode) {
+  if (!menu) return;
+  const box = menuBounds();
+  const w = menu.offsetWidth || 180;
+  const h = menu.offsetHeight || 120;
+  const left = mode === "br" ? box.right - w : box.left;
+  const top = box.bottom - h;
+  menu.dataset.menuDock = mode;
+  clampMenu(menu, left, top);
+  clearPlayerCard(menu);
 }
 function replaceMenuHtml(menu, html) {
   if (!menu) return;
@@ -7171,7 +7277,8 @@ function bindFloatingMenu(menu, hide) {
   }, true);
   menu.addEventListener("pointerdown", ev => {
     const bar = ev.target && ev.target.closest && ev.target.closest("[data-float-drag]");
-    if (!bar || (ev.target.closest && ev.target.closest("[data-menu-close]"))) return;
+    if (!bar || (ev.target.closest && (ev.target.closest("[data-menu-close]") || ev.target.closest("[data-act='tokenCmdDock']")))) return;
+    menu._cmdDrag = true;
     ev.preventDefault();
     const sx = ev.clientX;
     const sy = ev.clientY;
@@ -7193,6 +7300,13 @@ function bindFloatingMenu(menu, hide) {
       document.removeEventListener("pointerup", end, true);
       document.removeEventListener("pointercancel", end, true);
       window.removeEventListener("blur", end);
+      if (dragging && menu.getAttribute("data-act") === "tokenCmd") {
+        writeTokenMenuPref({ mode: "float", pos: { left: parseFloat(menu.style.left) || 0, top: parseFloat(menu.style.top) || 0 } });
+        menu.dataset.menuDock = "float";
+        const sel = menu.querySelector("[data-act='tokenCmdDock']");
+        if (sel) sel.value = "float";
+      }
+      menu._cmdDrag = false;
     };
     document.addEventListener("pointermove", move, true);
     document.addEventListener("pointerup", end, true);
@@ -9342,6 +9456,30 @@ function useTokenInteract() {
   else if (hit.kind === 'chest' || hit.kind === 'drop') showChestMenu(hit.token);
   else if (hit.kind === 'asset') showAssetMenu(hit.token);
 }
+function placeTokenCmd(menu, token) {
+  if (!menu || menu._cmdDrag) return;
+  const pref = readTokenMenuPref();
+  const sel = menu.querySelector("[data-act='tokenCmdDock']");
+  if (sel && document.activeElement !== sel) sel.value = pref.mode || "";
+  if (pref.mode === "bl" || pref.mode === "br") {
+    dockTokenCmd(menu, pref.mode);
+    return;
+  }
+  if (menu.dataset.menuAnchored === "1") return;
+  if (pref.mode === "float" && pref.pos) {
+    menu.dataset.menuDock = "float";
+    clampMenu(menu, pref.pos.left, pref.pos.top);
+    return;
+  }
+  menu.dataset.menuDock = "";
+  if (!token || !token.pos || !state.scene) return;
+  const px = state.scene.grid.px || 70;
+  const s = worldToScreen((token.pos.x + 0.5) * px, token.pos.y * px);
+  const r = ((Number(token.size) || 1) * px * (state.view.zoom || 1)) / 2;
+  const ox = canvas ? canvas.offsetLeft || 0 : 0;
+  const oy = canvas ? canvas.offsetTop || 0 : 0;
+  anchorMenuOnce(menu, ox + s.x + r + 8, oy + s.y - 8);
+}
 function placeCommandMenu() {
   if (state.drag && state.drag.token) return;
   const token = commandToken();
@@ -9355,9 +9493,18 @@ function placeCommandMenu() {
     menu = document.createElement('div');
     menu.className = 'ssm-token-cmd';
     menu.setAttribute('data-act', 'tokenCmd');
-    replaceMenuHtml(menu, floatBar("Token") + '<div class="ssm-card-body"><button type="button" data-act="tokenCmdMove">Move</button><button type="button" data-act="tokenCmdInteract">Interact</button><button type="button" data-act="tokenCmdDrop">Drop</button></div>');
+    replaceMenuHtml(menu, tokenCmdBar() + '<div class="ssm-card-body"><button type="button" data-act="tokenCmdMove">Move</button><button type="button" data-act="tokenCmdInteract">Interact</button><button type="button" data-act="tokenCmdDrop">Drop</button></div>');
     bindFloatingMenu(menu, hideCommandMenu);
     menu.addEventListener('pointerdown', ev => ev.stopPropagation());
+    menu.addEventListener('change', ev => {
+      const pick = ev.target && ev.target.getAttribute && ev.target.getAttribute('data-act');
+      if (pick !== 'tokenCmdDock') return;
+      ev.stopPropagation();
+      writeTokenMenuPref({ mode: ev.target.value || "" });
+      menu._cmdDrag = false;
+      releaseMenuAnchor(menu);
+      placeTokenCmd(menu, commandToken());
+    });
     menu.addEventListener('click', ev => {
       ev.stopPropagation();
       const act = ev.target && ev.target.getAttribute && ev.target.getAttribute('data-act');
@@ -9383,12 +9530,7 @@ function placeCommandMenu() {
   if (interact) interact.disabled = !interactTarget(token);
   const dropBtn = menu.querySelector('[data-act="tokenCmdDrop"]');
   if (dropBtn) dropBtn.disabled = !carriedItems().length;
-  const px = state.scene.grid.px || 70;
-  const s = worldToScreen((token.pos.x + 0.5) * px, token.pos.y * px);
-  const r = ((Number(token.size) || 1) * px * (state.view.zoom || 1)) / 2;
-  const ox = canvas ? canvas.offsetLeft || 0 : 0;
-  const oy = canvas ? canvas.offsetTop || 0 : 0;
-  anchorMenuOnce(menu, ox + s.x + r + 8, oy + s.y - 8);
+  placeTokenCmd(menu, token);
   el.dataset.moveArmed = state.moveArmed ? '1' : '0';
 }
 function showCommandMenu(token) {
@@ -14871,6 +15013,9 @@ function removeMapTokens(ids, opts) {
       loadTokenImage(t);
     }
     saveToken(t.id);
+    if ((fields.hp != null && fields.hp !== "") || (fields.maxHp != null && fields.maxHp !== "") || (fields.tempHp != null && fields.tempHp !== "")) {
+      (t.controlledBy || []).forEach(who => { if (who) publishGrantSheet(t, who, true); });
+    }
     mirrorSheetState(t);
     draw();
     return t;
@@ -17110,28 +17255,174 @@ function syncCombatants(initiative) {
     paintGrantSwitch();
     paintPlayerFight();
   }
+  function grantDie(sides) {
+    const cap = Math.max(1, Number(sides) || 20);
+    const q = state.grantRolls;
+    if (q && q.length) {
+      const n = Number(q.shift());
+      if (isFinite(n)) return Math.max(1, Math.min(cap, Math.round(n)));
+    }
+    return 1 + Math.floor(Math.random() * cap);
+  }
+  function parseDamageExpr(text) {
+    const raw = String(text || "").trim();
+    const m = raw.match(/(\d+)\s*d\s*(\d+)\s*([+-]\s*\d+)?/i);
+    if (!m) return null;
+    const rest = raw.slice(m.index + m[0].length).trim();
+    return {
+      n: Number(m[1]) || 1,
+      sides: Number(m[2]) || 4,
+      mod: m[3] ? parseInt(String(m[3]).replace(/\s/g, ""), 10) || 0 : 0,
+      type: (rest.split(/[,(]/)[0] || "").trim()
+    };
+  }
+  function targetAcOf(id) {
+    if (host && typeof host.targetAc === "function") {
+      try {
+        const n = Number(host.targetAc(id));
+        if (isFinite(n)) return n;
+      } catch (e) {}
+    }
+    try {
+      const sel = document.getElementById("atkTarget");
+      const opt = sel && sel.selectedOptions && sel.selectedOptions[0];
+      if (opt && (!id || sel.value === id) && opt.getAttribute("data-ac") != null && opt.getAttribute("data-ac") !== "") {
+        const n = Number(opt.getAttribute("data-ac"));
+        if (isFinite(n)) return n;
+      }
+    } catch (e) {}
+    const tok = tokenByRef(id);
+    if (tok && tok.ac != null && tok.ac !== "" && isFinite(Number(tok.ac))) return Number(tok.ac);
+    return null;
+  }
+  /* The DM map applies a player attack request the same way a hit lands:
+     nat 1 misses, nat 20 hits, otherwise the total has to meet AC. */
+  function applyStyledHit(req) {
+    if (role !== "dm" || !req) return null;
+    const tgt = tokenByRef(req.targetId);
+    if (!tgt) return null;
+    const ac = tgt.ac != null && tgt.ac !== "" && isFinite(Number(tgt.ac)) ? Number(tgt.ac) : null;
+    const nat = Number(req.nat);
+    const hitTotal = Number(req.hitTotal);
+    const crit = nat === 20;
+    const miss = nat === 1 || (!crit && ac != null && hitTotal < ac);
+    const amount = miss ? 0 : (Number(req.amount) || 0);
+    if (amount > 0 && tgt.hp != null && tgt.hp !== "") {
+      patchToken(tgt.id, { hp: Math.max(0, Number(tgt.hp) - amount) });
+    }
+    const who = req.characterName || "Someone";
+    const name = tgt.name || tgt.label || req.targetName || "target";
+    const word = miss ? "MISS" : (crit ? "CRIT" : "HIT");
+    const line = who + " → " + name + ": " + word + (amount ? " · " + amount + (req.dmgType ? " " + req.dmgType : "") : "");
+    pushFeed({ kind: "roll", text: line, attack: true, nat: nat, crit: crit && !miss, ts: new Date().toISOString() });
+    return { miss: miss, crit: crit && !miss, hp: tgt.hp != null && tgt.hp !== "" ? Number(tgt.hp) : null, amount: amount, ac: ac };
+  }
   function rollGrantAction(id) {
     const sheet = activeGrantSheet();
-    if (!sheet) return;
+    if (!sheet) return null;
     const act = (sheet.attacks || []).concat(sheet.spells || []).find(a => a && a.id === id);
-    if (!act) return;
+    if (!act) return null;
     const actor = actingToken();
     const targetId = state.playerTarget || "";
-    if (targetId && targetId !== FREE_SHOT) {
-      const verdict = rangeButtonNote(act, targetId, (actor && actor.id) || sheet.tokenId);
-      if (verdict && verdict.blocked) {
-        toast(verdict.button || "Out of range");
-        return;
+    const aimed = !!(targetId && targetId !== FREE_SHOT);
+    if (aimed) {
+      const range = rangeButtonNote(act, targetId, (actor && actor.id) || sheet.tokenId);
+      if (range && range.blocked) {
+        toast(range.button || "Out of range");
+        return { blocked: true };
       }
     }
     const bonus = parseInt(String(act.toHit || "").replace(/[^+-\d]/g, ""), 10);
     const mod = isFinite(bonus) ? bonus : 0;
-    const die = 1 + Math.floor(Math.random() * 20);
-    const total = die + mod;
-    const line = (sheet.name || "Token") + " — " + (act.name || "Attack") + ": " + die + (mod ? (mod > 0 ? "+" : "") + mod : "") + " = " + total + (act.damage ? " · " + act.damage : "");
-    state.grantLog.push({ id: id, tokenId: sheet.tokenId, name: act.name || "", die: die, total: total, line: line });
+    const nat = grantDie(20);
+    const hitTotal = nat + mod;
+    const ac = aimed ? targetAcOf(targetId) : null;
+    const crit = nat === 20;
+    const miss = nat === 1 || (!crit && ac != null && hitTotal < ac);
+    const parsed = !miss ? parseDamageExpr(act.damage || "") : null;
+    const faces = [];
+    let amount = 0;
+    let dmgFormula = "";
+    const dmgType = parsed ? parsed.type : "";
+    if (parsed) {
+      const count = crit ? parsed.n * 2 : parsed.n;
+      for (let i = 0; i < count; i++) faces.push(grantDie(parsed.sides));
+      amount = faces.reduce((sum, n) => sum + n, 0) + parsed.mod;
+      if (amount < 0) amount = 0;
+      dmgFormula = count + "d" + parsed.sides + (parsed.mod ? (parsed.mod > 0 ? "+" : "") + parsed.mod : "");
+    }
+    const tgt = aimed ? tokenByRef(targetId) : null;
+    const tgtName = (tgt && (tgt.name || tgt.label)) || "";
+    const who = sheet.name || "Token";
+    const weapon = act.name || "Attack";
+    const sign = mod ? ((mod > 0 ? "+" : "") + mod) : "";
+    const word = miss ? "MISS" : (crit ? "CRIT" : (ac == null ? "" : "HIT"));
+    const faceTxt = faces.length ? faces.join("+") : "";
+    const dmgTxt = parsed
+      ? (" · " + dmgFormula + " (" + faceTxt + (parsed.mod ? (parsed.mod > 0 ? "+" : "") + parsed.mod : "") + ")" + (dmgType ? " " + dmgType : "") + " = " + amount)
+      : "";
+    const line = (tgtName ? who + " → " + tgtName : who) + ": " + weapon + " · " + nat + sign + " = " + hitTotal + (word ? " → " + word : "") + dmgTxt;
+    const rollId = "grant_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    const entry = {
+      id: id, tokenId: sheet.tokenId, name: weapon, die: nat, nat: nat, total: hitTotal, hitTotal: hitTotal,
+      crit: crit && !miss, miss: !!miss, ac: ac, amount: miss ? 0 : amount, faces: faces.slice(), type: dmgType,
+      formula: dmgFormula, line: line, targetId: aimed ? targetId : "", targetName: tgtName
+    };
+    state.grantLog.push(entry);
     toast(line);
+    pushFeed({ id: "roll:" + rollId, kind: "roll", text: line, attack: true, nat: nat, crit: crit && !miss, label: weapon, ts: new Date().toISOString() });
     emit("chat:send", { text: line });
+    const Join = window.SSDNSDmJoin;
+    const joined = !!(Join && Join.isJoined && Join.isJoined() && aimed);
+    if (joined && Join.postAttack) {
+      try {
+        Join.postAttack({
+          rollId: rollId,
+          label: who + " — " + weapon,
+          formula: "1d20" + sign,
+          result: hitTotal,
+          hitTotal: hitTotal,
+          nat: nat,
+          n1: nat,
+          crit: crit && !miss,
+          nat1: nat === 1,
+          amount: miss ? 0 : amount,
+          dice: faces.join("+"),
+          dmgFaces: faces.slice(),
+          dmgFormula: dmgFormula,
+          dmgType: dmgType,
+          dmgParts: parsed && parsed.mod ? [{ label: "mod", value: parsed.mod }] : [],
+          parts: [{ label: "bonus", value: mod }],
+          weapon: weapon,
+          melee: String(act.kind || "melee") !== "ranged" && String(act.kind || "") !== "spell",
+          targetId: targetId,
+          targetName: tgtName,
+          characterName: who
+        });
+      } catch (eAtk) {}
+    }
+    if (joined && Join.postRoll) {
+      try {
+        Join.postRoll({
+          id: rollId,
+          label: (tgtName ? who + " → " + tgtName : weapon),
+          formula: "1d20" + sign,
+          result: hitTotal,
+          detail: line,
+          ac: ac,
+          attack: true,
+          nat: nat,
+          crit: crit && !miss,
+          damage: miss ? 0 : amount,
+          targetId: targetId,
+          targetName: tgtName,
+          characterName: who,
+          weapon: weapon,
+          tokenId: sheet.tokenId || ""
+        });
+      } catch (eRoll) {}
+    }
+    return entry;
   }
   /* A tap on a token this player controls shows that token on the card.
      Own tokens and duplicates share the character sheet. A grant shows that token's sheet. */
@@ -17308,7 +17599,9 @@ function syncCombatants(initiative) {
   }
   function runPlayer(id, extra) {
     if (!id) return;
-    if (String(id).indexOf("grantatk:") === 0 || String(id).indexOf("grantspell:") === 0) {
+    const grantSheet = activeGrantSheet();
+    const grantAct = grantSheet && (grantSheet.attacks || []).concat(grantSheet.spells || []).some(a => a && a.id === id);
+    if (grantAct || String(id).indexOf("grantatk:") === 0 || String(id).indexOf("grantspell:") === 0) {
       rollGrantAction(id);
       return;
     }
@@ -20379,6 +20672,8 @@ return {
     try { return playerFightModel(); } catch (e) { return null; }
   },
   grantLog: function () { return (state.grantLog || []).slice(); },
+  queueRolls: function (list) { state.grantRolls = (list || []).map(n => Number(n)).filter(n => isFinite(n)); return state.grantRolls.slice(); },
+  applyStyledHit: function (req) { return applyStyledHit(req); },
   recenterOnMine,
   syncPhoneChrome,
   phoneMap: phoneMapMode,

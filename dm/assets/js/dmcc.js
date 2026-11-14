@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.319"; // dmcc-playtest-v02319
+const VERSION = "0.2.320"; // dmcc-playtest-v02320
 if (window.SSDNSRollCard) {
   window.SSDNSRollCard.setAudience("dm");
   window.SSDNSRollCard.setPortraitLookup(function (name) {

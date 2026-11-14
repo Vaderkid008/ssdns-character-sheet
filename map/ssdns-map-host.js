@@ -1065,6 +1065,13 @@
             run: function (id, ctx) { runAction(id, ctx); }
           },
           ownCard: ownCard,
+          targetAc: function (id) {
+            var fn = root.SSDNSMapHost && root.SSDNSMapHost.targetAc;
+            if (typeof fn === "function") {
+              try { return fn(id); } catch (e) { return null; }
+            }
+            return null;
+          },
           setSheetTarget: setSheetTarget,
           on: onHost,
           rounds: roundsLabel,
@@ -1304,6 +1311,9 @@
     releaseToken: releaseToken,
     tokensLoaded: tokensLoaded,
     tokenBoxes: function () { return map && typeof map.tokenBoxes === "function" ? map.tokenBoxes() : []; },
+    queueRolls: function (list) { return map && typeof map.queueRolls === "function" ? map.queueRolls(list) : []; },
+    aim: function (id) { return map && typeof map.aim === "function" ? map.aim(id) : null; },
+    grantLog: function () { return map && typeof map.grantLog === "function" ? map.grantLog() : []; },
     camera: function () { return map && typeof map.camera === "function" ? map.camera() : null; },
     phoneMap: function () { return phoneMapMode(); },
     drawerTokenId: function () { return map && typeof map.drawerTokenId === "function" ? map.drawerTokenId() : ""; },
