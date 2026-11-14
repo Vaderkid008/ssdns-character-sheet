@@ -1,0 +1,139 @@
+{
+  "showcase": "bitter-spring-relay",
+  "sheet": "0.3.315",
+  "note": "Open any file with the sheet Open button. Module start, level 3, 900 XP. Ace and Ezra are proficient with thieves' tools (the bonus comes from level). Nell carries the tools and is not proficient.",
+  "characters": [
+    {
+      "file": "ace-duchamp.ssdns",
+      "name": "Vivian \"Ace\" Duchamp",
+      "calling": "gambler",
+      "subclass": "the-burglar-thief",
+      "level": 3,
+      "xp": 900,
+      "hp": 21,
+      "ac": 13,
+      "thievesTools": "yes, proficient (+2)"
+    },
+    {
+      "file": "amos-kettle.ssdns",
+      "name": "Deputy Amos Kettle",
+      "calling": "lawman",
+      "subclass": "oath-of-the-badge-devotion",
+      "level": 3,
+      "xp": 900,
+      "hp": 25,
+      "ac": 10,
+      "thievesTools": "no"
+    },
+    {
+      "file": "cal-mercer.ssdns",
+      "name": "Calvin \"Cal\" Mercer",
+      "calling": "pact-seeker",
+      "subclass": "the-last-round",
+      "level": 3,
+      "xp": 900,
+      "hp": 24,
+      "ac": 12,
+      "thievesTools": "no"
+    },
+    {
+      "file": "dell-marchand.ssdns",
+      "name": "Delphine \"Dell\" Marchand",
+      "calling": "storyteller",
+      "subclass": "college-of-campfire-lore-lore",
+      "level": 3,
+      "xp": 900,
+      "hp": 24,
+      "ac": 12,
+      "thievesTools": "no"
+    },
+    {
+      "file": "ezra-thorne.ssdns",
+      "name": "Ezra Thorne",
+      "calling": "hexslinger",
+      "subclass": "chaos-wild-magic",
+      "level": 3,
+      "xp": 900,
+      "hp": 20,
+      "ac": 11,
+      "thievesTools": "yes, proficient (+2)"
+    },
+    {
+      "file": "gus-penhallow.ssdns",
+      "name": "Dr. Augustina \"Gus\" Penhallow",
+      "calling": "scholar",
+      "subclass": "law-of-thermodynamic-transfer-evocation",
+      "level": 3,
+      "xp": 900,
+      "hp": 20,
+      "ac": 11,
+      "thievesTools": "no"
+    },
+    {
+      "file": "june-vale.ssdns",
+      "name": "Juniper \"June\" Vale",
+      "calling": "nature-guide",
+      "subclass": "circle-of-the-open-range-land",
+      "level": 3,
+      "xp": 900,
+      "hp": 24,
+      "ac": 12,
+      "thievesTools": "no"
+    },
+    {
+      "file": "mercy-blackburn.ssdns",
+      "name": "Mercy Blackburn",
+      "calling": "gunslinger",
+      "subclass": "gun-whisperer-battle-master",
+      "level": 3,
+      "xp": 900,
+      "hp": 28,
+      "ac": 13,
+      "thievesTools": "no"
+    },
+    {
+      "file": "nell-harrow.ssdns",
+      "name": "Nell Harrow",
+      "calling": "frontier-scout",
+      "subclass": "trophy-hunter-hunter",
+      "level": 3,
+      "xp": 900,
+      "hp": 25,
+      "ac": 13,
+      "thievesTools": "yes, not proficient"
+    },
+    {
+      "file": "ruth-hollister.ssdns",
+      "name": "Sister Ruth Hollister",
+      "calling": "frontier-preacher",
+      "subclass": "domain-of-the-faithful-sawbones-life",
+      "level": 3,
+      "xp": 900,
+      "hp": 27,
+      "ac": 10,
+      "thievesTools": "no"
+    },
+    {
+      "file": "toby-reyes.ssdns",
+      "name": "Tobias \"Toby\" Reyes",
+      "calling": "martial-artist",
+      "subclass": "rough-and-tumble-brawler-open-hand",
+      "level": 3,
+      "xp": 900,
+      "hp": 21,
+      "ac": 15,
+      "thievesTools": "no"
+    },
+    {
+      "file": "wren-stonecrow.ssdns",
+      "name": "Wren Stonecrow",
+      "calling": "tribal-warrior",
+      "subclass": "totem-warrior",
+      "level": 3,
+      "xp": 900,
+      "hp": 32,
+      "ac": 13,
+      "thievesTools": "no"
+    }
+  ]
+}

@@ -1,0 +1,240 @@
+{
+  "format": "ssdns-character",
+  "schemaVersion": 2,
+  "app": "SSDNS Character Sheet 0.3.310",
+  "id": "c_showcase_bsr_ezra",
+  "createdAt": "2026-11-03T04:20:00.000Z",
+  "updatedAt": "2026-11-14T06:40:00.000Z",
+  "shards": {
+    "white": 0,
+    "blue": 0,
+    "green": 0,
+    "yellow": 0,
+    "purple": 0
+  },
+  "character": {
+    "guns": [
+      {
+        "weapon": "blacksnake",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false,
+        "equipped": true
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      }
+    ],
+    "melee": [
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      }
+    ],
+    "ammo": [],
+    "equipment": "",
+    "holster": "",
+    "holsterR": "",
+    "belt": "",
+    "gunBelt": false,
+    "shield": false,
+    "armor": "",
+    "casterGun": "blacksnake",
+    "pactFocus": "",
+    "name": "Ezra Thorne",
+    "player": "Showcase",
+    "lineage": "street-folk",
+    "sublineage": "",
+    "calling": "hexslinger",
+    "level": 3,
+    "subclass": "chaos-wild-magic",
+    "background": "outlaw",
+    "abilities": {
+      "STR": 8,
+      "DEX": 13,
+      "CON": 14,
+      "INT": 11,
+      "WIS": 12,
+      "CHA": 17
+    },
+    "saveProf": {
+      "STR": false,
+      "DEX": false,
+      "CON": true,
+      "INT": false,
+      "WIS": false,
+      "CHA": true
+    },
+    "skillProf": {
+      "Deception": 1,
+      "Stealth": 1,
+      "Intimidation": 1,
+      "Insight": 1
+    },
+    "speed": 30,
+    "speedAuto": true,
+    "hpAuto": false,
+    "hpMax": 20,
+    "hpCurrent": 20,
+    "hpTemp": "",
+    "cantrips": [
+      "Fire Bolt Shell",
+      "Light Shell",
+      "Mage Hand Shell",
+      "Shocking Grasp Shell"
+    ],
+    "spells": {
+      "1": [
+        {
+          "name": "Shield Shell",
+          "prepared": true
+        },
+        {
+          "name": "Magic Missile Shell",
+          "prepared": true
+        },
+        {
+          "name": "Thunderwave Shell",
+          "prepared": true
+        }
+      ],
+      "2": [
+        {
+          "name": "Scorching Ray Shell",
+          "prepared": true
+        }
+      ],
+      "3": [],
+      "4": [],
+      "5": [],
+      "6": [],
+      "7": [],
+      "8": [],
+      "9": []
+    },
+    "proficienciesLanguages": "Armor (Hexslinger): None\nWeapons (Hexslinger): Daggers, darts, slings, quarterstaffs, Herringer pistols, the Ball n Cap, and Caster Guns\nYou can speak, read, and write Common and Italian.\nTools: Thieves' tools\n",
+    "features": "Fence Wire: You have a reliable contact in the outlaw network (smuggler, fence, dock rat). They can get messages to other criminals; expect favors to be called in.",
+    "wizardDone": true,
+    "activeConditions": [],
+    "fightingStyle": "",
+    "kitStamp": "hexslinger",
+    "kitGrants": {
+      "ammo": {},
+      "items": [],
+      "v": 1
+    },
+    "focusMigrated": 1,
+    "kitMode": "module",
+    "kitPicks": {
+      "gun": "blacksnake",
+      "pack": "trail"
+    },
+    "hitDiceLeft": "3d6",
+    "_preview": {
+      "ac": 11,
+      "init": 1,
+      "speed": 30,
+      "hp": 20,
+      "focus": "Caster Gun. Charisma \u00b7 Focus: your Caster Gun \u00b7 Spells known as a sorcerer. Every spell is a Shell fired from the gun (Callings p.30; Equipment p.65\u201370). Never subtle."
+    },
+    "xp": 900,
+    "lineageAsi": {
+      "STR": 0,
+      "DEX": 0,
+      "CON": 0,
+      "INT": 1,
+      "WIS": 0,
+      "CHA": 2
+    },
+    "backstory": "Rode with a bad crowd once. Wild Spark is the test.",
+    "additionalFeatures": "No metamagic picker yet. Suggested: Quickened, Twinned. Sorcery points follow the Hex Well tracker (3 at this level).\nBitter Spring: Outlaw background (BOOK1): thieves' tools proficiency. Tools added to the kit for this showcase.",
+    "showcase": "bitter-spring-relay",
+    "items": [
+      {
+        "uid": "it_bsr_tools_ezra",
+        "catalogId": "thieves-tools-lock-picks",
+        "name": "Thieves' tools (lock picks)",
+        "type": "gear",
+        "description": "Lock picks and a soft-entry set.",
+        "effect": {
+          "kind": "text",
+          "text": "Lock picks and a soft-entry set."
+        },
+        "uses": {
+          "max": null,
+          "recharge": ""
+        },
+        "weight": 1,
+        "price": 2500,
+        "forSale": true,
+        "story": false,
+        "art": "",
+        "weaponId": "",
+        "slot": "",
+        "group": "",
+        "properties": "",
+        "weapon": null,
+        "attune": false,
+        "attuned": false,
+        "rarity": "",
+        "bonuses": null,
+        "wear": "",
+        "dmOnly": false,
+        "count": 1,
+        "chargesLeft": null,
+        "playerAdded": false,
+        "approved": true,
+        "addressedTo": "",
+        "dmAllowDrop": false,
+        "dmAllowRob": false,
+        "tags": [],
+        "quality": "",
+        "shelf": "Tools",
+        "stack": false,
+        "noCarry": false,
+        "summoned": false,
+        "meals": null,
+        "water": null,
+        "capacity": null,
+        "fillIncluded": false,
+        "mealWeight": null,
+        "feedDays": null,
+        "fill": null
+      }
+    ],
+    "toolProficiencies": [
+      "Thieves' tools"
+    ]
+  }
+}

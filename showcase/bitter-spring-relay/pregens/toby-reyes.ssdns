@@ -1,0 +1,215 @@
+{
+  "format": "ssdns-character",
+  "schemaVersion": 2,
+  "app": "SSDNS Character Sheet 0.3.310",
+  "id": "c_showcase_bsr_toby",
+  "createdAt": "2026-11-03T04:20:00.000Z",
+  "updatedAt": "2026-11-14T06:40:00.000Z",
+  "shards": {
+    "white": 0,
+    "blue": 0,
+    "green": 0,
+    "yellow": 0,
+    "purple": 0
+  },
+  "character": {
+    "guns": [
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      }
+    ],
+    "melee": [
+      {
+        "weapon": "baton-belaying-pin-club",
+        "proficient": true,
+        "equipped": true
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      }
+    ],
+    "ammo": [],
+    "equipment": "",
+    "holster": "",
+    "holsterR": "",
+    "belt": "",
+    "gunBelt": false,
+    "shield": false,
+    "armor": "",
+    "casterGun": "",
+    "pactFocus": "",
+    "name": "Tobias \"Toby\" Reyes",
+    "player": "Showcase",
+    "lineage": "farmers",
+    "sublineage": "hetfield",
+    "calling": "martial-artist",
+    "level": 3,
+    "subclass": "rough-and-tumble-brawler-open-hand",
+    "background": "company-veteran",
+    "abilities": {
+      "STR": 12,
+      "DEX": 17,
+      "CON": 13,
+      "INT": 8,
+      "WIS": 14,
+      "CHA": 11
+    },
+    "saveProf": {
+      "STR": true,
+      "DEX": true,
+      "CON": false,
+      "INT": false,
+      "WIS": false,
+      "CHA": false
+    },
+    "skillProf": {
+      "Athletics": 1,
+      "Intimidation": 1,
+      "Acrobatics": 1,
+      "Insight": 1
+    },
+    "speed": 25,
+    "speedAuto": true,
+    "hpAuto": false,
+    "hpMax": 21,
+    "hpCurrent": 21,
+    "hpTemp": "",
+    "cantrips": [],
+    "spells": {
+      "1": [],
+      "2": [],
+      "3": [],
+      "4": [],
+      "5": [],
+      "6": [],
+      "7": [],
+      "8": [],
+      "9": []
+    },
+    "proficienciesLanguages": "Armor (Martial Artist): None\nWeapons (Martial Artist): Simple weapons, shortswords (Bowies, batons, canes)\nYou can speak, read, and write Common and Irish Gaelic.",
+    "features": "Company Papers: Soldiers and company officers recognize your rank and extend deference within reason. You can requisition simple aid from friendly companies (lodging, mounts if available, information).",
+    "wizardDone": true,
+    "activeConditions": [],
+    "fightingStyle": "",
+    "kitGrants": {
+      "ammo": {},
+      "items": [
+        "common-clothes-trail-wear"
+      ],
+      "v": 1
+    },
+    "items": [
+      {
+        "uid": "it_mw06u2nt9q1bu",
+        "catalogId": "common-clothes-trail-wear",
+        "name": "Common clothes (trail wear)",
+        "type": "gear",
+        "description": "Everyday trail clothes.",
+        "effect": {
+          "kind": "text",
+          "text": "Everyday trail clothes."
+        },
+        "uses": {
+          "max": null,
+          "recharge": ""
+        },
+        "weight": 3,
+        "price": 50,
+        "forSale": true,
+        "story": false,
+        "art": "",
+        "weaponId": "",
+        "slot": "",
+        "group": "",
+        "properties": "",
+        "weapon": null,
+        "attune": false,
+        "attuned": false,
+        "rarity": "",
+        "bonuses": null,
+        "wear": "",
+        "dmOnly": false,
+        "count": 1,
+        "chargesLeft": null,
+        "playerAdded": false,
+        "approved": true,
+        "addressedTo": "",
+        "dmAllowDrop": false,
+        "dmAllowRob": false,
+        "tags": [],
+        "quality": "",
+        "shelf": "Clothes",
+        "stack": false,
+        "noCarry": false,
+        "summoned": false,
+        "meals": null,
+        "water": null,
+        "capacity": null,
+        "fillIncluded": false,
+        "mealWeight": null,
+        "feedDays": null,
+        "fill": null
+      }
+    ],
+    "kitStamp": "martial-artist",
+    "focusMigrated": 1,
+    "kitMode": "module",
+    "kitPicks": {
+      "weapon": "baton",
+      "pack": "claim"
+    },
+    "hitDiceLeft": "3d8",
+    "_preview": {
+      "ac": 15,
+      "init": 3,
+      "speed": 25,
+      "hp": 21,
+      "focus": ""
+    },
+    "xp": 900,
+    "lineageAsi": {
+      "STR": 0,
+      "DEX": 2,
+      "CON": 0,
+      "INT": 0,
+      "WIS": 0,
+      "CHA": 1
+    },
+    "backstory": "Ex-railroad tough. He knows a water stop, and he'll notice the gang doesn't.",
+    "showcase": "bitter-spring-relay"
+  }
+}

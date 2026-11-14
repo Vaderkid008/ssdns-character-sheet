@@ -1,0 +1,1053 @@
+{
+  "format": "ssdns-map-pack",
+  "version": 2,
+  "encounters": null,
+  "maps": [
+    {
+      "id": "bitter-spring-relay-ground",
+      "name": "Bitter Spring \u2014 ground",
+      "src": "https://vaderkid008.github.io/ssdns-character-sheet/showcase/bitter-spring-relay/bitter-spring-relay-ground_32x26_70px_PLACEHOLDER.png",
+      "grid": {
+        "cols": 32,
+        "rows": 26,
+        "px": 70
+      },
+      "walls": [
+        {
+          "x1": 6,
+          "y1": 13,
+          "x2": 7,
+          "y2": 13
+        },
+        {
+          "x1": 7,
+          "y1": 13,
+          "x2": 8,
+          "y2": 13,
+          "window": true,
+          "shut": false
+        },
+        {
+          "x1": 8,
+          "y1": 13,
+          "x2": 10,
+          "y2": 13
+        },
+        {
+          "x1": 10,
+          "y1": 13,
+          "x2": 11,
+          "y2": 13,
+          "door": true,
+          "open": false
+        },
+        {
+          "x1": 11,
+          "y1": 13,
+          "x2": 12,
+          "y2": 13
+        },
+        {
+          "x1": 12,
+          "y1": 13,
+          "x2": 13,
+          "y2": 13,
+          "window": true,
+          "shut": false
+        },
+        {
+          "x1": 13,
+          "y1": 13,
+          "x2": 22,
+          "y2": 13
+        },
+        {
+          "x1": 6,
+          "y1": 23,
+          "x2": 9,
+          "y2": 23
+        },
+        {
+          "x1": 9,
+          "y1": 23,
+          "x2": 10,
+          "y2": 23,
+          "window": true,
+          "shut": false
+        },
+        {
+          "x1": 10,
+          "y1": 23,
+          "x2": 19,
+          "y2": 23
+        },
+        {
+          "x1": 19,
+          "y1": 23,
+          "x2": 20,
+          "y2": 23,
+          "door": true,
+          "open": false
+        },
+        {
+          "x1": 20,
+          "y1": 23,
+          "x2": 22,
+          "y2": 23
+        },
+        {
+          "x1": 6,
+          "y1": 13,
+          "x2": 6,
+          "y2": 17
+        },
+        {
+          "x1": 6,
+          "y1": 17,
+          "x2": 6,
+          "y2": 18,
+          "window": true,
+          "shut": false
+        },
+        {
+          "x1": 6,
+          "y1": 18,
+          "x2": 6,
+          "y2": 23
+        },
+        {
+          "x1": 22,
+          "y1": 13,
+          "x2": 22,
+          "y2": 19
+        },
+        {
+          "x1": 22,
+          "y1": 19,
+          "x2": 22,
+          "y2": 20,
+          "window": true,
+          "shut": false
+        },
+        {
+          "x1": 22,
+          "y1": 20,
+          "x2": 22,
+          "y2": 23
+        },
+        {
+          "x1": 15,
+          "y1": 13,
+          "x2": 15,
+          "y2": 15
+        },
+        {
+          "x1": 15,
+          "y1": 15,
+          "x2": 15,
+          "y2": 16,
+          "door": true,
+          "open": false,
+          "locked": true,
+          "lockDc": 12,
+          "forceDc": 15
+        },
+        {
+          "x1": 15,
+          "y1": 16,
+          "x2": 15,
+          "y2": 20
+        },
+        {
+          "x1": 15,
+          "y1": 20,
+          "x2": 15,
+          "y2": 21,
+          "door": true,
+          "open": true
+        },
+        {
+          "x1": 15,
+          "y1": 21,
+          "x2": 15,
+          "y2": 23
+        },
+        {
+          "x1": 15,
+          "y1": 18,
+          "x2": 22,
+          "y2": 18
+        },
+        {
+          "x1": 24,
+          "y1": 12,
+          "x2": 26,
+          "y2": 12
+        },
+        {
+          "x1": 26,
+          "y1": 12,
+          "x2": 27,
+          "y2": 12,
+          "door": true,
+          "open": true
+        },
+        {
+          "x1": 27,
+          "y1": 12,
+          "x2": 28,
+          "y2": 12,
+          "door": true,
+          "open": true
+        },
+        {
+          "x1": 28,
+          "y1": 12,
+          "x2": 32,
+          "y2": 12
+        },
+        {
+          "x1": 24,
+          "y1": 21,
+          "x2": 32,
+          "y2": 21
+        },
+        {
+          "x1": 24,
+          "y1": 12,
+          "x2": 24,
+          "y2": 18
+        },
+        {
+          "x1": 24,
+          "y1": 18,
+          "x2": 24,
+          "y2": 19,
+          "door": true,
+          "open": false
+        },
+        {
+          "x1": 24,
+          "y1": 19,
+          "x2": 24,
+          "y2": 21
+        },
+        {
+          "x1": 32,
+          "y1": 12,
+          "x2": 32,
+          "y2": 21
+        },
+        {
+          "x1": 1,
+          "y1": 20,
+          "x2": 2,
+          "y2": 20,
+          "door": true,
+          "open": false
+        },
+        {
+          "x1": 2,
+          "y1": 20,
+          "x2": 3,
+          "y2": 20
+        },
+        {
+          "x1": 1,
+          "y1": 22,
+          "x2": 3,
+          "y2": 22
+        },
+        {
+          "x1": 1,
+          "y1": 20,
+          "x2": 1,
+          "y2": 22
+        },
+        {
+          "x1": 3,
+          "y1": 20,
+          "x2": 3,
+          "y2": 22
+        }
+      ]
+    },
+    {
+      "id": "bitter-spring-relay-upstairs",
+      "name": "Bitter Spring \u2014 upstairs",
+      "src": "https://vaderkid008.github.io/ssdns-character-sheet/showcase/bitter-spring-relay/bitter-spring-relay-upstairs_32x26_70px_PLACEHOLDER.png",
+      "grid": {
+        "cols": 32,
+        "rows": 26,
+        "px": 70
+      },
+      "walls": [
+        {
+          "x1": 6,
+          "y1": 13,
+          "x2": 7,
+          "y2": 13
+        },
+        {
+          "x1": 7,
+          "y1": 13,
+          "x2": 8,
+          "y2": 13,
+          "door": true,
+          "open": false
+        },
+        {
+          "x1": 8,
+          "y1": 13,
+          "x2": 10,
+          "y2": 13
+        },
+        {
+          "x1": 10,
+          "y1": 13,
+          "x2": 11,
+          "y2": 13,
+          "window": true,
+          "shut": false
+        },
+        {
+          "x1": 11,
+          "y1": 13,
+          "x2": 12,
+          "y2": 13
+        },
+        {
+          "x1": 12,
+          "y1": 13,
+          "x2": 13,
+          "y2": 13,
+          "door": true,
+          "open": false
+        },
+        {
+          "x1": 13,
+          "y1": 13,
+          "x2": 16,
+          "y2": 13
+        },
+        {
+          "x1": 16,
+          "y1": 13,
+          "x2": 17,
+          "y2": 13,
+          "window": true,
+          "shut": false
+        },
+        {
+          "x1": 17,
+          "y1": 13,
+          "x2": 18,
+          "y2": 13
+        },
+        {
+          "x1": 18,
+          "y1": 13,
+          "x2": 19,
+          "y2": 13,
+          "door": true,
+          "open": false
+        },
+        {
+          "x1": 19,
+          "y1": 13,
+          "x2": 22,
+          "y2": 13
+        },
+        {
+          "x1": 6,
+          "y1": 23,
+          "x2": 8,
+          "y2": 23
+        },
+        {
+          "x1": 8,
+          "y1": 23,
+          "x2": 9,
+          "y2": 23,
+          "window": true,
+          "shut": false
+        },
+        {
+          "x1": 9,
+          "y1": 23,
+          "x2": 18,
+          "y2": 23
+        },
+        {
+          "x1": 18,
+          "y1": 23,
+          "x2": 19,
+          "y2": 23,
+          "window": true,
+          "shut": false
+        },
+        {
+          "x1": 19,
+          "y1": 23,
+          "x2": 22,
+          "y2": 23
+        },
+        {
+          "x1": 6,
+          "y1": 13,
+          "x2": 6,
+          "y2": 14
+        },
+        {
+          "x1": 6,
+          "y1": 14,
+          "x2": 6,
+          "y2": 15,
+          "window": true,
+          "shut": false
+        },
+        {
+          "x1": 6,
+          "y1": 15,
+          "x2": 6,
+          "y2": 20
+        },
+        {
+          "x1": 6,
+          "y1": 20,
+          "x2": 6,
+          "y2": 21,
+          "window": true,
+          "shut": false
+        },
+        {
+          "x1": 6,
+          "y1": 21,
+          "x2": 6,
+          "y2": 23
+        },
+        {
+          "x1": 22,
+          "y1": 13,
+          "x2": 22,
+          "y2": 14
+        },
+        {
+          "x1": 22,
+          "y1": 14,
+          "x2": 22,
+          "y2": 15,
+          "window": true,
+          "shut": false
+        },
+        {
+          "x1": 22,
+          "y1": 15,
+          "x2": 22,
+          "y2": 20
+        },
+        {
+          "x1": 22,
+          "y1": 20,
+          "x2": 22,
+          "y2": 21,
+          "window": true,
+          "shut": false
+        },
+        {
+          "x1": 22,
+          "y1": 21,
+          "x2": 22,
+          "y2": 23
+        },
+        {
+          "x1": 10,
+          "y1": 13,
+          "x2": 10,
+          "y2": 16
+        },
+        {
+          "x1": 15,
+          "y1": 13,
+          "x2": 15,
+          "y2": 16
+        },
+        {
+          "x1": 6,
+          "y1": 16,
+          "x2": 8,
+          "y2": 16
+        },
+        {
+          "x1": 8,
+          "y1": 16,
+          "x2": 9,
+          "y2": 16,
+          "door": true,
+          "open": false
+        },
+        {
+          "x1": 9,
+          "y1": 16,
+          "x2": 11,
+          "y2": 16
+        },
+        {
+          "x1": 11,
+          "y1": 16,
+          "x2": 12,
+          "y2": 16,
+          "door": true,
+          "open": false
+        },
+        {
+          "x1": 12,
+          "y1": 16,
+          "x2": 18,
+          "y2": 16
+        },
+        {
+          "x1": 18,
+          "y1": 16,
+          "x2": 19,
+          "y2": 16,
+          "door": true,
+          "open": false
+        },
+        {
+          "x1": 19,
+          "y1": 16,
+          "x2": 22,
+          "y2": 16
+        },
+        {
+          "x1": 6,
+          "y1": 18,
+          "x2": 9,
+          "y2": 18
+        },
+        {
+          "x1": 9,
+          "y1": 18,
+          "x2": 10,
+          "y2": 18,
+          "door": true,
+          "open": false
+        },
+        {
+          "x1": 10,
+          "y1": 18,
+          "x2": 14,
+          "y2": 18
+        },
+        {
+          "x1": 14,
+          "y1": 18,
+          "x2": 14,
+          "y2": 23
+        },
+        {
+          "x1": 15,
+          "y1": 18,
+          "x2": 15,
+          "y2": 23
+        },
+        {
+          "x1": 15,
+          "y1": 18,
+          "x2": 17,
+          "y2": 18
+        },
+        {
+          "x1": 17,
+          "y1": 18,
+          "x2": 18,
+          "y2": 18,
+          "door": true,
+          "open": false,
+          "locked": true,
+          "lockDc": 12,
+          "forceDc": 15
+        },
+        {
+          "x1": 18,
+          "y1": 18,
+          "x2": 22,
+          "y2": 18
+        },
+        {
+          "x1": 24,
+          "y1": 12,
+          "x2": 29,
+          "y2": 12
+        },
+        {
+          "x1": 29,
+          "y1": 12,
+          "x2": 30,
+          "y2": 12,
+          "door": true,
+          "open": false
+        },
+        {
+          "x1": 30,
+          "y1": 12,
+          "x2": 32,
+          "y2": 12
+        },
+        {
+          "x1": 24,
+          "y1": 21,
+          "x2": 32,
+          "y2": 21
+        },
+        {
+          "x1": 24,
+          "y1": 12,
+          "x2": 24,
+          "y2": 13,
+          "door": true,
+          "open": true
+        },
+        {
+          "x1": 24,
+          "y1": 13,
+          "x2": 24,
+          "y2": 21
+        },
+        {
+          "x1": 32,
+          "y1": 12,
+          "x2": 32,
+          "y2": 21
+        }
+      ]
+    }
+  ],
+  "scenes": [
+    {
+      "id": "scn_bitter_spring",
+      "name": "Bitter Spring Relay Station",
+      "startFloorId": "bitter-spring-relay-ground",
+      "floors": [
+        {
+          "id": "bitter-spring-relay-ground",
+          "mapId": "bitter-spring-relay-ground",
+          "name": "Ground floor & yard",
+          "source": "pack",
+          "groups": [
+            {
+              "id": "grp_party",
+              "name": "party",
+              "color": "#c9a227",
+              "isDefault": true
+            },
+            {
+              "id": "grp_party_b",
+              "name": "party-b",
+              "color": "#6aa8e8",
+              "isDefault": false
+            }
+          ],
+          "spawns": [
+            {
+              "id": "grp_party_1",
+              "groupId": "grp_party",
+              "n": 1,
+              "x": 0,
+              "y": 1
+            },
+            {
+              "id": "grp_party_2",
+              "groupId": "grp_party",
+              "n": 2,
+              "x": 1,
+              "y": 1
+            },
+            {
+              "id": "grp_party_3",
+              "groupId": "grp_party",
+              "n": 3,
+              "x": 0,
+              "y": 2
+            },
+            {
+              "id": "grp_party_4",
+              "groupId": "grp_party",
+              "n": 4,
+              "x": 1,
+              "y": 2
+            },
+            {
+              "id": "grp_party_5",
+              "groupId": "grp_party",
+              "n": 5,
+              "x": 0,
+              "y": 3
+            },
+            {
+              "id": "grp_party_6",
+              "groupId": "grp_party",
+              "n": 6,
+              "x": 1,
+              "y": 3
+            },
+            {
+              "id": "grp_party_b_1",
+              "groupId": "grp_party_b",
+              "n": 1,
+              "x": 2,
+              "y": 24
+            },
+            {
+              "id": "grp_party_b_2",
+              "groupId": "grp_party_b",
+              "n": 2,
+              "x": 3,
+              "y": 24
+            },
+            {
+              "id": "grp_party_b_3",
+              "groupId": "grp_party_b",
+              "n": 3,
+              "x": 2,
+              "y": 25
+            },
+            {
+              "id": "grp_party_b_4",
+              "groupId": "grp_party_b",
+              "n": 4,
+              "x": 3,
+              "y": 25
+            }
+          ],
+          "stairs": [
+            {
+              "id": "lnk_inside_up",
+              "kind": "up",
+              "x": 14,
+              "y": 22,
+              "destFloorId": "bitter-spring-relay-upstairs",
+              "destMapId": "bitter-spring-relay-upstairs",
+              "landX": 14,
+              "landY": 17,
+              "twoWay": true,
+              "pairId": "lnk_inside_down",
+              "visible": false
+            },
+            {
+              "id": "lnk_outside_up",
+              "kind": "up",
+              "x": 23,
+              "y": 19,
+              "destFloorId": "bitter-spring-relay-upstairs",
+              "destMapId": "bitter-spring-relay-upstairs",
+              "landX": 23,
+              "landY": 12,
+              "twoWay": true,
+              "pairId": "lnk_outside_down",
+              "visible": false
+            },
+            {
+              "id": "lnk_loft_up",
+              "kind": "ladder",
+              "x": 30,
+              "y": 13,
+              "destFloorId": "bitter-spring-relay-upstairs",
+              "destMapId": "bitter-spring-relay-upstairs",
+              "landX": 30,
+              "landY": 13,
+              "twoWay": true,
+              "pairId": "lnk_loft_down",
+              "visible": false
+            }
+          ],
+          "encounters": {
+            "containers": [
+              {
+                "id": "box_c1",
+                "kind": "strongbox",
+                "name": "Stage Strongbox",
+                "x": 18,
+                "y": 15,
+                "items": [
+                  {
+                    "name": "Navy / Army Ball n Cap Revolver",
+                    "qty": 1,
+                    "catalogId": "navy-army-ball-n-cap-revolver"
+                  },
+                  {
+                    "name": "Powder, ball, and caps (20 shots)",
+                    "qty": 1,
+                    "catalogId": "powder-ball-and-caps-20-shots"
+                  },
+                  {
+                    "name": "Field Medic Kit",
+                    "qty": 1,
+                    "catalogId": "field-medic-kit"
+                  },
+                  {
+                    "name": "Glowing Letter: Shield",
+                    "qty": 1,
+                    "catalogId": "glowing-letter-shield"
+                  }
+                ],
+                "lockDc": 15,
+                "forceDc": 25,
+                "unlocked": false,
+                "allowRetries": false,
+                "improvise": false,
+                "keyItem": "strongbox-key",
+                "cashEs": 400,
+                "hidden": false,
+                "hideDc": 0
+              }
+            ],
+            "enemies": [
+              {
+                "id": "foe_e2",
+                "bestiaryId": "company-rider",
+                "name": "Pick-Handle",
+                "x": 12,
+                "y": 12,
+                "hidden": false,
+                "initGroup": "",
+                "xp": 100,
+                "hp": 32
+              },
+              {
+                "id": "foe_e3",
+                "bestiaryId": "outlaw",
+                "name": "The Cracker",
+                "x": 17,
+                "y": 15,
+                "hidden": true,
+                "initGroup": "Outlaw",
+                "xp": 25,
+                "hp": 11
+              },
+              {
+                "id": "foe_e4",
+                "bestiaryId": "outlaw",
+                "name": "Barkeep",
+                "x": 9,
+                "y": 21,
+                "hidden": false,
+                "initGroup": "Outlaw",
+                "xp": 25,
+                "hp": 11
+              },
+              {
+                "id": "foe_e6",
+                "bestiaryId": "rustler",
+                "name": "Stall Hand",
+                "x": 25,
+                "y": 17,
+                "hidden": true,
+                "initGroup": "Rustler",
+                "xp": 25,
+                "hp": 11
+              }
+            ]
+          }
+        },
+        {
+          "id": "bitter-spring-relay-upstairs",
+          "mapId": "bitter-spring-relay-upstairs",
+          "name": "Upstairs & hayloft",
+          "source": "pack",
+          "groups": [],
+          "spawns": [],
+          "stairs": [
+            {
+              "id": "lnk_inside_down",
+              "kind": "down",
+              "x": 14,
+              "y": 17,
+              "destFloorId": "bitter-spring-relay-ground",
+              "destMapId": "bitter-spring-relay-ground",
+              "landX": 14,
+              "landY": 22,
+              "twoWay": true,
+              "pairId": "lnk_inside_up",
+              "visible": false
+            },
+            {
+              "id": "lnk_outside_down",
+              "kind": "down",
+              "x": 23,
+              "y": 12,
+              "destFloorId": "bitter-spring-relay-ground",
+              "destMapId": "bitter-spring-relay-ground",
+              "landX": 23,
+              "landY": 19,
+              "twoWay": true,
+              "pairId": "lnk_outside_up",
+              "visible": false
+            },
+            {
+              "id": "lnk_loft_down",
+              "kind": "ladder",
+              "x": 30,
+              "y": 13,
+              "destFloorId": "bitter-spring-relay-ground",
+              "destMapId": "bitter-spring-relay-ground",
+              "landX": 30,
+              "landY": 13,
+              "twoWay": true,
+              "pairId": "lnk_loft_up",
+              "visible": false
+            }
+          ],
+          "encounters": {
+            "containers": [
+              {
+                "id": "box_c2",
+                "kind": "chest",
+                "name": "Agent's Chest",
+                "x": 20,
+                "y": 13,
+                "items": [
+                  {
+                    "name": "Strongbox Key",
+                    "qty": 1,
+                    "catalogId": "strongbox-key"
+                  },
+                  {
+                    "name": "Cartridges, Light (20)",
+                    "qty": 1,
+                    "catalogId": "cartridges-light-20"
+                  },
+                  {
+                    "name": "Tinderbox / lucifers",
+                    "qty": 1,
+                    "catalogId": "tinderbox-lucifers"
+                  },
+                  {
+                    "name": "Lamp Oil (flask)",
+                    "qty": 2,
+                    "catalogId": "lamp-oil"
+                  }
+                ],
+                "lockDc": 13,
+                "forceDc": 15,
+                "unlocked": false,
+                "allowRetries": false,
+                "improvise": false,
+                "keyItem": "",
+                "cashEs": 120,
+                "hidden": false,
+                "hideDc": 0
+              },
+              {
+                "id": "box_c3",
+                "kind": "chest",
+                "name": "Passenger Trunk",
+                "x": 16,
+                "y": 21,
+                "items": [
+                  {
+                    "name": "Hardtack and Jerky",
+                    "qty": 2,
+                    "catalogId": "hardtack-jerky-1-day"
+                  },
+                  {
+                    "name": "Waterskin / canteen",
+                    "qty": 1,
+                    "catalogId": "waterskin-canteen"
+                  },
+                  {
+                    "name": "Buckshot shells, .410 (10)",
+                    "qty": 1,
+                    "catalogId": "shells-410-10"
+                  },
+                  {
+                    "name": "Healing Libation",
+                    "qty": 1,
+                    "catalogId": "assay-tonic-trail-draught"
+                  },
+                  {
+                    "name": "Glowing Letter: Cure Wounds",
+                    "qty": 1,
+                    "catalogId": "glowing-letter-cure-wounds"
+                  }
+                ],
+                "lockDc": 0,
+                "forceDc": 0,
+                "unlocked": true,
+                "allowRetries": false,
+                "improvise": false,
+                "keyItem": "",
+                "cashEs": 0,
+                "hidden": false,
+                "hideDc": 0
+              },
+              {
+                "id": "box_c4",
+                "kind": "chest",
+                "name": "Crew's Saddle Chest",
+                "x": 31,
+                "y": 19,
+                "items": [
+                  {
+                    "name": "Cartridges, Medium (20)",
+                    "qty": 1,
+                    "catalogId": "cartridges-medium-20"
+                  },
+                  {
+                    "name": "Arrows (20)",
+                    "qty": 1,
+                    "catalogId": "arrows-20"
+                  },
+                  {
+                    "name": "Iron Cuffs",
+                    "qty": 1,
+                    "catalogId": "iron-cuffs"
+                  },
+                  {
+                    "name": "Dynamite Stick, Sweating",
+                    "qty": 1,
+                    "catalogId": "dynamite-stick-sweating-sold-cheap"
+                  }
+                ],
+                "lockDc": 14,
+                "forceDc": 15,
+                "unlocked": false,
+                "allowRetries": false,
+                "improvise": false,
+                "keyItem": "",
+                "cashEs": 150,
+                "hidden": true,
+                "hideDc": 13
+              }
+            ],
+            "enemies": [
+              {
+                "id": "foe_e1",
+                "bestiaryId": "rival-adventurer",
+                "name": "The Ramrod",
+                "x": 11,
+                "y": 11,
+                "hidden": false,
+                "initGroup": "",
+                "xp": 100,
+                "hp": 16
+              },
+              {
+                "id": "foe_e5",
+                "bestiaryId": "rustler",
+                "name": "Loft Rifle",
+                "x": 29,
+                "y": 12,
+                "hidden": true,
+                "initGroup": "Rustler",
+                "xp": 25,
+                "hp": 11
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,207 @@
+{
+  "format": "ssdns-character",
+  "schemaVersion": 2,
+  "app": "SSDNS Character Sheet 0.3.310",
+  "id": "c_showcase_bsr_dell",
+  "createdAt": "2026-11-03T04:20:00.000Z",
+  "updatedAt": "2026-11-14T06:40:00.000Z",
+  "shards": {
+    "white": 0,
+    "blue": 0,
+    "green": 0,
+    "yellow": 0,
+    "purple": 0
+  },
+  "character": {
+    "guns": [
+      {
+        "weapon": "herringer-light-pepperbox",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": true,
+        "equipped": true,
+        "chamber": "light|.32 Long",
+        "tier": "light"
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      }
+    ],
+    "melee": [
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      }
+    ],
+    "ammo": [
+      {
+        "type": "cartridge",
+        "caliber": "Light",
+        "count": 20
+      }
+    ],
+    "equipment": "",
+    "holster": "",
+    "holsterR": "",
+    "belt": "",
+    "gunBelt": false,
+    "shield": false,
+    "armor": "",
+    "casterGun": "",
+    "pactFocus": "",
+    "name": "Delphine \"Dell\" Marchand",
+    "player": "Showcase",
+    "lineage": "diplomats",
+    "sublineage": "",
+    "calling": "storyteller",
+    "level": 3,
+    "subclass": "college-of-campfire-lore-lore",
+    "background": "saloon-act",
+    "abilities": {
+      "STR": 8,
+      "DEX": 15,
+      "CON": 14,
+      "INT": 10,
+      "WIS": 12,
+      "CHA": 17
+    },
+    "saveProf": {
+      "STR": false,
+      "DEX": true,
+      "CON": false,
+      "INT": false,
+      "WIS": false,
+      "CHA": true
+    },
+    "skillProf": {
+      "Acrobatics": 1,
+      "Performance": 1,
+      "Persuasion": 1,
+      "Insight": 1,
+      "Deception": 1
+    },
+    "speed": 30,
+    "speedAuto": true,
+    "hpAuto": false,
+    "hpMax": 24,
+    "hpCurrent": 24,
+    "hpTemp": "",
+    "cantrips": [
+      "Vicious Mockery (Tongue Lashing)",
+      "Light"
+    ],
+    "spells": {
+      "1": [
+        {
+          "name": "Healing Word",
+          "prepared": true
+        },
+        {
+          "name": "Dissonant Whispers (Bad Notes)",
+          "prepared": true
+        },
+        {
+          "name": "Faerie Fire (Foxfire)",
+          "prepared": true
+        },
+        {
+          "name": "Sleep (Chloroform)",
+          "prepared": true
+        }
+      ],
+      "2": [
+        {
+          "name": "Hold Person (Lasso)",
+          "prepared": true
+        },
+        {
+          "name": "Suggestion (Sweet Talk)",
+          "prepared": true
+        }
+      ],
+      "3": [],
+      "4": [],
+      "5": [],
+      "6": [],
+      "7": [],
+      "8": [],
+      "9": []
+    },
+    "proficienciesLanguages": "Armor (Storyteller): Light armor\nWeapons (Storyteller): Simple weapons, Herringer pistols, cavalry sabers, fencing irons, Bowie knives\nYou can speak, read, and write Common, Spanish, and German.",
+    "features": "Always a Stage: You can always find a place to perform (saloon, camp, stage stop). Modest lodging and food follow; your act makes you a local curiosity \u2014 for good or ill.",
+    "wizardDone": true,
+    "activeConditions": [],
+    "fightingStyle": "",
+    "kitGrants": {
+      "ammo": {
+        "cartridge|light": 20
+      },
+      "items": [],
+      "v": 1
+    },
+    "instrument": "harmonica",
+    "instrumentQuality": "cheap",
+    "kitStamp": "storyteller",
+    "focusMigrated": 1,
+    "kitMode": "module",
+    "kitPicks": {
+      "voice": "harmonica",
+      "weapon": "pepper",
+      "kit": "trunk"
+    },
+    "hitDiceLeft": "3d8",
+    "_preview": {
+      "ac": 12,
+      "init": 2,
+      "speed": 30,
+      "hp": 21,
+      "focus": "Charisma \u00b7 Focus: your Calling instrument (voice counts) \u00b7 Spells known as a bard."
+    },
+    "xp": 900,
+    "lineageAsi": {
+      "STR": 0,
+      "DEX": 1,
+      "CON": 1,
+      "INT": 0,
+      "WIS": 0,
+      "CHA": 2
+    },
+    "asiChoice": [
+      "DEX",
+      "CON"
+    ],
+    "backstory": "Plays every saloon between here and the coast. Talks first, shoots second.",
+    "showcase": "bitter-spring-relay"
+  }
+}

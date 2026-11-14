@@ -1,0 +1,172 @@
+{
+  "format": "ssdns-character",
+  "schemaVersion": 2,
+  "app": "SSDNS Character Sheet 0.3.310",
+  "id": "c_showcase_bsr_mercy",
+  "createdAt": "2026-11-03T04:20:00.000Z",
+  "updatedAt": "2026-11-14T06:40:00.000Z",
+  "shards": {
+    "white": 0,
+    "blue": 0,
+    "green": 0,
+    "yellow": 0,
+    "purple": 0
+  },
+  "character": {
+    "guns": [
+      {
+        "weapon": "navy-army-ball-n-cap-revolver",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": true,
+        "equipped": true,
+        "chamber": "medium|",
+        "tier": "medium"
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      },
+      {
+        "weapon": "",
+        "proficient": true,
+        "chambers": [],
+        "loaded": 0,
+        "chamberSet": false
+      }
+    ],
+    "melee": [
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      },
+      {
+        "weapon": "",
+        "proficient": false
+      }
+    ],
+    "ammo": [
+      {
+        "type": "percussion",
+        "caliber": "",
+        "count": 20
+      }
+    ],
+    "equipment": "",
+    "holster": "mexican-loop",
+    "holsterR": "",
+    "belt": "gun-belt-cartridge-loops",
+    "gunBelt": true,
+    "shield": false,
+    "armor": "",
+    "casterGun": "",
+    "pactFocus": "",
+    "name": "Mercy Blackburn",
+    "player": "Showcase",
+    "lineage": "farmers",
+    "sublineage": "maccoy",
+    "calling": "gunslinger",
+    "level": 3,
+    "subclass": "gun-whisperer-battle-master",
+    "background": "gunslinger-drifter",
+    "abilities": {
+      "STR": 13,
+      "DEX": 17,
+      "CON": 15,
+      "INT": 10,
+      "WIS": 12,
+      "CHA": 8
+    },
+    "saveProf": {
+      "STR": true,
+      "DEX": false,
+      "CON": true,
+      "INT": false,
+      "WIS": false,
+      "CHA": false
+    },
+    "skillProf": {
+      "Intimidation": 1,
+      "Perception": 1,
+      "Athletics": 1,
+      "Survival": 1
+    },
+    "speed": 25,
+    "speedAuto": true,
+    "hpAuto": false,
+    "hpMax": 28,
+    "hpCurrent": 28,
+    "hpTemp": "",
+    "cantrips": [],
+    "spells": {
+      "1": [],
+      "2": [],
+      "3": [],
+      "4": [],
+      "5": [],
+      "6": [],
+      "7": [],
+      "8": [],
+      "9": []
+    },
+    "proficienciesLanguages": "Armor (Gunslinger): All armor, shields\nWeapons (Gunslinger): Simple and martial weapons (six-shooters, shotguns, repeaters, cavalry sabers, Bowies)\nYou can speak, read, and write Common and Irish Gaelic.",
+    "features": "Road Respect: Gun hands, company riders, and trail law recognize a professional. You can get a free meal, a warning, or a quiet sit-down with local shootists. Somewhere west, your name opens a door \u2014 or a crossfire.",
+    "wizardDone": true,
+    "activeConditions": [],
+    "fightingStyle": "sidearm",
+    "kitGrants": {
+      "ammo": {
+        "percussion|": 20
+      },
+      "items": [],
+      "v": 1
+    },
+    "kitStamp": "gunslinger",
+    "focusMigrated": 1,
+    "kitMode": "module",
+    "kitPicks": {
+      "weapon": "revolver",
+      "armor": "mail",
+      "pack": "claim"
+    },
+    "hitDiceLeft": "3d10",
+    "_preview": {
+      "ac": 13,
+      "init": 3,
+      "speed": 25,
+      "hp": 28,
+      "focus": ""
+    },
+    "xp": 900,
+    "lineageAsi": {
+      "STR": 0,
+      "DEX": 2,
+      "CON": 1,
+      "INT": 0,
+      "WIS": 0,
+      "CHA": 0
+    },
+    "backstory": "Farm kid with a borrowed six-gun. She keeps her iron clean as a church plate.",
+    "additionalFeatures": "The brief suggested Archery. The live Gunslinger list has no Archery, so Sidearm Duelling is set (it applies to the Ball n Cap). No maneuver picker yet. Suggested: Trip Attack, Menacing Attack, Precision Attack.",
+    "showcase": "bitter-spring-relay"
+  }
+}
