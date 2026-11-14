@@ -440,7 +440,8 @@ function assetToken(id, defId, code, opts) {
     pos: { x: at.x, y: at.y },
     sceneId: "scn_dry_fork",
     sq: at.sq,
-    span: opts.span || { w: inst.size || 1, h: inst.size || 1 }
+    span: opts.span || { w: inst.size || 1, h: inst.size || 1 },
+    labelPlace: opts.labelPlace === "above" ? "above" : ""
   };
 }
 function lockOf(dc) {
@@ -495,7 +496,7 @@ const play = {
   ],
   tokens: [
     assetToken("df_order_board", "ast_order-board", "AH6", { label: "Order board", span: { w: 1, h: 1 } }),
-    assetToken("df_lantern_ah6", "ast_wall-lantern", "AH6", { label: "Signal lantern", lit: true, span: { w: 1, h: 1 } }),
+    assetToken("df_lantern_ah6", "ast_wall-lantern", "AH6", { label: "Signal lantern", lit: true, span: { w: 1, h: 1 }, labelPlace: "above" }),
     assetToken("df_lantern_k12", "ast_wall-lantern", "K12", { label: "Lantern post", lit: true, span: { w: 1, h: 1 } }),
     assetToken("df_lantern_ad12", "ast_wall-lantern", "AD12", { label: "Lantern post", lit: true, span: { w: 1, h: 1 } }),
     assetToken("df_gate", "ast_fence-gate", "AF18", { label: "Corral gate", span: { w: 1, h: 1 } }),
@@ -503,7 +504,7 @@ const play = {
     assetToken("df_campfire", "ast_campfire", "AD23", { label: "Campfire", lit: true, span: { w: 1, h: 1 } }),
     assetToken("df_crate", "ast_cover-crate", "AA16", { label: "Cover crate", span: { w: 1, h: 1 } }),
     /* Powder and the plunger used to sit on the coal-bin footprint (F11, G11). They move one column west so the bin is the only prop there. */
-    assetToken("df_powder", "ast_powder-barrel", "E11", { label: "Powder barrel", span: { w: 1, h: 1 } }),
+    assetToken("df_powder", "ast_powder-barrel", "E11", { label: "Powder barrel", span: { w: 1, h: 1 }, labelPlace: "above" }),
     assetToken("df_plunger", "ast_plunger-box", "D11", { label: "Plunger", span: { w: 1, h: 1 } }),
     assetToken("df_switch_w", "ast_switch-stand", "I9", { label: "West switch", span: { w: 1, h: 1 } }),
     assetToken("df_switch_e", "ast_switch-stand", "AG9", { label: "East switch", span: { w: 1, h: 1 } }),
@@ -604,6 +605,12 @@ placed.forEach((row) => {
   if (!cover || cover.rect[0] !== row[2] || cover.rect[1] !== row[3]) throw new Error("cover moved for " + coverId);
 });
 if ((play.tokens || []).some((t) => t && t.assetDefId === "ast_strongbox")) throw new Error("Dry Fork has no strongbox");
+play.tokens.forEach((t) => { if (t && t.labelPlace !== "above") delete t.labelPlace; });
+const lanternAh = play.tokens.find((t) => t.id === "df_lantern_ah6");
+const powderAbove = play.tokens.find((t) => t.id === "df_powder");
+if (!lanternAh || lanternAh.labelPlace !== "above" || !powderAbove || powderAbove.labelPlace !== "above") {
+  throw new Error("shared-square labels were not lifted");
+}
 const playPath = path.join(root, "map/packs/showcase-dry-fork/showcase-dry-fork.play.json");
 fs.writeFileSync(playPath, JSON.stringify(play, null, 2) + "\n");
 

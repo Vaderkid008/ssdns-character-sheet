@@ -908,7 +908,8 @@
       "span": {
         "w": 1,
         "h": 1
-      }
+      },
+      "labelPlace": "above"
     },
     {
       "id": "df_lantern_k12",
@@ -1643,7 +1644,8 @@
       "span": {
         "w": 1,
         "h": 1
-      }
+      },
+      "labelPlace": "above"
     },
     {
       "id": "df_plunger",

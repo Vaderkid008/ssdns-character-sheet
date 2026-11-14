@@ -95,6 +95,9 @@ check("gate.moveOnly", gate && gate.asset.props.gate.blocksMove === true && gate
 const powder = tokens.find((t) => t.id === "df_powder");
 const plunger = tokens.find((t) => t.id === "df_plunger");
 check("powder.blast", powder && powder.asset.props.timer.mode === "fuse" && powder.asset.interact.actions.indexOf("toggle") >= 0 && (powder.asset.images || []).length >= 2);
+check("label.above", tokens.find((t) => t.id === "df_lantern_ah6").labelPlace === "above" && powder.labelPlace === "above");
+check("label.below", !tokens.find((t) => t.id === "df_order_board").labelPlace && !plunger.labelPlace);
+check("label.paint", read("map/ssdns-map.js").includes('t.labelPlace === "above"'));
 check("plunger.blast", plunger && plunger.asset.props.timer.mode === "plunger" && plunger.asset.interact.actions.indexOf("toggle") >= 0 && (plunger.asset.images || []).length >= 2);
 
 const COVER = {
@@ -164,6 +167,12 @@ await page.locator("#mount canvas").first().screenshot({ path: path.join(OUT, "d
 await page.evaluate(() => { window.map.lookAt(16, 12, 0.72); });
 await page.waitForTimeout(300);
 await page.locator("#mount canvas").first().screenshot({ path: path.join(OUT, "dm-props.png"), timeout: 20000 });
+await page.evaluate(() => { window.map.lookAt(33, 5, 1.15); });
+await page.waitForTimeout(200);
+await page.locator("#mount canvas").first().screenshot({ path: path.join(OUT, "dm-ah6-labels.png"), timeout: 20000 });
+await page.evaluate(() => { window.map.lookAt(4.5, 10, 1.15); });
+await page.waitForTimeout(200);
+await page.locator("#mount canvas").first().screenshot({ path: path.join(OUT, "dm-powder-labels.png"), timeout: 20000 });
 await browser.close();
 
 if (failures.length) {

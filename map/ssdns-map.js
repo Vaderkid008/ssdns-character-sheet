@@ -227,6 +227,7 @@ window.SSDNSMap = { create(opts) {
       copyOf: t.copyOf || '',
       allowCopySwitch: t.allowCopySwitch !== false,
       label: t.label || t.name || '', size: t.size || 1, name: t.name || '',
+      labelPlace: t.labelPlace === "above" ? "above" : undefined,
       kind: t.kind || '', storyMarker: t.storyMarker || '', lootBoxId: t.lootBoxId || '',
       weaponDrop: t.weaponDrop ? { name: t.weaponDrop.name || t.name || '', itemId: t.weaponDrop.itemId || '', dirty: !!t.weaponDrop.dirty, taken: !!t.weaponDrop.taken } : null,
       spellPiece: t.spellPiece || '', zoneId: t.zoneId || '',
@@ -5769,7 +5770,9 @@ function draw() {
     ctx.font = `${nameFont}px system-ui`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    const nameY = s.y + r + 4;
+    /* A second prop on the same square, or a long name beside a neighbor, can sit above the ring. */
+    const nameAbove = t.labelPlace === "above";
+    const nameY = nameAbove ? (s.y - r - 18 - nameFont) : (s.y + r + 4);
     ctx.fillText(t.label || t.name.slice(0, 8), s.x, nameY);
     /* DM bar is under the name, clear of the ring. Assets, chests, and spell pieces are not creatures. */
     if (role === 'dm' && barHp && !t.spellPiece && t.kind !== 'asset' && t.kind !== 'chest' && !isPartyToken(t)) {
