@@ -10343,23 +10343,96 @@ function onControlledTurn(token) {
 function tokenWho(t) {
   return (t && (t.name || t.label)) || "A player";
 }
-function entryCell(sceneId, index) {
-  const sd = sceneData(sceneId);
-  const spawns = Array.isArray(sd.spawns) ? sd.spawns.filter(s => s && s.pos && (s.side === "party" || /^P/i.test(String(s.tag || "")))) : [];
-  const n = index || 0;
-  const spawn = spawns[n] || spawns[0];
-  if (spawn && spawn.pos) {
-    return {
-      x: Math.round(Number(spawn.pos.x) || 0) + (spawns[n] ? 0 : n),
-      y: Math.round(Number(spawn.pos.y) || 0)
-    };
+/* Squares already taken on this floor. Party markers and the tokens we are about to move do not count. */
+function floorTaken(sceneId, ignoreIds) {
+  const used = {};
+  const skip = ignoreIds || {};
+  (state.tokens || []).forEach(t => {
+    if (!t || !t.pos || skip[t.id] || isPartyToken(t)) return;
+    if ((t.sceneId || "") !== sceneId) return;
+    const size = t.size || 1;
+    for (let y = Math.round(t.pos.y); y < Math.round(t.pos.y) + size; y++) {
+      for (let x = Math.round(t.pos.x); x < Math.round(t.pos.x) + size; x++) used[x + "," + y] = 1;
+    }
+  });
+  return used;
+}
+function nearestOpenSquare(origin, grid, used) {
+  const cols = Math.max(1, Number(grid.cols) || 30);
+  const rows = Math.max(1, Number(grid.rows) || 20);
+  const ox = Math.max(0, Math.min(cols - 1, Math.round(Number(origin.x) || 0)));
+  const oy = Math.max(0, Math.min(rows - 1, Math.round(Number(origin.y) || 0)));
+  let best = null;
+  let bestD = 1e9;
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      if (used[x + "," + y]) continue;
+      const d = Math.max(Math.abs(x - ox), Math.abs(y - oy));
+      if (d < bestD || (d === bestD && best && (y < best.y || (y === best.y && x < best.x)))) {
+        bestD = d;
+        best = { x: x, y: y };
+      }
+    }
   }
+  return best || { x: ox, y: oy };
+}
+/* Set floor, Send to, and Move party here share this order:
+   link landing, default spawn group, other scene spawns, then a square near the map entry.
+   The map centre is not an entry. Two people never take the same square. */
+function floorLandingSpots(sceneId) {
+  const spots = [];
+  const seen = {};
+  function add(x, y) {
+    x = Math.round(Number(x));
+    y = Math.round(Number(y));
+    if (!isFinite(x) || !isFinite(y)) return;
+    const key = x + "," + y;
+    if (seen[key]) return;
+    seen[key] = 1;
+    spots.push({ x: x, y: y });
+  }
+  liveLinks().forEach(link => {
+    if (!link || link.destMapId !== sceneId || link.mapId === sceneId) return;
+    if (link.landX == null || link.landY == null) return;
+    add(link.landX, link.landY);
+  });
+  const groups = (shared.sceneSpawns && shared.sceneSpawns[sceneId] && shared.sceneSpawns[sceneId].groups) || [];
+  const preferred = groups.filter(g => g && g.isDefault)[0] || groups[0] || null;
+  ((preferred && preferred.spots) || []).slice().sort((a, b) => (a.n || 0) - (b.n || 0)).forEach(sp => add(sp.x, sp.y));
+  groups.forEach(g => {
+    if (!g || (preferred && g.id === preferred.id)) return;
+    (g.spots || []).slice().sort((a, b) => (a.n || 0) - (b.n || 0)).forEach(sp => add(sp.x, sp.y));
+  });
+  const sd = sceneData(sceneId);
+  const party = Array.isArray(sd.spawns) ? sd.spawns.filter(s => s && s.pos && (s.side === "party" || /^P/i.test(String(s.tag || "")))) : [];
+  party.forEach(s => add(s.pos.x, s.pos.y));
+  return spots;
+}
+function floorLandingPlan(sceneId, count, ignoreIds) {
   const sc = allScenes().find(s => s && s.id === sceneId);
-  const g = (sc && sc.grid) || { cols: 30, rows: 20 };
-  return {
-    x: Math.max(0, Math.floor((Number(g.cols) || 30) / 2) + n),
-    y: Math.max(0, Math.floor((Number(g.rows) || 20) / 2))
-  };
+  const grid = (sc && sc.grid) || { cols: 30, rows: 20 };
+  const used = floorTaken(sceneId, ignoreIds);
+  const spots = floorLandingSpots(sceneId);
+  const entry = spots.length ? spots[0] : { x: 1, y: 1 };
+  const plan = [];
+  const n = Math.max(0, Number(count) || 0);
+  for (let i = 0; i < n; i++) {
+    let cell = null;
+    for (let s = 0; s < spots.length; s++) {
+      if (used[spots[s].x + "," + spots[s].y]) continue;
+      cell = { x: spots[s].x, y: spots[s].y };
+      break;
+    }
+    if (!cell) cell = nearestOpenSquare(entry, grid, used);
+    used[cell.x + "," + cell.y] = 1;
+    plan.push(cell);
+  }
+  return plan;
+}
+function entryCell(sceneId, index) {
+  const n = Math.max(0, Number(index) || 0);
+  const plan = floorLandingPlan(sceneId, n + 1, {});
+  return plan[n] || { x: 1, y: 1 };
 }
 function savePreps() {
   if (role !== "dm") return;
@@ -10917,8 +10990,9 @@ function landToken(t, sceneId, cell) {
   if (!active || active.id === t.id) shared.playerScenes[t.ownerUid] = sceneId;
   saveToken(t.id);
 }
-/* Move party here. Ghosts on this map become the real square. Anyone else who is
-   not already here arrives at the map entry (party spawn, else the center).
+/* Move party here. A prep ghost keeps its square. Everyone else lands on a link
+   landing, then the default spawn group, then the other scene spawns, then a
+   square near that entry. Nobody is dropped on the centre, and nobody stacks.
    A copy that is not the active token stays on its own map. Fog on each map stays. */
 function openSpawnGroupPick(groups, done) {
   let panel = q("spawnGroupPick");
@@ -10948,12 +11022,6 @@ function movePartyHere(uids, groupId) {
   const name = floorName(id);
   saveScene(id);
     const wanted = Array.isArray(uids) && uids.length ? uids : null;
-  const groups = (shared.sceneSpawns && shared.sceneSpawns[id] && shared.sceneSpawns[id].groups) || [];
-  if (groups.length > 1 && !groupId) {
-    openSpawnGroupPick(groups, (picked) => movePartyHere(uids, picked));
-    return [];
-  }
-  const group = groups.filter(g => g.id === groupId)[0] || groups.filter(g => g.isDefault)[0] || groups[0] || null;
   const movers = [];
   const seen = {};
   (state.tokens || []).forEach(t => {
@@ -10967,21 +11035,17 @@ function movePartyHere(uids, groupId) {
     if (already && !ghost) return;
     movers.push({ token: t, ghost: ghost });
   });
-  const sc = allScenes().find(s => s && s.id === id);
-  const grid = sc && sc.grid ? sc.grid : { cols: 30, rows: 20 };
-  const spots = (group && group.spots) || [];
-  const plan = spots.length && window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.assignLandings
-    ? window.SSDNSSceneBuilder.assignLandings(spots, movers.length, grid)
-    : [];
+  const ghosts = movers.filter(row => row.ghost);
+  const fresh = movers.filter(row => !row.ghost);
+  const ignore = {};
+  fresh.forEach(row => { ignore[row.token.id] = 1; });
+  ghosts.forEach(row => landToken(row.token, id, { x: row.ghost.x, y: row.ghost.y }));
+  const plan = floorLandingPlan(id, fresh.length, ignore);
+  fresh.forEach((row, i) => landToken(row.token, id, plan[i] || { x: 1, y: 1 }));
   const moved = [];
-  let extra = 0;
-  movers.forEach((row, i) => {
-    const t = row.token;
-    const spot = plan[i];
-    const cell = row.ghost ? { x: row.ghost.x, y: row.ghost.y } : (spot ? { x: spot.x, y: spot.y } : entryCell(id, extra++));
-    landToken(t, id, cell);
-    if (row.ghost) delete state.preps[id][t.ownerUid];
-    moved.push(tokenWho(t));
+  movers.forEach(row => {
+    if (row.ghost) delete state.preps[id][row.token.ownerUid];
+    moved.push(tokenWho(row.token));
   });
   if (state.preps && state.preps[id] && !Object.keys(state.preps[id]).length) delete state.preps[id];
   savePreps();
@@ -11004,7 +11068,10 @@ function sendTokenTo(tokenId, sceneId) {
   const ghost = state.preps && state.preps[sceneId] && state.preps[sceneId][t.ownerUid];
   const active = activeOwned(t.ownerUid);
   const useGhost = !!(ghost && active && active.id === t.id);
-  landToken(t, sceneId, useGhost ? { x: ghost.x, y: ghost.y } : entryCell(sceneId, 0));
+  const ignore = {};
+  ignore[t.id] = 1;
+  const cell = useGhost ? { x: ghost.x, y: ghost.y } : (floorLandingPlan(sceneId, 1, ignore)[0] || { x: 1, y: 1 });
+  landToken(t, sceneId, cell);
   if (useGhost) {
     delete state.preps[sceneId][t.ownerUid];
     if (!Object.keys(state.preps[sceneId]).length) delete state.preps[sceneId];
@@ -16807,26 +16874,42 @@ function douseSelected(out) {
     paintDmEdit();
     q('dmEditBtn').addEventListener('click', () => setDmEdit(!state.dmEdit));
   }
-  q('setFloorBtn').addEventListener('click', () => {
-    const targets = state.selectedIds.length ? state.tokens.filter(t => state.selectedIds.includes(t.id)) : (state.selected ? [state.selected] : []);
-    if (!targets.length) { toast('Select a token first'); return; }
-    const sel = q('sceneSelect');
-    const sceneId = sel.value;
-    if (!shared.playerScenes) shared.playerScenes = {};
+  function setFloor(sceneId, tokenIds) {
+    if (role !== "dm" || !sceneId) return [];
+    let targets = [];
+    if (Array.isArray(tokenIds) && tokenIds.length) {
+      targets = tokenIds.map(id => (state.tokens || []).find(t => t && t.id === id)).filter(Boolean);
+    } else {
+      targets = state.selectedIds.length ? state.tokens.filter(t => state.selectedIds.includes(t.id)) : (state.selected ? [state.selected] : []);
+    }
+    if (!targets.length) { toast("Select a token first"); return []; }
+    const moving = targets.filter(t => (t.sceneId || "") !== sceneId);
+    const ignore = {};
+    moving.forEach(t => { ignore[t.id] = 1; });
+    const plan = floorLandingPlan(sceneId, moving.length, ignore);
+    moving.forEach((t, i) => landToken(t, sceneId, plan[i] || { x: 1, y: 1 }));
     targets.forEach(t => {
-      t.sceneId = sceneId;
-      if (shared.tokens[t.id]) shared.tokens[t.id].sceneId = sceneId;
-      if (t.ownerUid) {
-        const active = activeOwned(t.ownerUid);
-        if (!active || active.id === t.id) shared.playerScenes[t.ownerUid] = sceneId;
+      if ((t.sceneId || "") === sceneId && moving.indexOf(t) < 0) {
+        if (t.ownerUid) {
+          const active = activeOwned(t.ownerUid);
+          if (!shared.playerScenes) shared.playerScenes = {};
+          if (!active || active.id === t.id) shared.playerScenes[t.ownerUid] = sceneId;
+        }
+        saveToken(t.id);
       }
-      saveToken(t.id);
     });
     postScenes();
-    flashBtn('setFloorBtn');
-    toast('Floor set to ' + sel.options[sel.selectedIndex].text);
     draw();
     renderTurnStrip();
+    return moving.map(t => ({ id: t.id, x: t.pos.x, y: t.pos.y, sceneId: sceneId }));
+  }
+  q('setFloorBtn').addEventListener('click', () => {
+    const sel = q('sceneSelect');
+    const sceneId = sel.value;
+    const moved = setFloor(sceneId);
+    if (!moved.length && !(state.selectedIds.length || state.selected)) return;
+    flashBtn('setFloorBtn');
+    toast('Floor set to ' + sel.options[sel.selectedIndex].text);
   });
   q('showSceneBtn').addEventListener('click', () => {
     showToPlayers();
@@ -21778,6 +21861,7 @@ return {
       prep: placePrep,
       moveParty: movePartyHere,
       send: sendTokenTo,
+      setFloor: setFloor,
       duplicate: duplicateToken,
       setActive: function (id) { return setActiveCopy(id, false); },
       activeId: function (ownerUid) { const t = activeOwned(ownerUid); return t ? t.id : ""; },
