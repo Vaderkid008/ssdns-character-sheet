@@ -1695,7 +1695,13 @@ function fxPlay(spec, geo, opts) {
   const cues = fxCues(spec, plan);
   const seed = FXA.hash(String(spec.id || '') + type + (spec.shooter || '') + (spec.target || '')) || 7;
   const entry = { spec: Object.assign({}, spec, { type: type, seed: seed }), geo, plan, cues, t0: 0 };
-  const log = { type, result: plan.result, srcHidden: !!geo.srcHidden, cues: cues.map(c => c.layer + ':' + c.cue + '@' + c.at), local: !!opts.local, nat: spec.nat == null ? null : spec.nat, crit: !!spec.crit };
+  const log = {
+    type, result: plan.result, srcHidden: !!geo.srcHidden, cues: cues.map(c => c.layer + ':' + c.cue + '@' + c.at),
+    local: !!opts.local, nat: spec.nat == null ? null : spec.nat, crit: !!spec.crit,
+    shooter: (geo.tokS && geo.tokS.id) || spec.shooter || "",
+    target: (geo.tokT && geo.tokT.id) || spec.target || "",
+    origin: geo.S ? { x: Math.round(geo.S.x * 10) / 10, y: Math.round(geo.S.y * 10) / 10 } : (geo.src ? { x: geo.src.x, y: geo.src.y } : null)
+  };
   state.fxLog.push(log);
   if (state.fxLog.length > 30) state.fxLog.shift();
   const ev = FXA.effectEvent(Object.assign({}, spec, { type: type }), { local: !!opts.local });
@@ -2059,7 +2065,7 @@ function fxSpecFromReq(row) {
   return {
     id: row.id,
     who: (row.zoom && row.zoom.who) || row.characterName || row.fromName || row.who || "",
-    type: req.type, result: req.result, target: req.target || (req.self ? row.from : ""), shooter: row.from, sfx: req.sfx,
+    type: req.type, result: req.result, target: req.target || (req.self ? row.from : ""), shooter: req.shooter || row.from, sfx: req.sfx,
     weapon: req.weapon, weaponId: req.weaponId, arrow: req.arrow, nat: req.nat, crit: req.crit, critMin: req.critMin,
     spell: req.spell || "", dmg: req.dmg || "", self: !!req.self || req.target === row.from,
     facing: req.facing,
@@ -17318,12 +17324,27 @@ function syncCombatants(initiative) {
     if (amount > 0 && tgt.hp != null && tgt.hp !== "") {
       patchToken(tgt.id, { hp: Math.max(0, Number(tgt.hp) - amount) });
     }
+    const shooterId = req.shooterId || "";
+    const fxType = req.fxType || (req.melee ? (/bludgeon/i.test(String(req.dmgType || "")) ? "blunt" : "blade") : "");
+    if (shooterId && req.targetId && fxType) {
+      dmFx({
+        id: req.rollId || "", shooter: shooterId, target: req.targetId, type: fxType,
+        result: miss ? "miss" : (crit ? "crit" : "hit"), weapon: req.weapon || "",
+        dmg: req.dmgType || "", nat: nat, crit: crit && !miss
+      }, req.rollId || "");
+    }
     const who = req.characterName || "Someone";
     const name = tgt.name || tgt.label || req.targetName || "target";
     const word = miss ? "MISS" : (crit ? "CRIT" : "HIT");
     const line = who + " → " + name + ": " + word + (amount ? " · " + amount + (req.dmgType ? " " + req.dmgType : "") : "");
     pushFeed({ kind: "roll", text: line, attack: true, nat: nat, crit: crit && !miss, ts: new Date().toISOString() });
     return { miss: miss, crit: crit && !miss, hp: tgt.hp != null && tgt.hp !== "" ? Number(tgt.hp) : null, amount: amount, ac: ac };
+  }
+  function grantStrikeType(act) {
+    const kind = String((act && (act.kind || act.type)) || "melee").toLowerCase();
+    if (kind === "spell") return "spell";
+    if (kind === "ranged" || kind === "gun" || kind === "thrown") return "";
+    return /bludgeon/.test(String((act && (act.damage || act.dmg)) || "").toLowerCase()) ? "blunt" : "blade";
   }
   function rollGrantAction(id) {
     const sheet = activeGrantSheet();
@@ -17359,6 +17380,8 @@ function syncCombatants(initiative) {
       if (amount < 0) amount = 0;
       dmgFormula = count + "d" + parsed.sides + (parsed.mod ? (parsed.mod > 0 ? "+" : "") + parsed.mod : "");
     }
+    const shooterId = (actor && actor.id) || sheet.tokenId || "";
+    const fxType = grantStrikeType(act);
     const tgt = aimed ? tokenByRef(targetId) : null;
     const tgtName = (tgt && (tgt.name || tgt.label)) || "";
     const who = sheet.name || "Token";
@@ -17380,6 +17403,14 @@ function syncCombatants(initiative) {
     toast(line);
     pushFeed({ id: "roll:" + rollId, kind: "roll", text: line, attack: true, nat: nat, crit: crit && !miss, label: weapon, ts: new Date().toISOString() });
     emit("chat:send", { text: line });
+    if (shooterId && aimed) {
+      const played = startFx({
+        id: rollId, shooter: shooterId, target: targetId, type: fxType,
+        result: miss ? "miss" : (crit ? "crit" : "hit"), weapon: weapon, dmg: dmgType,
+        nat: nat, crit: crit && !miss
+      }, { local: true });
+      if (played) fxRemember(rollId);
+    }
     const Join = window.SSDNSDmJoin;
     const joined = !!(Join && Join.isJoined && Join.isJoined() && aimed);
     if (joined && Join.postAttack) {
@@ -17402,7 +17433,10 @@ function syncCombatants(initiative) {
           dmgParts: parsed && parsed.mod ? [{ label: "mod", value: parsed.mod }] : [],
           parts: [{ label: "bonus", value: mod }],
           weapon: weapon,
-          melee: String(act.kind || "melee") !== "ranged" && String(act.kind || "") !== "spell",
+          melee: fxType === "blade" || fxType === "blunt",
+          fxType: fxType,
+          shooterId: shooterId,
+          grantToken: true,
           targetId: targetId,
           targetName: tgtName,
           characterName: who
@@ -17425,8 +17459,14 @@ function syncCombatants(initiative) {
           targetId: targetId,
           targetName: tgtName,
           characterName: who,
+          who: who,
           weapon: weapon,
-          tokenId: sheet.tokenId || ""
+          tokenId: sheet.tokenId || shooterId,
+          fxReq: shooterId && aimed ? {
+            id: rollId, type: fxType, shooter: shooterId, target: targetId,
+            result: miss ? "miss" : (crit ? "crit" : "hit"),
+            weapon: weapon, dmg: dmgType, nat: nat, crit: crit && !miss
+          } : null
         });
       } catch (eRoll) {}
     }

@@ -1,5 +1,5 @@
 /**
- * DM randomize-loot (sheet 0.3.307 / DMCC 0.2.320).
+ * DM randomize-loot (sheet 0.3.308 / DMCC 0.2.321).
  * One press adds pocket loot and saddlebag ES on top of gear already there.
  * Players, allies, spell pieces, assets, dropped loot, and already-randomized
  * tokens are skipped. A second press does not stack. The library card is not
@@ -20,8 +20,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.307" && version.sheetBuild === "sheet-playtest-v03307");
-check("ver.dmcc", version.dmcc === "0.2.320" && version.dmccBuild === "dmcc-playtest-v02320");
+check("ver.sheet", version.sheet === "0.3.308" && version.sheetBuild === "sheet-playtest-v03308");
+check("ver.dmcc", version.dmcc === "0.2.321" && version.dmccBuild === "dmcc-playtest-v02321");
 check("rules.untouched", !read("database.rules.json").includes("lootRandomized"));
 
 const ctx = {

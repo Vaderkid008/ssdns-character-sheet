@@ -23,8 +23,8 @@ function pngSize(rel) {
 }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.307" && version.sheetBuild === "sheet-playtest-v03307");
-check("ver.dmcc", version.dmcc === "0.2.320" && version.dmccBuild === "dmcc-playtest-v02320");
+check("ver.sheet", version.sheet === "0.3.308" && version.sheetBuild === "sheet-playtest-v03308");
+check("ver.dmcc", version.dmcc === "0.2.321" && version.dmccBuild === "dmcc-playtest-v02321");
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js database.rules.json firebase.json", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 

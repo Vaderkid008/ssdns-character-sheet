@@ -224,6 +224,7 @@
   function request(info) {
     info = info || {};
     var r = { type: classify(info), result: resultOf(info.result) };
+    if (info.shooter) r.shooter = String(info.shooter).slice(0, 80);
     if (info.target) r.target = String(info.target).slice(0, 80);
     if (info.sfx) r.sfx = String(info.sfx).replace(/[^a-z0-9-]/gi, "").slice(0, 40);
     if (info.weapon) r.weapon = String(info.weapon).slice(0, 80);
