@@ -667,6 +667,7 @@ toolbar.innerHTML = `
         <button data-act="showSceneBtn" type="button" title="Move party here. Everyone's active token comes to this map: a prep ghost lands on its square, anyone without one arrives at the map entry. Copies stay put. Nothing moves until you press this.">Move party here</button>
         <button data-act="movePickBtn" type="button" title="Pick Everyone or certain players, then move only those onto this map.">Choose who moves…</button>
         <button data-act="prepBtn" type="button" title="Place grey ghosts on this map. Players cannot see them. Move party here turns a ghost into that player's real square.">Prep this map</button>
+        <button data-act="sceneBuilderBtn" type="button" title="Build a scene from the maps you already have, save it, and load it into this room.">Scene builder…</button>
         <button data-act="mapsLibraryBtn" type="button" title="Built-in maps, my maps, and the world folder">All maps…</button>
       </div>
       <select data-act="sceneSelect" hidden aria-hidden="true"></select>
@@ -7108,6 +7109,9 @@ function closeMapMenus(keep) {
   if (keep !== "bestiary") {
     const panel = el.querySelector('[data-act="bestiaryPanel"]');
     if (panel && !panel.hidden && typeof toggleBestiary === "function") toggleBestiary(false);
+  }
+  if (keep !== "scene" && window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.isOpen && window.SSDNSSceneBuilder.isOpen()) {
+    window.SSDNSSceneBuilder.close();
   }
 }
 function floatBar(title) {
@@ -15842,8 +15846,46 @@ function douseSelected(out) {
     menu.style.left = Math.max(8, Math.round(r.left)) + 'px';
     menu.style.top = Math.round(r.bottom + 4) + 'px';
   }
+  function sceneCatalog() {
+    return allScenes().concat(worldMaps()).map(sc => ({
+      id: sc.id,
+      name: sc.name || sc.id,
+      group: sc.group || sc.folder || "",
+      source: sc.folder === "mine" ? "library" : "pack"
+    }));
+  }
+  function adoptSavedScene(scene) {
+    if (role !== "dm" || !scene || !window.SSDNSSceneBuilder) return null;
+    const packIds = ((window.SSDNS_MAP_PACKS && window.SSDNS_MAP_PACKS.scenes) || []).map(s => s.id)
+      .concat(((window.SSDNS_MAP_PACKS && window.SSDNS_MAP_PACKS.world) || []).map(s => s.id));
+    const tokenSnap = (state.tokens || []).map(t => ({ id: t.id, sceneId: t.sceneId || "", x: t.pos ? t.pos.x : null, y: t.pos ? t.pos.y : null }));
+    const result = window.SSDNSSceneBuilder.loadIntoRoom(scene, {
+      places: shared.places || {},
+      tokens: tokenSnap,
+      scenes: shared.scenes || {},
+      preps: state.preps || {},
+      packIds: packIds
+    });
+    shared.places = result.places;
+    state.preps = result.preps;
+    write("map/dm/places", shared.places);
+    savePreps();
+    renderFloorStrip();
+    draw();
+    toast("Loaded " + (scene.name || "scene") + ". Maps and tokens already here stayed put.");
+    return result;
+  }
+  function openSceneBuilder() {
+    if (role !== "dm" || !window.SSDNSSceneBuilder) { toast("Scene builder is for the DM."); return; }
+    const menu = q("mapsMenu");
+    if (menu) menu.hidden = true;
+    if (q("mapsBtn")) q("mapsBtn").setAttribute("aria-expanded", "false");
+    closeMapMenus("scene");
+    window.SSDNSSceneBuilder.open(el, { role: role, maps: sceneCatalog, onLoad: adoptSavedScene });
+  }
   if (q('mapsBtn')) q('mapsBtn').addEventListener('click', (e) => {
     e.stopPropagation();
+    if (window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.isOpen && window.SSDNSSceneBuilder.isOpen()) window.SSDNSSceneBuilder.close();
     const menu = q('mapsMenu');
     if (!menu) { openMapLibrary(); return; }
     menu.hidden = !menu.hidden;
@@ -15851,6 +15893,7 @@ function douseSelected(out) {
     if (!menu.hidden) placeMapsMenu();
   });
   if (q('mapsLibraryBtn')) q('mapsLibraryBtn').addEventListener('click', () => openMapLibrary());
+  if (q('sceneBuilderBtn')) q('sceneBuilderBtn').addEventListener('click', () => openSceneBuilder());
   if (q('mapsMenu')) {
     q('mapsMenu').addEventListener('click', (e) => {
       if (!(e.target && e.target.closest && e.target.closest('button'))) return;
