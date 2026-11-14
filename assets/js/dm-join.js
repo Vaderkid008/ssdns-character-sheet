@@ -836,7 +836,7 @@
       spell: !!entry.spell,
       cover: entry.cover || "",
       coverSet: !!entry.coverSet,
-      characterName: (c && c.name) || entry.characterName || "",
+      characterName: (entry.grantToken && entry.characterName) ? entry.characterName : ((c && c.name) || entry.characterName || ""),
       playerName: (c && c.player) || "",
       rollId: entry.rollId || "",
       targetName: entry.targetName || "",
@@ -845,6 +845,9 @@
       arrow: String(entry.arrow || "").slice(0, 160)
     };
     if (entry.melee) row.melee = true;
+    if (entry.shooterId) row.shooterId = String(entry.shooterId).slice(0, 80);
+    if (entry.fxType) row.fxType = String(entry.fxType).slice(0, 16);
+    if (entry.grantToken) row.grantToken = true;
     if (entry.healHalf) row.healHalf = true;
     if (Number(entry.push) > 0) row.push = Number(entry.push) || 0;
     if (Number(entry.pull) > 0) row.pull = Number(entry.pull) || 0;

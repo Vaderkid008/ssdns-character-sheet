@@ -9933,10 +9933,12 @@ function resolveIncomingAttack(req, reqId) {
   const feedId = rollId || reqId || DM.uid("hit");
   verdictFeed(feedId, line, req.characterName || shown.name || "");
   if (req.from) {
-    mapFx({ id: feedId, shooter: req.from, target: req.targetId, result: verdict.miss ? "miss" : (verdict.crit ? "crit" : "hit"),
+    const grantMelee = !!req.melee && !req.gun && !req.spell;
+    const grantType = req.fxType || (req.spell ? "spell" : (grantMelee ? (/bludgeon/i.test(String(req.dmgType || "")) ? "blunt" : "blade") : ""));
+    mapFx({ id: feedId, shooter: req.shooterId || req.from, target: req.targetId, result: verdict.miss ? "miss" : (verdict.crit ? "crit" : "hit"),
       nat: req.nat, crit: !!verdict.crit, critMin: req.critMin, weapon: req.spell ? (req.spellName || req.weapon || "") : (req.weapon || ""),
       weaponId: req.weaponId || "", gun: !!req.gun, sfx: req.sfx || "", arrow: fxArrowType(req.arrow),
-      type: req.spell ? "spell" : "",
+      type: grantType,
       spell: req.spell ? (req.spellName || req.weapon || "") : "", dmg: req.dmgType || "", heard: [DM.state.uid] });
   }
   if (window.SSDNSAudio && window.SSDNSAudio.playOutcome) {
