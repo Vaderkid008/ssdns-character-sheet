@@ -1,6 +1,6 @@
 /**
  * World maps open as a real scene, and an empty room starts on the title cover.
- * Sheet 0.3.309 / DMCC 0.2.322.
+ * Sheet 0.3.310 / DMCC 0.2.323.
  *   node tools/test-between-encounters-03277.mjs
  */
 import fs from "node:fs";
@@ -19,8 +19,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.309" && ver.dmcc === "0.2.322" && ver.sheetBuild === "sheet-playtest-v03309" && ver.dmccBuild === "dmcc-playtest-v02322");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.309") && !read("database.rules.json").includes("0.3.309"));
+check("ver", ver.sheet === "0.3.310" && ver.dmcc === "0.2.323" && ver.sheetBuild === "sheet-playtest-v03310" && ver.dmccBuild === "dmcc-playtest-v02323");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.310") && !read("database.rules.json").includes("0.3.310"));
 check("fallback.dusty", read("map/ssdns-map.js").includes("return my?.sceneId || shared.playerScenes?.[uid] || 'scn_dustyspur01'") && read("map/ssdns-map.js").includes("const DEFAULT_SCENE_ID = 'scn_between'"));
 
 const sb = {}; sb.window = sb; vm.createContext(sb);

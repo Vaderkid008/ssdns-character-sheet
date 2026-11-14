@@ -784,11 +784,17 @@ on(document, 'keydown', e => {
     }
   }
     if (e.key === 'Escape') {
-    if (state.spawnArm) {
+    if (el.querySelector('[data-act="linkMenu"]')) {
       e.preventDefault();
+      hideLinkMenu();
+      return;
+    }
+    if (state.linkArm || state.spawnArm) {
+      e.preventDefault();
+      state.linkArm = null;
       state.spawnArm = null;
       if (window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.disarm) window.SSDNSSceneBuilder.disarm();
-      toast("Spawn placement off.");
+      toast("Placement off.");
       draw();
       return;
     }
@@ -5946,7 +5952,8 @@ function draw() {
   paintBlast();
   paintBlastBanner();
   paintZoneBlind();
-  if (role === "dm") { paintPreps(px); paintSceneGhosts(px); }
+  if (role === "dm") { paintPreps(px); paintSceneGhosts(px); paintSceneLinks(px); }
+  else paintSceneLinks(px);
   renderFloorStrip();
   renderCopySwitch();
   refreshSelectedPanel();
@@ -7118,7 +7125,8 @@ function closeMapMenus(keep) {
     const panel = el.querySelector('[data-act="bestiaryPanel"]');
     if (panel && !panel.hidden && typeof toggleBestiary === "function") toggleBestiary(false);
   }
-  if (keep !== "scene" && window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.isOpen && window.SSDNSSceneBuilder.isOpen()) {
+  if (keep !== "link") hideLinkMenu();
+  if (keep !== "scene" && keep !== "link" && window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.isOpen && window.SSDNSSceneBuilder.isOpen()) {
     window.SSDNSSceneBuilder.close();
   }
 }
@@ -9506,6 +9514,21 @@ function placeTokenCmd(menu, token) {
   const oy = canvas ? canvas.offsetTop || 0 : 0;
   anchorMenuOnce(menu, ox + s.x + r + 8, oy + s.y - 8);
 }
+function paintTokenLink(menu, token) {
+  if (!menu) return;
+  const body = menu.querySelector(".ssm-card-body");
+  if (!body) return;
+  let btn = menu.querySelector("[data-act='tokenCmdLink']");
+  const stood = linkUnderToken(token);
+  if (!stood) { if (btn) btn.remove(); return; }
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.type = "button";
+    btn.setAttribute("data-act", "tokenCmdLink");
+    btn.textContent = "Take link";
+    body.appendChild(btn);
+  }
+}
 function placeCommandMenu() {
   if (state.drag && state.drag.token) return;
   const token = commandToken();
@@ -9544,6 +9567,14 @@ function placeCommandMenu() {
       }
       if (act === 'tokenCmdDropItem') dropCarriedItem(ev.target.getAttribute('data-item'));
       if (act === 'tokenCmdDropBack') { menu.remove(); placeCommandMenu(); }
+      if (act === 'tokenCmdLink') {
+        const stood = linkUnderToken(commandToken());
+        if (!stood) return;
+        const ids = (state.selectedIds || []).slice();
+        const mine = commandToken();
+        if (mine && ids.indexOf(mine.id) < 0) ids.unshift(mine.id);
+        takeLink(stood, ids);
+      }
     });
     el.appendChild(menu);
   }
@@ -9556,6 +9587,7 @@ function placeCommandMenu() {
   if (interact) interact.disabled = !interactTarget(token);
   const dropBtn = menu.querySelector('[data-act="tokenCmdDrop"]');
   if (dropBtn) dropBtn.disabled = !carriedItems().length;
+  paintTokenLink(menu, token);
   placeTokenCmd(menu, token);
   el.dataset.moveArmed = state.moveArmed ? '1' : '0';
 }
@@ -10458,6 +10490,332 @@ function sceneGhostHit(wx, wy) {
     if (Math.hypot(p.x - s.x, p.y - s.y) <= r + 2) found = g;
   });
   return found ? { ghost: found, onX: onX } : null;
+}
+const LINK_NAME = { up: "Stairs up", down: "Stairs down", ladder: "Ladder", door: "Door" };
+const LINK_GLYPH = { up: "↑", down: "↓", ladder: "H", door: "D" };
+const LINK_COLOR = { up: "#e2c56a", down: "#7eb6e0", ladder: "#d08a4a", door: "#c4b49a" };
+function eachRoomLink(fn) {
+  const places = shared.places || {};
+  Object.keys(places).forEach(pid => {
+    const place = places[pid];
+    ((place && place.floors) || []).forEach(floor => {
+      (floor && floor.stairs || []).forEach(link => { if (link) fn(link, floor, place); });
+    });
+  });
+}
+function roomLinkById(id) {
+  let found = null;
+  eachRoomLink((link, floor, place) => { if (!found && link.id === id) found = { link: link, floor: floor, place: place }; });
+  return found;
+}
+function liveLinks() {
+  const B = window.SSDNSSceneBuilder;
+  if (role === "dm" && B && B.isOpen && B.isOpen() && B.linksOnMap) return (B.linksOnMap(null).markers || []).slice();
+  const out = [];
+  eachRoomLink((link, floor) => {
+    out.push(Object.assign({}, link, { mapId: floor.mapId, floorId: floor.id, floorName: floor.name || floor.mapId }));
+  });
+  return out;
+}
+function linkPack(mapId) {
+  const B = window.SSDNSSceneBuilder;
+  if (role === "dm" && B && B.isOpen && B.isOpen() && B.linksOnMap) {
+    const pack = B.linksOnMap(mapId);
+    const covered = {};
+    (pack.markers || []).forEach(link => { covered[link.x + "," + link.y] = 1; });
+    pack.landings = (pack.landings || []).filter(row => !covered[row.x + "," + row.y]);
+    return pack;
+  }
+  const markers = liveLinks().filter(link => link.mapId === mapId);
+  const covered = {};
+  markers.forEach(link => { covered[link.x + "," + link.y] = 1; });
+  const landings = [];
+  liveLinks().forEach(link => {
+    if (link.landX == null || link.landY == null || link.destMapId !== mapId || link.mapId === mapId) return;
+    if (covered[link.landX + "," + link.landY]) return;
+    landings.push({ id: link.id, kind: link.kind, x: link.landX, y: link.landY, mapId: link.destMapId, visible: !!link.visible });
+  });
+  return { markers: markers, landings: landings };
+}
+function linksDrawn() {
+  if (role !== "dm") {
+    const data = shared.scenes && shared.scenes[activeSceneId()];
+    return { markers: ((data && data.shownLinks) || []).slice(), landings: [] };
+  }
+  return linkPack(activeSceneId());
+}
+function publishShownLinks() {
+  if (role !== "dm") return;
+  const byMap = {};
+  liveLinks().forEach(link => {
+    if (!link.mapId) return;
+    if (!byMap[link.mapId]) byMap[link.mapId] = [];
+    if (!link.visible) return;
+    byMap[link.mapId].push({ id: link.id, kind: link.kind, x: link.x, y: link.y });
+  });
+  Object.keys(byMap).forEach(sid => {
+    const data = sceneData(sid);
+    const prev = JSON.stringify(data.shownLinks || []);
+    const next = JSON.stringify(byMap[sid]);
+    if (prev === next) return;
+    data.shownLinks = byMap[sid];
+    saveScene(sid);
+  });
+  Object.keys(shared.scenes || {}).forEach(sid => {
+    if (byMap[sid]) return;
+    const data = shared.scenes[sid];
+    if (!data || !Array.isArray(data.shownLinks) || !data.shownLinks.length) return;
+    data.shownLinks = [];
+    saveScene(sid);
+  });
+}
+function syncSceneLinks(draft) {
+  if (draft && shared.places && shared.places[draft.id]) {
+    const place = shared.places[draft.id];
+    (draft.floors || []).forEach(floor => {
+      const row = (place.floors || []).find(fl => fl && fl.mapId === floor.mapId);
+      if (!row) return;
+      row.stairs = (floor.stairs || []).map(link => {
+        const dest = (draft.floors || []).find(d => d && (d.id === link.destFloorId || d.mapId === link.destMapId));
+        return Object.assign({}, link, {
+          destFloorId: dest ? dest.mapId : (link.destMapId || ""),
+          destMapId: dest ? dest.mapId : (link.destMapId || "")
+        });
+      });
+    });
+    write("map/dm/places", shared.places);
+  }
+  publishShownLinks();
+}
+function saveRoomPlaces() {
+  write("map/dm/places", shared.places || {});
+  publishShownLinks();
+}
+function patchRoomLink(id, x, y) {
+  const hit = roomLinkById(id);
+  if (!hit) return;
+  hit.link.x = x;
+  hit.link.y = y;
+  if (hit.link.pairId) {
+    const pair = roomLinkById(hit.link.pairId);
+    if (pair) { pair.link.landX = x; pair.link.landY = y; }
+  }
+  saveRoomPlaces();
+  draw();
+}
+function removeRoomLink(id) {
+  const hit = roomLinkById(id);
+  if (!hit) return;
+  const pairId = hit.link.pairId;
+  hit.floor.stairs = (hit.floor.stairs || []).filter(row => row && row.id !== id);
+  if (pairId) {
+    const pair = roomLinkById(pairId);
+    if (pair) { pair.link.pairId = ""; pair.link.twoWay = false; }
+  }
+  saveRoomPlaces();
+  draw();
+}
+function commitLinkMove(id, x, y) {
+  const B = window.SSDNSSceneBuilder;
+  if (B && B.isOpen && B.isOpen() && B.moveLink) { B.moveLink(id, x, y); return; }
+  patchRoomLink(id, x, y);
+}
+function commitLinkRemove(id) {
+  const B = window.SSDNSSceneBuilder;
+  if (B && B.isOpen && B.isOpen() && B.removeLinkMark) { B.removeLinkMark(id); return; }
+  removeRoomLink(id);
+}
+function setLinkVisible(id, visible) {
+  const B = window.SSDNSSceneBuilder;
+  if (B && B.isOpen && B.isOpen() && B.setLinkMark) { B.setLinkMark(id, { visible: !!visible }); return; }
+  const hit = roomLinkById(id);
+  if (!hit) return;
+  hit.link.visible = !!visible;
+  saveRoomPlaces();
+  draw();
+}
+function paintOneLink(px, link, faint) {
+  const drag = !faint && state.drag && state.drag.sceneLink === link.id && state.drag.moved;
+  const x = drag ? state.drag.gx : link.x;
+  const y = drag ? state.drag.gy : link.y;
+  const s = worldToScreen((x + 0.5) * px, (y + 0.5) * px);
+  const r = (px * (state.view.zoom || 1)) / 2 * (faint ? 0.58 : 0.72);
+  ctx.save();
+  ctx.globalAlpha = faint ? 0.38 : 0.9;
+  ctx.beginPath();
+  ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+  ctx.fillStyle = LINK_COLOR[link.kind] || "#e2c56a";
+  ctx.fill();
+  ctx.setLineDash(faint ? [2, 4] : [4, 3]);
+  ctx.strokeStyle = "#f6e7c4";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = faint ? 0.55 : 1;
+  ctx.fillStyle = "#1a140c";
+  ctx.font = "bold " + Math.max(11, Math.round(r * 0.9)) + "px system-ui";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(LINK_GLYPH[link.kind] || "?", s.x, s.y);
+  ctx.font = "bold 11px system-ui";
+  ctx.fillStyle = "#f6e7c4";
+  ctx.fillText(faint ? "Landing" : (LINK_NAME[link.kind] || "Link"), s.x, s.y - r - 10);
+  if (!faint && role === "dm") {
+    ctx.fillStyle = "#2a120f";
+    ctx.beginPath();
+    ctx.arc(s.x + r * 0.72, s.y - r * 0.72, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#f3e6c8";
+    ctx.font = "bold 12px system-ui";
+    ctx.fillText("×", s.x + r * 0.72, s.y - r * 0.72);
+  }
+  ctx.restore();
+}
+function paintSceneLinks(px) {
+  if (!state.scene) return;
+  const pack = role === "dm" ? linkPack(activeSceneId()) : { markers: linksDrawn().markers, landings: [] };
+  (pack.landings || []).forEach(link => paintOneLink(px, link, true));
+  (pack.markers || []).forEach(link => paintOneLink(px, link, false));
+}
+function sceneLinkHit(wx, wy) {
+  if (role !== "dm" || !state.scene) return null;
+  const px = (state.scene.grid && state.scene.grid.px) || 70;
+  const pack = linkPack(activeSceneId());
+  const p = worldToScreen(wx, wy);
+  let found = null;
+  let onX = false;
+  let faint = false;
+  (pack.markers || []).forEach(link => {
+    const s = worldToScreen((link.x + 0.5) * px, (link.y + 0.5) * px);
+    const r = (px * (state.view.zoom || 1)) / 2 * 0.72;
+    if (Math.hypot(p.x - (s.x + r * 0.72), p.y - (s.y - r * 0.72)) <= 10) { found = link; onX = true; faint = false; return; }
+    if (Math.hypot(p.x - s.x, p.y - s.y) <= r + 2) { found = link; onX = false; faint = false; }
+  });
+  if (!found) {
+    (pack.landings || []).forEach(link => {
+      const s = worldToScreen((link.x + 0.5) * px, (link.y + 0.5) * px);
+      const r = (px * (state.view.zoom || 1)) / 2 * 0.58;
+      if (Math.hypot(p.x - s.x, p.y - s.y) <= r + 2) { found = link; faint = true; onX = false; }
+    });
+  }
+  return found ? { link: found, onX: onX, faint: faint } : null;
+}
+function linkUnderToken(token) {
+  if (!token || !token.pos || role !== "dm") return null;
+  const mapId = sceneKey(token);
+  const size = token.size || 1;
+  return liveLinks().filter(link => link.mapId === mapId).find(link => {
+    return link.x >= token.pos.x && link.x < token.pos.x + size && link.y >= token.pos.y && link.y < token.pos.y + size;
+  }) || null;
+}
+function tokenStandsOn(token, link, mapId) {
+  if (!token || !token.pos || !link) return false;
+  const size = token.size || 1;
+  if (sceneKey(token) !== (mapId || link.mapId || "")) return false;
+  return link.x >= token.pos.x && link.x < token.pos.x + size && link.y >= token.pos.y && link.y < token.pos.y + size;
+}
+function hideLinkMenu() {
+  const menu = el && el.querySelector('[data-act="linkMenu"]');
+  if (menu) menu.remove();
+}
+function openLinkMenu(link) {
+  if (role !== "dm" || !link || !el) return;
+  closeMapMenus("link");
+  hideLinkMenu();
+  const menu = document.createElement("div");
+  menu.className = "ssm-token-cmd ssm-link-menu";
+  menu.setAttribute("data-act", "linkMenu");
+  menu.innerHTML = floatBar(LINK_NAME[link.kind] || "Link") +
+    '<div class="ssm-card-body"><button type="button" data-act="linkMenuTake">Take link</button><button type="button" data-act="linkMenuSee">' +
+    (link.visible ? "Hide from players" : "Players can see") + "</button></div>";
+  menu.addEventListener("pointerdown", ev => ev.stopPropagation());
+  menu.addEventListener("keydown", ev => {
+    if (ev.target && (ev.target.tagName === "INPUT" || ev.target.tagName === "SELECT" || ev.target.tagName === "TEXTAREA")) ev.stopPropagation();
+    if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); hideLinkMenu(); }
+  });
+  menu.addEventListener("click", ev => {
+    ev.stopPropagation();
+    const act = ev.target && ev.target.getAttribute && ev.target.getAttribute("data-act");
+    if (ev.target && ev.target.closest && ev.target.closest("[data-menu-close]")) { hideLinkMenu(); return; }
+    if (act === "linkMenuTake") { takeLink(link); hideLinkMenu(); }
+    if (act === "linkMenuSee") { setLinkVisible(link.id, !link.visible); hideLinkMenu(); }
+  });
+  el.appendChild(menu);
+  const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
+  const s = worldToScreen(((Number(link.x) || 0) + 0.5) * px, ((Number(link.y) || 0) + 0.5) * px);
+  anchorMenuOnce(menu, (canvas ? canvas.offsetLeft || 0 : 0) + s.x + 14, (canvas ? canvas.offsetTop || 0 : 0) + s.y - 8);
+}
+function takeLink(link, tokenIds, floor) {
+  if (role !== "dm" || !link) return [];
+  const dest = link.destMapId || link.destFloorId || "";
+  const fromMap = (floor && floor.mapId) || link.mapId || "";
+  if (!dest || link.landX == null || link.landY == null) { toast("This link needs a landing first."); return []; }
+  let ids = Array.isArray(tokenIds) && tokenIds.length ? tokenIds.slice() : (state.selectedIds || []).slice();
+  if (!ids.length && state.selected) ids = [state.selected.id];
+  const tokens = [];
+  const seen = {};
+  ids.forEach(id => {
+    const t = (state.tokens || []).find(tok => tok && (tok.id === id || tok.ownerUid === id));
+    if (!t || seen[t.id] || isPartyToken(t)) return;
+    seen[t.id] = 1;
+    tokens.push(t);
+  });
+  const ordered = tokens.filter(t => tokenStandsOn(t, link, fromMap)).concat(tokens.filter(t => !tokenStandsOn(t, link, fromMap)));
+  if (!ordered.length) { toast("Select tokens, then Take link."); return []; }
+  const sc = allScenes().find(s => s && s.id === dest);
+  const grid = (sc && sc.grid) || { cols: 30, rows: 20 };
+  const cols = Math.max(1, Number(grid.cols) || 30);
+  const rows = Math.max(1, Number(grid.rows) || 20);
+  const skip = {};
+  ordered.forEach(t => { skip[t.id] = 1; });
+  const used = {};
+  (state.tokens || []).forEach(t => {
+    if (!t || !t.pos || skip[t.id] || isPartyToken(t)) return;
+    if ((t.sceneId || "") !== dest) return;
+    const size = t.size || 1;
+    for (let y = t.pos.y; y < t.pos.y + size; y++) {
+      for (let x = t.pos.x; x < t.pos.x + size; x++) used[x + "," + y] = 1;
+    }
+  });
+  const plan = [];
+  ordered.forEach(() => {
+    let best = null;
+    let bestD = 1e9;
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        if (used[x + "," + y]) continue;
+        const d = Math.max(Math.abs(x - link.landX), Math.abs(y - link.landY));
+        if (d < bestD) { bestD = d; best = { x: x, y: y }; }
+      }
+    }
+    if (!best) best = { x: link.landX, y: link.landY };
+    used[best.x + "," + best.y] = 1;
+    plan.push(best);
+  });
+  ordered.forEach((t, i) => landToken(t, dest, plan[i]));
+  if (activeSceneId() !== dest) swapScene(dest);
+  postScenes();
+  toast(ordered.map(tokenWho).join(", ") + " took the link to " + floorName(dest) + ".");
+  renderFloorStrip();
+  draw();
+  return ordered.map((t, i) => ({
+    id: t.id,
+    x: plan[i].x,
+    y: plan[i].y,
+    sceneId: dest,
+    overflow: plan[i].x !== link.landX || plan[i].y !== link.landY,
+    active: !!(activeOwned(t.ownerUid) && activeOwned(t.ownerUid).id === t.id)
+  }));
+}
+function lookAt(x, y, zoom) {
+  const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
+  if (zoom) state.view.zoom = zoom;
+  state.view.x = (Number(x) + 0.5) * px;
+  state.view.y = (Number(y) + 0.5) * px;
+  const label = q("zoomLabel");
+  if (label) label.textContent = (state.view.zoom || 1).toFixed(2) + "×";
+  draw();
+  return { x: state.view.x, y: state.view.y, zoom: state.view.zoom };
 }
 function landToken(t, sceneId, cell) {
   t.sceneId = sceneId;
@@ -12564,6 +12922,43 @@ function onPointerDown(e) {
     }
     const hit = hitTest(w.x, w.y);
     if (role === 'dm' && !state.tool && state.scene) {
+      const gpxEarly = (state.scene.grid && state.scene.grid.px) || 70;
+      if (state.linkArm && e.button === 0) {
+        e.preventDefault();
+        if (window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.dropLink) {
+          window.SSDNSSceneBuilder.dropLink(Math.floor(w.x / gpxEarly), Math.floor(w.y / gpxEarly));
+        }
+        state.linkArm = null;
+        draw();
+        return;
+      }
+      const linkHit = sceneLinkHit(w.x, w.y);
+      if (linkHit && !linkHit.faint && e.button === 2) {
+        e.preventDefault();
+        commitLinkRemove(linkHit.link.id);
+        draw();
+        return;
+      }
+      if (linkHit && linkHit.onX && !linkHit.faint && e.button === 0) {
+        e.preventDefault();
+        commitLinkRemove(linkHit.link.id);
+        draw();
+        return;
+      }
+      if (linkHit && !linkHit.faint && e.button === 0) {
+        state.drag = { sceneLink: linkHit.link.id, sx: e.clientX, sy: e.clientY, ox: linkHit.link.x, oy: linkHit.link.y, gx: linkHit.link.x, gy: linkHit.link.y, moved: false, touch: e.pointerType === "touch" };
+        if (e.pointerType === "touch") {
+          state.drag.hold = setTimeout(() => {
+            if (state.drag && state.drag.sceneLink === linkHit.link.id && !state.drag.moved) {
+              commitLinkRemove(linkHit.link.id);
+              state.drag = null;
+              draw();
+            }
+          }, 450);
+        }
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+        return;
+      }
       const ghostHit = sceneGhostHit(w.x, w.y);
       if (ghostHit && e.button === 2) {
         e.preventDefault();
@@ -12803,7 +13198,7 @@ function onPointerMove(e) {
   if (state.tool === 'wall' && state.wallStart) draw();
   if (state.tool === 'room' && state.roomStart) draw();
   if (pointers.size === 1 && state.drag) {
-    if (state.drag.sceneSpawn) {
+    if (state.drag.sceneSpawn || state.drag.sceneLink) {
       const mdx = e.clientX - (state.drag.sx || 0);
       const mdy = e.clientY - (state.drag.sy || 0);
       if (!state.drag.moved && Math.hypot(mdx, mdy) < 4) return;
@@ -12968,9 +13363,15 @@ function onPointerUp(e) {
     state.drag.lift = false;
     performTouchTap(e, tapId);
   }
-  if (state.drag.sceneSpawn) {
+  if (state.drag.sceneSpawn || state.drag.sceneLink) {
     if (state.drag.hold) clearTimeout(state.drag.hold);
-    if (state.drag.moved && window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.moveGhost) {
+    if (state.drag.sceneLink) {
+      if (state.drag.moved) commitLinkMove(state.drag.sceneLink, state.drag.gx, state.drag.gy);
+      else {
+        const row = liveLinks().find(link => link.id === state.drag.sceneLink);
+        if (row) openLinkMenu(row);
+      }
+    } else if (state.drag.moved && window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.moveGhost) {
       window.SSDNSSceneBuilder.moveGhost(state.drag.sceneSpawn, state.drag.gx, state.drag.gy);
     }
     state.drag = null;
@@ -16038,6 +16439,7 @@ function douseSelected(out) {
     shared.sceneSpawns = Object.assign({}, shared.sceneSpawns || {}, result.sceneSpawns || {});
     write("map/dm/places", shared.places);
     savePreps();
+    publishShownLinks();
     renderFloorStrip();
     draw();
     toast("Loaded " + (scene.name || "scene") + ". Maps and tokens already here stayed put.");
@@ -16054,13 +16456,23 @@ function douseSelected(out) {
       maps: sceneCatalog,
       onLoad: adoptSavedScene,
       onArm: (info) => {
+        if (info && info.kind === "link") {
+          state.spawnArm = null;
+          state.linkArm = info;
+          if (info.mapId && info.mapId !== activeSceneId()) swapScene(info.mapId);
+          toast(info.mode === "landing" ? "Click the landing square. Esc stops." : "Click a square to drop a link. Esc stops.");
+          draw();
+          return;
+        }
+        state.linkArm = null;
         state.spawnArm = info || null;
         if (info && info.mapId && info.mapId !== activeSceneId()) swapScene(info.mapId);
         toast("Click squares to drop " + ((info && info.groupName) || "spawn") + " ghosts. Esc stops.");
         draw();
       },
-      onDisarm: () => { state.spawnArm = null; draw(); },
-      onChange: () => draw(),
+      onDisarm: () => { state.spawnArm = null; state.linkArm = null; draw(); },
+      onChange: (draft) => { syncSceneLinks(draft); draw(); },
+      onTake: (link, floor) => takeLink(link, null, floor),
       onExport: (text) => {
         const blob = new Blob([text], { type: "application/json" });
         const a = document.createElement("a");
@@ -21067,6 +21479,15 @@ return {
   /* token size: read-only footprints for tests/tools. Same visibility as drawing: players never get hidden tokens. */
   /* B6: the floor this client is drawing, plus occupancy and hit-test on that floor only. */
   viewedScene: function () { return activeSceneId(); },
+  lookAt: lookAt,
+  links: function () {
+    return {
+      list: function () { return liveLinks(); },
+      drawn: linksDrawn,
+      take: function (link, ids) { return takeLink(link, ids, link && link.mapId ? { mapId: link.mapId } : null); },
+      under: linkUnderToken
+    };
+  },
   layers: function () {
     return {
       strip: floorStripText,

@@ -56,12 +56,14 @@
   }
   function floorRow(f, i) {
     var mapId = f.mapId || f.id;
-    return {
+    var row = {
       id: f.id || mapId,
       mapId: mapId,
       name: f.name || mapId,
       order: f.order != null ? f.order : i
     };
+    if (Array.isArray(f.stairs) && f.stairs.length) row.stairs = clone(f.stairs);
+    return row;
   }
   function migrate(input) {
     input = input || {};

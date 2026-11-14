@@ -3075,7 +3075,11 @@ body.map-phone #mapMount.ssdns-map {
 .ssdns-map .ssm-scene-title { display: flex; gap: 6px; align-items: center; }
 .ssdns-map .ssm-scene-title input { flex: 1 1 auto; }
 .ssdns-map .ssm-scene-actions, .ssdns-map .ssm-scene-grouphead, .ssdns-map .ssm-scene-spawn { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-.ssdns-map .ssm-scene-spawns { display: flex; flex-direction: column; gap: 6px; }
+.ssdns-map .ssm-scene-spawns, .ssdns-map .ssm-scene-links { display: flex; flex-direction: column; gap: 6px; }
+.ssdns-map .ssm-scene-link { display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
+.ssdns-map .ssm-scene-link select { width: 100%; }
+.ssdns-map .ssm-scene-linkbar { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.ssdns-map .ssm-scene-link label { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; white-space: nowrap; }
 .ssdns-map .ssm-scene-k { display: block; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: #e2c56a; }
 .ssdns-map .ssm-scene-swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: 0 0 12px; }
 .ssdns-map .ssm-scene-grouphead input { flex: 1 1 120px; }
