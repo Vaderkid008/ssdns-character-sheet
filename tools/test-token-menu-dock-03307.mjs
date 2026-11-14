@@ -106,10 +106,14 @@ async function layout(page) {
   return page.evaluate(() => {
     const menu = document.querySelector("[data-act='tokenCmd']");
     const card = document.querySelector("[data-act='playerCard']");
-    const sel = menu && menu.querySelector("[data-act='tokenCmdDock']");
+    const pressed = menu && menu.querySelector("[data-act='tokenCmdDock'][aria-pressed='true']");
     if (!menu || !card) return null;
     const m = menu.getBoundingClientRect();
     const c = card.getBoundingClientRect();
+    const title = menu.querySelector(".ssm-card-bar b");
+    const tr = title ? title.getBoundingClientRect() : null;
+    const close = menu.querySelector("[data-menu-close]");
+    const xr = close ? close.getBoundingClientRect() : null;
     const gridEl = document.querySelector(".ssdns-map > canvas");
     const g = gridEl ? gridEl.getBoundingClientRect() : null;
     const overlap = !(m.right <= c.left + 2 || m.left >= c.right - 2 || m.bottom <= c.top + 2 || m.top >= c.bottom - 2);
@@ -117,7 +121,13 @@ async function layout(page) {
     let saved = null;
     try { saved = JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { saved = null; }
     return {
-      menu: { left: Math.round(m.left), top: Math.round(m.top), right: Math.round(m.right), bottom: Math.round(m.bottom), dock: menu.dataset.menuDock || "", mode: sel ? sel.value : null },
+      menu: {
+        left: Math.round(m.left), top: Math.round(m.top), right: Math.round(m.right), bottom: Math.round(m.bottom),
+        dock: menu.dataset.menuDock || "",
+        mode: pressed ? pressed.getAttribute("data-mode") : "",
+        title: title ? title.textContent : "",
+        titleFull: !!(title && tr && title.textContent === "Token" && title.scrollWidth <= title.clientWidth + 1 && tr.width >= 36 && tr.left >= m.left - 1 && tr.right <= m.right + 1 && xr && xr.left >= tr.right - 1 && xr.right <= m.right + 1 && xr.width >= 16)
+      },
       cardTop: Math.round(c.top),
       grid: g ? { left: Math.round(g.left), top: Math.round(g.top), right: Math.round(g.right), bottom: Math.round(g.bottom) } : null,
       overlap,
@@ -129,12 +139,14 @@ async function layout(page) {
   });
 }
 async function choose(page, mode) {
-  const sel = page.locator("[data-act='tokenCmdDock']");
+  const sel = page.locator("[data-act='tokenCmdDock'][data-mode='" + mode + "']");
   if (await sel.count() === 0) {
     check("dock.missing", false, mode);
     return;
   }
-  await sel.selectOption(mode);
+  const touch = await page.evaluate(() => matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0);
+  if (touch) await sel.tap();
+  else await sel.click();
   await page.waitForTimeout(80);
 }
 
@@ -150,7 +162,7 @@ await page.addInitScript(() => {
 await openMap(page);
 await tapToken(page, "ply_ada", false);
 let box = await layout(page);
-check("desk.default", box && box.menu.mode === "" && box.onScreen && !box.overlap && box.menu.dock === "", JSON.stringify(box));
+check("desk.default", box && box.menu.mode === "" && box.menu.titleFull && box.onScreen && !box.overlap && box.menu.dock === "", JSON.stringify(box && box.menu));
 await shot(page, "desktop-float");
 await choose(page, "bl");
 box = await layout(page);
@@ -249,11 +261,11 @@ if (!box) {
   }, phoneTap);
   console.log("phone tap miss", JSON.stringify(why));
 }
-check("phone.default", box && box.menu.mode === "" && box.onScreen && !box.overlap && box.menu.bottom <= box.cardTop + 2, JSON.stringify(box));
+check("phone.default", box && box.menu.mode === "" && box.menu.titleFull && box.onScreen && !box.overlap && box.menu.bottom <= box.cardTop + 2, JSON.stringify(box && box.menu));
 await shot(phone, "phone-float");
 await choose(phone, "bl");
 box = await layout(phone);
-check("phone.bl", box && box.menu.mode === "bl" && box.grid && box.menu.left <= box.grid.left + 20 && box.onScreen && !box.overlap && box.menu.bottom <= box.cardTop + 2, JSON.stringify(box));
+check("phone.bl", box && box.menu.mode === "bl" && box.menu.titleFull && box.menu.left <= 10 && box.cardTop - box.menu.bottom <= 8 && box.cardTop - box.menu.bottom >= -1 && box.onScreen && !box.overlap, JSON.stringify(box));
 await shot(phone, "phone-bl");
 await phone.evaluate(() => {
   const card = document.querySelector("[data-act='playerCard']");
@@ -261,7 +273,7 @@ await phone.evaluate(() => {
 });
 await choose(phone, "br");
 box = await layout(phone);
-check("phone.br", box && box.menu.mode === "br" && box.grid && box.menu.right >= Math.min(box.vw, box.grid.right) - 20 && box.onScreen && !box.overlap && box.menu.bottom <= box.cardTop + 2, JSON.stringify(box));
+check("phone.br", box && box.menu.mode === "br" && box.menu.titleFull && box.menu.right >= box.vw - 10 && box.menu.left > box.vw * 0.35 && box.cardTop - box.menu.bottom <= 8 && box.cardTop - box.menu.bottom >= -1 && box.onScreen && !box.overlap, JSON.stringify(box));
 check("phone.key", box && box.saved && box.saved.mode === "br", JSON.stringify(box && box.saved));
 await shot(phone, "phone-br");
 await openMap(phone);

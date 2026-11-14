@@ -7109,13 +7109,20 @@ function floatBar(title) {
 }
 function tokenCmdBar() {
   return '<div class="ssm-card-bar" data-float-drag><b>Token</b>'
-    + '<select class="ssm-cmd-dock" data-act="tokenCmdDock" aria-label="Token menu position">'
-    + '<option value="">By token</option>'
-    + '<option value="float">Floating</option>'
-    + '<option value="bl">Dock bottom-left</option>'
-    + '<option value="br">Dock bottom-right</option>'
-    + '</select>'
+    + '<span class="ssm-cmd-dock" role="group" aria-label="Token menu position">'
+    + '<button type="button" data-act="tokenCmdDock" data-mode="float" title="Floating" aria-label="Floating" aria-pressed="false">▣</button>'
+    + '<button type="button" data-act="tokenCmdDock" data-mode="bl" title="Dock bottom-left" aria-label="Dock bottom-left" aria-pressed="false">↙</button>'
+    + '<button type="button" data-act="tokenCmdDock" data-mode="br" title="Dock bottom-right" aria-label="Dock bottom-right" aria-pressed="false">↘</button>'
+    + '</span>'
     + '<button type="button" data-menu-close="1" aria-label="Close">×</button></div>';
+}
+function markTokenDock(menu, mode) {
+  if (!menu) return;
+  menu.querySelectorAll("[data-act='tokenCmdDock']").forEach(btn => {
+    const on = (btn.getAttribute("data-mode") || "") === (mode || "");
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    btn.classList.toggle("is-on", on);
+  });
 }
 function tokenMenuKey() {
   return phoneMapMode() ? "ssdns.tokenCmd.phone" : "ssdns.tokenCmd.desktop";
@@ -7140,27 +7147,30 @@ function writeTokenMenuPref(patch) {
   try { localStorage.setItem(tokenMenuKey(), JSON.stringify(next)); } catch (e) {}
   return next;
 }
-/* Space the menu may occupy: the visible grid, above the player card. */
+/* Space the menu may occupy. Phones use the whole visible map, flush to the
+   corners above the drawer. Desktop stays on the grid so it clears the side card. */
 function menuBounds() {
   const frameW = el.clientWidth || 0;
   const frameH = el.clientHeight || 0;
-  let left = 4;
-  let top = 4;
-  let right = Math.max(8, frameW - 4);
-  let bottom = Math.max(48, frameH - 4);
+  const phone = phoneMapMode();
+  const pad = phone ? 2 : 4;
+  let left = pad;
+  let top = pad;
+  let right = Math.max(pad + 8, frameW - pad);
+  let bottom = Math.max(48, frameH - pad);
   try {
     const er = el.getBoundingClientRect();
-    if (canvas && canvas.getBoundingClientRect) {
+    if (!phone && canvas && canvas.getBoundingClientRect) {
       const gr = canvas.getBoundingClientRect();
       const gL = gr.left - er.left;
       const gT = gr.top - er.top;
       const gR = gr.right - er.left;
       const gB = gr.bottom - er.top;
       if (gR - gL > 80 && gB - gT > 80) {
-        left = gL + 4;
-        top = gT + 4;
-        right = gR - 4;
-        bottom = gB - 4;
+        left = gL + pad;
+        top = gT + pad;
+        right = gR - pad;
+        bottom = gB - pad;
       }
     }
     const viewL = Math.max(er.left, 0);
@@ -7181,7 +7191,7 @@ function menuBounds() {
       const pLeft = pr.left - er.left;
       const pRight = pr.right - er.left;
       const overlapsX = pRight > left + 8 && pLeft < right - 8;
-      if (overlapsX && pTop < bottom && pBottom > top + 24) bottom = Math.max(top + 48, Math.min(bottom, pTop - 6));
+      if (overlapsX && pTop < bottom && pBottom > top + 24) bottom = Math.max(top + 48, Math.min(bottom, pTop - pad));
     }
   } catch (e) {}
   if (right < left + 48) right = left + 48;
@@ -7303,8 +7313,7 @@ function bindFloatingMenu(menu, hide) {
       if (dragging && menu.getAttribute("data-act") === "tokenCmd") {
         writeTokenMenuPref({ mode: "float", pos: { left: parseFloat(menu.style.left) || 0, top: parseFloat(menu.style.top) || 0 } });
         menu.dataset.menuDock = "float";
-        const sel = menu.querySelector("[data-act='tokenCmdDock']");
-        if (sel) sel.value = "float";
+        markTokenDock(menu, "float");
       }
       menu._cmdDrag = false;
     };
@@ -9459,8 +9468,7 @@ function useTokenInteract() {
 function placeTokenCmd(menu, token) {
   if (!menu || menu._cmdDrag) return;
   const pref = readTokenMenuPref();
-  const sel = menu.querySelector("[data-act='tokenCmdDock']");
-  if (sel && document.activeElement !== sel) sel.value = pref.mode || "";
+  markTokenDock(menu, pref.mode || "");
   if (pref.mode === "bl" || pref.mode === "br") {
     dockTokenCmd(menu, pref.mode);
     return;
@@ -9496,17 +9504,17 @@ function placeCommandMenu() {
     replaceMenuHtml(menu, tokenCmdBar() + '<div class="ssm-card-body"><button type="button" data-act="tokenCmdMove">Move</button><button type="button" data-act="tokenCmdInteract">Interact</button><button type="button" data-act="tokenCmdDrop">Drop</button></div>');
     bindFloatingMenu(menu, hideCommandMenu);
     menu.addEventListener('pointerdown', ev => ev.stopPropagation());
-    menu.addEventListener('change', ev => {
-      const pick = ev.target && ev.target.getAttribute && ev.target.getAttribute('data-act');
-      if (pick !== 'tokenCmdDock') return;
-      ev.stopPropagation();
-      writeTokenMenuPref({ mode: ev.target.value || "" });
-      menu._cmdDrag = false;
-      releaseMenuAnchor(menu);
-      placeTokenCmd(menu, commandToken());
-    });
     menu.addEventListener('click', ev => {
       ev.stopPropagation();
+      const dockBtn = ev.target && ev.target.closest && ev.target.closest("[data-act='tokenCmdDock']");
+      if (dockBtn && menu.contains(dockBtn)) {
+        ev.preventDefault();
+        writeTokenMenuPref({ mode: dockBtn.getAttribute("data-mode") || "" });
+        menu._cmdDrag = false;
+        releaseMenuAnchor(menu);
+        placeTokenCmd(menu, commandToken());
+        return;
+      }
       const act = ev.target && ev.target.getAttribute && ev.target.getAttribute('data-act');
       if (act === 'tokenCmdMove') armTokenMove();
       if (act === 'tokenCmdInteract') useTokenInteract();
