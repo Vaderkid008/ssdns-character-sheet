@@ -3143,6 +3143,9 @@ body.map-phone #mapMount.ssdns-map {
 .ssdns-map .ssm-scene-spawn input[data-act="spawnX"],
 .ssdns-map .ssm-scene-spawn input[data-act="spawnY"] { width: 64px; flex: 0 0 64px; }
 .ssdns-map .ssm-scene-confirm { background: #3a2a14; border: 1px solid #c4a35a; border-radius: 6px; padding: 6px; }
+.ssdns-map .ssm-scene-notice { margin: 6px 0; padding: 8px; border-radius: 6px; background: #243024; border: 1px solid #7dba6a; color: #e7f3df; }
+.ssdns-map .ssm-scene-notice.is-err { background: #3a2220; border-color: #e07a6a; color: #f6d2cb; }
+.ssdns-map .ssm-scene-library input[type="checkbox"] { width: auto; flex: 0 0 auto; }
 .ssdns-map .ssm-scene-builder h3 { margin: 12px 0 6px; font-size: 13px; color: #e2c56a; }
 @media (max-width: 900px) {
   .ssdns-map.ssm-scene-open,

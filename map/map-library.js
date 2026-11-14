@@ -283,7 +283,14 @@
       file.text().then(function (txt) {
         var res = importPack(txt, ui.api.library());
         res.entries.forEach(function (en) { ui.api.save(en); });
-        ui.api.toast("Imported " + res.entries.length + " map(s)" + (res.warn ? ". " + res.warn : ""));
+        var sceneNote = "";
+        try {
+          if (root.SSDNSSceneBuilder && root.SSDNSSceneBuilder.importScenePack) {
+            var sceneRes = root.SSDNSSceneBuilder.importScenePack(txt, { store: root.localStorage, savedMaps: res.entries, maps: ui.api.library(), skipMapWrite: true });
+            if (sceneRes && sceneRes.ok && sceneRes.message) sceneNote = " " + sceneRes.message;
+          }
+        } catch (ePack) { sceneNote = ""; }
+        ui.api.toast("Imported " + res.entries.length + " map(s)" + (res.warn ? ". " + res.warn : "") + sceneNote);
         ui.folder = "mine"; render();
       });
       return;

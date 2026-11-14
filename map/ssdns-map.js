@@ -16510,14 +16510,37 @@ function douseSelected(out) {
       onDisarm: () => { state.spawnArm = null; state.linkArm = null; paintPlaceBanner(); draw(); },
       onChange: (draft) => { syncSceneLinks(draft); draw(); },
       onTake: (link, floor) => takeLink(link, null, floor),
-      onExport: (text) => {
+      mapRow: (id) => {
+        const pack = window.SSDNS_MAP_PACKS || {};
+        const row = (pack.scenes || []).concat(pack.world || []).filter(s => s && s.id === id)[0];
+        if (row) return { id: row.id, name: row.name, img: row.img, thumb: row.thumb || "", grid: row.grid || { cols: 30, rows: 20, px: 70 }, group: row.group || "", pack: true };
+        const mine = library[id];
+        if (!mine) return null;
+        return { id: mine.id, name: mine.name, src: mine.src || "", thumb: mine.thumb || mine.src || "", grid: mine.grid || { cols: 30, rows: 20, px: 70 }, notes: mine.notes || "" };
+      },
+      knownMaps: () => {
+        const ids = {};
+        const pack = window.SSDNS_MAP_PACKS || {};
+        (pack.scenes || []).concat(pack.world || []).forEach(s => { if (s && s.id) ids[s.id] = 1; });
+        Object.keys(library || {}).forEach(id => { ids[id] = 1; });
+        return ids;
+      },
+      mapLibrary: () => library || {},
+      onMaps: (maps) => {
+        (maps || []).forEach(m => {
+          if (!m || !m.id || !m.src) return;
+          saveLibraryEntry({ id: m.id, name: m.name || m.id, src: m.src, thumb: m.thumb || m.src, grid: m.grid || { cols: 30, rows: 20, px: 70 }, notes: m.notes || "", createdAt: Date.now(), updatedAt: Date.now() });
+        });
+        fillSceneSelect();
+      },
+      onExport: (text, name) => {
         const blob = new Blob([text], { type: "application/json" });
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = "ssdns-scene-library.json";
+        a.download = name || "ssdns-scene-library.json";
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-        toast("Scene library exported.");
+        toast(name && name.indexOf("pack") >= 0 ? "Scene pack exported." : "Exported.");
       }
     });
     el.classList.add("ssm-scene-open");
