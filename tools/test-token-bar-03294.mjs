@@ -1,6 +1,6 @@
 /**
  * The token card stays put while a token is dragged, and a party lantern
- * shows the dark map to a player. Sheet 0.3.312 / DMCC 0.2.325.
+ * shows the dark map to a player. Sheet 0.3.313 / DMCC 0.2.326.
  *   node tools/test-token-bar-03294.mjs
  */
 import fs from "node:fs";
@@ -16,7 +16,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(fs.readFileSync(path.join(root, "version.json"), "utf8"));
-check("ver", ver.sheet === "0.3.312" && ver.dmcc === "0.2.325");
+check("ver", ver.sheet === "0.3.313" && ver.dmcc === "0.2.326");
 
 const room = "barlight" + Date.now().toString(36);
 const browser = await puppeteer.launch({

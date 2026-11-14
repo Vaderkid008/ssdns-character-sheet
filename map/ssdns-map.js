@@ -189,10 +189,10 @@ window.SSDNSMap = { create(opts) {
     if (value == null || typeof value !== "object") return value;
     try { return JSON.parse(JSON.stringify(value)); } catch (e) { return value; }
   }
-  function write(path, value) {
+  function write(path, value, extra) {
     const seq = Date.now();
     if (!newer(path, seq)) return;
-    if (adapter && adapter.write) adapter.write(path, rtdbSafe(value), { seq, by: uid });
+    if (adapter && adapter.write) adapter.write(path, rtdbSafe(value), Object.assign({ seq: seq, by: uid }, extra || {}));
   }
   function postSlide(id, points) { write('map/public/events/slide', { id, points, seq: Date.now() }); }
   function postPing(ping) { write('map/public/events/ping', ping); }
@@ -288,7 +288,7 @@ window.SSDNSMap = { create(opts) {
     const t = shared.tokens && shared.tokens[id];
     if (!t) return;
     const pub = publicToken(t);
-    if (pub) write('map/public/tokens/' + id, pub);
+    if (pub) write('map/public/tokens/' + id, pub, { revive: true });
     else if (adapter && adapter.remove) adapter.remove('map/public/tokens/' + id);
     write('map/dm/tokens/' + id, JSON.parse(JSON.stringify(t, (k, v) => k === '_img' ? undefined : v)));
     if (typeof autosave === 'function') autosave();
@@ -789,10 +789,11 @@ on(document, 'keydown', e => {
       hideLinkMenu();
       return;
     }
-    if (state.linkArm || state.spawnArm) {
+    if (state.linkArm || state.spawnArm || state.encounterArm) {
       e.preventDefault();
       state.linkArm = null;
       state.spawnArm = null;
+      state.encounterArm = null;
       if (window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.disarm) window.SSDNSSceneBuilder.disarm();
       toast("Placement off.");
       draw();
@@ -5952,7 +5953,7 @@ function draw() {
   paintBlast();
   paintBlastBanner();
   paintZoneBlind();
-  if (role === "dm") { paintPreps(px); paintSceneGhosts(px); paintSceneLinks(px); }
+  if (role === "dm") { paintPreps(px); paintSceneGhosts(px); paintScenePieces(px); paintSceneLinks(px); }
   else paintSceneLinks(px);
   paintPlaceBanner();
   renderFloorStrip();
@@ -7127,7 +7128,7 @@ function closeMapMenus(keep) {
     if (panel && !panel.hidden && typeof toggleBestiary === "function") toggleBestiary(false);
   }
   if (keep !== "link") hideLinkMenu();
-  if (keep !== "scene" && keep !== "link" && keep !== "cmd" && window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.isOpen && window.SSDNSSceneBuilder.isOpen()) {
+  if (keep !== "scene" && keep !== "link" && keep !== "cmd" && keep !== "dm" && keep !== "chest" && window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.isOpen && window.SSDNSSceneBuilder.isOpen()) {
     window.SSDNSSceneBuilder.close();
   }
 }
@@ -7350,8 +7351,9 @@ function bindFloatingMenu(menu, hide) {
     window.addEventListener("blur", end);
   });
 }
-function improviseOn() {
-  try { return !!sceneData().improviseLocks; } catch (e) { return false; }
+function improviseOn(box) {
+  try { if (sceneData().improviseLocks) return true; } catch (e) {}
+  return !!(box && box.improvise);
 }
 function setImprovise(on) {
   if (role !== "dm") return;
@@ -8575,7 +8577,7 @@ function chestMenuHtml(box) {
   parts.push('<button type="button" data-chest="open">Open</button>');
   if (locked) {
     const tools = sheetHasTools();
-    const improvise = improviseOn() && !tools;
+    const improvise = improviseOn(box) && !tools;
     if (prior && !box.lock.allowRetries && !prior.success) parts.push('<p>Pick failed</p>');
     else if (improvise) parts.push('<button type="button" data-chest="improv">Improvise (disadv.)</button>');
     else if (!tools) parts.push('<button type="button" data-chest="pick" disabled>Pick lock</button><p class="ssm-note">Needs thieves\' tools</p>');
@@ -10492,6 +10494,61 @@ function sceneGhostHit(wx, wy) {
   });
   return found ? { ghost: found, onX: onX } : null;
 }
+function scenePiecesNow() {
+  const B = window.SSDNSSceneBuilder;
+  if (role !== "dm" || !builderOpen() || !B || !B.piecesOnMap || !state.scene) return [];
+  return B.piecesOnMap(activeSceneId()) || [];
+}
+function paintScenePieces(px) {
+  scenePiecesNow().forEach(piece => {
+    const drag = state.drag && state.drag.scenePiece === piece.id && state.drag.moved;
+    const x = drag ? state.drag.gx : piece.x;
+    const y = drag ? state.drag.gy : piece.y;
+    const s = worldToScreen((x + 0.5) * px, (y + 0.5) * px);
+    const r = (px * (state.view.zoom || 1)) / 2 * 0.62;
+    const enemy = piece.kind === "enemy";
+    ctx.save();
+    ctx.globalAlpha = enemy && piece.hidden ? 0.55 : 0.88;
+    ctx.beginPath();
+    ctx.rect(s.x - r, s.y - r, r * 2, r * 2);
+    ctx.fillStyle = enemy ? "#6b2a2a" : (piece.kind === "strongbox" ? "#4a5560" : "#8a5a2b");
+    ctx.fill();
+    ctx.setLineDash([3, 3]);
+    ctx.strokeStyle = "#f6e7c4";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#f6e7c4";
+    ctx.font = "bold " + Math.max(11, Math.round(r * 0.7)) + "px system-ui";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(enemy ? "F" : (piece.kind === "strongbox" ? "S" : "C"), s.x, s.y);
+    ctx.font = "bold 11px system-ui";
+    ctx.fillText((piece.name || "") + (enemy && piece.hidden ? " (hidden)" : ""), s.x, s.y - r - 10);
+    ctx.fillStyle = "#2a120f";
+    ctx.beginPath();
+    ctx.arc(s.x + r * 0.85, s.y - r * 0.85, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#f3e6c8";
+    ctx.font = "bold 12px system-ui";
+    ctx.fillText("×", s.x + r * 0.85, s.y - r * 0.85);
+    ctx.restore();
+  });
+}
+function scenePieceHit(wx, wy) {
+  const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
+  let found = null;
+  let onX = false;
+  scenePiecesNow().forEach(piece => {
+    const s = worldToScreen((piece.x + 0.5) * px, (piece.y + 0.5) * px);
+    const r = (px * (state.view.zoom || 1)) / 2 * 0.62;
+    const p = worldToScreen(wx, wy);
+    if (Math.hypot(p.x - (s.x + r * 0.85), p.y - (s.y - r * 0.85)) <= 10) { found = piece; onX = true; return; }
+    if (Math.abs(p.x - s.x) <= r + 2 && Math.abs(p.y - s.y) <= r + 2) found = piece;
+  });
+  return found ? { piece: found, onX: onX } : null;
+}
 const LINK_NAME = { up: "Stairs up", down: "Stairs down", ladder: "Ladder", door: "Door" };
 const LINK_GLYPH = { up: "↑", down: "↓", ladder: "H", door: "D" };
 const LINK_COLOR = { up: "#e2c56a", down: "#7eb6e0", ladder: "#d08a4a", door: "#c4b49a" };
@@ -10814,9 +10871,9 @@ function builderOpen() {
 function paintPlaceBanner() {
   if (!el) return;
   let banner = el.querySelector("[data-act='placeBanner']");
-  const armed = builderOpen() && (state.linkArm || state.spawnArm);
+  const armed = builderOpen() && (state.linkArm || state.spawnArm || state.encounterArm);
   if (!armed) {
-    if (!builderOpen()) { state.linkArm = null; state.spawnArm = null; }
+    if (!builderOpen()) { state.linkArm = null; state.spawnArm = null; state.encounterArm = null; }
     if (banner) banner.hidden = true;
     return;
   }
@@ -10827,9 +10884,11 @@ function paintPlaceBanner() {
     el.appendChild(banner);
   }
   banner.hidden = false;
-  banner.textContent = state.linkArm
-    ? (state.linkArm.mode === "landing" ? "Click the landing square. Esc stops." : "Click a square to drop a link. Esc stops.")
-    : "Click squares to drop spawn ghosts. Esc stops.";
+  banner.textContent = state.encounterArm
+    ? ("Click a square to place " + (state.encounterArm.kind === "enemy" ? (state.encounterArm.name || "an enemy") : "a " + state.encounterArm.kind) + ". Esc stops.")
+    : (state.linkArm
+      ? (state.linkArm.mode === "landing" ? "Click the landing square. Esc stops." : "Click a square to drop a link. Esc stops.")
+      : "Click squares to drop spawn ghosts. Esc stops.");
 }
 function lookAt(x, y, zoom) {
   const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
@@ -12946,12 +13005,44 @@ function onPointerDown(e) {
     }
     const hit = hitTest(w.x, w.y);
     if (role === 'dm' && !state.tool && state.scene) {
-      if ((state.linkArm || state.spawnArm) && !builderOpen()) {
+      if ((state.linkArm || state.spawnArm || state.encounterArm) && !builderOpen()) {
         state.linkArm = null;
         state.spawnArm = null;
+        state.encounterArm = null;
         paintPlaceBanner();
       }
       const gpxEarly = (state.scene.grid && state.scene.grid.px) || 70;
+      const pieceHit = scenePieceHit(w.x, w.y);
+      if (pieceHit && (e.button === 2 || (pieceHit.onX && e.button === 0))) {
+        e.preventDefault();
+        if (window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.removeEncounter) window.SSDNSSceneBuilder.removeEncounter(pieceHit.piece.id);
+        draw();
+        return;
+      }
+      if (pieceHit && e.button === 0) {
+        state.drag = { scenePiece: pieceHit.piece.id, sx: e.clientX, sy: e.clientY, ox: pieceHit.piece.x, oy: pieceHit.piece.y, gx: pieceHit.piece.x, gy: pieceHit.piece.y, moved: false, touch: e.pointerType === "touch" };
+        if (e.pointerType === "touch") {
+          state.drag.hold = setTimeout(() => {
+            if (state.drag && state.drag.scenePiece === pieceHit.piece.id && !state.drag.moved) {
+              if (window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.removeEncounter) window.SSDNSSceneBuilder.removeEncounter(pieceHit.piece.id);
+              state.drag = null;
+              draw();
+            }
+          }, 450);
+        }
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+        return;
+      }
+      if (state.encounterArm && e.button === 0 && !hit && !pieceHit) {
+        e.preventDefault();
+        if (window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.dropEncounter) {
+          window.SSDNSSceneBuilder.dropEncounter(Math.floor(w.x / gpxEarly), Math.floor(w.y / gpxEarly));
+        }
+        state.encounterArm = null;
+        paintPlaceBanner();
+        draw();
+        return;
+      }
       if (state.linkArm && e.button === 0 && !hit) {
         e.preventDefault();
         if (window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.dropLink) {
@@ -13227,7 +13318,7 @@ function onPointerMove(e) {
   if (state.tool === 'wall' && state.wallStart) draw();
   if (state.tool === 'room' && state.roomStart) draw();
   if (pointers.size === 1 && state.drag) {
-    if (state.drag.sceneSpawn || state.drag.sceneLink) {
+    if (state.drag.sceneSpawn || state.drag.sceneLink || state.drag.scenePiece) {
       const mdx = e.clientX - (state.drag.sx || 0);
       const mdy = e.clientY - (state.drag.sy || 0);
       if (!state.drag.moved && Math.hypot(mdx, mdy) < 4) return;
@@ -13392,7 +13483,7 @@ function onPointerUp(e) {
     state.drag.lift = false;
     performTouchTap(e, tapId);
   }
-  if (state.drag.sceneSpawn || state.drag.sceneLink) {
+  if (state.drag.sceneSpawn || state.drag.sceneLink || state.drag.scenePiece) {
     if (state.drag.hold) clearTimeout(state.drag.hold);
     try { if (e && canvas && canvas.releasePointerCapture) canvas.releasePointerCapture(e.pointerId); } catch (err) {}
     if (state.drag.sceneLink) {
@@ -13400,6 +13491,10 @@ function onPointerUp(e) {
       else {
         const row = liveLinks().find(link => link.id === state.drag.sceneLink);
         if (row) openLinkMenu(row);
+      }
+    } else if (state.drag.scenePiece) {
+      if (state.drag.moved && window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.moveEncounter) {
+        window.SSDNSSceneBuilder.moveEncounter(state.drag.scenePiece, state.drag.gx, state.drag.gy);
       }
     } else if (state.drag.moved && window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.moveGhost) {
       window.SSDNSSceneBuilder.moveGhost(state.drag.sceneSpawn, state.drag.gx, state.drag.gy);
@@ -16470,10 +16565,114 @@ function douseSelected(out) {
     write("map/dm/places", shared.places);
     savePreps();
     publishShownLinks();
+    placeEncounterPieces(result.encounterPieces);
+    const start = (scene.floors || []).filter(f => f && (f.id === scene.startFloorId || f.mapId === scene.startFloorId))[0] || (scene.floors || [])[0];
+    if (start && start.mapId) landPartyOnSpawns(start.mapId);
     renderFloorStrip();
     draw();
     toast("Loaded " + (scene.name || "scene") + ". Maps and tokens already here stayed put.");
     return result;
+  }
+  function placeEncounterPieces(pieces) {
+    (pieces || []).forEach(floor => {
+      (floor.containers || []).forEach(c => {
+        if ((state.tokens || []).some(t => t && t.encounterId === c.id)) return;
+        const box = window.SSDNSSceneBuilder.lootFromContainer(c);
+        const token = pinLootChest(box, { x: c.x, y: c.y });
+        if (!token) return;
+        token.sceneId = floor.mapId;
+        token.encounterId = c.id;
+        token.ownerUid = "";
+        token.sheetId = "";
+        token.combatantId = "";
+        if (shared.tokens[token.id]) {
+          shared.tokens[token.id].sceneId = floor.mapId;
+          shared.tokens[token.id].encounterId = c.id;
+          shared.tokens[token.id].ownerUid = "";
+          shared.tokens[token.id].sheetId = "";
+          shared.tokens[token.id].combatantId = "";
+        }
+        saveToken(token.id);
+      });
+      (floor.enemies || []).forEach(e => {
+        if ((state.tokens || []).some(t => t && t.encounterId === e.id)) return;
+        const token = makeToken({
+          kind: "enemy",
+          name: e.name || "Enemy",
+          label: String(e.name || "Foe").slice(0, 2).toUpperCase(),
+          color: "#6b2a2a",
+          ownerCanMove: false,
+          pos: { x: e.x, y: e.y },
+          sceneId: floor.mapId
+        });
+        if (!token) return;
+        token.kind = "enemy";
+        token.encounterId = e.id;
+        token.bestiaryId = e.bestiaryId || "";
+        token.initGroup = e.initGroup || "";
+        token.hidden = e.hidden !== false;
+        token.ownerUid = "";
+        token.sheetId = "";
+        token.combatantId = "";
+        if (e.hp != null) { token.hp = e.hp; token.maxHp = e.hp; }
+        if (shared.tokens[token.id]) {
+          shared.tokens[token.id].kind = "enemy";
+          shared.tokens[token.id].sceneId = floor.mapId;
+          shared.tokens[token.id].encounterId = e.id;
+          shared.tokens[token.id].bestiaryId = token.bestiaryId;
+          shared.tokens[token.id].initGroup = token.initGroup;
+          shared.tokens[token.id].hidden = token.hidden;
+          shared.tokens[token.id].ownerUid = "";
+          shared.tokens[token.id].sheetId = "";
+          shared.tokens[token.id].combatantId = "";
+          if (e.hp != null) {
+            shared.tokens[token.id].hp = e.hp;
+            shared.tokens[token.id].maxHp = e.hp;
+          }
+        }
+        saveToken(token.id);
+      });
+    });
+  }
+  function landPartyOnSpawns(mapId) {
+    if (role !== "dm" || !mapId) return [];
+    const groups = (shared.sceneSpawns && shared.sceneSpawns[mapId] && shared.sceneSpawns[mapId].groups) || [];
+    const group = groups.filter(g => g.isDefault)[0] || groups[0];
+    const spots = (group && group.spots) || [];
+    if (!spots.length || !window.SSDNSSceneBuilder) return [];
+    if (mapId !== activeSceneId()) swapScene(mapId);
+    const movers = [];
+    const seen = {};
+    (state.tokens || []).forEach(t => {
+      if (!t || !t.ownerUid || isPartyToken(t) || t.encounterId || seen[t.ownerUid]) return;
+      const active = activeOwned(t.ownerUid);
+      if (!active || active.id !== t.id) return;
+      seen[t.ownerUid] = 1;
+      movers.push(t);
+    });
+    const grid = (state.scene && state.scene.grid) || { cols: 30, rows: 20 };
+    const plan = window.SSDNSSceneBuilder.assignLandings(spots, movers.length, grid);
+    movers.forEach((t, i) => {
+      const hp = t.hp;
+      const maxHp = t.maxHp;
+      const cell = plan[i] ? { x: plan[i].x, y: plan[i].y } : { x: spots[0].x, y: spots[0].y };
+      landToken(t, mapId, cell);
+      if (hp != null) t.hp = hp;
+      if (maxHp != null) t.maxHp = maxHp;
+      if (shared.tokens[t.id]) {
+        if (hp != null) shared.tokens[t.id].hp = hp;
+        if (maxHp != null) shared.tokens[t.id].maxHp = maxHp;
+      }
+    });
+    return movers.map(t => t.id);
+  }
+  function revealEncounterTokens(foeId, mapId) {
+    (state.tokens || []).forEach(t => {
+      if (!t || !t.encounterId || !t.hidden) return;
+      if (foeId && t.encounterId !== foeId) return;
+      if (!foeId && mapId && t.sceneId !== mapId) return;
+      setTokenHidden(t.id, false);
+    });
   }
   function openSceneBuilder() {
     if (role !== "dm" || !window.SSDNSSceneBuilder) { toast("Scene builder is for the DM."); return; }
@@ -16488,11 +16687,23 @@ function douseSelected(out) {
       onClose: () => {
         state.spawnArm = null;
         state.linkArm = null;
+        state.encounterArm = null;
         el.classList.remove("ssm-scene-open");
         paintPlaceBanner();
         draw();
       },
       onArm: (info) => {
+        if (info && (info.kind === "chest" || info.kind === "strongbox" || info.kind === "enemy")) {
+          state.spawnArm = null;
+          state.linkArm = null;
+          state.encounterArm = info;
+          if (info.mapId && info.mapId !== activeSceneId()) swapScene(info.mapId);
+          paintPlaceBanner();
+          toast("Click a square to place " + (info.kind === "enemy" ? (info.name || "an enemy") : "a " + info.kind) + ". Esc stops.");
+          draw();
+          return;
+        }
+        state.encounterArm = null;
         if (info && info.kind === "link") {
           state.spawnArm = null;
           state.linkArm = info;
@@ -16507,7 +16718,13 @@ function douseSelected(out) {
         toast("Click squares to drop " + ((info && info.groupName) || "spawn") + " ghosts. Esc stops.");
         draw();
       },
-      onDisarm: () => { state.spawnArm = null; state.linkArm = null; paintPlaceBanner(); draw(); },
+      onDisarm: () => { state.spawnArm = null; state.linkArm = null; state.encounterArm = null; paintPlaceBanner(); draw(); },
+      onReveal: (foeId, mapId) => revealEncounterTokens(foeId, mapId),
+      onRevealAll: (mapId) => revealEncounterTokens("", mapId),
+      bestiary: () => {
+        const list = (window.SSDNSBestiary && window.SSDNSBestiary.list) || [];
+        return list.filter(b => b && b.id && !b.template).map(b => ({ id: b.id, name: b.name || b.id, xp: Number(b.xp) || 0, hp: b.hp == null ? null : Number(b.hp) || 0 }));
+      },
       onChange: (draft) => { syncSceneLinks(draft); draw(); },
       onTake: (link, floor) => takeLink(link, null, floor),
       mapRow: (id) => {
