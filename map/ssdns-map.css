@@ -1031,6 +1031,40 @@ body.map-fullscreen #mapMount > .ssm-drawer.placed {
 }
 .ssm-token-cmd button.is-on { background: #24362a; border-color: #3e7a4e; color: #e7f6ea; }
 .ssm-token-cmd button:disabled { opacity: 0.38; cursor: not-allowed; }
+.ssm-token-cmd .ssm-card-bar { margin: 0 0 4px; padding: 4px 4px 4px 8px; gap: 6px; }
+.ssm-token-cmd .ssm-card-bar b { flex: 0 0 auto; min-width: max-content; white-space: nowrap; }
+.ssm-token-cmd .ssm-cmd-dock {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  margin-left: auto;
+  max-width: none;
+  height: auto;
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+.ssm-token-cmd .ssm-card-bar .ssm-cmd-dock button {
+  width: 26px;
+  min-width: 26px;
+  max-width: 26px;
+  height: 26px;
+  min-height: 26px;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 26px;
+  font-size: 14px;
+  line-height: 1;
+  background: #2a1e0e;
+  border: 1px solid #8a6a3a;
+  color: #f6e7c4;
+  border-radius: 4px;
+}
+.ssm-token-cmd .ssm-card-bar .ssm-cmd-dock button.is-on {
+  background: #6b5420;
+  border-color: #e2c56a;
+  color: #fff8e8;
+}
 .ssm-lighthand { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .ssm-lighthand label.ssm-act { font-size: 12px; }
 .ssm-section { font-size: 10px; color: #c9a227; text-transform: uppercase; margin-top: 4px; }
@@ -2954,8 +2988,9 @@ body.map-phone #mapMount.ssdns-map {
   top: auto !important;
   bottom: 8px;
   width: auto !important;
+  height: auto !important;
   max-width: none;
-  max-height: min(46vh, 420px);
+  max-height: min(46vh, 420px) !important;
   z-index: 24;
   margin: 0;
   border-radius: 14px 14px 8px 8px;
@@ -2963,7 +2998,7 @@ body.map-phone #mapMount.ssdns-map {
   overscroll-behavior: contain;
 }
 .ssdns-map.ssm-phone > .ssdns-playercard.min {
-  max-height: 72px;
+  max-height: 72px !important;
   overflow: hidden;
 }
 .ssdns-map.ssm-phone > .ssdns-playercard .ssm-card-head {
@@ -2993,3 +3028,12 @@ body.map-phone #mapMount.ssdns-map {
   box-sizing: border-box;
 }
 .ssdns-map.ssm-phone .ssm-token-cmd button { min-height: 44px; min-width: 44px; }
+.ssdns-map.ssm-phone .ssm-token-cmd .ssm-card-bar { flex-wrap: nowrap; }
+.ssdns-map.ssm-phone .ssm-token-cmd .ssm-card-bar .ssm-cmd-dock button,
+.ssdns-map.ssm-phone .ssm-token-cmd .ssm-card-bar > button[data-menu-close] {
+  width: 32px;
+  min-width: 32px;
+  max-width: 32px;
+  height: 32px;
+  min-height: 32px;
+}
