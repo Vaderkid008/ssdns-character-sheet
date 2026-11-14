@@ -93,7 +93,7 @@ Encounter Bot, Story, and Art can write this JSON and the DM imports it. Loading
     {
       "id": "floor_showcase",
       "mapId": "scn_dry_fork",
-      "image": "packs/showcase-dry-fork/showcase-dry-fork_40x30_70px.png",
+      "image": "packs/showcase-dry-fork/showcase-dry-fork_40x30_70px-painted.webp",
       "spawns": [{ "id": "party", "x": 1, "y": 15 }],
       "props": [
         {

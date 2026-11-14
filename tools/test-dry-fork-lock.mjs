@@ -16,10 +16,18 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
+function exists(rel) { return fs.existsSync(path.join(root, rel)); }
 function pngSize(rel) {
   const buf = fs.readFileSync(path.join(root, rel));
   if (buf.slice(0, 8).toString("hex") !== "89504e470d0a1a0a") return null;
   return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20), bytes: buf.length };
+}
+function webpSize(rel) {
+  const buf = fs.readFileSync(path.join(root, rel));
+  if (buf.slice(0, 4).toString() !== "RIFF" || buf.slice(8, 12).toString() !== "WEBP" || buf.slice(12, 16).toString() !== "VP8 ") return null;
+  const o = 20;
+  if (buf[o + 3] !== 0x9d || buf[o + 4] !== 0x01 || buf[o + 5] !== 0x2a) return null;
+  return { w: buf.readUInt16LE(o + 6) & 0x3fff, h: buf.readUInt16LE(o + 8) & 0x3fff, bytes: buf.length };
 }
 
 const version = JSON.parse(read("version.json"));
@@ -35,11 +43,11 @@ vm.runInContext(read("map/map-packs.js"), sb);
 const scene = sb.SSDNS_MAP_PACKS.scenes.find((s) => s.id === "scn_dry_fork");
 const playFile = JSON.parse(read("map/packs/showcase-dry-fork/showcase-dry-fork.play.json"));
 check("play.matches", scene && JSON.stringify(scene.play) === JSON.stringify(playFile));
-check("paint.flag", scene && scene.painted === true && scene.img === "packs/showcase-dry-fork/showcase-dry-fork_40x30_70px.png");
-const png = pngSize("map/packs/showcase-dry-fork/showcase-dry-fork_40x30_70px.png");
-check("paint.size", png && png.w === 2800 && png.h === 2100 && png.bytes > 1.5e6, JSON.stringify(png));
+check("paint.flag", scene && scene.painted === true && scene.img === "packs/showcase-dry-fork/showcase-dry-fork_40x30_70px-painted.webp" && !exists("map/packs/showcase-dry-fork/showcase-dry-fork_40x30_70px.png"));
+const webp = webpSize("map/packs/showcase-dry-fork/showcase-dry-fork_40x30_70px-painted.webp");
+check("paint.size", webp && webp.w === 2800 && webp.h === 2100 && webp.bytes > 5e5 && webp.bytes < 1.5e6, JSON.stringify(webp));
 const thumb = pngSize("map/packs/thumbs/scn_dry_fork.png");
-check("thumb", thumb && thumb.w === 480 && thumb.h === 360 && thumb.bytes < png.bytes);
+check("thumb", thumb && thumb.w === 480 && thumb.h === 360 && thumb.bytes < webp.bytes);
 const wallsFile = JSON.parse(read("map/packs/showcase-dry-fork/showcase-dry-fork.walls.json"));
 check("walls", scene && scene.walls.length === 31 && JSON.stringify(scene.walls) === JSON.stringify(wallsFile));
 

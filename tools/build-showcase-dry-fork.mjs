@@ -474,7 +474,7 @@ const mapDraft = JSON.parse(fs.readFileSync(path.join(root, "map/packs/showcase-
 const play = {
   ambient: "dim",
   paint: "painted",
-  paintNote: "Painted 2800×2100 map, no grid or letters. Jessey liked the paint. The tank sits about 2 squares north of layout O3–R6. Cover, zones, ladder S5, and spout Q7 stay on the layout key.",
+  paintNote: "Cleaned 2800×2100 WebP, no grid or letters. Asset props are painted out so the pack tokens are the only copy. The shed barrel (Y18–Z19), the shed rubble (AB15–AC19), and the L5 lump are gone. The tank sits about 2 squares north of layout O3–R6. Cover, zones, ladder S5, and spout Q7 stay on the layout key.",
   zones: mapDraft.zones || [],
   cover: mapDraft.objects || [],
   spawns: [
@@ -627,7 +627,7 @@ for (; end < src.length; end++) {
 }
 const scene = JSON.parse(src.slice(start, end));
 scene.painted = true;
-scene.notes = "Painted. Dusk starts Dim. Order board starts RED. Tank hotspots stay on the layout key.";
+scene.notes = "Cleaned paint. Doubled props, the shed barrel, and the shed rubble are painted out. Dusk starts Dim. Order board starts RED. Tank hotspots stay on the layout key.";
 scene.play = play;
 src = src.slice(0, start) + JSON.stringify(scene) + src.slice(end);
 if (!src.startsWith("/* Built-in map packs")) throw new Error("map-packs header moved");
