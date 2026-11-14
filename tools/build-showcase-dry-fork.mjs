@@ -384,9 +384,14 @@ fs.writeFileSync(path.join(outDir, "index.json"), JSON.stringify({
 }, null, 2) + "\n");
 
 /* ---- map play seed (layout key squares; tank hotspots not shifted) ---- */
-const packJson = JSON.parse(fs.readFileSync(path.join(root, "assets/packs/encounter-pack-v1.ssdns-asset-pack.json"), "utf8"));
 const defs = {};
-(packJson.assets || []).forEach((a) => { defs[a.id] = a; });
+[
+  "assets/packs/encounter-pack-v1.ssdns-asset-pack.json",
+  "assets/packs/encounter-pack-v2.ssdns-asset-pack.json"
+].forEach((rel) => {
+  const packJson = JSON.parse(fs.readFileSync(path.join(root, rel), "utf8"));
+  (packJson.assets || []).forEach((a) => { defs[a.id] = a; });
+});
 function colOf(letters) {
   let n = 0;
   letters.toUpperCase().split("").forEach((ch) => { n = n * 26 + (ch.charCodeAt(0) - 64); });
@@ -434,7 +439,8 @@ function assetToken(id, defId, code, opts) {
     lights: lit && (bright || dim) ? [{ id: "asset", name: inst.name, bright: bright, dim: dim, color: String(inst.props.light.color || "") }] : [],
     pos: { x: at.x, y: at.y },
     sceneId: "scn_dry_fork",
-    sq: at.sq
+    sq: at.sq,
+    span: opts.span || { w: inst.size || 1, h: inst.size || 1 }
   };
 }
 function lockOf(dc) {
@@ -488,16 +494,24 @@ const play = {
     { tag: "R2", name: "Dust Devil", foe: "dust-devil", sq: "W29", pos: cell("W29"), side: "optional", optional: true }
   ],
   tokens: [
-    assetToken("df_order_board", "ast_order-board", "AH6", { label: "Order board" }),
-    assetToken("df_lantern_ah6", "ast_wall-lantern", "AH6", { label: "Signal lantern", lit: true }),
-    assetToken("df_lantern_k12", "ast_wall-lantern", "K12", { label: "Lantern post", lit: true }),
-    assetToken("df_lantern_ad12", "ast_wall-lantern", "AD12", { label: "Lantern post", lit: true }),
-    assetToken("df_gate", "ast_fence-gate", "AF18", { label: "Corral gate" }),
-    assetToken("df_telegraph", "ast_telegraph-lever", "N15", { label: "Telegraph" }),
-    assetToken("df_campfire", "ast_campfire", "AD23", { label: "Campfire", lit: true }),
-    assetToken("df_crate", "ast_cover-crate", "AA16", { label: "Cover crate" }),
-    assetToken("df_powder", "ast_powder-barrel", "F11", { label: "Powder barrel" }),
-    assetToken("df_plunger", "ast_plunger-box", "G11", { label: "Plunger" }),
+    assetToken("df_order_board", "ast_order-board", "AH6", { label: "Order board", span: { w: 1, h: 1 } }),
+    assetToken("df_lantern_ah6", "ast_wall-lantern", "AH6", { label: "Signal lantern", lit: true, span: { w: 1, h: 1 } }),
+    assetToken("df_lantern_k12", "ast_wall-lantern", "K12", { label: "Lantern post", lit: true, span: { w: 1, h: 1 } }),
+    assetToken("df_lantern_ad12", "ast_wall-lantern", "AD12", { label: "Lantern post", lit: true, span: { w: 1, h: 1 } }),
+    assetToken("df_gate", "ast_fence-gate", "AF18", { label: "Corral gate", span: { w: 1, h: 1 } }),
+    assetToken("df_telegraph", "ast_telegraph-lever", "N15", { label: "Telegraph", span: { w: 1, h: 1 } }),
+    assetToken("df_campfire", "ast_campfire", "AD23", { label: "Campfire", lit: true, span: { w: 1, h: 1 } }),
+    assetToken("df_crate", "ast_cover-crate", "AA16", { label: "Cover crate", span: { w: 1, h: 1 } }),
+    /* Powder and the plunger used to sit on the coal-bin footprint (F11, G11). They move one column west so the bin is the only prop there. */
+    assetToken("df_powder", "ast_powder-barrel", "E11", { label: "Powder barrel", span: { w: 1, h: 1 } }),
+    assetToken("df_plunger", "ast_plunger-box", "D11", { label: "Plunger", span: { w: 1, h: 1 } }),
+    assetToken("df_switch_w", "ast_switch-stand", "I9", { label: "West switch", span: { w: 1, h: 1 } }),
+    assetToken("df_switch_e", "ast_switch-stand", "AG9", { label: "East switch", span: { w: 1, h: 1 } }),
+    assetToken("df_baggage", "ast_baggage-cart", "V12", { label: "Baggage cart", span: { w: 2, h: 1 } }),
+    assetToken("df_coal", "ast_coal-bin", "F11", { label: "Coal bin", span: { w: 3, h: 2 } }),
+    assetToken("df_rain", "ast_rain-barrel", "W15", { label: "Rain barrel", span: { w: 1, h: 1 } }),
+    assetToken("df_trough_road", "ast_water-trough", "K19", { label: "Road trough", span: { w: 1, h: 2 } }),
+    assetToken("df_trough_corral", "ast_water-trough", "AL22", { label: "Corral trough", span: { w: 1, h: 2 } }),
     chest("df_saddlebag", "Saddlebag", "AE16", {
       id: "box_dryfork_saddlebag",
       tableId: "act1-saddlebag",
@@ -554,6 +568,42 @@ if ((powder.asset.images || []).length < 2 || powder.asset.props.timer.mode !== 
 if ((plunger.asset.images || []).length < 2 || plunger.asset.props.timer.mode !== "plunger" || plunger.asset.interact.actions.indexOf("toggle") < 0) {
   throw new Error("plunger box lost a button");
 }
+if (powder.pos.x !== 4 || powder.pos.y !== 10 || plunger.pos.x !== 3 || plunger.pos.y !== 10) {
+  throw new Error("powder or plunger still sits on the coal bin");
+}
+const placed = [
+  ["df_switch_w", "ast_switch-stand", 8, 8],
+  ["df_switch_e", "ast_switch-stand", 32, 8],
+  ["df_baggage", "ast_baggage-cart", 21, 11],
+  ["df_coal", "ast_coal-bin", 5, 10],
+  ["df_rain", "ast_rain-barrel", 22, 14],
+  ["df_trough_road", "ast_water-trough", 10, 18],
+  ["df_trough_corral", "ast_water-trough", 37, 21]
+];
+const seenKey = {};
+play.tokens.forEach((t) => {
+  if (!t || t.kind !== "asset") return;
+  if (!t.assetDefId || !String(t.image || "").includes("/assets/map-props/asset-")) throw new Error(t.id + " is not a pack asset");
+  const key = t.assetDefId + "@" + t.pos.x + "," + t.pos.y;
+  if (seenKey[key]) throw new Error("duplicate prop " + key);
+  seenKey[key] = t.id;
+});
+placed.forEach((row) => {
+  const t = play.tokens.find((x) => x.id === row[0]);
+  if (!t || t.assetDefId !== row[1] || t.pos.x !== row[2] || t.pos.y !== row[3]) throw new Error("missing " + row.join(" "));
+  const coverId = {
+    df_switch_w: "west_switch",
+    df_switch_e: "east_switch",
+    df_baggage: "baggage_cart",
+    df_coal: "coal_bin",
+    df_rain: "rain_barrel",
+    df_trough_road: "road_trough",
+    df_trough_corral: "corral_trough"
+  }[row[0]];
+  const cover = (play.cover || []).find((c) => c.id === coverId);
+  if (!cover || cover.rect[0] !== row[2] || cover.rect[1] !== row[3]) throw new Error("cover moved for " + coverId);
+});
+if ((play.tokens || []).some((t) => t && t.assetDefId === "ast_strongbox")) throw new Error("Dry Fork has no strongbox");
 const playPath = path.join(root, "map/packs/showcase-dry-fork/showcase-dry-fork.play.json");
 fs.writeFileSync(playPath, JSON.stringify(play, null, 2) + "\n");
 

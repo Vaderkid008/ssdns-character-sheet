@@ -110,5 +110,7 @@ Dry Fork Water Stop is built-in scene `scn_dry_fork` in `map/map-packs.js`. My M
 
 Opening the scene runs `seedPackWalls`: if that scene has no walls yet, the pack walls are copied in and saved. Import Walls opens with those same walls already filled in, so OK writes them again. `seedPackPlay` then places the play tokens once (order board starts off / RED, lanterns and the campfire start lit at 20+20, corral gate closed, Saddlebag unlocked at AE16, Outlaw Stash hidden DC 13 then lock DC 13 at AB18). A room that already had the N90 walls still gets the play seed. No new Firebase path.
 
+Every Dry Fork prop that has a matching Encounter Pack picture is an asset token (`kind: "asset"`, pack `assetDefId`, github.io map-prop art). Pack v2 adds the west and east switch stands (I9, AG9), the baggage cart (V12), the coal bin (F11), the rain barrel (W15), and the two water troughs (K19, AL22). The powder barrel and plunger stay blast props and sit at E11 and D11, just west of the coal bin, so the bin is the only token on F11–H12. Cover rects are unchanged. There is no strongbox. Water tower, ladder, spout, pole, boulder, mesquite, handcar, desk, stove, bunks, table, toolbox, woodpile, wagon, horses, outhouse, and wash rocks stay cover-only; those shapes are already painted on the base map.
+
 The painted tank sits about 2 squares north of layout O3–R6. Jessey kept the paint and the layout hotspots. Ladder S5 and spout Q7 are unchanged. Dust Devils are listed as optional spawns and are not placed. Encounter Pack JSON defaults are unchanged.
 
