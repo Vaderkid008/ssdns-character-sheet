@@ -1,6 +1,6 @@
 /**
  * Bitter Spring Relay showcase pack imports through the scene pack code.
- * Sheet 0.3.315 / DMCC 0.2.328.
+ * Sheet 0.3.317 / DMCC 0.2.330.
  *   node tools/test-showcase-pack-03315.mjs
  */
 import fs from "node:fs";
@@ -16,7 +16,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.315" && ver.dmcc === "0.2.328" && ver.sheetBuild === "sheet-playtest-v03315" && ver.dmccBuild === "dmcc-playtest-v02328");
+check("ver", ver.sheet === "0.3.317" && ver.dmcc === "0.2.330" && ver.sheetBuild === "sheet-playtest-v03317" && ver.dmccBuild === "dmcc-playtest-v02330");
 check("rules.clean", !read("assets/data/rules.js").includes("bitter-spring") && !read("database.rules.json").includes("bitter-spring"));
 
 const sandbox = { window: {}, globalThis: {} };
@@ -61,6 +61,21 @@ const gDoors = lockedDoors(imported.maps.find((m) => m.id === "bitter-spring-rel
 const uDoors = lockedDoors(imported.maps.find((m) => m.id === "bitter-spring-relay-upstairs").walls);
 check("doors", gDoors.length === 1 && uDoors.length === 1 && gDoors[0].lockDc === 12 && gDoors[0].forceDc === 15 && uDoors[0].lockDc === 12 && uDoors[0].forceDc === 15);
 check("pregens", fs.existsSync(path.join(root, "showcase/bitter-spring-relay/pregens/ace-duchamp.ssdns")) && !JSON.parse(read("showcase/bitter-spring-relay/pregens/ace-duchamp.ssdns")).character.toolBonus && !JSON.parse(read("showcase/bitter-spring-relay/pregens/ezra-thorne.ssdns")).character.toolBonus && /Thieves' tools/.test(JSON.parse(read("showcase/bitter-spring-relay/pregens/ace-duchamp.ssdns")).character.proficienciesLanguages));
+const packJson = JSON.parse(text);
+function webpSize(buf) {
+  if (buf.toString("ascii", 0, 4) !== "RIFF" || buf.toString("ascii", 8, 12) !== "WEBP" || buf.toString("ascii", 12, 16) !== "VP8 ") return null;
+  const start = buf.indexOf(Buffer.from([0x9d, 0x01, 0x2a]));
+  if (start < 0) return null;
+  return { w: buf.readUInt16LE(start + 3) & 0x3fff, h: buf.readUInt16LE(start + 5) & 0x3fff };
+}
+for (const map of packJson.maps) {
+  const file = map.src.split("/").pop();
+  const abs = path.join(root, "showcase/bitter-spring-relay", file);
+  const buf = fs.readFileSync(abs);
+  const dim = webpSize(buf);
+  const mb = buf.length / (1024 * 1024);
+  check("art." + map.id, !/PLACEHOLDER|\.png$/i.test(map.src) && file.endsWith(".webp") && dim && dim.w === 2240 && dim.h === 1820 && mb > 0.2 && mb < 2.2, file + " " + (dim && dim.w) + "x" + (dim && dim.h) + " " + mb.toFixed(2) + "MB");
+}
 
 const OUT = "/opt/cursor/artifacts/bitter-spring";
 fs.mkdirSync(OUT, { recursive: true });
@@ -105,6 +120,40 @@ await page.locator("[data-act='showcaseShot']").screenshot({ path: path.join(OUT
 await page.evaluate(() => {
   document.querySelector("[data-act='sceneLoad']").click();
   window.SSDNSSceneBuilder.close();
+});
+await page.waitForTimeout(200);
+const ART = "/opt/cursor/artifacts/bitter-spring-art";
+fs.mkdirSync(ART, { recursive: true });
+async function frameFloor(which) {
+  const loaded = await page.evaluate(async (id) => {
+    window.map.maps().swap(id);
+    const fog = document.querySelector("[data-act='fogBtn']");
+    if (fog && fog.textContent.indexOf("ON") >= 0) fog.click();
+    const amb = document.querySelector("[data-act='ambientSel']");
+    if (amb) { amb.value = "bright"; amb.dispatchEvent(new Event("change", { bubbles: true })); }
+    document.querySelectorAll(".ssdns-leftbar,.ssdns-rightbar,.ssdns-chatdock,.ssm-scene-builder").forEach((n) => { n.style.display = "none"; });
+    const canvas = document.querySelector("#mount canvas");
+    const zoom = Math.min(canvas.clientWidth / 2240, canvas.clientHeight / 1820) * 0.96;
+    window.map.lookAt(15.5, 12.5, zoom);
+    const src = id === "bitter-spring-relay-upstairs"
+      ? "http://127.0.0.1:8765/showcase/bitter-spring-relay/bitter-spring-relay-upstairs_32x26_70px.webp"
+      : "http://127.0.0.1:8765/showcase/bitter-spring-relay/bitter-spring-relay-ground_32x26_70px.webp";
+    const im = new Image();
+    im.src = src;
+    await im.decode();
+    return { w: im.naturalWidth, h: im.naturalHeight, scene: window.map.viewedScene() };
+  }, which);
+  await page.waitForTimeout(400);
+  return loaded;
+}
+const groundShot = await frameFloor("bitter-spring-relay-ground");
+check("art.groundLoads", groundShot.w === 2240 && groundShot.h === 1820 && groundShot.scene === "bitter-spring-relay-ground", JSON.stringify(groundShot));
+await page.locator("#mount canvas").first().screenshot({ path: path.join(ART, "dm-ground.png"), timeout: 20000 });
+const upShot = await frameFloor("bitter-spring-relay-upstairs");
+check("art.upLoads", upShot.w === 2240 && upShot.h === 1820 && upShot.scene === "bitter-spring-relay-upstairs", JSON.stringify(upShot));
+await page.locator("#mount canvas").first().screenshot({ path: path.join(ART, "dm-upstairs.png"), timeout: 20000 });
+await page.evaluate(() => {
+  window.map.maps().swap("bitter-spring-relay-ground");
   const foe = window.map.tokenBoxes().find((t) => t.label === "PH" || /Pick/.test(t.label || ""));
   const box = window.map.tokenBoxes().find((t) => t.kind === "chest");
   const at = foe || box;
@@ -116,7 +165,7 @@ const dmNames = await page.evaluate(() => window.map.tokenBoxes().map((t) => t.l
 check("ui.dm", dmNames.indexOf("PI") >= 0 && dmNames.indexOf("BA") >= 0 && dmNames.indexOf("ST") >= 0, dmNames.join(","));
 await page.evaluate(() => {
   const fog = document.querySelector("[data-act='fogBtn']");
-  if (fog) fog.click();
+  if (fog && fog.textContent.indexOf("ON") >= 0) fog.click();
 });
 
 const player = await context.newPage();
@@ -132,6 +181,14 @@ const seen = await player.evaluate(() => {
 });
 check("ui.player", seen.some((n) => n.indexOf("PI:enemy") === 0) && seen.some((n) => n.indexOf("BA:enemy") === 0) && !seen.some((n) => n.indexOf("ST:") === 0) && !seen.some((n) => /Company|Rival|Rustler|Outlaw/.test(n)), seen.join(" "));
 await player.locator("#mount canvas").first().screenshot({ path: path.join(OUT, "player-hidden.png"), timeout: 20000 });
+await player.evaluate(() => {
+  document.querySelectorAll(".ssdns-leftbar,.ssdns-rightbar,.ssdns-chatdock").forEach((n) => { n.style.display = "none"; });
+  const canvas = document.querySelector("#mount canvas");
+  const zoom = Math.min(canvas.clientWidth / 2240, canvas.clientHeight / 1820) * 0.96;
+  window.map.lookAt(15.5, 12.5, zoom);
+});
+await player.waitForTimeout(400);
+await player.locator("#mount canvas").first().screenshot({ path: path.join(ART, "player-ground.png"), timeout: 20000 });
 await browser.close();
 
 if (failures.length) {
@@ -139,5 +196,5 @@ if (failures.length) {
   failures.forEach((line) => console.log(" - " + line));
   process.exit(1);
 }
-console.log("showcase pack 0.3.315 ok");
+console.log("showcase pack 0.3.317 ok");
 process.exit(0);
