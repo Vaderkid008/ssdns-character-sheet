@@ -499,7 +499,7 @@ const play = {
     assetToken("df_lantern_ah6", "ast_wall-lantern", "AH6", { label: "Signal lantern", lit: true, span: { w: 1, h: 1 }, labelPlace: "above" }),
     assetToken("df_lantern_k12", "ast_wall-lantern", "K12", { label: "Lantern post", lit: true, span: { w: 1, h: 1 } }),
     assetToken("df_lantern_ad12", "ast_wall-lantern", "AD12", { label: "Lantern post", lit: true, span: { w: 1, h: 1 } }),
-    assetToken("df_gate", "ast_fence-gate", "AF18", { label: "Corral gate", span: { w: 1, h: 1 } }),
+    assetToken("df_gate", "ast_fence-gate", "AF18", { label: "Corral gate", span: { w: 1, h: 2 } }),
     assetToken("df_telegraph", "ast_telegraph-lever", "N15", { label: "Telegraph", span: { w: 1, h: 1 } }),
     assetToken("df_campfire", "ast_campfire", "AD23", { label: "Campfire", lit: true, span: { w: 1, h: 1 } }),
     assetToken("df_crate", "ast_cover-crate", "AA16", { label: "Cover crate", span: { w: 1, h: 1 } }),

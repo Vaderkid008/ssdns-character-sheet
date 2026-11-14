@@ -152,6 +152,10 @@ window.SSDNSMap = { create(opts) {
   const BASE_GRID = JSON.parse(JSON.stringify(options.scene.grid || { cols: 30, rows: 20, px: 70 }));
   function asset(src) {
     if (!src) return '';
+    if (/^https?:\/\/vaderkid008\.github\.io\/ssdns-character-sheet\//.test(src)
+      && typeof location !== 'undefined' && location.hostname !== 'vaderkid008.github.io') {
+      src = '/' + src.replace(/^https?:\/\/vaderkid008\.github\.io\/ssdns-character-sheet\//, '');
+    }
     if (/^(https?:|data:|blob:|\/)/.test(src)) return src;
     return (options.assetBase || '') + src;
   }
@@ -227,6 +231,7 @@ window.SSDNSMap = { create(opts) {
       copyOf: t.copyOf || '',
       allowCopySwitch: t.allowCopySwitch !== false,
       label: t.label || t.name || '', size: t.size || 1, name: t.name || '',
+      span: t.span && Number(t.span.w) >= 1 && Number(t.span.h) >= 1 ? { w: Number(t.span.w), h: Number(t.span.h) } : undefined,
       labelPlace: t.labelPlace === "above" ? "above" : undefined,
       kind: t.kind || '', storyMarker: t.storyMarker || '', lootBoxId: t.lootBoxId || '',
       weaponDrop: t.weaponDrop ? { name: t.weaponDrop.name || t.name || '', itemId: t.weaponDrop.itemId || '', dirty: !!t.weaponDrop.dirty, taken: !!t.weaponDrop.taken } : null,
@@ -486,6 +491,8 @@ function applySharedToTokens() {
         if (s.asset) t.asset = s.asset;
         if (s.assetDefId) t.assetDefId = s.assetDefId;
         if (s.size) t.size = tokSquares(s.size);
+        if (s.span && Number(s.span.w) >= 1 && Number(s.span.h) >= 1) t.span = { w: Number(s.span.w), h: Number(s.span.h) };
+        if (s.labelPlace === "above") t.labelPlace = "above";
         if (s.asset && s.asset.targetable) t.notTargetable = false;
         else if (s.notTargetable) t.notTargetable = true;
       } else if (s.asset) {
@@ -2555,7 +2562,7 @@ function tokenLightList(t) {
     const spellLevel = ZL && ZL.spellLightLevel ? ZL.spellLightLevel(l) : null;
     return {
       x: c.x, y: c.y, bright: bright, dim: dim, radius: (bright + dim) / 5, cone: !!l.cone, facing: face, name: l.name || '',
-      id: l.id || '', magical: !!(l.magical || l.spell || l.feature || spellLevel != null), spell: !!l.spell,
+      id: l.id || '', color: String(l.color || ''), magical: !!(l.magical || l.spell || l.feature || spellLevel != null), spell: !!l.spell,
       spellLevel: spellLevel, feature: !!l.feature
     };
   });
@@ -5331,7 +5338,7 @@ function draw() {
   else paintAddMine();
   const viewSight = role === 'player' ? sightFor(uid) : buildSight(null, (state.scene && state.scene.id) || '', 'party');
   const lightSources = (viewSight.lights || []).map(ls => ({
-    x: ls.x * px, y: ls.y * px, radius: ls.radius, bright: (Number(ls.bright) || 0) / 5, cone: !!ls.cone, facing: ls.facing || 0
+    x: ls.x * px, y: ls.y * px, radius: ls.radius, bright: (Number(ls.bright) || 0) / 5, cone: !!ls.cone, facing: ls.facing || 0, color: ls.color || ""
   }));
 
   const sight = role === 'player' ? sightFor(uid, getPlayerScene()) : null;
@@ -5612,6 +5619,9 @@ function draw() {
       ctx.restore();
       continue;
     }
+    if (t.kind === "asset") {
+      paintAssetCutout(ctx, t, px);
+    }
     if (t.veil && (role === 'dm' || t.ownerUid === uid)) ctx.globalAlpha = 0.45;
     /* fog-aware targeting: seen but past the picked weapon's long range -> grey wash on this player's map */
     let outOfReach = false;
@@ -5621,14 +5631,16 @@ function draw() {
       if (outOfReach) { ctx.globalAlpha *= 0.6; try { ctx.filter = 'grayscale(1) brightness(0.75)'; } catch (e) {} }
     }
 
+    if (t.kind !== "asset") {
     ctx.beginPath();
     ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(30,25,20,0.85)';
     ctx.fill();
+    }
     /* 0.2.77: a token copied through JSON (demo table, patches) can carry a plain-object _img; one bad
        portrait used to throw out of draw() and stop every later token (and its ammo badge) from drawing. */
     if (t._img && !(typeof HTMLImageElement !== 'undefined' && t._img instanceof HTMLImageElement)) { t._img = null; if (t.image) loadTokenImage(t); }
-    if (t.image && t._img) {
+    if (t.kind !== "asset" && t.image && t._img) {
       const dust = fxDustFrame(t);
       if (dust && FXA && FXA.erodeToken && typeof document !== "undefined") {
         const d = Math.ceil(r * 2 + 16);
@@ -5681,7 +5693,7 @@ function draw() {
       ctx.fill();
       ctx.restore();
     }
-    paintStickyMarks(ctx, t, s, r);
+    if (t.kind !== "asset") paintStickyMarks(ctx, t, s, r);
     if (t.weaponDrop || t.kind === 'drop') {
       ctx.save();
       ctx.translate(s.x, s.y - r - 10);
@@ -5698,6 +5710,7 @@ function draw() {
       ctx.stroke();
       ctx.restore();
     }
+    if (t.kind !== "asset") {
     if (window.SSDNSTokenBorder) window.SSDNSTokenBorder.paint(ctx, t, s.x, s.y, r, ring);
     else {
       ctx.beginPath();
@@ -5705,6 +5718,7 @@ function draw() {
       ctx.strokeStyle = ring;
       ctx.lineWidth = 3;
       ctx.stroke();
+    }
     }
 
     // lock icon
@@ -5720,13 +5734,21 @@ function draw() {
 
     // selection highlight
     if (role === 'dm' && state.selectedIds.includes(t.id)) {
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, r + 5, 0, Math.PI * 2);
+      ctx.save();
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 2;
       ctx.setLineDash([3, 2]);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      if (t.kind === "asset") {
+        const span = assetSpan(t);
+        const origin = worldToScreen(t.pos.x * px, t.pos.y * px);
+        const zoom = state.view.zoom || 1;
+        ctx.strokeRect(origin.x, origin.y, span.w * px * zoom, span.h * px * zoom);
+      } else {
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, r + 5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
     }
     if (t.combatantId && t.combatantId === state.currentTurnId) {
       const pulse = 0.6 + 0.4 * Math.sin(Date.now() / 300);
@@ -9365,6 +9387,10 @@ function placeAssetAt(def, cell) {
     pos: cell
   });
   if (!token) return null;
+  if (def.span && Number(def.span.w) >= 1 && Number(def.span.h) >= 1) {
+    token.span = { w: Number(def.span.w), h: Number(def.span.h) };
+    if (shared.tokens[token.id]) shared.tokens[token.id].span = token.span;
+  }
   selectToken(token);
   toast("Placed " + (def.name || "asset"));
   return token;
@@ -9947,6 +9973,7 @@ function makeToken(spec) {
     token.asset = spec.asset || null;
     token.hidden = !!spec.hidden;
     if (Array.isArray(spec.lights)) token.lights = spec.lights;
+    if (spec.span && Number(spec.span.w) >= 1 && Number(spec.span.h) >= 1) token.span = { w: Number(spec.span.w), h: Number(spec.span.h) };
   }
   state.tokens.push(token);
   shared.tokens[id] = JSON.parse(JSON.stringify(token));
@@ -14932,6 +14959,12 @@ function paintDimLift(sources, px) {
 }
 /* Dim and dark keep these stops. Bright ground is near-zero; the same
    dim/dark stops are redrawn only where the light cuts dim, dark, or fog. */
+function haloRgb(color) {
+  const hex = /^#([0-9a-f]{6})$/i.exec(String(color || ""));
+  if (!hex) return "";
+  const n = parseInt(hex[1], 16);
+  return ((n >> 16) & 255) + ", " + ((n >> 8) & 255) + ", " + (n & 255);
+}
 function haloTint(amb) {
   if (amb === 'dim') return { hot: 0.5, dimA: 0.34 };
   if (amb === 'bright') return { hot: 0.02, dimA: 0.02 };
@@ -14947,9 +14980,10 @@ function paintOneHalo(pen, ls, px, hot, dimA) {
   const oR = Math.max(2, outer * z);
   const bR = Math.max(0, (Number(ls.bright) || 0) * px * z);
   const g = pen.createRadialGradient(c.x, c.y, 0, c.x, c.y, oR);
+  const warm = haloRgb(ls && ls.color);
   if (ls.bright > 0 && bR + 1 < oR) {
-    g.addColorStop(0, 'rgba(255, 214, 120, ' + hot + ')');
-    g.addColorStop(Math.max(0.02, Math.min(0.92, bR / oR)), 'rgba(255, 170, 60, ' + (hot * 0.65) + ')');
+    g.addColorStop(0, warm ? ('rgba(' + warm + ', ' + hot + ')') : ('rgba(255, 214, 120, ' + hot + ')'));
+    g.addColorStop(Math.max(0.02, Math.min(0.92, bR / oR)), warm ? ('rgba(' + warm + ', ' + (hot * 0.65) + ')') : ('rgba(255, 170, 60, ' + (hot * 0.65) + ')'));
     g.addColorStop(1, 'rgba(140, 150, 190, 0)');
   } else {
     g.addColorStop(0, 'rgba(255, 206, 130, ' + dimA + ')');
@@ -15482,6 +15516,23 @@ function tokenCombatant(tokenId) {
   const token = state.tokens.find(t => t.id === tokenId);
   return (token && (token.combatantId || token.sheetId)) || tokenId;
 }
+function assetSpan(t) {
+  const side = (t && t.size) || 1;
+  const w = t && t.span && Number(t.span.w);
+  const h = t && t.span && Number(t.span.h);
+  return { w: w >= 1 ? w : side, h: h >= 1 ? h : side };
+}
+function paintAssetCutout(ctx, t, px) {
+  if (!t || t.kind !== "asset" || !t.pos) return;
+  if (!t._img || !(typeof HTMLImageElement !== "undefined" && t._img instanceof HTMLImageElement)) {
+    if (t.image) loadTokenImage(t);
+    return;
+  }
+  const span = assetSpan(t);
+  const origin = worldToScreen(t.pos.x * px, t.pos.y * px);
+  const zoom = state.view.zoom || 1;
+  ctx.drawImage(t._img, origin.x, origin.y, span.w * px * zoom, span.h * px * zoom);
+}
 function cellTaken(x, y, ignore) {
   const skip = ignore || {};
   return state.tokens.some(t => {
@@ -15489,8 +15540,8 @@ function cellTaken(x, y, ignore) {
     if (role !== 'dm' && t.hidden) return false;
     if (!onViewedScene(t)) return false;
     if (window.SSDNSAssetLibrary && window.SSDNSAssetLibrary.gatePassable && window.SSDNSAssetLibrary.gatePassable(t)) return false;
-    const size = t.size || 1;
-    return x >= t.pos.x && x < t.pos.x + size && y >= t.pos.y && y < t.pos.y + size;
+    const span = assetSpan(t);
+    return x >= t.pos.x && x < t.pos.x + span.w && y >= t.pos.y && y < t.pos.y + span.h;
   });
 }
 /* Token size (2026-10-20): footprint helpers. A token covers pos..pos+size squares on both axes. */
@@ -15906,9 +15957,9 @@ function hitTest(wx, wy) {
     if (!t || !t.pos) continue;
     if (t.hidden && role !== 'dm') continue;
     if (!onViewedScene(t)) continue;
-    const size = t.size || 1;
+    const span = assetSpan(t);
     const left = t.pos.x * px, top = t.pos.y * px;
-    if (wx >= left && wx <= left + size * px && wy >= top && wy <= top + size * px) return t;
+    if (wx >= left && wx <= left + span.w * px && wy >= top && wy <= top + span.h * px) return t;
   }
   return null;
 }

@@ -1,7 +1,7 @@
 {
   "ambient": "dim",
   "paint": "painted",
-  "paintNote": "Cleaned 2800×2100 WebP, no grid or letters. Asset props are painted out so the pack tokens are the only copy. The shed barrel (Y18–Z19), the shed rubble (AB15–AC19), and the L5 lump are gone. The tank sits about 2 squares north of layout O3–R6. Cover, zones, ladder S5, and spout Q7 stay on the layout key.",
+  "paintNote": "Cleaned 2800\u00d72100 WebP, no grid or letters. Asset props are painted out so the pack tokens are the only copy. The shed barrel (Y18\u2013Z19), the shed rubble (AB15\u2013AC19), and the L5 lump are gone. The tank sits about 2 squares north of layout O3\u2013R6. Cover, zones, ladder S5, and spout Q7 stay on the layout key.",
   "zones": [
     {
       "label": "ROCKY RISE (+5 ft, half cover crouched)",
@@ -1230,7 +1230,7 @@
       "sq": "AF18",
       "span": {
         "w": 1,
-        "h": 1
+        "h": 2
       }
     },
     {

@@ -7,6 +7,7 @@
       "id": "ast_water-trough",
       "name": "Water Trough",
       "size": 2,
+      "span": { "w": 1, "h": 2 },
       "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-water-trough-off.webp",
       "images": [
         "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-water-trough-off.webp",
@@ -75,6 +76,7 @@
       "id": "ast_hitching-rail",
       "name": "Hitching Rail",
       "size": 2,
+      "span": { "w": 2, "h": 1 },
       "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-hitching-rail.webp",
       "images": [
         "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-hitching-rail.webp"
@@ -276,6 +278,7 @@
       "id": "ast_baggage-cart",
       "name": "Baggage Cart",
       "size": 2,
+      "span": { "w": 2, "h": 1 },
       "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-baggage-cart.webp",
       "images": [
         "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-baggage-cart.webp"
@@ -409,6 +412,7 @@
       "id": "ast_coal-bin",
       "name": "Coal Bin",
       "size": 2,
+      "span": { "w": 3, "h": 2 },
       "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-coal-bin.webp",
       "images": [
         "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-coal-bin.webp"
