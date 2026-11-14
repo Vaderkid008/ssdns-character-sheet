@@ -1,5 +1,5 @@
 /**
- * Phase 1 play fixes (sheet 0.3.313 / DMCC 0.2.326).
+ * Phase 1 play fixes (sheet 0.3.314 / DMCC 0.2.327).
  * Contagion commits Poisoned plus a DC'd end save, three failures keep the disease
  * (Blinding Sickness also applies Blinded), Disintegrate's remove goes through the
  * map host, adjacent Medium squares are 5 ft touch, and Hunger of Hadar does not
@@ -20,8 +20,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.313" && version.sheetBuild === "sheet-playtest-v03313");
-check("ver.dmcc", version.dmcc === "0.2.326" && version.dmccBuild === "dmcc-playtest-v02326");
+check("ver.sheet", version.sheet === "0.3.314" && version.sheetBuild === "sheet-playtest-v03314");
+check("ver.dmcc", version.dmcc === "0.2.327" && version.dmccBuild === "dmcc-playtest-v02327");
 
 const context = { console, Math, Date, JSON, parseInt, isFinite, Number, String, Object, Array };
 context.window = context;

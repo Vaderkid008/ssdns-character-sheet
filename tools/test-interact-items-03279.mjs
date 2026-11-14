@@ -1,6 +1,6 @@
 /**
  * Interact collects into the sheet, drops back onto the map, and lockpicks a DM DC.
- * Sheet 0.3.313 / DMCC 0.2.326.
+ * Sheet 0.3.314 / DMCC 0.2.327.
  *   node tools/test-interact-items-03279.mjs
  */
 import fs from "node:fs";
@@ -19,8 +19,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.313" && ver.dmcc === "0.2.326" && ver.sheetBuild === "sheet-playtest-v03313" && ver.dmccBuild === "dmcc-playtest-v02326");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.313") && !read("database.rules.json").includes("0.3.313"));
+check("ver", ver.sheet === "0.3.314" && ver.dmcc === "0.2.327" && ver.sheetBuild === "sheet-playtest-v03314" && ver.dmccBuild === "dmcc-playtest-v02327");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.314") && !read("database.rules.json").includes("0.3.314"));
 check("rules.toolsUse", /thieves' tools to disarm a trap or open a lock/.test(read("assets/data/rules.js")));
 check("heat.line", read("assets/js/spell-riders.js").includes("leaves inventory") && !read("assets/js/spell-riders.js").includes("Nothing leaves inventory"));
 check("heat.command", read("dm/assets/js/v2.js").includes('type: "take_gear"') && read("dm/assets/js/v2.js").includes("function dropHeldWeapon"));
@@ -30,7 +30,7 @@ check("map.collect", read("map/ssdns-map.js").includes("function collectMapLoot"
 const sb = { console }; sb.window = sb; vm.createContext(sb);
 vm.runInContext(read("assets/js/loot.js"), sb);
 const L = sb.SSDNSLoot;
-const sheet = { abilities: { DEX: 14 }, prof: 2, thievesTools: true, items: [] };
+const sheet = { abilities: { DEX: 14 }, prof: 2, thievesTools: true, items: [{ catalogId: "thieves-tools-lock-picks", name: "Thieves' tools (lock picks)", count: 1 }] };
 const locked = { id: "box1", name: "Chest", contents: [{ id: "trail-rations", name: "Trail rations", qty: 1 }], cash: { es: 0, black: 0 }, lock: { dc: 15, unlocked: false, jammed: false, jamOnFail: false }, log: [] };
 const fail = L.resolve(locked, "lockpick-yes", sheet, () => 1, { nat: 10 });
 check("lock.fail", fail.success === false && locked.lock.unlocked === false && fail.total === 14 && /Still locked/.test((locked.log || []).join(" ")), JSON.stringify(fail));
@@ -228,7 +228,7 @@ await flush(20);
 const custom = Object.keys(mapStore.pub).filter((k) => k.indexOf("map/public/tokens/") === 0).map((k) => mapStore.pub[k].value).find((t) => t && t.kind === "chest");
 check("dc.custom", custom && custom.lootLock.lock.dc === 18 && custom.lootLock.lock.difficulty === "custom" && !el.querySelector('[data-lock-preset="hard"]').classList.contains("is-on"));
 const playerBox = { id: custom.loot.id || custom.lootBoxId, lock: { dc: custom.loot.lock.dc, unlocked: false, attempts: {} }, log: [] };
-const rolled = L.pickLock(playerBox, { abilities: { DEX: 16 }, prof: 3, thievesTools: true }, "ada", () => 0, { nat: 10 });
+const rolled = L.pickLock(playerBox, { abilities: { DEX: 16 }, prof: 3, thievesTools: true, items: [{ catalogId: "thieves-tools-lock-picks", name: "Thieves' tools (lock picks)", count: 1 }] }, "ada", () => 0, { nat: 10 });
 check("dc.liveRoll", rolled.dc === 18 && rolled.total === 16 && rolled.success === false && /vs DC 18/.test(rolled.line), rolled.line);
 
 if (failures.length) {

@@ -1,7 +1,7 @@
 /**
  * Phase 1: every current map is a floor. Dusty Spur and Ellen Manor are multi-floor scenes.
  * Old scene ids still open. The character sheet link survives a floor change.
- * Sheet 0.3.313 / DMCC 0.2.326.
+ * Sheet 0.3.314 / DMCC 0.2.327.
  *   node tools/test-scenes-floors-03304.mjs
  */
 import fs from "node:fs";
@@ -18,7 +18,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.313" && ver.dmcc === "0.2.326" && ver.sheetBuild === "sheet-playtest-v03313" && ver.dmccBuild === "dmcc-playtest-v02326");
+check("ver", ver.sheet === "0.3.314" && ver.dmcc === "0.2.327" && ver.sheetBuild === "sheet-playtest-v03314" && ver.dmccBuild === "dmcc-playtest-v02327");
 check("rules.clean", !read("database.rules.json").includes("place_dusty_spur") && !read("assets/data/rules.js").includes("place_ellen"));
 
 function loadPack() {
@@ -200,4 +200,4 @@ if (failures.length) {
   failures.forEach((f) => console.log(" - " + f));
   process.exit(1);
 }
-console.log("scenes and floors 0.3.313 ok");
+console.log("scenes and floors 0.3.314 ok");

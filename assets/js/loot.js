@@ -420,22 +420,30 @@
     if (isFinite(Number(ab[key]))) return Math.floor((Number(ab[key]) - 10) / 2);
     return 0;
   }
-  function toolMod(sheet) {
+  /* 5e proficiency bonus. An explicit prof wins. Otherwise it comes from level
+     (1–4 +2, 5–8 +3, 9–12 +4, 13–16 +5, 17–20 +6). Sheets store level, not prof. */
+  function proficiencyBonus(sheet) {
     sheet = sheet || {};
-    if (isFinite(Number(sheet.toolBonus))) return Number(sheet.toolBonus);
-    var prof = isFinite(Number(sheet.prof)) ? Number(sheet.prof) : 0;
-    if (sheet.thievesTools) return prof;
-    if (/thieves' tools|thieves tools|lockpick/i.test(sheetBlob(sheet))) return prof;
-    return 0;
+    if (sheet.prof != null && sheet.prof !== "" && isFinite(Number(sheet.prof))) return Number(sheet.prof);
+    if (sheet.level == null || sheet.level === "" || !isFinite(Number(sheet.level))) return 0;
+    var level = Math.max(1, Math.min(20, Math.floor(Number(sheet.level))));
+    return Math.ceil(level / 4) + 1;
   }
+  function carriedThievesTools(it) {
+    if (!it || typeof it !== "object") return false;
+    if (it.count != null && it.count !== "" && !(Number(it.count) > 0)) return false;
+    var id = String(it.catalogId || it.id || "").toLowerCase();
+    var name = String(it.name || "").toLowerCase();
+    var words = id.replace(/[-_]/g, " ");
+    if (id === "thieves-tools-lock-picks" || id === "thieves-tools") return true;
+    if (/thieves['’]?\s*tools/.test(name) || /thieves['’]?\s*tools/.test(words)) return true;
+    if (/\block\s*picks?\b|\blockpicks?\b/.test(name) || /\block[- ]?picks?\b/.test(words)) return true;
+    return false;
+  }
+  /* The item itself. A mention in notes, features, or the proficiency box is not the kit. */
   function hasThievesTools(sheet) {
     sheet = sheet || {};
-    if (sheet.thievesTools) return true;
-    if (/thieves' tools|thieves tools|lockpick/i.test(sheetBlob(sheet))) return true;
-    return (sheet.items || []).some(function (it) {
-      var id = String((it && (it.catalogId || it.id || it.name)) || "").toLowerCase();
-      return id.indexOf("thieves") >= 0 || id.indexOf("lockpick") >= 0 || id.indexOf("lock-pick") >= 0;
-    });
+    return (sheet.items || []).some(carriedThievesTools);
   }
   function proficientThieves(sheet) {
     sheet = sheet || {};
@@ -451,11 +459,32 @@
     }
     return false;
   }
-  /* Proficiency bonus only. Holding the tools is not the same as being proficient. */
+  function toolMod(sheet) {
+    return thievesBonus(sheet);
+  }
+  /* 0 none, 1 proficient, 2 expertise. skill-style toolProf wins. The old
+     thievesTools flag and a tools list still mean proficient. Notes and the
+     equipment box do not. */
+  function thievesRank(sheet) {
+    sheet = sheet || {};
+    var map = sheet.toolProf;
+    if (map && typeof map === "object" && !Array.isArray(map)) {
+      var keys = Object.keys(map);
+      var i;
+      for (i = 0; i < keys.length; i++) {
+        if (/thieves/i.test(keys[i]) && isFinite(Number(map[keys[i]]))) return Math.max(0, Number(map[keys[i]]));
+      }
+    }
+    if (proficientThieves(sheet)) return 1;
+    var text = [sheet.proficienciesLanguages, sheet.proficiencies].filter(function (v) { return typeof v === "string"; }).join("\n");
+    if (/thieves['’]?\s*tools/i.test(text)) return 1;
+    return 0;
+  }
+  /* Proficiency bonus only, and only when the sheet is proficient. Holding the tools is not proficiency. */
   function thievesBonus(sheet) {
-    if (!proficientThieves(sheet)) return 0;
+    sheet = sheet || {};
     if (isFinite(Number(sheet.toolBonus))) return Number(sheet.toolBonus);
-    return isFinite(Number(sheet.prof)) ? Number(sheet.prof) : 0;
+    return thievesRank(sheet) * proficiencyBonus(sheet);
   }
   function pickLock(box, sheet, who, rng, forced) {
     forced = forced || {};
@@ -529,6 +558,16 @@
     if (/athletics/i.test(String(sheet.proficiencies || "") + "\n" + String(sheet.proficienciesLanguages || ""))) return true;
     return false;
   }
+  /* skillProf is 0, 1 (proficient), or 2 (expertise). That rank multiplies the bonus. */
+  function athleticsRank(sheet) {
+    sheet = sheet || {};
+    var mark = sheet.skillProf && sheet.skillProf.Athletics;
+    if (mark != null && mark !== "" && isFinite(Number(mark))) return Math.max(0, Number(mark));
+    return athleticsProficient(sheet) ? 1 : 0;
+  }
+  function athleticsBonus(sheet) {
+    return athleticsRank(sheet) * proficiencyBonus(sheet);
+  }
   /* Strength (Athletics). Proficiency only when Athletics is proficient. One try unless retries are on. */
   function forceOpen(box, sheet, who, rng, forced) {
     forced = forced || {};
@@ -551,7 +590,7 @@
     var named = box.lock.forceDc;
     var dc = named != null && named !== "" && isFinite(Number(named)) ? Number(named) : (strongboxBox(box) ? 25 : 15);
     var str = abilityModFrom(sheet, "STR");
-    var ath = athleticsProficient(sheet) ? (isFinite(Number(sheet.prof)) ? Number(sheet.prof) : 0) : 0;
+    var ath = athleticsBonus(sheet);
     var dnat = forced.nat != null ? Number(forced.nat) : die(20, rng);
     var dtotal = forced.total != null ? Number(forced.total) : dnat + str + ath;
     var dok = dtotal >= dc;
@@ -580,7 +619,7 @@
     }
     var dc = record.dc != null && record.dc !== "" && isFinite(Number(record.dc)) ? Number(record.dc) : 10;
     var str = abilityModFrom(sheet, "STR");
-    var ath = athleticsProficient(sheet) ? (isFinite(Number(sheet.prof)) ? Number(sheet.prof) : 0) : 0;
+    var ath = athleticsBonus(sheet);
     var dnat = forced.nat != null ? Number(forced.nat) : die(20, rng);
     var dtotal = forced.total != null ? Number(forced.total) : dnat + str + ath;
     var dok = dtotal >= dc;
@@ -596,7 +635,8 @@
   }
   function checkMod(sheet, action) {
     if (action === "lockpick-yes") return abilityModFrom(sheet, "DEX") + toolMod(sheet);
-    if (action === "force" || action === "pry") return abilityModFrom(sheet, "STR");
+    if (action === "force") return abilityModFrom(sheet, "STR") + athleticsBonus(sheet);
+    if (action === "pry") return abilityModFrom(sheet, "STR");
     if (action === "search") return perceptionMod(sheet);
     return 0;
   }
@@ -700,8 +740,9 @@
     if (action === "force") {
       var fdc = box.lock.forceDc || box.lock.dc;
       var fmod = abilityModFrom(sheet, "STR");
+      var fath = athleticsBonus(sheet);
       var fnat = forced.nat != null ? Number(forced.nat) : die(20, rng);
-      var ftotal = forced.total != null ? Number(forced.total) : fnat + fmod;
+      var ftotal = forced.total != null ? Number(forced.total) : fnat + fmod + fath;
       var fok = ftotal >= fdc;
       var tripped = false;
       if (fok) {
