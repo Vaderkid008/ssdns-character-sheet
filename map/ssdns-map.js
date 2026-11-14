@@ -5954,6 +5954,7 @@ function draw() {
   paintZoneBlind();
   if (role === "dm") { paintPreps(px); paintSceneGhosts(px); paintSceneLinks(px); }
   else paintSceneLinks(px);
+  paintPlaceBanner();
   renderFloorStrip();
   renderCopySwitch();
   refreshSelectedPanel();
@@ -7126,7 +7127,7 @@ function closeMapMenus(keep) {
     if (panel && !panel.hidden && typeof toggleBestiary === "function") toggleBestiary(false);
   }
   if (keep !== "link") hideLinkMenu();
-  if (keep !== "scene" && keep !== "link" && window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.isOpen && window.SSDNSSceneBuilder.isOpen()) {
+  if (keep !== "scene" && keep !== "link" && keep !== "cmd" && window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.isOpen && window.SSDNSSceneBuilder.isOpen()) {
     window.SSDNSSceneBuilder.close();
   }
 }
@@ -10807,6 +10808,29 @@ function takeLink(link, tokenIds, floor) {
     active: !!(activeOwned(t.ownerUid) && activeOwned(t.ownerUid).id === t.id)
   }));
 }
+function builderOpen() {
+  return !!(window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.isOpen && window.SSDNSSceneBuilder.isOpen());
+}
+function paintPlaceBanner() {
+  if (!el) return;
+  let banner = el.querySelector("[data-act='placeBanner']");
+  const armed = builderOpen() && (state.linkArm || state.spawnArm);
+  if (!armed) {
+    if (!builderOpen()) { state.linkArm = null; state.spawnArm = null; }
+    if (banner) banner.hidden = true;
+    return;
+  }
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.className = "ssm-place-banner";
+    banner.setAttribute("data-act", "placeBanner");
+    el.appendChild(banner);
+  }
+  banner.hidden = false;
+  banner.textContent = state.linkArm
+    ? (state.linkArm.mode === "landing" ? "Click the landing square. Esc stops." : "Click a square to drop a link. Esc stops.")
+    : "Click squares to drop spawn ghosts. Esc stops.";
+}
 function lookAt(x, y, zoom) {
   const px = (state.scene && state.scene.grid && state.scene.grid.px) || 70;
   if (zoom) state.view.zoom = zoom;
@@ -12922,8 +12946,13 @@ function onPointerDown(e) {
     }
     const hit = hitTest(w.x, w.y);
     if (role === 'dm' && !state.tool && state.scene) {
+      if ((state.linkArm || state.spawnArm) && !builderOpen()) {
+        state.linkArm = null;
+        state.spawnArm = null;
+        paintPlaceBanner();
+      }
       const gpxEarly = (state.scene.grid && state.scene.grid.px) || 70;
-      if (state.linkArm && e.button === 0) {
+      if (state.linkArm && e.button === 0 && !hit) {
         e.preventDefault();
         if (window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.dropLink) {
           window.SSDNSSceneBuilder.dropLink(Math.floor(w.x / gpxEarly), Math.floor(w.y / gpxEarly));
@@ -12986,7 +13015,7 @@ function onPointerDown(e) {
         try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
         return;
       }
-      if (state.spawnArm && e.button === 0 && !ghostHit) {
+      if (state.spawnArm && e.button === 0 && !ghostHit && !hit) {
         const gpx = (state.scene.grid && state.scene.grid.px) || 70;
         if (window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.dropAt) {
           window.SSDNSSceneBuilder.dropAt(Math.floor(w.x / gpx), Math.floor(w.y / gpx));
@@ -13365,6 +13394,7 @@ function onPointerUp(e) {
   }
   if (state.drag.sceneSpawn || state.drag.sceneLink) {
     if (state.drag.hold) clearTimeout(state.drag.hold);
+    try { if (e && canvas && canvas.releasePointerCapture) canvas.releasePointerCapture(e.pointerId); } catch (err) {}
     if (state.drag.sceneLink) {
       if (state.drag.moved) commitLinkMove(state.drag.sceneLink, state.drag.gx, state.drag.gy);
       else {
@@ -16455,6 +16485,13 @@ function douseSelected(out) {
       role: role,
       maps: sceneCatalog,
       onLoad: adoptSavedScene,
+      onClose: () => {
+        state.spawnArm = null;
+        state.linkArm = null;
+        el.classList.remove("ssm-scene-open");
+        paintPlaceBanner();
+        draw();
+      },
       onArm: (info) => {
         if (info && info.kind === "link") {
           state.spawnArm = null;
@@ -16470,7 +16507,7 @@ function douseSelected(out) {
         toast("Click squares to drop " + ((info && info.groupName) || "spawn") + " ghosts. Esc stops.");
         draw();
       },
-      onDisarm: () => { state.spawnArm = null; state.linkArm = null; draw(); },
+      onDisarm: () => { state.spawnArm = null; state.linkArm = null; paintPlaceBanner(); draw(); },
       onChange: (draft) => { syncSceneLinks(draft); draw(); },
       onTake: (link, floor) => takeLink(link, null, floor),
       onExport: (text) => {
@@ -16483,6 +16520,8 @@ function douseSelected(out) {
         toast("Scene library exported.");
       }
     });
+    el.classList.add("ssm-scene-open");
+    paintPlaceBanner();
   }
   if (q('mapsBtn')) q('mapsBtn').addEventListener('click', (e) => {
     e.stopPropagation();

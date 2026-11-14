@@ -894,6 +894,7 @@
     function commit(next) { draft = tidy(next); if (opts.onChange) opts.onChange(draft); draw(); return draft; }
     live = {
       el: panel,
+      onClose: opts.onClose || null,
       store: store,
       draft: function () { return tidy(draft); },
       arm: function () { return panel._linkArm || panel._arm || null; },
@@ -936,6 +937,7 @@
         }
         panel._linkArm = null;
         if (opts.onChange) opts.onChange(tidy(draft));
+        if (opts.onDisarm) opts.onDisarm();
         draw();
         return made;
       },
@@ -970,8 +972,10 @@
     return live;
   }
   function close() {
+    var hook = live && live.onClose;
     if (live && live.el && live.el.parentNode) live.el.parentNode.removeChild(live.el);
     live = null;
+    if (hook) hook();
   }
   function isOpen() { return !!(live && live.el && live.el.parentNode); }
 

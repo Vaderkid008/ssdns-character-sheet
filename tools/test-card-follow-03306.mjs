@@ -2,7 +2,7 @@
  * Tapping a token the player controls switches the player card.
  * Own token, a duplicate, and a granted token. An uncontrolled token does not.
  * A pan does not switch. A press-and-hold does not switch until the finger is up.
- * Sheet 0.3.310 / DMCC 0.2.323.
+ * Sheet 0.3.311 / DMCC 0.2.324.
  *   node tools/test-card-follow-03306.mjs
  */
 import fs from "node:fs";
@@ -23,9 +23,9 @@ function check(id, cond, detail) {
 }
 
 const version = JSON.parse(fs.readFileSync(path.join(root, "version.json"), "utf8"));
-check("ver.sheet", version.sheet === "0.3.310" && version.sheetBuild === "sheet-playtest-v03310");
-check("ver.dmcc", version.dmcc === "0.2.323" && version.dmccBuild === "dmcc-playtest-v02323");
-check("rules.clean", !fs.readFileSync(path.join(root, "assets/data/rules.js"), "utf8").includes("0.3.310") && !fs.readFileSync(path.join(root, "database.rules.json"), "utf8").includes("0.3.310"));
+check("ver.sheet", version.sheet === "0.3.311" && version.sheetBuild === "sheet-playtest-v03311");
+check("ver.dmcc", version.dmcc === "0.2.324" && version.dmccBuild === "dmcc-playtest-v02324");
+check("rules.clean", !fs.readFileSync(path.join(root, "assets/data/rules.js"), "utf8").includes("0.3.311") && !fs.readFileSync(path.join(root, "database.rules.json"), "utf8").includes("0.3.311"));
 
 const sheet = {
   tokenId: "horse",
@@ -260,4 +260,4 @@ if (failures.length) {
   failures.forEach((line) => console.log(" - " + line));
   process.exit(1);
 }
-console.log("card follow 0.3.310 ok");
+console.log("card follow 0.3.311 ok");
