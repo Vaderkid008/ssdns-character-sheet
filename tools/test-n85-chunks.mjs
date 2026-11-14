@@ -18,10 +18,10 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.314" && version.sheetBuild === "sheet-playtest-v03314");
-check("ver.dmcc", version.dmcc === "0.2.327" && version.dmccBuild === "dmcc-playtest-v02327");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.314"') && read("assets/js/app.js").includes("sheet-playtest-v03314"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.327"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02327"));
+check("ver.sheet", version.sheet === "0.3.315" && version.sheetBuild === "sheet-playtest-v03315");
+check("ver.dmcc", version.dmcc === "0.2.328" && version.dmccBuild === "dmcc-playtest-v02328");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.315"') && read("assets/js/app.js").includes("sheet-playtest-v03315"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.328"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02328"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 check("rules.no172", !read("assets/data/rules.js").includes("0.3.174") && !read("assets/data/rules.js").includes("0.2.187"));

@@ -16585,12 +16585,15 @@ function douseSelected(out) {
         token.ownerUid = "";
         token.sheetId = "";
         token.combatantId = "";
+        if (box.hidden && box.found === false) token.hidden = true;
         if (shared.tokens[token.id]) {
           shared.tokens[token.id].sceneId = floor.mapId;
           shared.tokens[token.id].encounterId = c.id;
           shared.tokens[token.id].ownerUid = "";
           shared.tokens[token.id].sheetId = "";
           shared.tokens[token.id].combatantId = "";
+          shared.tokens[token.id].hidden = !!token.hidden;
+          shared.tokens[token.id].loot = box;
         }
         saveToken(token.id);
       });
@@ -16746,7 +16749,7 @@ function douseSelected(out) {
       onMaps: (maps) => {
         (maps || []).forEach(m => {
           if (!m || !m.id || !m.src) return;
-          saveLibraryEntry({ id: m.id, name: m.name || m.id, src: m.src, thumb: m.thumb || m.src, grid: m.grid || { cols: 30, rows: 20, px: 70 }, notes: m.notes || "", createdAt: Date.now(), updatedAt: Date.now() });
+          saveLibraryEntry({ id: m.id, name: m.name || m.id, src: m.src, thumb: m.thumb || m.src, grid: m.grid || { cols: 30, rows: 20, px: 70 }, notes: m.notes || "", walls: Array.isArray(m.walls) ? m.walls : [], createdAt: Date.now(), updatedAt: Date.now() });
         });
         fillSceneSelect();
       },

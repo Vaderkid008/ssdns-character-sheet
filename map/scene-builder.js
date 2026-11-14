@@ -150,7 +150,11 @@
           forceDc: c.forceDc == null || c.forceDc === "" ? (kind === "strongbox" ? 25 : 15) : Math.max(0, num(c.forceDc)),
           unlocked: !!c.unlocked,
           allowRetries: !!c.allowRetries,
-          improvise: !!c.improvise
+          improvise: !!c.improvise,
+          keyItem: String(c.keyItem || "").slice(0, 80),
+          cashEs: Math.max(0, num(c.cashEs)),
+          hidden: !!c.hidden,
+          hideDc: Math.max(0, num(c.hideDc))
         };
       }),
       enemies: (raw.enemies || []).filter(Boolean).map(function (e) {
@@ -196,12 +200,16 @@
       contents: enc.items.map(function (it) {
         return { id: it.catalogId || it.id, catalogId: it.catalogId || "", name: it.name, qty: it.qty, taken: false };
       }),
-      cash: { es: 0, black: 0, blackId: "", branch: "none" },
+      hidden: !!enc.hidden,
+      hideDc: enc.hideDc || 0,
+      found: !enc.hidden,
+      cash: { es: enc.cashEs || 0, black: 0, blackId: "", branch: "none" },
       lock: {
         dc: dc,
         difficulty: dc >= 20 ? "Hard" : (dc >= 15 ? "Medium" : (dc > 0 ? "Easy" : "")),
         unlocked: !!enc.unlocked || !(dc > 0),
-        method: dc > 0 ? ["tools", "force"] : [],
+        method: dc > 0 ? ["tools", "force"].concat(enc.keyItem ? ["key"] : []) : [],
+        keyItem: enc.keyItem || "",
         jammed: false,
         jamOnFail: false,
         allowRetries: !!enc.allowRetries,
@@ -746,7 +754,8 @@
             src: src,
             thumb: m.thumb || src,
             grid: m.grid || { cols: 30, rows: 20, px: 70 },
-            notes: m.notes || ""
+            notes: m.notes || "",
+            walls: Array.isArray(m.walls) ? JSON.parse(JSON.stringify(m.walls)) : []
           };
           if (prev) {
             entry.id = freshId("my", haveMaps);
