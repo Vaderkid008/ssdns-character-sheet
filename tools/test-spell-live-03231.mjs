@@ -1,6 +1,6 @@
 /**
  * Live two-client path for Disintegrate, Inflict Wounds, and Hunger of Hadar.
- * Sheet 0.3.311 / DMCC 0.2.324.
+ * Sheet 0.3.312 / DMCC 0.2.325.
  *
  * A string search is not enough. This drives the same functions the clients call:
  * the map firebase adapter (shared by both seats), the attack stamp that
@@ -23,8 +23,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.311" && version.sheetBuild === "sheet-playtest-v03311");
-check("ver.dmcc", version.dmcc === "0.2.324" && version.dmccBuild === "dmcc-playtest-v02324");
+check("ver.sheet", version.sheet === "0.3.312" && version.sheetBuild === "sheet-playtest-v03312");
+check("ver.dmcc", version.dmcc === "0.2.325" && version.dmccBuild === "dmcc-playtest-v02325");
 
 const context = { console, Math, Date, JSON, parseInt, isFinite, Number, String, Object, Array, RegExp };
 context.window = context;

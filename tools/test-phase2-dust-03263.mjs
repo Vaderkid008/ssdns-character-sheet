@@ -1,5 +1,5 @@
 /**
- * Phase 2 leftover zones (sheet 0.3.311 / DMCC 0.2.324).
+ * Phase 2 leftover zones (sheet 0.3.312 / DMCC 0.2.325).
  * Armor of Agathys dusts its ring. Sleep and Counterspell dust on arrival.
  * Darkness, Web, Silence, Hypnotic Pattern, Stinking Cloud, and Black Tentacles
  * dust the discs they already draw.
@@ -19,8 +19,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.311" && ver.dmcc === "0.2.324" && ver.sheetBuild === "sheet-playtest-v03311" && ver.dmccBuild === "dmcc-playtest-v02324");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.311") && !read("database.rules.json").includes("0.3.311"));
+check("ver", ver.sheet === "0.3.312" && ver.dmcc === "0.2.325" && ver.sheetBuild === "sheet-playtest-v03312" && ver.dmccBuild === "dmcc-playtest-v02325");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.312") && !read("database.rules.json").includes("0.3.312"));
 check("bestiary.kept", read("dm/assets/js/v2.js").includes("bestiary.json?v=0.2.249-spell-tokens"));
 check("fullscreen.guard", read("map/ssdns-map.js").includes("A 0×0 read during fullscreen must not replace it."));
 check("prior.kept", read("map/ssdns-map-fx.js").includes('jinx: ["120,30,30"') && read("map/ssdns-map-fx.js").includes("function stormIdle"));

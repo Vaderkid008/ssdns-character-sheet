@@ -417,6 +417,183 @@
     }
     return out;
   }
+  var PACK_FORMAT = "ssdns-map-pack";
+  var PACK_MAX = 2 * 1024 * 1024;
+  var PACK_WARN = 400 * 1024;
+  function sceneSig(scene) {
+    var t = tidy(scene);
+    return JSON.stringify({
+      name: t.name,
+      floors: (t.floors || []).map(function (f) {
+        return { mapId: f.mapId, name: f.name, groups: f.groups, spawns: f.spawns, stairs: f.stairs };
+      })
+    });
+  }
+  function mapSig(m) {
+    var grid = (m && m.grid) || {};
+    return JSON.stringify({ name: m && m.name, src: (m && (m.src || m.img)) || "", cols: grid.cols || 0, rows: grid.rows || 0 });
+  }
+  function importedName(name) {
+    var base = String(name || "Scene").replace(/\s+\(imported\)$/, "");
+    return (base + " (imported)").slice(0, 80);
+  }
+  function freshId(prefix, used) {
+    var id = nid(prefix);
+    while (used[id]) id = nid(prefix);
+    return id;
+  }
+  function kb(n) { return Math.max(1, Math.round(n / 1024)); }
+  /* A pack is the same family as a map pack: picture maps, plus the scenes that
+     stack those maps into floors. encounters stays empty until the next slice. */
+  function exportScenePack(scenes, lookup) {
+    lookup = lookup || function () { return null; };
+    var maps = [];
+    var seen = {};
+    var missing = [];
+    var list = (scenes || []).filter(Boolean).map(function (scene) {
+      var copy = tidy(scene);
+      copy.encounters = null;
+      return copy;
+    });
+    list.forEach(function (scene) {
+      (scene.floors || []).forEach(function (floor) {
+        if (!floor.mapId || seen[floor.mapId]) return;
+        seen[floor.mapId] = 1;
+        var row = null;
+        try { row = lookup(floor.mapId); } catch (e) { row = null; }
+        if (row && row.id) maps.push(JSON.parse(JSON.stringify(row)));
+        else missing.push(floor.name || floor.mapId);
+      });
+    });
+    var pack = {
+      format: PACK_FORMAT,
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      maps: maps,
+      scenes: list,
+      encounters: null
+    };
+    var text = JSON.stringify(pack, null, 2);
+    return { pack: pack, text: text, missing: missing, large: text.length > PACK_WARN, bytes: text.length };
+  }
+  function oneFloorScene(map) {
+    var scene = addFloor(blank(map.name || "Imported map"), {
+      id: map.id,
+      name: map.name || map.id,
+      source: map.pack ? "pack" : "library"
+    });
+    scene.encounters = null;
+    return scene;
+  }
+  function importScenePack(raw, ctx) {
+    ctx = ctx || {};
+    var maxBytes = ctx.maxBytes || PACK_MAX;
+    var warnBytes = ctx.warnBytes || PACK_WARN;
+    try {
+      if (raw == null || raw === "") return { ok: false, error: "That file is empty." };
+      if (typeof raw === "string" && raw.length > maxBytes) return { ok: false, error: "This pack is too big (" + kb(raw.length) + " KB). Packs should point at pictures, not store them in the file." };
+      var obj = raw;
+      if (typeof raw === "string") obj = JSON.parse(raw);
+      if (!obj || typeof obj !== "object" || Array.isArray(obj)) return { ok: false, error: "That isn't an SSDNS map pack." };
+      if (obj.format === KEY) return { ok: false, error: "That's a scene library file. Use Import library for that one." };
+      var mapRows = Array.isArray(obj.maps) ? obj.maps : [];
+      var sceneRows = Array.isArray(obj.scenes) ? obj.scenes : [];
+      var pictureRows = sceneRows.filter(function (row) { return row && (row.img || row.src) && !Array.isArray(row.floors); });
+      var realScenes = sceneRows.filter(function (row) { return row && Array.isArray(row.floors); });
+      if (!realScenes.length && !mapRows.length && pictureRows.length) mapRows = pictureRows.concat(mapRows);
+      var knownFormat = obj.format === PACK_FORMAT || mapRows.length || realScenes.length || pictureRows.length;
+      if (!knownFormat) return { ok: false, error: "That isn't an SSDNS map pack." };
+      if (!realScenes.length && !mapRows.length) return { ok: false, error: "This pack has no scenes or maps." };
+      if (realScenes.length > 200 || mapRows.length > 400) return { ok: false, error: "This pack has too many pieces to import at once." };
+      var lib = ctx.store ? readLibrary(ctx.store) : { scenes: clone(ctx.scenes || {}) || {} };
+      var scenes = lib.scenes || {};
+      var used = {};
+      Object.keys(scenes).forEach(function (id) { used[id] = 1; });
+      var known = ctx.knownMaps || {};
+      var haveMaps = ctx.maps || {};
+      var packMaps = {};
+      mapRows.forEach(function (m) { if (m && m.id) packMaps[m.id] = m; });
+      var warnings = [];
+      var mapsOut = [];
+      var idRewrite = {};
+      if (!ctx.skipMapWrite) {
+        mapRows.forEach(function (m) {
+          if (!m || !m.id) return;
+          if (m.pack || known[m.id]) return;
+          var src = String(m.src || "");
+          if (!src || /^(data:|blob:)/.test(src)) {
+            warnings.push("Skipped the picture for " + (m.name || m.id) + ". Packs link to pictures, they don't store them.");
+            return;
+          }
+          var prev = haveMaps[m.id];
+          if (prev && mapSig(prev) === mapSig(m)) return;
+          var entry = {
+            id: m.id,
+            name: String(m.name || m.id).slice(0, 80),
+            src: src,
+            thumb: m.thumb || src,
+            grid: m.grid || { cols: 30, rows: 20, px: 70 },
+            notes: m.notes || ""
+          };
+          if (prev) {
+            entry.id = freshId("my", haveMaps);
+            entry.name = importedName(entry.name);
+            idRewrite[m.id] = entry.id;
+          }
+          haveMaps[entry.id] = entry;
+          mapsOut.push(entry);
+        });
+      }
+      var added = 0;
+      var copied = 0;
+      var kept = 0;
+      function remember(scene) {
+        scene = tidy(scene);
+        scene.encounters = null;
+        if (Object.keys(idRewrite).length) {
+          scene.floors.forEach(function (floor) {
+            if (idRewrite[floor.mapId]) floor.mapId = idRewrite[floor.mapId];
+          });
+          scene = tidy(scene);
+        }
+        var sig = sceneSig(scene);
+        var prev = scenes[scene.id];
+        if (prev && sceneSig(prev) === sig) { kept += 1; return; }
+        if (prev) {
+          scene.id = freshId("scene", used);
+          scene.name = importedName(scene.name);
+          copied += 1;
+        } else added += 1;
+        used[scene.id] = 1;
+        scenes[scene.id] = scene;
+        (scene.floors || []).forEach(function (floor) {
+          if (known[floor.mapId] || haveMaps[floor.mapId] || packMaps[floor.mapId] || (ctx.savedMaps || []).some(function (m) { return m && m.id === floor.mapId; })) return;
+          warnings.push("Missing map \"" + (floor.name || floor.mapId) + "\".");
+        });
+      }
+      realScenes.forEach(remember);
+      if (!realScenes.length) {
+        var seeds = (ctx.savedMaps && ctx.savedMaps.length) ? ctx.savedMaps : mapRows.filter(function (m) { return m && m.id && !m.pack; });
+        seeds.forEach(function (m) {
+          var mapId = idRewrite[m.id] || m.id;
+          var named = haveMaps[mapId] || m;
+          remember(oneFloorScene({ id: mapId, name: named.name || mapId, pack: !!(m.pack || known[mapId]) }));
+        });
+      }
+      if (ctx.store) writeLibrary(ctx.store, { scenes: scenes });
+      var large = typeof raw === "string" && raw.length > warnBytes;
+      var message = "Imported " + added + (added === 1 ? " scene." : " scenes.");
+      if (copied) message += " " + copied + (copied === 1 ? " scene was already here with different contents, so the new copy is marked (imported)." : " scenes were already here with different contents, so the new copies are marked (imported).");
+      if (kept && !added && !copied) message = "Already in the library. Nothing was replaced.";
+      else if (kept) message += " " + kept + " already matched and stayed as they are.";
+      if (mapsOut.length) message += " Added " + mapsOut.length + (mapsOut.length === 1 ? " map." : " maps.");
+      if (large) message += " This pack is large (" + kb(raw.length) + " KB).";
+      if (warnings.length) message += " " + warnings[0];
+      return { ok: true, scenes: scenes, maps: mapsOut, added: added, copied: copied, kept: kept, warnings: warnings, message: message, large: large };
+    } catch (e) {
+      return { ok: false, error: "That file isn't valid JSON." };
+    }
+  }
   function exportLibrary(store) {
     var lib = readLibrary(store);
     return JSON.stringify({ format: KEY, scenes: lib.scenes }, null, 2);
@@ -692,12 +869,19 @@
     });
     if (!draft.floors.length) list.appendChild(el("li", { class: "ssm-scene-empty" }, "No floors yet."));
     panel.appendChild(list);
-    var port = el("div", { class: "ssm-scene-tools" });
+    var port = el("div", { class: "ssm-scene-tools", "data-act": "scenePackTools" });
     port.appendChild(el("button", { type: "button", "data-act": "sceneExport" }, "Export library"));
     port.appendChild(el("button", { type: "button", "data-act": "sceneImport" }, "Import library"));
-    var file = el("input", { type: "file", accept: "application/json", "data-act": "sceneImportFile", hidden: "hidden" });
+    port.appendChild(el("button", { type: "button", "data-act": "sceneExportPack" }, "Export pack"));
+    port.appendChild(el("button", { type: "button", "data-act": "sceneImportPack" }, "Import pack"));
+    var file = el("input", { type: "file", accept: "application/json,.json", "data-act": "sceneImportFile", hidden: "hidden" });
+    var packFile = el("input", { type: "file", accept: "application/json,.json", "data-act": "scenePackFile", hidden: "hidden" });
     port.appendChild(file);
+    port.appendChild(packFile);
     panel.appendChild(port);
+    if (panel._notice && panel._notice.text) {
+      panel.appendChild(el("p", { class: "ssm-scene-notice" + (panel._notice.err ? " is-err" : ""), "data-act": "scenePackNotice", role: "status" }, panel._notice.text));
+    }
     panel.appendChild(el("h3", null, "Scene library"));
     var saved = Object.keys(lib.scenes || {}).map(function (id) { return lib.scenes[id]; });
     saved.sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
@@ -705,9 +889,13 @@
     if (!saved.length) libList.appendChild(el("li", { class: "ssm-scene-empty" }, "Nothing saved yet."));
     saved.forEach(function (scene) {
       var item = el("li", null);
+      var tick = el("input", { type: "checkbox", "data-act": "scenePackPick", "data-id": scene.id, "aria-label": "Include " + scene.name + " in a pack" });
+      if (panel._packPick && panel._packPick[scene.id]) tick.checked = true;
+      item.appendChild(tick);
       item.appendChild(el("b", null, scene.name));
       item.appendChild(document.createTextNode(" · " + (scene.floors || []).length + " floors"));
       var acts = el("div", { class: "ssm-scene-tools" });
+      acts.appendChild(el("button", { type: "button", "data-act": "sceneExportOne", "data-id": scene.id }, "Export scene"));
       acts.appendChild(el("button", { type: "button", "data-act": "sceneOpen", "data-id": scene.id }, "Edit"));
       acts.appendChild(el("button", { type: "button", "data-act": "sceneLoad", "data-id": scene.id }, "Load into room"));
       acts.appendChild(el("button", { type: "button", "data-act": "sceneDelete", "data-id": scene.id }, "Delete"));
@@ -813,6 +1001,33 @@
       else if (act === "sceneExport") {
         if (opts.onExport) opts.onExport(exportLibrary(store));
       }
+      else if (act === "sceneExportOne" || act === "sceneExportPack") {
+        var chosen = [];
+        if (act === "sceneExportOne") {
+          var one = readLibrary(store).scenes[sceneId];
+          if (one) chosen.push(one);
+        } else {
+          var picks = panel._packPick || {};
+          Object.keys(readLibrary(store).scenes).forEach(function (id) {
+            if (picks[id]) chosen.push(readLibrary(store).scenes[id]);
+          });
+        }
+        if (!chosen.length) {
+          panel._notice = { err: true, text: act === "sceneExportOne" ? "That scene isn't in the library yet. Save it first." : "Tick the scenes to put in the pack." };
+        } else {
+          var packed = exportScenePack(chosen, opts.mapRow);
+          var note = chosen.length === 1 ? "Exported " + chosen[0].name + "." : "Exported " + chosen.length + " scenes.";
+          if (packed.missing.length) note += " Missing map \"" + packed.missing[0] + "\".";
+          if (packed.large) note += " This pack is large (" + kb(packed.bytes) + " KB).";
+          panel._notice = { err: !!packed.missing.length, text: note };
+          if (opts.onExport) opts.onExport(packed.text, chosen.length === 1 ? "ssdns-scene.json" : "ssdns-scene-pack.json");
+        }
+      }
+      else if (act === "sceneImportPack") {
+        var packPicker = panel.querySelector("[data-act='scenePackFile']");
+        if (packPicker) packPicker.click();
+        return;
+      }
       else if (act === "sceneImport") {
         var picker = panel.querySelector("[data-act='sceneImportFile']");
         if (picker) picker.click();
@@ -847,6 +1062,42 @@
       var node = ev.target;
       if (!node || !panel.contains(node)) return;
       var act = node.getAttribute("data-act");
+      if (act === "scenePackPick") {
+        panel._packPick = panel._packPick || {};
+        if (node.checked) panel._packPick[node.getAttribute("data-id")] = 1;
+        else delete panel._packPick[node.getAttribute("data-id")];
+        return;
+      }
+      if (act === "scenePackFile") {
+        var packFile = node.files && node.files[0];
+        node.value = "";
+        if (!packFile) return;
+        if (packFile.size > PACK_MAX) {
+          panel._notice = { err: true, text: "This pack is too big (" + kb(packFile.size) + " KB). Packs should point at pictures, not store them in the file." };
+          draw();
+          return;
+        }
+        var packReader = new FileReader();
+        packReader.onerror = function () {
+          panel._notice = { err: true, text: "That file couldn't be read." };
+          draw();
+        };
+        packReader.onload = function () {
+          var imported = importScenePack(String(packReader.result || ""), {
+            store: store,
+            maps: (opts.mapLibrary && opts.mapLibrary()) || {},
+            knownMaps: (opts.knownMaps && opts.knownMaps()) || {}
+          });
+          if (!imported.ok) panel._notice = { err: true, text: imported.error };
+          else {
+            panel._notice = { err: false, text: imported.message };
+            if (opts.onMaps && imported.maps && imported.maps.length) opts.onMaps(imported.maps);
+          }
+          draw();
+        };
+        packReader.readAsText(packFile);
+        return;
+      }
       if (act === "linkKind" || act === "linkDest" || act === "linkTwoWay" || act === "linkVisible") {
         var patch = {};
         if (act === "linkKind") patch.kind = node.value;
@@ -1000,6 +1251,9 @@
     removeLink: removeLink,
     groupSpots: groupSpots,
     assignLandings: assignLandings,
+    PACK_FORMAT: PACK_FORMAT,
+    exportScenePack: exportScenePack,
+    importScenePack: importScenePack,
     exportLibrary: exportLibrary,
     importLibrary: importLibrary,
     readLibrary: readLibrary,

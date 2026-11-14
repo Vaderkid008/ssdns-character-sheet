@@ -1,5 +1,5 @@
 /**
- * Hunger of Hadar HP apply (sheet 0.3.311 / DMCC 0.2.324).
+ * Hunger of Hadar HP apply (sheet 0.3.312 / DMCC 0.2.325).
  * The live table painted numbered cold and acid faces, then left HP alone.
  * zoneApplyAmount posted the roll and then read an undefined `shown`, so
  * applyPlayerHit never ran. This executes that function from v2.js: a start
@@ -22,8 +22,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.311" && version.sheetBuild === "sheet-playtest-v03311");
-check("ver.dmcc", version.dmcc === "0.2.324" && version.dmccBuild === "dmcc-playtest-v02324");
+check("ver.sheet", version.sheet === "0.3.312" && version.sheetBuild === "sheet-playtest-v03312");
+check("ver.dmcc", version.dmcc === "0.2.325" && version.dmccBuild === "dmcc-playtest-v02325");
 
 function extractFunction(src, name) {
   const re = new RegExp("(?:async\\s+)?function\\s+" + name + "\\s*\\(");
