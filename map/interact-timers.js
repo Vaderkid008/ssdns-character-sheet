@@ -160,7 +160,13 @@
     if (!(dc > 0) || box.lock.unlocked) return { ok: true, success: true, box: box };
     var dex = 0, tools = 0;
     if (sheet.mods && isFinite(Number(sheet.mods.DEX))) dex = Number(sheet.mods.DEX);
-    if (sheet.thievesTools) tools = num(sheet.prof);
+    if (sheet.thievesTools) {
+      if (sheet.prof != null && sheet.prof !== "" && isFinite(Number(sheet.prof))) tools = Number(sheet.prof);
+      else if (sheet.level != null && sheet.level !== "" && isFinite(Number(sheet.level))) {
+        var lv = Math.max(1, Math.min(20, Math.floor(Number(sheet.level))));
+        tools = Math.ceil(lv / 4) + 1;
+      }
+    }
     var nat = forced.nat != null ? Number(forced.nat) : (1 + Math.floor((typeof rng === "function" ? rng() : Math.random()) * 20));
     var total = forced.total != null ? Number(forced.total) : nat + dex + tools;
     var success = total >= dc;

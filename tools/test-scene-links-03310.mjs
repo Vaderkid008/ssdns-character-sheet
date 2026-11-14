@@ -1,7 +1,7 @@
 /**
  * Scene links: place, move, remove, two-way, save/reload, export/import,
  * load into a room, Take link landing + overflow, hidden from players.
- * Sheet 0.3.310 / DMCC 0.2.323.
+ * Sheet 0.3.314 / DMCC 0.2.327.
  *   node tools/test-scene-links-03310.mjs
  */
 import fs from "node:fs";
@@ -18,7 +18,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.310" && ver.dmcc === "0.2.323" && ver.sheetBuild === "sheet-playtest-v03310" && ver.dmccBuild === "dmcc-playtest-v02323");
+check("ver", ver.sheet === "0.3.314" && ver.dmcc === "0.2.327" && ver.sheetBuild === "sheet-playtest-v03314" && ver.dmccBuild === "dmcc-playtest-v02327");
 check("rules.clean", !read("assets/data/rules.js").includes("floor.stairs") && !read("database.rules.json").includes("shownLinks"));
 
 const sandbox = { window: {}, globalThis: {} };
@@ -416,4 +416,4 @@ if (failures.length) {
   failures.forEach((line) => console.log(" - " + line));
   process.exit(1);
 }
-console.log("scene links 0.3.310 ok");
+console.log("scene links 0.3.314 ok");
