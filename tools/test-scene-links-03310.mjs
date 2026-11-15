@@ -1,7 +1,7 @@
 /**
  * Scene links: place, move, remove, two-way, save/reload, export/import,
  * load into a room, Take link landing + overflow, hidden from players.
- * Sheet 0.3.324 / DMCC 0.2.337.
+ * Sheet 0.3.325 / DMCC 0.2.338.
  *   node tools/test-scene-links-03310.mjs
  */
 import fs from "node:fs";
@@ -18,7 +18,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.324" && ver.dmcc === "0.2.337" && ver.sheetBuild === "sheet-playtest-v03324" && ver.dmccBuild === "dmcc-playtest-v02337");
+check("ver", ver.sheet === "0.3.325" && ver.dmcc === "0.2.338" && ver.sheetBuild === "sheet-playtest-v03325" && ver.dmccBuild === "dmcc-playtest-v02338");
 check("rules.clean", !read("assets/data/rules.js").includes("floor.stairs") && !read("database.rules.json").includes("shownLinks"));
 
 const sandbox = { window: {}, globalThis: {} };
@@ -111,6 +111,7 @@ panel.querySelector("[data-act='floorPick']").value = "scn_cellar";
 panel.querySelector("[data-act='floorAdd']").click();
 panel.querySelector("[data-act='floorPick']").value = "scn_loft";
 panel.querySelector("[data-act='floorAdd']").click();
+panel.querySelector("[data-act='sceneStep'][data-step='2']").click();
 const placeBtn = panel.querySelector("[data-act='linkPlace']");
 placeBtn.click();
 check("ui.arm", w.SSDNSSceneBuilder.arming() && w.SSDNSSceneBuilder.arming().mode === "marker");
@@ -215,6 +216,7 @@ builder.querySelector("[data-act='floorPick']").value = "scn_dustyspur01";
 builder.querySelector("[data-act='floorAdd']").click();
 builder.querySelector("[data-act='floorPick']").value = "scn_upstairs";
 builder.querySelector("[data-act='floorAdd']").click();
+builder.querySelector("[data-act='sceneStep'][data-step='2']").click();
 const buttons = [].slice.call(builder.querySelectorAll("[data-act='linkPlace']"));
 buttons[0].click();
 const stair = dmW.SSDNSSceneBuilder.dropLink(6, 8);
@@ -225,6 +227,7 @@ destSel.dispatchEvent(new dmW.Event("change", { bubbles: true }));
 dmW.document.querySelector("[data-act='linkLand']").click();
 const withLand = dmW.SSDNSSceneBuilder.dropLink(11, 5);
 check("live.land", withLand && withLand.landX === 11 && withLand.landY === 5 && withLand.destMapId === "scn_upstairs" && withLand.visible === false);
+builder.querySelector("[data-act='sceneStep'][data-step='4']").click();
 builder.querySelector("[data-act='sceneSave']").click();
 builder.querySelector("[data-act='sceneLoad']").click();
 await flush(40);
@@ -310,6 +313,7 @@ try {
     };
     addFloor("scn_dustyspur01");
     addFloor("scn_upstairs");
+    panel().querySelector("[data-act='sceneStep'][data-step='2']").click();
     panel().querySelector("[data-act='linkPlace']").click();
     window.SSDNSSceneBuilder.dropLink(8, 8);
     const dest = window.SSDNSSceneBuilder.draft().floors[1];
@@ -416,4 +420,4 @@ if (failures.length) {
   failures.forEach((line) => console.log(" - " + line));
   process.exit(1);
 }
-console.log("scene links 0.3.324 ok");
+console.log("scene links 0.3.325 ok");

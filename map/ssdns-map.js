@@ -655,31 +655,42 @@ let zoneListSigSeen = '';
 const toolbar = document.createElement('div');
 toolbar.className = 'ssdns-toolbar';
 toolbar.innerHTML = `
-  <span data-act="roleBadge">${role === 'player' ? 'Player' : role.toUpperCase()}</span>
-  <label>Grid <input data-act="strength" type="range" min="1" max="3" step="0.1" value="1"></label>
-  <button data-act="helpBtn">?</button>
-  <span data-act="zoomLabel">1.00×</span>
-  <button data-act="reset">Reset view</button>
-  ${role === 'dm' ? `` : `<button data-act="fxBtn" type="button" class="ssm-fx-btn" title="Attack effects on the map (firing lines). Saved for you on this device.">Effects: ON</button>
-  <button data-act="condPillBtn" type="button" class="ssm-cond-pill-btn" title="Condition pills on tokens. Normal is the olive and gold word over the token. Compact is a smaller bubble. Saved for you on this device.">Pills: Normal</button>
-  <button data-act="shortRestBtn" type="button" title="Short rest on this character. Same as the sheet Short rest, including the tools prompt.">Short rest</button>
-  <button data-act="longRestBtn" type="button" title="Long rest on this character. Same as the sheet Long rest.">Long rest</button>`}
-  ${role === 'dm' ? `<button data-act="challengeBtn" type="button" class="ssm-challenge" title="Challenge picked players. Same check picker as the DMCC bar.">Challenge</button>
-    <div class="ssm-maps-cluster" data-act="mapsCluster">
-      <button data-act="mapsBtn" class="ssm-maps-btn" type="button" title="Maps, the cover, and whose floor this is" aria-expanded="false" aria-controls="ssm-maps-menu">Maps ▾</button>
-      <div class="ssm-maps-menu" id="ssm-maps-menu" data-act="mapsMenu" hidden>
-        <button data-act="betweenBtn" type="button" title="Show the Between Encounters cover to the table. Players follow. Fog stays off and the scene starts bright. Raise the Grid slider to put squares on it.">Between encounters</button>
-        <button data-act="assetsBtn" class="ssm-maps-btn" type="button" title="Asset library for this room">Assets</button>
-        <button data-act="myViewBtn" type="button" title="Look at the floor picked in this list. Players stay on their own map.">My view</button>
-        <button data-act="setFloorBtn" type="button" title="Move the selected token onto the floor picked in this list.">Set floor</button>
-        <button data-act="showSceneBtn" type="button" title="Move party here. Everyone's active token comes to this map: a prep ghost lands on its square, anyone without one arrives at the map entry. Copies stay put. Nothing moves until you press this.">Move party here</button>
-        <button data-act="movePickBtn" type="button" title="Pick Everyone or certain players, then move only those onto this map.">Choose who moves…</button>
-        <button data-act="prepBtn" type="button" title="Place grey ghosts on this map. Players cannot see them. Move party here turns a ghost into that player's real square.">Prep this map</button>
-        <button data-act="sceneBuilderBtn" type="button" title="Build a scene from the maps you already have, save it, and load it into this room.">Scene builder…</button>
-        <button data-act="mapsLibraryBtn" type="button" title="Built-in maps, my maps, and the world folder">All maps…</button>
+  ${role === 'dm' ? `<div class="ssm-bar-left" data-act="barLeft">
+    <div class="ssm-scene-readout" data-act="sceneReadoutWrap">
+      <button type="button" data-act="sceneReadout" aria-haspopup="listbox" aria-expanded="false">No scene loaded</button>
+      <div class="ssm-floor-pop" data-act="sceneFloorPop" hidden></div>
+    </div>
+    <span class="ssm-bar-pair" data-act="barPair">
+      <div class="ssm-maps-cluster" data-act="mapsCluster">
+        <button data-act="mapsBtn" class="ssm-maps-btn" type="button" title="Maps, the cover, and whose floor this is" aria-expanded="false" aria-controls="ssm-maps-menu">Maps ▾</button>
+        <div class="ssm-maps-menu" id="ssm-maps-menu" data-act="mapsMenu" hidden>
+          <button data-act="betweenBtn" type="button" title="Show the Between Encounters cover to the table. Players follow. Fog stays off and the scene starts bright. Raise the Grid slider to put squares on it.">Between encounters</button>
+          <button data-act="assetsBtn" class="ssm-maps-btn" type="button" title="Asset library for this room">Assets</button>
+          <button data-act="myViewBtn" type="button" title="Look at the floor picked in this list. Players stay on their own map.">My view</button>
+          <button data-act="setFloorBtn" type="button" title="Move the selected token onto the floor picked in this list.">Set floor</button>
+          <button data-act="movePickBtn" type="button" title="Pick Everyone or certain players, then move only those onto this map.">Choose who moves…</button>
+          <button data-act="prepBtn" type="button" title="Place grey ghosts on this map. Players cannot see them. Move party here turns a ghost into that player's real square.">Prep this map</button>
+          <button data-act="sceneBuilderBtn" type="button" title="Build a scene from the maps you already have, save it, and load it into this room.">Scene builder…</button>
+          <button data-act="mapsLibraryBtn" type="button" title="Built-in maps, my maps, and the world folder">All maps…</button>
+        </div>
+        <select data-act="sceneSelect" hidden aria-hidden="true"></select>
       </div>
-      <select data-act="sceneSelect" hidden aria-hidden="true"></select>
-    </div>` : ``}
+      <button data-act="dmEditBtn" type="button" class="ssm-edit-tokens" aria-pressed="false" title="Free-move any token. Walls, reach, and Move feet are ignored. Off keeps click-to-walk.">Edit tokens</button>
+    </span>
+    <button data-act="showSceneBtn" type="button" title="Move party here. Everyone's active token comes to this map: a prep ghost lands on its square, anyone without one arrives at the map entry. Copies stay put. Nothing moves until you press this.">Move party here</button>
+  </div>
+  <span class="ssm-bar-spacer" data-act="barSpacer"></span>` : ``}
+  <div class="ssm-bar-right" data-act="barRight">
+    <span data-act="roleBadge">${role === 'player' ? 'Player' : role.toUpperCase()}</span>
+    <label>Grid <input data-act="strength" type="range" min="1" max="3" step="0.1" value="1"></label>
+    <span data-act="zoomLabel">1.00×</span>
+    <button data-act="helpBtn">?</button>
+    <button data-act="reset">Reset view</button>
+    ${role === 'dm' ? `<button data-act="challengeBtn" type="button" class="ssm-challenge" title="Challenge picked players. Same check picker as the DMCC bar.">Challenge</button>` : `<button data-act="fxBtn" type="button" class="ssm-fx-btn" title="Attack effects on the map (firing lines). Saved for you on this device.">Effects: ON</button>
+    <button data-act="condPillBtn" type="button" class="ssm-cond-pill-btn" title="Condition pills on tokens. Normal is the olive and gold word over the token. Compact is a smaller bubble. Saved for you on this device.">Pills: Normal</button>
+    <button data-act="shortRestBtn" type="button" title="Short rest on this character. Same as the sheet Short rest, including the tools prompt.">Short rest</button>
+    <button data-act="longRestBtn" type="button" title="Long rest on this character. Same as the sheet Long rest.">Long rest</button>`}
+  </div>
 `;
 el.appendChild(toolbar);
 const toolbarMain = document.createElement('div');
@@ -1304,7 +1315,6 @@ if (role === 'dm') {
       <button data-act="showDownedBtn" type="button" class="ssm-fx-btn" aria-pressed="false" title="Unconscious and 0 HP tokens stay out of targeting and saves. Turn this on to include them. The room follows this switch.">Show downed: OFF</button>
       <button data-act="fogBtn" class="active" type="button">Fog: ON</button>
       <button data-act="showFovBtn" class="active" type="button">Show Player FOV: ON</button>
-      <button data-act="dmEditBtn" type="button" aria-pressed="false" title="Free-move any token. Walls, reach, and Move feet are ignored. Off keeps click-to-walk.">Edit tokens</button>
     </div>
     <button data-act="revealFogBtn" type="button">Reveal: Box</button>
     <select data-act="revealShape" aria-label="Reveal shape">
@@ -11662,9 +11672,68 @@ function floorChoices() {
   if (!floors.length) floors = [{ mapId: here, name: floorName(here), order: 0 }];
   return floors.slice().sort((a, b) => (b.order || 0) - (a.order || 0) || String(a.mapId).localeCompare(String(b.mapId)));
 }
+function loadedSceneHit() {
+  const sid = activeSceneId();
+  const places = shared.places || {};
+  const lib = {};
+  savedScenes().forEach(s => { if (s && s.id) lib[s.id] = s; });
+  let found = null;
+  Object.keys(places).some(pid => {
+    const place = places[pid];
+    if (!place || !lib[pid]) return false;
+    const floor = (place.floors || []).filter(f => f && (f.mapId === sid || f.id === sid))[0];
+    if (!floor) return false;
+    found = { place: place, floor: floor, scene: lib[pid] };
+    return true;
+  });
+  if (found) return found;
+  const saved = state.loadedSceneId && lib[state.loadedSceneId];
+  if (saved) {
+    const floor = (saved.floors || []).find(f => f && (f.mapId === sid || f.id === sid));
+    if (floor) {
+      const place = places[saved.id] || { id: saved.id, name: saved.name, floors: saved.floors || [] };
+      return { place: place, floor: floor, scene: saved };
+    }
+  }
+  const api = window.SSDNSPlaces;
+  const resolved = api && api.resolve ? api.resolve(places, sid) : null;
+  if (!resolved || !resolved.place) return null;
+  const place = resolved.place;
+  const floors = place.floors || [];
+  const autoOne = place.id === ("place_" + sid) && floors.length < 2;
+  if (autoOne) return null;
+  if (floors.length >= 2 || place.id === "place_dusty_spur" || place.id === "place_ellen") {
+    return { place: place, floor: resolved.floor, scene: lib[place.id] || null };
+  }
+  return null;
+}
+function renderSceneReadout() {
+  const btn = q("sceneReadout");
+  const pop = q("sceneFloorPop");
+  if (!btn) return;
+  const hit = loadedSceneHit();
+  const here = activeSceneId();
+  const floorLabel = (hit && hit.floor && hit.floor.name) || floorName(here);
+  btn.textContent = hit ? ("Scene: " + (hit.place.name || "Scene") + " · " + floorLabel + " ▾") : "No scene loaded";
+  if (!pop) return;
+  const floors = floorChoices();
+  pop.innerHTML = floors.map(floor => {
+    const sid = floor.mapId;
+    const on = sid === here ? " is-on" : "";
+    const mark = floorMark(floor, floors);
+    const name = floor.name || floorName(sid);
+    const currentAttr = sid === here ? ' aria-current="true"' : "";
+    return '<button type="button" class="ssm-floor' + on + '" data-floor="' + esc(sid) + '"' + currentAttr + ">" + (mark ? esc(mark) + " " : "") + esc(name) + '<span class="ssm-floor-n" data-act="floorCount">' + tokensOnFloor(sid) + "</span></button>";
+  }).join("");
+}
 function renderFloorStrip() {
+  if (role === "dm") renderSceneReadout();
   const strip = q("floorStrip");
   if (!strip) return;
+  if (role === "dm") {
+    if (strip.dataset.sig !== "dm-readout") { strip.innerHTML = ""; strip.dataset.sig = "dm-readout"; }
+    return;
+  }
   const floors = floorChoices();
   const current = activeSceneId();
   const sig = role + "|" + current + "|" + floors.map(f => (f.mapId || "") + ":" + (f.name || "") + ":" + (f.order || 0) + ":" + tokensOnFloor(f.mapId)).join(",") + "|" + (role === "player" ? floorName(current) : "");
@@ -17071,8 +17140,9 @@ function douseSelected(out) {
       source: sc.folder === "mine" ? "library" : "pack"
     }));
   }
-  function adoptSavedScene(scene) {
-    if (role !== "dm" || !scene || !window.SSDNSSceneBuilder) return null;
+function adoptSavedScene(scene) {
+  if (role !== "dm" || !scene || !window.SSDNSSceneBuilder) return null;
+  state.loadedSceneId = scene.id;
     const packIds = ((window.SSDNS_MAP_PACKS && window.SSDNS_MAP_PACKS.scenes) || []).map(s => s.id)
       .concat(((window.SSDNS_MAP_PACKS && window.SSDNS_MAP_PACKS.world) || []).map(s => s.id));
     const tokenSnap = (state.tokens || []).map(t => ({ id: t.id, sceneId: t.sceneId || "", x: t.pos ? t.pos.x : null, y: t.pos ? t.pos.y : null }));
@@ -17253,6 +17323,7 @@ function douseSelected(out) {
         return list.filter(b => b && b.id && !b.template).map(b => ({ id: b.id, name: b.name || b.id, xp: Number(b.xp) || 0, hp: b.hp == null ? null : Number(b.hp) || 0 }));
       },
       onChange: (draft) => { syncSceneLinks(draft); draw(); },
+      inRoom: (id) => id === state.loadedSceneId || !!(shared.places && shared.places[id] && (shared.places[id].floors || []).length),
       onTake: (link, floor) => takeLink(link, null, floor),
       mapRow: (id) => {
         const pack = window.SSDNS_MAP_PACKS || {};
@@ -17290,6 +17361,28 @@ function douseSelected(out) {
     el.classList.add("ssm-scene-open");
     paintPlaceBanner();
   }
+  const readoutWrap = q("sceneReadoutWrap");
+  if (readoutWrap) readoutWrap.addEventListener("click", (e) => {
+    const actEl = e.target && e.target.closest ? e.target.closest("[data-act], [data-floor]") : null;
+    if (!actEl || !readoutWrap.contains(actEl)) return;
+    if (actEl.getAttribute("data-act") === "sceneReadout") {
+      e.stopPropagation();
+      const pop = q("sceneFloorPop");
+      const opening = !!(pop && pop.hidden);
+      if (pop) pop.hidden = !opening;
+      actEl.setAttribute("aria-expanded", pop && !pop.hidden ? "true" : "false");
+      if (opening) renderSceneReadout();
+      return;
+    }
+    const floorBtn = actEl.closest ? actEl.closest("[data-floor]") : null;
+    if (!floorBtn) return;
+    e.stopPropagation();
+    const pop = q("sceneFloorPop");
+    if (pop) pop.hidden = true;
+    const readout = q("sceneReadout");
+    if (readout) readout.setAttribute("aria-expanded", "false");
+    switchFloor(floorBtn.getAttribute("data-floor"));
+  });
   if (q('mapsBtn')) q('mapsBtn').addEventListener('click', (e) => {
     e.stopPropagation();
     if (window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.isOpen && window.SSDNSSceneBuilder.isOpen()) window.SSDNSSceneBuilder.close();

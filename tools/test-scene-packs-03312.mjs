@@ -16,7 +16,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.313" && ver.dmcc === "0.2.326" && ver.sheetBuild === "sheet-playtest-v03313" && ver.dmccBuild === "dmcc-playtest-v02326");
+check("ver", ver.sheet === "0.3.325" && ver.dmcc === "0.2.338" && ver.sheetBuild === "sheet-playtest-v03325" && ver.dmccBuild === "dmcc-playtest-v02338");
 check("rules.clean", !read("assets/data/rules.js").includes("ssdns-map-pack") && !read("database.rules.json").includes("importScenePack"));
 
 const sandbox = { window: {}, globalThis: {} };
@@ -107,6 +107,7 @@ await page.evaluate(() => {
   const name = panel().querySelector("[data-act='sceneName']");
   name.value = "Pack house";
   name.dispatchEvent(new Event("input", { bubbles: true }));
+  panel().querySelector("[data-act='sceneStep'][data-step='4']").click();
   panel().querySelector("[data-act='sceneSave']").click();
 });
 await page.waitForTimeout(200);

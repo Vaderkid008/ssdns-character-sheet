@@ -90,7 +90,56 @@
   max-width: none;
   white-space: nowrap;
 }
+.ssdns-map .ssm-bar-left,
+.ssdns-map .ssm-bar-right { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ssdns-map .ssm-bar-left { flex: 1 1 auto; min-width: 0; }
+.ssdns-map .ssm-bar-right { flex: 0 0 auto; }
+.ssdns-map .ssm-bar-spacer { flex: 1 1 12px; }
+.ssdns-map .ssm-bar-pair { display: inline-flex; gap: 8px; align-items: center; flex: 0 0 auto; }
+.ssdns-map .ssm-scene-readout { position: relative; flex: 0 1 auto; }
+.ssdns-map .ssm-scene-readout > button {
+  background: #241e18;
+  border: 1px solid #5a4e40;
+  color: #f0e4cf;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.ssdns-map .ssm-floor-pop {
+  position: absolute;
+  z-index: 94;
+  top: calc(100% + 4px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+  padding: 6px;
+  background: rgba(20, 16, 12, .97);
+  border: 1px solid #c4a35a;
+  border-radius: 6px;
+}
+.ssdns-map .ssm-floor-pop[hidden] { display: none; }
+.ssdns-map .ssm-edit-tokens {
+  background: #c9a227;
+  color: #1a1612;
+  border-color: #f0d78c;
+  font-weight: 800;
+}
+.ssdns-map .ssm-edit-tokens.active,
+.ssdns-map .ssm-edit-tokens[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 2px #fff6d4;
+}
 .ssdns-map .ssm-maps-cluster { position: relative; flex: 0 0 auto; }
+@media (max-width: 720px) {
+  .ssdns-map .ssdns-toolbar .ssm-toolbar-main { flex-wrap: wrap; overflow-x: visible; }
+  .ssdns-map .ssm-scene-readout,
+  .ssdns-map .ssm-bar-right { flex: 1 0 100%; }
+  .ssdns-map .ssm-bar-spacer { display: none; }
+  .ssdns-map .ssm-bar-pair { flex: 0 0 auto; }
+}
+.ssdns-map.ssm-phone .ssm-scene-readout,
+.ssdns-map.ssm-phone .ssm-bar-right { flex: 1 0 100%; }
+.ssdns-map.ssm-phone .ssm-bar-spacer { display: none; }
 .ssdns-map .ssm-maps-menu {
   position: fixed;
   z-index: 90;
@@ -3186,6 +3235,29 @@ body.map-phone #mapMount.ssdns-map {
 .ssdns-map .ssm-scene-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .ssdns-map .ssm-scene-head b { font-size: 16px; }
 .ssdns-map .ssm-scene-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; margin-bottom: 8px; }
+.ssdns-map .ssm-scene-namerow { display: flex; align-items: flex-end; gap: 8px; }
+.ssdns-map .ssm-scene-namerow .ssm-scene-field { flex: 1 1 auto; min-width: 0; margin-bottom: 0; }
+.ssdns-map .ssm-scene-save { flex: 0 0 auto; margin: 0 0 8px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.ssdns-map .ssm-scene-save.is-saved { color: #9dce86; }
+.ssdns-map .ssm-scene-save.is-saving { color: #e2c56a; }
+.ssdns-map .ssm-scene-steps { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
+.ssdns-map .ssm-scene-steps button { border-radius: 99px; font-size: 12px; color: #cbb892; }
+.ssdns-map .ssm-scene-steps button.is-on { background: #e2c56a; color: #1a1612; border-color: #e2c56a; font-weight: 800; }
+.ssdns-map .ssm-scene-nav { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.ssdns-map .ssm-scene-warn { margin: 8px 0; padding: 10px; border: 1px solid #e07a6a; border-radius: 8px; background: #3a2220; color: #f6d2cb; }
+.ssdns-map .ssm-scene-warn p { margin: 6px 0; }
+.ssdns-map .ssm-scene-warn-actions { display: flex; gap: 8px; }
+.ssdns-map .ssm-scene-warn-actions button { flex: 1; }
+.ssdns-map .ssm-scene-warn-actions [data-act="sceneLeaveStay"] { background: #c9a227; color: #1a1612; font-weight: 800; }
+.ssdns-map .ssm-lib-card { border: 1px solid #5a4e40; border-radius: 8px; padding: 8px; background: #1c1814; }
+.ssdns-map .ssm-lib-card.is-active { border-color: #e2c56a; }
+.ssdns-map .ssm-lib-title { display: flex; align-items: center; gap: 6px; }
+.ssdns-map .ssm-in-room { background: #e2c56a; color: #1a1612; border-radius: 99px; padding: 1px 6px; font-size: 11px; font-weight: 800; }
+.ssdns-map .ssm-lib-big, .ssdns-map .ssm-lib-small { display: flex; gap: 6px; margin-top: 6px; }
+.ssdns-map .ssm-lib-big button, .ssdns-map .ssm-lib-small button { flex: 1; }
+.ssdns-map .ssm-lib-big button { font-weight: 800; padding: 8px; }
+.ssdns-map .ssm-lib-big [data-act="sceneLoad"] { background: #c9a227; color: #1a1612; border-color: #f0d78c; }
+.ssdns-map .ssm-lib-small button { color: #cbb892; }
 .ssdns-map .ssm-scene-builder input,
 .ssdns-map .ssm-scene-builder select {
   width: 100%;

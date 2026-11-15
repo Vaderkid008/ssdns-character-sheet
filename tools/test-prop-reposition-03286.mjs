@@ -1,7 +1,7 @@
 /**
  * Edit tokens moves creatures only. The DM repositions a prop from its card.
  * A player Shove uses Strength (Athletics) and the DM applies the move.
- * Sheet 0.3.324 / DMCC 0.2.337.
+ * Sheet 0.3.325 / DMCC 0.2.338.
  *   node tools/test-prop-reposition-03286.mjs
  */
 import fs from "node:fs";
@@ -19,7 +19,7 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.324" && ver.dmcc === "0.2.337" && ver.sheetBuild === "sheet-playtest-v03324" && ver.dmccBuild === "dmcc-playtest-v02337");
+check("ver", ver.sheet === "0.3.325" && ver.dmcc === "0.2.338" && ver.sheetBuild === "sheet-playtest-v03325" && ver.dmccBuild === "dmcc-playtest-v02338");
 check("rules.clean", !read("assets/data/rules.js").includes("shoveCheck") && !read("database.rules.json").includes("prop-shove"));
 
 const dom = new JSDOM("<!doctype html><html><head></head><body></body></html>", { url: "http://localhost/dm/", pretendToBeVisual: true, runScripts: "dangerously" });
