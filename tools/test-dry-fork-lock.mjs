@@ -65,7 +65,7 @@ check("lantern.light", ["df_lantern_ah6", "df_lantern_k12", "df_lantern_ad12", "
 }));
 check("gate", at("df_gate", "AF18") && byId.df_gate.asset.props.gate.blocksMove === true && byId.df_gate.asset.props.gate.blocksSight === false && byId.df_gate.asset.state.open === false);
 check("telegraph", at("df_telegraph", "N15"));
-check("toys", at("df_crate", "AA16") && at("df_powder", "F11") && at("df_plunger", "G11") && at("df_campfire", "AD23"));
+check("toys", at("df_crate", "AA16") && at("df_powder", "E11") && at("df_plunger", "D11") && at("df_campfire", "AD23") && at("df_coal", "F11") && at("df_switch_w", "I9") && at("df_baggage", "V12") && at("df_rain", "W15") && at("df_trough_road", "K19") && at("df_trough_corral", "AL22"));
 check("powder.buttons", byId.df_powder.asset.props.timer.mode === "fuse" && byId.df_powder.asset.interact.actions.indexOf("toggle") >= 0 && byId.df_powder.asset.images.length === 2);
 check("plunger.buttons", byId.df_plunger.asset.props.timer.mode === "plunger" && byId.df_plunger.asset.interact.actions.indexOf("toggle") >= 0 && byId.df_plunger.asset.images.length === 2);
 const bag = byId.df_saddlebag;
