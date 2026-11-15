@@ -1,5 +1,5 @@
 /**
- * Phone map (sheet 0.3.325 / DMCC 0.2.338).
+ * Phone map (sheet 0.3.326 / DMCC 0.2.339).
  * Opening Map on a phone is a full-screen map. Back returns to the sheet.
  * My token recenters. The token card is a bottom drawer. Pan stays on the map.
  * Move and Interact stay one-finger. Desktop does not enter this mode.
@@ -23,11 +23,11 @@ function check(id, cond, detail) {
 }
 
 const version = JSON.parse(fs.readFileSync(path.join(root, "version.json"), "utf8"));
-check("ver.sheet", version.sheet === "0.3.325" && version.sheetBuild === "sheet-playtest-v03325");
-check("ver.dmcc", version.dmcc === "0.2.338" && version.dmccBuild === "dmcc-playtest-v02338");
+check("ver.sheet", version.sheet === "0.3.326" && version.sheetBuild === "sheet-playtest-v03326");
+check("ver.dmcc", version.dmcc === "0.2.339" && version.dmccBuild === "dmcc-playtest-v02339");
 const demo = fs.readFileSync(path.join(root, "map/demo.html"), "utf8");
 check("demo.viewport", demo.includes('name="viewport"') && demo.includes("width=device-width"));
-check("rules.clean", !fs.readFileSync(path.join(root, "assets/data/rules.js"), "utf8").includes("0.3.325") && !fs.readFileSync(path.join(root, "database.rules.json"), "utf8").includes("0.3.325"));
+check("rules.clean", !fs.readFileSync(path.join(root, "assets/data/rules.js"), "utf8").includes("0.3.326") && !fs.readFileSync(path.join(root, "database.rules.json"), "utf8").includes("0.3.326"));
 
 const seed = {
   "map/public/tokens/ply_ada": {
@@ -304,4 +304,4 @@ if (failures.length) {
   failures.forEach((f) => console.log(" - " + f));
   process.exit(1);
 }
-console.log("mobile map 0.3.325 ok");
+console.log("mobile map 0.3.326 ok");

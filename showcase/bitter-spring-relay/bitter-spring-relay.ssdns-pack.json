@@ -724,6 +724,7 @@
           "stairs": [
             {
               "id": "lnk_inside_up",
+              "name": "Stairs up to Upstairs",
               "kind": "up",
               "x": 14,
               "y": 22,
@@ -733,10 +734,12 @@
               "landY": 17,
               "twoWay": true,
               "pairId": "lnk_inside_down",
-              "visible": false
+              "visible": true,
+              "playersCanUse": true
             },
             {
               "id": "lnk_outside_up",
+              "name": "Outside stairs (DM only)",
               "kind": "up",
               "x": 23,
               "y": 19,
@@ -746,10 +749,12 @@
               "landY": 12,
               "twoWay": true,
               "pairId": "lnk_outside_down",
-              "visible": false
+              "visible": false,
+              "playersCanUse": false
             },
             {
               "id": "lnk_loft_up",
+              "name": "Ladder up to the hayloft",
               "kind": "ladder",
               "x": 30,
               "y": 13,
@@ -759,7 +764,23 @@
               "landY": 13,
               "twoWay": true,
               "pairId": "lnk_loft_down",
-              "visible": false
+              "visible": true,
+              "playersCanUse": true
+            },
+            {
+              "id": "lnk_haydoor_up",
+              "name": "Hay door up to the loft",
+              "kind": "door",
+              "x": 29,
+              "y": 8,
+              "destFloorId": "bitter-spring-relay-upstairs",
+              "destMapId": "bitter-spring-relay-upstairs",
+              "landX": 29,
+              "landY": 12,
+              "twoWay": true,
+              "pairId": "lnk_haydoor_down",
+              "visible": true,
+              "playersCanUse": true
             }
           ],
           "encounters": {
@@ -861,6 +882,7 @@
           "stairs": [
             {
               "id": "lnk_inside_down",
+              "name": "Stairs down to the ground",
               "kind": "down",
               "x": 14,
               "y": 17,
@@ -870,10 +892,12 @@
               "landY": 22,
               "twoWay": true,
               "pairId": "lnk_inside_up",
-              "visible": false
+              "visible": true,
+              "playersCanUse": true
             },
             {
               "id": "lnk_outside_down",
+              "name": "Outside stairs down (DM only)",
               "kind": "down",
               "x": 23,
               "y": 12,
@@ -883,10 +907,12 @@
               "landY": 19,
               "twoWay": true,
               "pairId": "lnk_outside_up",
-              "visible": false
+              "visible": false,
+              "playersCanUse": false
             },
             {
               "id": "lnk_loft_down",
+              "name": "Ladder down to the barn",
               "kind": "ladder",
               "x": 30,
               "y": 13,
@@ -896,7 +922,23 @@
               "landY": 13,
               "twoWay": true,
               "pairId": "lnk_loft_up",
-              "visible": false
+              "visible": true,
+              "playersCanUse": true
+            },
+            {
+              "id": "lnk_haydoor_down",
+              "name": "Hay door down to the yard",
+              "kind": "door",
+              "x": 29,
+              "y": 12,
+              "destFloorId": "bitter-spring-relay-ground",
+              "destMapId": "bitter-spring-relay-ground",
+              "landX": 29,
+              "landY": 8,
+              "twoWay": true,
+              "pairId": "lnk_haydoor_up",
+              "visible": true,
+              "playersCanUse": true
             }
           ],
           "encounters": {

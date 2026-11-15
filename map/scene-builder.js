@@ -283,6 +283,8 @@
           visible: !!link.visible,
           playersCanUse: link.playersCanUse == null ? !!link.visible : !!link.playersCanUse
         };
+        var named = String(link.name || "").trim().slice(0, 80);
+        if (named) row.name = named;
         if (!dest) { row.twoWay = false; row.pairId = ""; }
         byId[row.id] = row;
         return row;
@@ -620,7 +622,7 @@
       var dest = (scene.floors || []).filter(function (d) {
         return d.id === link.destFloorId || d.mapId === link.destMapId || d.mapId === link.destFloorId;
       })[0];
-      return {
+      var row = {
         id: link.id,
         kind: link.kind,
         x: link.x,
@@ -634,6 +636,8 @@
         visible: !!link.visible,
         playersCanUse: link.playersCanUse == null ? !!link.visible : !!link.playersCanUse
       };
+      if (link.name) row.name = String(link.name).slice(0, 80);
+      return row;
     });
   }
   function groupSpots(floor, groupId) {
@@ -1193,6 +1197,7 @@
       links.appendChild(placeLink);
       (floor.stairs || []).forEach(function (link) {
         var line = el("div", { class: "ssm-scene-link", "data-link": link.id });
+        if (link.name) line.appendChild(el("div", { class: "ssm-scene-k" }, link.name));
         var kind = el("select", { "data-act": "linkKind", "data-floor": floor.id, "data-link": link.id, "aria-label": "Link kind" });
         [["up", "Stairs up"], ["down", "Stairs down"], ["ladder", "Ladder"], ["door", "Door/Passage"]].forEach(function (pair) {
           kind.appendChild(el("option", { value: pair[0] }, pair[1]));
@@ -1909,6 +1914,7 @@
             playersCanUse: link.playersCanUse == null ? !!link.visible : !!link.playersCanUse,
             mapId: f.mapId, floorId: f.id, floorName: f.name
           };
+          if (link.name) row.name = String(link.name).slice(0, 80);
           if (!mapId || f.mapId === mapId) markers.push(row);
           if (link.landX != null && link.landY != null && link.destMapId && (!mapId || link.destMapId === mapId) && f.mapId !== link.destMapId) {
             landings.push({ id: link.id, kind: link.kind, x: link.landX, y: link.landY, mapId: link.destMapId, visible: !!link.visible, from: f.mapId });

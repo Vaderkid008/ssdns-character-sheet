@@ -1,6 +1,6 @@
 /**
  * Bitter Spring Relay showcase pack imports through the scene pack code.
- * Sheet 0.3.325 / DMCC 0.2.338.
+ * Sheet 0.3.326 / DMCC 0.2.339.
  *   node tools/test-showcase-pack-03315.mjs
  */
 import fs from "node:fs";
@@ -16,7 +16,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.325" && ver.dmcc === "0.2.338" && ver.sheetBuild === "sheet-playtest-v03325" && ver.dmccBuild === "dmcc-playtest-v02338");
+check("ver", ver.sheet === "0.3.326" && ver.dmcc === "0.2.339" && ver.sheetBuild === "sheet-playtest-v03326" && ver.dmccBuild === "dmcc-playtest-v02339");
 check("rules.clean", !read("assets/data/rules.js").includes("bitter-spring") && !read("database.rules.json").includes("bitter-spring"));
 
 const sandbox = { window: {}, globalThis: {} };
@@ -42,7 +42,7 @@ function linkAt(floor, x, y) {
 const upStair = linkAt(ground, 14, 22);
 const outStair = linkAt(ground, 23, 19);
 const ladder = linkAt(ground, 30, 13);
-check("links", upStair && upStair.twoWay && upStair.visible === false && upStair.landX === 14 && upStair.landY === 17 && outStair && outStair.landX === 23 && outStair.landY === 12 && ladder && ladder.kind === "ladder" && ladder.landX === 30 && ladder.landY === 13 && linkAt(up, 14, 17) && linkAt(up, 23, 12) && linkAt(up, 30, 13));
+check("links", upStair && upStair.twoWay && upStair.visible === true && upStair.playersCanUse === true && upStair.name === "Stairs up to Upstairs" && upStair.landX === 14 && upStair.landY === 17 && outStair && outStair.visible === false && outStair.playersCanUse === false && outStair.landX === 23 && outStair.landY === 12 && ladder && ladder.kind === "ladder" && ladder.visible === true && ladder.landX === 30 && ladder.landY === 13 && linkAt(up, 14, 17) && linkAt(up, 23, 12) && linkAt(up, 30, 13) && linkAt(ground, 29, 8) && linkAt(ground, 29, 8).kind === "door" && linkAt(up, 29, 12) && linkAt(up, 29, 12).kind === "door");
 const strong = ground.encounters.containers.find((c) => c.name === "Stage Strongbox");
 const chest = up.encounters.containers.find((c) => c.name === "Agent's Chest");
 const trunk = up.encounters.containers.find((c) => c.name === "Passenger Trunk");
@@ -95,6 +95,7 @@ await page.evaluate(() => {
   document.querySelector("[data-act='sceneBuilderBtn']").click();
 });
 await page.waitForSelector("[data-act='sceneBuilder']");
+await page.locator("[data-act='sceneStep'][data-step='4']").click();
 await page.setInputFiles("[data-act='scenePackFile']", localPath);
 await page.waitForTimeout(400);
 const notice = await page.locator("[data-act='scenePackNotice']").innerText();
@@ -120,6 +121,8 @@ await page.locator("[data-act='showcaseShot']").screenshot({ path: path.join(OUT
 await page.evaluate(() => {
   document.querySelector("[data-act='sceneLoad']").click();
   window.SSDNSSceneBuilder.close();
+  const drop = document.querySelector("[data-act='sceneLeaveDrop']");
+  if (drop) drop.click();
 });
 await page.waitForTimeout(200);
 const ART = "/opt/cursor/artifacts/bitter-spring-art";
@@ -196,5 +199,5 @@ if (failures.length) {
   failures.forEach((line) => console.log(" - " + line));
   process.exit(1);
 }
-console.log("showcase pack 0.3.325 ok");
+console.log("showcase pack 0.3.326 ok");
 process.exit(0);

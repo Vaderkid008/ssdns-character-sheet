@@ -1,5 +1,5 @@
 /**
- * DM floor moves land off the centre (Slice 5, sheet 0.3.325 / DMCC 0.2.338).
+ * DM floor moves land off the centre (Slice 5, sheet 0.3.326 / DMCC 0.2.339).
  * Order: the link under the token, then the spawn group, then scene spawns or
  * the other floor's landing, then a square near the entry. Nobody stacks.
  *   node tools/test-floor-landing-03322.mjs
@@ -17,7 +17,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.325" && ver.dmcc === "0.2.338" && ver.sheetBuild === "sheet-playtest-v03325" && ver.dmccBuild === "dmcc-playtest-v02338");
+check("ver", ver.sheet === "0.3.326" && ver.dmcc === "0.2.339" && ver.sheetBuild === "sheet-playtest-v03326" && ver.dmccBuild === "dmcc-playtest-v02339");
 check("rules.clean", !read("assets/data/rules.js").includes("floorLandingPlan") && !read("database.rules.json").includes("floorLandingPlan"));
 const mapSrc = read("map/ssdns-map.js");
 check("src.order", mapSrc.includes("Standing on a link uses that landing") && mapSrc.includes("never the dead centre") && mapSrc.includes("function setFloor"));
@@ -274,4 +274,4 @@ await page.evaluate(() => {
 await show(UP, [22, 15, 0.55, "upstairs-after.png"]);
 await page.close();
 setTimeout(() => process.exit(failures.length ? 1 : 0), 200);
-console.log(failures.length ? "floor landing failed" : "floor landing 0.3.325 ok");
+console.log(failures.length ? "floor landing failed" : "floor landing 0.3.326 ok");

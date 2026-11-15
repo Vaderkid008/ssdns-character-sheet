@@ -10797,14 +10797,17 @@ function roomLinkById(id) {
   eachRoomLink((link, floor, place) => { if (!found && link.id === id) found = { link: link, floor: floor, place: place }; });
   return found;
 }
-function liveLinks() {
-  const B = window.SSDNSSceneBuilder;
-  if (role === "dm" && B && B.isOpen && B.isOpen() && B.linksOnMap) return (B.linksOnMap(null).markers || []).slice();
+function roomLinks() {
   const out = [];
   eachRoomLink((link, floor) => {
     out.push(Object.assign({}, link, { mapId: floor.mapId, floorId: floor.id, floorName: floor.name || floor.mapId }));
   });
   return out;
+}
+function liveLinks() {
+  const B = window.SSDNSSceneBuilder;
+  if (role === "dm" && B && B.isOpen && B.isOpen() && B.linksOnMap) return (B.linksOnMap(null).markers || []).slice();
+  return roomLinks();
 }
 function linkPack(mapId) {
   const B = window.SSDNSSceneBuilder;
@@ -10836,11 +10839,11 @@ function linksDrawn() {
 function publishShownLinks() {
   if (role !== "dm") return;
   const byMap = {};
-  liveLinks().forEach(link => {
+  roomLinks().forEach(link => {
     if (!link.mapId) return;
     if (!byMap[link.mapId]) byMap[link.mapId] = [];
     if (!link.visible) return;
-    byMap[link.mapId].push({
+    const row = {
       id: link.id,
       kind: link.kind,
       x: link.x,
@@ -10849,7 +10852,9 @@ function publishShownLinks() {
       landX: link.landX,
       landY: link.landY,
       playersCanUse: link.playersCanUse !== false
-    });
+    };
+    if (link.name) row.name = String(link.name).slice(0, 80);
+    byMap[link.mapId].push(row);
   });
   Object.keys(byMap).forEach(sid => {
     const data = sceneData(sid);
@@ -11053,7 +11058,7 @@ function paintOneLink(px, link, faint) {
   ctx.fillText(LINK_GLYPH[link.kind] || "?", s.x, s.y);
   ctx.font = "bold 11px system-ui";
   ctx.fillStyle = "#f6e7c4";
-  ctx.fillText(faint ? "Landing" : (LINK_NAME[link.kind] || "Link"), s.x, s.y - r - 10);
+  ctx.fillText(faint ? "Landing" : (link.name || LINK_NAME[link.kind] || "Link"), s.x, s.y - r - 10);
   if (!faint && role === "dm") {
     ctx.fillStyle = "#2a120f";
     ctx.beginPath();
@@ -11119,7 +11124,7 @@ function openLinkMenu(link) {
   const menu = document.createElement("div");
   menu.className = "ssm-token-cmd ssm-link-menu";
   menu.setAttribute("data-act", "linkMenu");
-  menu.innerHTML = floatBar(LINK_NAME[link.kind] || "Link") +
+  menu.innerHTML = floatBar(link.name || LINK_NAME[link.kind] || "Link") +
     '<div class="ssm-card-body"><button type="button" data-act="linkMenuTake">Take link</button><button type="button" data-act="linkMenuSee">' +
     (link.visible ? "Hide from players" : "Players can see") + "</button></div>";
   menu.addEventListener("pointerdown", ev => ev.stopPropagation());
