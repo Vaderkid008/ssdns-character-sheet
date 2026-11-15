@@ -1,6 +1,6 @@
 /**
  * DM map toolbar cleanup. Moved controls keep their actions.
- * Real mouse, DM demo table. Sheet 0.3.324 / DMCC 0.2.337.
+ * Real mouse, DM demo table. Sheet 0.3.325 / DMCC 0.2.338.
  *   node tools/test-dm-toolbar-03298.mjs
  */
 import fs from "node:fs";
@@ -15,7 +15,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(fs.readFileSync(path.join(root, "version.json"), "utf8"));
-check("ver", ver.sheet === "0.3.324" && ver.dmcc === "0.2.337");
+check("ver", ver.sheet === "0.3.325" && ver.dmcc === "0.2.338");
 
 const browser = await puppeteer.launch({
   executablePath: "/usr/local/bin/google-chrome",
@@ -48,7 +48,7 @@ function stripClear(page) {
       return { l: r.left, t: r.top, r: r.right, b: r.bottom };
     };
     const hit = (a, b) => !!(a && b && a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t);
-    const strip = rect("[data-act='floorStrip']");
+    const strip = rect("[data-act='floorRow']");
     return {
       has: !!strip,
       hitReset: hit(strip, rect("[data-act='reset']")),
@@ -72,7 +72,7 @@ for (const width of [1280, 1600]) {
   const page = await browser.newPage();
   await page.setViewport({ width, height: 800 });
   const errs = await boot(page);
-  await page.waitForSelector("[data-act='floorStrip'] [data-floor]", { timeout: 8000 });
+  await page.waitForSelector("[data-act='sceneReadout']", { timeout: 8000 });
   const before = await stripClear(page);
   check("strip.clear." + width, before.has && !before.hitReset && !before.hitMaps && !before.hitGrid && !before.hitZoom && !before.hitNext, JSON.stringify(before));
   await page.evaluate(() => { const b = document.querySelector("#btnMapFull"); if (b) b.click(); });
@@ -94,14 +94,14 @@ for (const width of [1280, 1600]) {
     showDownedBtn: "viewFog",
     fogBtn: "viewFog",
     showFovBtn: "viewFog",
-    dmEditBtn: "viewFog",
+    dmEditBtn: "ssm-toolbar-main",
     shortRestBtn: "partyRest",
     longRestBtn: "partyRest",
     betweenBtn: "mapsMenu",
     assetsBtn: "mapsMenu",
     myViewBtn: "mapsMenu",
     setFloorBtn: "mapsMenu",
-    showSceneBtn: "mapsMenu",
+    showSceneBtn: "ssm-toolbar-main",
     mapsLibraryBtn: "mapsMenu",
     importWallsBtn: "ssdns-leftbar",
     reset: "ssm-toolbar-main",

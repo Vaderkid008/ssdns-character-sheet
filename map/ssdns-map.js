@@ -11687,6 +11687,14 @@ function loadedSceneHit() {
     return true;
   });
   if (found) return found;
+  const saved = state.loadedSceneId && lib[state.loadedSceneId];
+  if (saved) {
+    const floor = (saved.floors || []).find(f => f && (f.mapId === sid || f.id === sid));
+    if (floor) {
+      const place = places[saved.id] || { id: saved.id, name: saved.name, floors: saved.floors || [] };
+      return { place: place, floor: floor, scene: saved };
+    }
+  }
   const api = window.SSDNSPlaces;
   const resolved = api && api.resolve ? api.resolve(places, sid) : null;
   if (!resolved || !resolved.place) return null;

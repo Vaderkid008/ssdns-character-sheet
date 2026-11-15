@@ -1,7 +1,7 @@
 /**
  * Scene Builder Slice 5: players take a visible link themselves,
  * the floor switcher, and the DM Scenes menu.
- * Sheet 0.3.324 / DMCC 0.2.337.
+ * Sheet 0.3.325 / DMCC 0.2.338.
  *   node tools/test-play-links-03316.mjs
  */
 import fs from "node:fs";
@@ -17,8 +17,8 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.324" && ver.dmcc === "0.2.337" && ver.sheetBuild === "sheet-playtest-v03324" && ver.dmccBuild === "dmcc-playtest-v02337");
-check("rules.clean", !read("assets/data/rules.js").includes("floor.stairs") && !read("database.rules.json").includes("shownLinks") && !read("assets/data/rules.js").includes("0.3.324"));
+check("ver", ver.sheet === "0.3.325" && ver.dmcc === "0.2.338" && ver.sheetBuild === "sheet-playtest-v03325" && ver.dmccBuild === "dmcc-playtest-v02338");
+check("rules.clean", !read("assets/data/rules.js").includes("floor.stairs") && !read("database.rules.json").includes("shownLinks") && !read("assets/data/rules.js").includes("0.3.325"));
 const mapSrc = read("map/ssdns-map.js");
 check("src.page", mapSrc.includes("PageUp") && mapSrc.includes("PageDown") && mapSrc.includes("stepFloor"));
 check("src.ask", mapSrc.includes("Go upstairs?") && mapSrc.includes("Go downstairs?") && mapSrc.includes("Climb ladder?") && mapSrc.includes("Go through door?"));
@@ -102,6 +102,7 @@ const addFloor = (id) => {
 };
 addFloor("scn_dustyspur01");
 addFloor("scn_upstairs");
+builder.querySelector("[data-act='sceneStep'][data-step='2']").click();
 builder.querySelector("[data-act='linkPlace']").click();
 const stair = dmW.SSDNSSceneBuilder.dropLink(6, 8);
 const destFloor = dmW.SSDNSSceneBuilder.draft().floors[1];
@@ -136,9 +137,11 @@ kinds[1].value = "down";
 kinds[1].dispatchEvent(new dmW.Event("change", { bubbles: true }));
 check("oneway.hidden", down && dmW.SSDNSSceneBuilder.draft().floors[1].stairs[0].visible === false && dmW.SSDNSSceneBuilder.draft().floors[1].stairs[0].kind === "down");
 
+builder.querySelector("[data-act='sceneStep'][data-step='1']").click();
 builder.querySelector("[data-act='spawnPlace']").click();
 const ghost = dmW.SSDNSSceneBuilder.dropAt(1, 1);
 check("spawn.placed", ghost && ghost.x === 1 && ghost.y === 1);
+builder.querySelector("[data-act='sceneStep'][data-step='4']").click();
 builder.querySelector("[data-act='sceneSave']").click();
 const sceneName = dmW.SSDNSSceneBuilder.draft().name;
 builder.querySelector("[data-act='sceneLoad']").click();
@@ -215,7 +218,7 @@ const pub = store.pub["map/public/tokens/" + jolene.id];
 const pubVal = pub && (pub.value || pub);
 check("go.public", pubVal && pubVal.hp == null && pubVal.sheetId === "ada" && pubVal.concentration === "Bless" && pubVal.sceneId === "scn_upstairs", JSON.stringify(pubVal && { hp: pubVal.hp, sheetId: pubVal.sheetId, concentration: pubVal.concentration, sceneId: pubVal.sceneId }));
 
-const floors = [].slice.call(dmW.document.querySelectorAll("[data-act='floorStrip'] [data-floor]"));
+const floors = [].slice.call(dmW.document.querySelectorAll("[data-act='sceneFloorPop'] [data-floor]"));
 const labels = floors.map((b) => b.textContent.replace(/\s+/g, " ").trim());
 check("floors.stack", labels.some((t) => t.indexOf("▲") === 0 && /Upstairs/.test(t)) && labels.some((t) => t.indexOf("▼") === 0 && /Saloon|Ground|Dusty/.test(t)), labels.join(" | "));
 check("floors.badge", floors.every((b) => b.querySelector("[data-act='floorCount']")) && floors.some((b) => b.classList.contains("is-on")));
@@ -257,4 +260,4 @@ if (failures.length) {
   console.error("\n" + failures.length + " failed");
   process.exit(1);
 }
-console.log("\nplay links 0.3.324 ok");
+console.log("\nplay links 0.3.325 ok");

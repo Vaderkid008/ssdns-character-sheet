@@ -1,7 +1,7 @@
 /**
  * DM Scene Builder: save a scene, reload it, and load it into a room
  * without touching pack maps, room maps, or tokens.
- * Sheet 0.3.324 / DMCC 0.2.337.
+ * Sheet 0.3.325 / DMCC 0.2.338.
  *   node tools/test-scene-builder-03309.mjs
  */
 import fs from "node:fs";
@@ -18,7 +18,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.324" && ver.dmcc === "0.2.337" && ver.sheetBuild === "sheet-playtest-v03324" && ver.dmccBuild === "dmcc-playtest-v02337");
+check("ver", ver.sheet === "0.3.325" && ver.dmcc === "0.2.338" && ver.sheetBuild === "sheet-playtest-v03325" && ver.dmccBuild === "dmcc-playtest-v02338");
 check("rules.clean", !read("assets/data/rules.js").includes("sceneLibrary") && !read("database.rules.json").includes("sceneLibrary"));
 
 const sandbox = { window: {}, globalThis: {} };
@@ -128,7 +128,8 @@ panel.querySelector("[data-act='floorAdd']").click();
 panel.querySelector("[data-act='floorPick']").value = "scn_custom_mine";
 panel.querySelector("[data-act='floorAdd']").click();
 check("ui.floors", panel.querySelectorAll("[data-act='floorName']").length === 2);
-check("ui.cards", panel.querySelectorAll(".ssm-scene-title").length === 2 && panel.querySelectorAll(".ssm-scene-actions").length === 2 && panel.querySelectorAll(".ssm-scene-spawns").length === 2);
+panel.querySelector("[data-act='sceneStep'][data-step='1']").click();
+check("ui.cards", panel.querySelectorAll(".ssm-scene-title").length === 2 && panel.querySelectorAll(".ssm-scene-spawns").length === 2);
 panel.querySelector("[data-act='spawnPlace']").click();
 const dropped = w.SSDNSSceneBuilder.dropAt(4, 6);
 const moved = w.SSDNSSceneBuilder.moveGhost(dropped.id, 7, 8);
@@ -141,6 +142,8 @@ check("ui.hiddenxy", !box || box.type === "hidden");
 panel.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
 check("ui.esc.disarm", !!host.querySelector("[data-act='sceneBuilder']") && !w.SSDNSSceneBuilder.arming());
 host.querySelector("[data-act='sceneBuilder']").dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+const leave = host.querySelector("[data-act='sceneLeaveDrop']");
+if (leave) leave.click();
 check("ui.esc", !host.querySelector("[data-act='sceneBuilder']"));
 check("ui.player", w.SSDNSSceneBuilder.open(host, { role: "player", maps: () => maps, store: mem }) == null);
 
@@ -149,4 +152,4 @@ if (failures.length) {
   failures.forEach((line) => console.log(" - " + line));
   process.exit(1);
 }
-console.log("scene builder 0.3.324 ok");
+console.log("scene builder 0.3.325 ok");

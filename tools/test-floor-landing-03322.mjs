@@ -1,5 +1,5 @@
 /**
- * DM floor moves land off the centre (Slice 5, sheet 0.3.324 / DMCC 0.2.337).
+ * DM floor moves land off the centre (Slice 5, sheet 0.3.325 / DMCC 0.2.338).
  * Order: the link under the token, then the spawn group, then scene spawns or
  * the other floor's landing, then a square near the entry. Nobody stacks.
  *   node tools/test-floor-landing-03322.mjs
@@ -17,7 +17,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.324" && ver.dmcc === "0.2.337" && ver.sheetBuild === "sheet-playtest-v03324" && ver.dmccBuild === "dmcc-playtest-v02337");
+check("ver", ver.sheet === "0.3.325" && ver.dmcc === "0.2.338" && ver.sheetBuild === "sheet-playtest-v03325" && ver.dmccBuild === "dmcc-playtest-v02338");
 check("rules.clean", !read("assets/data/rules.js").includes("floorLandingPlan") && !read("database.rules.json").includes("floorLandingPlan"));
 const mapSrc = read("map/ssdns-map.js");
 check("src.order", mapSrc.includes("Standing on a link uses that landing") && mapSrc.includes("never the dead centre") && mapSrc.includes("function setFloor"));
@@ -99,10 +99,17 @@ function loadBitterSpring(win, map) {
     });
   });
   win.document.querySelector("[data-act='sceneBuilderBtn']").click();
+  const step = win.document.querySelector("[data-act='sceneStep'][data-step='4']");
+  if (step) step.click();
   const load = win.document.querySelector("[data-act='sceneLoad'][data-id='scn_bitter_spring']");
   check("load.btn", !!load);
   if (load) load.click();
   if (win.SSDNSSceneBuilder.close) win.SSDNSSceneBuilder.close();
+  const drop = win.document.querySelector("[data-act='sceneLeaveDrop']");
+  if (drop) drop.click();
+  map.maps().swap("bitter-spring-relay-ground");
+  const label = win.document.querySelector("[data-act='sceneReadout']").textContent;
+  check("readout.scene", /Bitter Spring/.test(label) && /ground/i.test(label), label);
 }
 function here(dm, sceneId, tokenIds) {
   return tokenIds.map((id) => dm.layers().tokens().find((t) => t.id === id)).filter((t) => t && t.sceneId === sceneId);
@@ -186,9 +193,13 @@ const shot = await page.evaluate(async (payload) => {
     });
   });
   document.querySelector("[data-act='sceneBuilderBtn']").click();
+  const step = document.querySelector("[data-act='sceneStep'][data-step='4']");
+  if (step) step.click();
   const load = document.querySelector("[data-act='sceneLoad'][data-id='scn_bitter_spring']");
   if (load) load.click();
   if (window.SSDNSSceneBuilder.close) window.SSDNSSceneBuilder.close();
+  const drop = document.querySelector("[data-act='sceneLeaveDrop']");
+  if (drop) drop.click();
   const ids = ["p_ada", "p_bo", "p_cal"].map((uid, i) => window.map.addPlayerTokenFor(uid, { name: ["Ada", "Bo", "Cal"][i], quiet: true }).id);
   function pile(sceneId) {
     ids.forEach((id, i) => {
@@ -263,4 +274,4 @@ await page.evaluate(() => {
 await show(UP, [22, 15, 0.55, "upstairs-after.png"]);
 await page.close();
 setTimeout(() => process.exit(failures.length ? 1 : 0), 200);
-console.log(failures.length ? "floor landing failed" : "floor landing 0.3.324 ok");
+console.log(failures.length ? "floor landing failed" : "floor landing 0.3.325 ok");
