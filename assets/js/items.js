@@ -101,7 +101,7 @@
   }
 
   function storePriceOf(id) {
-    var row = storeById[String(id || "")];
+    var row = storeById[canonicalId(id)] || storeById[String(id || "")];
     if (!row || row.price_es == null || row.price_es === "") return null;
     var n = Number(row.price_es);
     return isFinite(n) ? n : null;
@@ -110,7 +110,9 @@
   function setStore(list) {
     storeById = {};
     (Array.isArray(list) ? list : []).forEach(function (row) {
-      if (row && row.id) storeById[row.id] = row;
+      if (!row || !row.id) return;
+      storeById[row.id] = row;
+      if (row.alias) storeById[String(row.alias)] = row;
     });
     paintSheet();
     paintDm();
@@ -267,9 +269,15 @@
   }
   var TYPE_FIELDS = ["itemKind", "ui", "armorId", "ammo", "contents", "meals", "water", "capacity", "dirty", "img", "soulBound"];
 
-  function byId(id) {
+  /* Older sheets and loot rows still say assay-tonic-trail-draught. */
+  var ID_ALIAS = { "assay-tonic-trail-draught": "healing-libation" };
+  function canonicalId(id) {
     var key = String(id || "");
-    var custom = room.catalog && room.catalog[key];
+    return ID_ALIAS[key] || key;
+  }
+  function byId(id) {
+    var key = canonicalId(id);
+    var custom = room.catalog && (room.catalog[key] || room.catalog[String(id || "")]);
     if (custom) return normalize(custom);
     var list = seeds();
     for (var i = 0; i < list.length; i++) if (list[i] && list[i].id === key) return normalize(list[i]);

@@ -964,7 +964,7 @@
                   {
                     "name": "Healing Libation",
                     "qty": 1,
-                    "catalogId": "assay-tonic-trail-draught"
+                    "catalogId": "healing-libation"
                   },
                   {
                     "name": "Glowing Letter: Cure Wounds",

@@ -41,10 +41,10 @@ check("schema.valid", seeds.every((row) => Items.valid(Items.normalize(row))));
 const seen = {};
 seeds.forEach((row) => { seen[row.effect.kind] = true; });
 check("schema.kinds", KINDS.every((kind) => seen[kind]), JSON.stringify(Object.keys(seen)));
-check("schema.stable", ids.indexOf("assay-tonic-trail-draught") >= 0 && ids.indexOf("dynamite-stick-standard-fuse") >= 0 && ids.indexOf("cutlass") < 0 && ids.indexOf("cutlass-of-the-suns-fury") >= 0);
+check("schema.stable", ids.indexOf("healing-libation") >= 0 && ids.indexOf("dynamite-stick-standard-fuse") >= 0 && ids.indexOf("cutlass") < 0 && ids.indexOf("cutlass-of-the-suns-fury") >= 0);
 
 const STABLE = [
-  "assay-tonic-trail-draught",
+  "healing-libation",
   "snakebite-antivenin-antitoxin",
   "blessed-water-saint-s-wash",
   "field-medic-kit",
@@ -63,6 +63,7 @@ const STABLE = [
   "gun-cleaning-kit"
 ];
 check("schema.oldIds", STABLE.every((id) => ids.indexOf(id) >= 0));
+check("schema.libationAlias", Items.byId("assay-tonic-trail-draught").id === "healing-libation" && Items.byId("healing-libation").name === "Healing Libation");
 
 function zero() { return 0; }
 function face(n) { return (n - 1) / 20; }

@@ -4,6 +4,7 @@ The files live on the site next to the sheet:
 
 - Pack: https://vaderkid008.github.io/ssdns-character-sheet/showcase/bitter-spring-relay/bitter-spring-relay.ssdns-pack.json
 - Pregens: https://vaderkid008.github.io/ssdns-character-sheet/showcase/bitter-spring-relay/pregens/
+- Run sheet: https://vaderkid008.github.io/ssdns-character-sheet/showcase/bitter-spring-relay/RUN-SHEET.md
 
 ## DM
 

@@ -113,7 +113,7 @@ check(!read("assets/data/rules.js").includes("Assayer's lead tin"), "lead tin cu
 check(!item("assayer-s-lead-tin"), "lead tin cut from the store");
 check(item("assay-glass-magnifying-glass").name === "Ore glass (magnifying glass)", "store ore glass id stable");
 check(item("assay-scale").name === "Ore scale", "store ore scale id stable");
-check(item("assay-tonic-trail-draught").name === "Healing Libation", "store libation id stable");
+check(item("healing-libation").name === "Healing Libation", "store libation id");
 check(item("forgery-kit-assay-forgeries").name === "Forgery kit (ore forgeries)", "store forgery id stable");
 check(!read("assets/data/rules.js").includes("Trail Cant") && !read("assets/data/refcards.js").includes("Gambler Cant"), "old cant names stay gone");
 check(read("assets/data/refcards.js").includes("Pathfinder's Code") && read("assets/data/refcards.js").includes("Card Sharp's Tells"), "renames already in refcards");

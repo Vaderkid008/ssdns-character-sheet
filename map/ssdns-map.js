@@ -8559,6 +8559,12 @@ function dropCarriedItem(itemId) {
   toast((item.name || "Item") + " is on the map");
   return token;
 }
+function forceOpenLabel(sheet) {
+  const Loot = window.SSDNSLoot;
+  const who = sheet || playerCharacter() || {};
+  const mod = Loot && Loot.checkMod ? Number(Loot.checkMod(who, "force")) || 0 : 0;
+  return "Force open " + (mod >= 0 ? "+" : "") + mod;
+}
 function sheetHasTools() {
   const Loot = window.SSDNSLoot;
   const sheet = playerCharacter() || {};
@@ -8583,7 +8589,7 @@ function chestMenuHtml(box) {
     else if (!tools) parts.push('<button type="button" data-chest="pick" disabled>Pick lock</button><p class="ssm-note">Needs thieves\' tools</p>');
     else parts.push('<button type="button" data-chest="pick">Pick lock</button>');
     if (forced && !box.lock.allowRetries && !forced.success) parts.push('<p>It holds</p>');
-    else parts.push('<button type="button" data-chest="force">Force open</button>');
+    else parts.push('<button type="button" data-chest="force">' + forceOpenLabel() + '</button>');
   }
   parts.push('<button type="button" data-chest="loot"' + (locked ? ' disabled' : '') + '>Loot</button>');
   const prop = (state.tokens || []).find(t => t && box && (t.lootBoxId === box.id || (t.loot && t.loot.id === box.id)));
@@ -9008,7 +9014,8 @@ function showDoorMenu(wall) {
     : "";
   const actions = (pack.actions || []).map(o => {
     if (o.disabled) return '<button type="button" data-door="' + o.id + '" disabled>' + o.label + "</button>" + (o.note ? '<p class="ssm-note">' + o.note + "</p>" : "");
-    return '<button type="button" data-door="' + o.id + '">' + o.label + "</button> ";
+    const label = o.id === "force" && o.label === "Force open" ? forceOpenLabel(playerCharacter() || playerSheet()) : o.label;
+    return '<button type="button" data-door="' + o.id + '">' + label + "</button> ";
   }).join("");
   replaceMenuHtml(menu, floatBar("Door") + '<div class="ssm-card-body"><p><b>Door</b>' + lockNote + "</p>" +
     dcField +

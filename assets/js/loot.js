@@ -224,7 +224,7 @@
     if (LETTERS[id]) return LETTERS[id];
     if (id === "black-shard-junk") return "Black shard (drained)";
     if (id === "strongbox-key") return "Strongbox Key";
-    if (id === "assay-tonic-trail-draught") return "Healing Libation";
+    if (id === "healing-libation" || id === "assay-tonic-trail-draught") return "Healing Libation";
     try {
       var row = root.SSDNSItems && root.SSDNSItems.byId && root.SSDNSItems.byId(id);
       if (row && row.name) return row.name;
@@ -565,7 +565,15 @@
     if (mark != null && mark !== "" && isFinite(Number(mark))) return Math.max(0, Number(mark));
     return athleticsProficient(sheet) ? 1 : 0;
   }
+  /* Rank times proficiency when skillProf is on the sheet. A DM snapshot from
+     before skillProf was copied stores skills.Athletics as the whole check
+     (Strength plus the rank). Subtract Strength so that copy is not added twice. */
   function athleticsBonus(sheet) {
+    sheet = sheet || {};
+    var mark = sheet.skillProf && sheet.skillProf.Athletics;
+    if (mark != null && mark !== "" && isFinite(Number(mark))) return Math.max(0, Number(mark)) * proficiencyBonus(sheet);
+    var skills = sheet.skills;
+    if (skills && isFinite(Number(skills.Athletics))) return Number(skills.Athletics) - abilityModFrom(sheet, "STR");
     return athleticsRank(sheet) * proficiencyBonus(sheet);
   }
   /* Strength (Athletics). Proficiency only when Athletics is proficient. One try unless retries are on. */

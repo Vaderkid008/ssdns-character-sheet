@@ -258,6 +258,13 @@
       shards: Bridge ? Bridge.cleanShards(d.shards) : d.shards,
       abilities: c.abilities || {},
       mods: v.mods || {},
+      /* Force and other checks read skillProf ranks. The skills map above is the
+         finished bonus, which is not a rank. Both travel so a snapshot can roll. */
+      skillProf: (function () {
+        var out = {};
+        Object.keys(c.skillProf || {}).forEach(function (k) { out[k] = c.skillProf[k]; });
+        return out;
+      })(),
       skills: skills,
       saves: saves,
       equipment: c.equipment || "",

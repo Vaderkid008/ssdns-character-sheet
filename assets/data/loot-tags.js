@@ -16,6 +16,7 @@
   var quest = ["bounty-warrant", "claim-deed", "strongbox-key", "black-shard"];
   var letters = ["glowing-letter", "glowing-letter-cure-wounds", "glowing-letter-shield", "glowing-letter-fireball", "glowing-letter-revivify"];
   var tags = {
+    "healing-libation": { rarity: "common", lootable: true, stack: true },
     "assay-tonic-trail-draught": { rarity: "common", lootable: true, stack: true },
     "greater-healing-libation": { rarity: "uncommon", lootable: true, stack: true },
     "snakebite-antivenin-antitoxin": { rarity: "uncommon", lootable: true, stack: true },
