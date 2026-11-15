@@ -24,7 +24,7 @@ The files live on the site next to the sheet:
 ## What to test
 
 - Two floors, 32 by 26. Party spawns on A2–B4. The other group is on C25–D26.
-- Three two-way links, hidden from the players: inside stairs O23 to O18, outside stairs X20 to X13, barn ladder AE14 to AE14.
+- Example links, all two-way. The inside stairs (O23 to O18, "Stairs up to Upstairs") are visible and players can use them, so standing on the foot asks Go or Stay. The barn ladder (AE14) and the hay door (yard AD9 to loft AD13) are the same. The outside stairs (X20 to X13) stay hidden: the DM sees the marker, players do not get a prompt.
 - Stage Strongbox (S16) is pick 15 / Force 25 and opens with the Strongbox Key from the Agent's Chest (U14, pick 13 / Force 15).
 - Passenger Trunk (Q22) is unlocked. Crew's Saddle Chest (AF20) starts hidden, pick 14 / Force 15.
 - Six foes. Three start hidden. None of the names on the map is a bestiary name.

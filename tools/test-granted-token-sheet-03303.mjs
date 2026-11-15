@@ -1,7 +1,7 @@
 /**
  * A granted token brings its stat block to the player card.
  * The character sheet stays the character sheet. Revoke takes the extra away.
- * Sheet 0.3.325 / DMCC 0.2.338.
+ * Sheet 0.3.326 / DMCC 0.2.339.
  *   node tools/test-granted-token-sheet-03303.mjs
  */
 import fs from "node:fs";
@@ -17,7 +17,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.325" && ver.dmcc === "0.2.338" && ver.sheetBuild === "sheet-playtest-v03325" && ver.dmccBuild === "dmcc-playtest-v02338");
+check("ver", ver.sheet === "0.3.326" && ver.dmcc === "0.2.339" && ver.sheetBuild === "sheet-playtest-v03326" && ver.dmccBuild === "dmcc-playtest-v02339");
 check("rules.clean", !read("assets/data/rules.js").includes("grant_sheet") && !read("database.rules.json").includes("grant_sheet"));
 
 function makeWindow() {
@@ -226,4 +226,4 @@ if (failures.length) {
   failures.forEach((f) => console.log(" - " + f));
   process.exit(1);
 }
-console.log("granted token sheet 0.3.325 ok");
+console.log("granted token sheet 0.3.326 ok");

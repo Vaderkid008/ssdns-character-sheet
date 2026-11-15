@@ -192,9 +192,12 @@ Door keys are flavor only (there's no catalog item). When a PC uses one, the DM 
 - **Passenger room** P19–V23 (captives, C3 at Q22, locked door R18/R19)
 - **Hayloft (dim, +10 ft)** Y13–AF21. West door Y13 (onto the gallery's east end, X13). Hay door AD13. Hatch AE14. **C4 hidden at AF20.**
 
-**Links between floors** (the DM moves tokens; players don't walk links yet)
-- **L1** inside stairs, O23 to O18 · **L2** outside stairs, X20 to X13 · **L3** ladder, AE14 to AE14
-- Each costs 20 ft. The ladder alone can be done in 10 ft with Athletics DC 10.
+**Links between floors**
+- **L1** inside stairs, O23 to O18, named "Stairs up to Upstairs". Players can use it. Standing on the foot asks Go or Stay, and Go lands on the open square at the top.
+- **L2** outside stairs, X20 to X13. Hidden from players. This is the DM-only example: the marker is on the DM map, and a player standing there is not asked.
+- **L3** ladder, AE14 to AE14, "Ladder up to the hayloft". Players can use it.
+- **Hay door**, yard AD9 to loft AD13, "Hay door up to the loft". Players can use it. The landing is open dirt, not the hay heap.
+- Each move costs 20 ft. The ladder alone can be done in 10 ft with Athletics DC 10.
 
 ---
 
