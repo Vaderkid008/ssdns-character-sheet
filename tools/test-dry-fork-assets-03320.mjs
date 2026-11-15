@@ -1,5 +1,5 @@
 /**
- * Dry Fork props are Asset Library tokens (sheet 0.3.320 / DMCC 0.2.333).
+ * Dry Fork props are Asset Library tokens (sheet 0.3.323 / DMCC 0.2.336).
  *   node tools/test-dry-fork-assets-03320.mjs
  * Loads the built-in scene and both encounter packs. Each prop asset id
  * and origin square appears once. No rules.js edits. No Firebase writes.
@@ -19,8 +19,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.320" && version.sheetBuild === "sheet-playtest-v03320", JSON.stringify(version));
-check("ver.dmcc", version.dmcc === "0.2.333" && version.dmccBuild === "dmcc-playtest-v02333");
+check("ver.sheet", version.sheet === "0.3.323" && version.sheetBuild === "sheet-playtest-v03323", JSON.stringify(version));
+check("ver.dmcc", version.dmcc === "0.2.336" && version.dmccBuild === "dmcc-playtest-v02336");
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js database.rules.json", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
@@ -86,7 +86,21 @@ check("no.creatures", !tokens.some((t) => t && (t.kind === "enemy" || t.kind ===
 const board = tokens.find((t) => t.id === "df_order_board");
 check("board.red", board && board.asset.state.on === false && board.asset.props.toggle.labelOn === "Flip to GREEN" && board.asset.props.toggle.labelOff === "Flip to RED");
 const gate = tokens.find((t) => t.id === "df_gate");
-check("gate.moveOnly", gate && gate.asset.props.gate.blocksMove === true && gate.asset.props.gate.blocksSight === false && gate.asset.state.open === false);
+check("gate.moveOnly", gate && gate.asset.props.gate.blocksMove === true && gate.asset.props.gate.blocksSight === false && gate.asset.state.open === false && gate.span && gate.span.w === 1 && gate.span.h === 2);
+const SPANS = { df_baggage: [2, 1], df_coal: [3, 2], df_trough_road: [1, 2], df_trough_corral: [1, 2] };
+Object.keys(SPANS).forEach((id) => {
+  const t = tokens.find((x) => x.id === id);
+  check("span." + id, !!(t && t.span && t.span.w === SPANS[id][0] && t.span.h === SPANS[id][1]), JSON.stringify(t && t.span));
+});
+check("pack.spans", defs["ast_fence-gate"].span.w === 1 && defs["ast_fence-gate"].span.h === 2
+  && defs["ast_hitching-rail"].span.w === 2 && defs["ast_hitching-rail"].span.h === 1
+  && defs["ast_baggage-cart"].span.w === 2 && defs["ast_baggage-cart"].span.h === 1
+  && defs["ast_coal-bin"].span.w === 3 && defs["ast_coal-bin"].span.h === 2
+  && defs["ast_water-trough"].span.w === 1 && defs["ast_water-trough"].span.h === 2);
+check("webp.only", fs.readdirSync(path.join(root, "assets/map-props")).every((name) => name.endsWith(".webp")));
+const fire = tokens.find((t) => t.id === "df_campfire");
+check("campfire.warm", !!(fire && fire.asset.state.lit && fire.lights[0] && fire.lights[0].bright === 20 && fire.lights[0].dim === 20 && fire.lights[0].color === "#ff8c3a"));
+check("cutout.paint", read("map/ssdns-map.js").includes("function paintAssetCutout") && read("map/ssdns-map.js").includes("function haloRgb"));
 ["df_lantern_ah6", "df_lantern_k12", "df_lantern_ad12", "df_campfire"].forEach((id) => {
   const t = tokens.find((x) => x.id === id);
   const light = t && t.lights && t.lights[0];
@@ -173,10 +187,24 @@ await page.locator("#mount canvas").first().screenshot({ path: path.join(OUT, "d
 await page.evaluate(() => { window.map.lookAt(4.5, 10, 1.15); });
 await page.waitForTimeout(200);
 await page.locator("#mount canvas").first().screenshot({ path: path.join(OUT, "dm-powder-labels.png"), timeout: 20000 });
-await browser.close();
+await page.evaluate(() => { window.map.lookAt(31.5, 18, 1.45); });
+await page.waitForTimeout(250);
+await page.locator("#mount canvas").first().screenshot({ path: path.join(OUT, "dm-gate.png"), timeout: 20000 });
+await page.evaluate(() => { window.map.lookAt(6.5, 11, 1.25); });
+await page.waitForTimeout(200);
+await page.locator("#mount canvas").first().screenshot({ path: path.join(OUT, "dm-coal.png"), timeout: 20000 });
+await page.evaluate(() => {
+  const amb = document.querySelector("[data-act='ambientSel']");
+  if (amb) { amb.value = "dim"; amb.dispatchEvent(new Event("change", { bubbles: true })); }
+  window.map.lookAt(29.5, 22.5, 1.45);
+});
+await page.waitForTimeout(300);
+await page.locator("#mount canvas").first().screenshot({ path: path.join(OUT, "dm-campfire.png"), timeout: 20000 });
+await page.close();
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");
   process.exit(1);
 }
-console.log("dry fork assets 0.3.320 ok");
+console.log("dry fork assets 0.3.323 ok");
+setTimeout(() => process.exit(0), 200);

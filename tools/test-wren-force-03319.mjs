@@ -2,7 +2,7 @@
  * Wren Stonecrow's Force open is Strength +3 plus proficiency +2.
  * The loaded pregen is the sheet the check uses. Healing Libation keeps its name
  * and answers to the old assay id.
- * Sheet 0.3.322 / DMCC 0.2.335.
+ * Sheet 0.3.323 / DMCC 0.2.336.
  *   node tools/test-wren-force-03319.mjs
  */
 import fs from "node:fs";
@@ -18,7 +18,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.322" && ver.dmcc === "0.2.335" && ver.sheetBuild === "sheet-playtest-v03322" && ver.dmccBuild === "dmcc-playtest-v02335");
+check("ver", ver.sheet === "0.3.323" && ver.dmcc === "0.2.336" && ver.sheetBuild === "sheet-playtest-v03323" && ver.dmccBuild === "dmcc-playtest-v02336");
 check("rules.clean", !read("assets/data/rules.js").includes("healing-libation") && !read("database.rules.json").includes("skillProf"));
 const pack = JSON.parse(read("showcase/bitter-spring-relay/bitter-spring-relay.ssdns-pack.json"));
 const packed = JSON.stringify(pack);
@@ -87,4 +87,4 @@ if (failures.length) {
   console.error("\n" + failures.length + " failed");
   process.exit(1);
 }
-console.log("\nwren force 0.3.322 ok");
+console.log("\nwren force 0.3.323 ok");

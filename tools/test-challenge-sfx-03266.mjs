@@ -1,5 +1,5 @@
 /**
- * Challenge sound pack timings (sheet 0.3.322 / DMCC 0.2.335).
+ * Challenge sound pack timings (sheet 0.3.323 / DMCC 0.2.336).
  * Gold path only. Ordinary rolls stay quiet of these cues.
  *   node tools/test-challenge-sfx-03266.mjs
  */
@@ -19,8 +19,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.322" && ver.dmcc === "0.2.335");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.322"));
+check("ver", ver.sheet === "0.3.323" && ver.dmcc === "0.2.336");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.323"));
 
 const fire = fs.readFileSync(path.join(root, "assets/sfx/challenge-roll-fireball.mp3"));
 const fast = fs.readFileSync(path.join(root, "assets/sfx/challenge-roll-fast.mp3"));

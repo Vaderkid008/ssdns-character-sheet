@@ -1,5 +1,5 @@
 /**
- * Phase 2 dust/grit remainder (sheet 0.3.322 / DMCC 0.2.335).
+ * Phase 2 dust/grit remainder (sheet 0.3.323 / DMCC 0.2.336).
  * Banishing Smite and Staggering Smite leave the generic traveling dot.
  * Produce Flame ash, wall-raise dust, and Entangle grit stay on the existing shapes.
  *   node tools/test-phase2-dust-03255.mjs
@@ -19,8 +19,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.322" && ver.dmcc === "0.2.335" && ver.sheetBuild === "sheet-playtest-v03322" && ver.dmccBuild === "dmcc-playtest-v02335");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.322") && !read("database.rules.json").includes("0.3.322"));
+check("ver", ver.sheet === "0.3.323" && ver.dmcc === "0.2.336" && ver.sheetBuild === "sheet-playtest-v03323" && ver.dmccBuild === "dmcc-playtest-v02336");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.323") && !read("database.rules.json").includes("0.3.323"));
 check("bestiary.kept", read("dm/assets/js/v2.js").includes("bestiary.json?v=0.2.249-spell-tokens"));
 check("fullscreen.guard", read("map/ssdns-map.js").includes("A 0×0 read during fullscreen must not replace it."));
 
