@@ -218,7 +218,7 @@ const pub = store.pub["map/public/tokens/" + jolene.id];
 const pubVal = pub && (pub.value || pub);
 check("go.public", pubVal && pubVal.hp == null && pubVal.sheetId === "ada" && pubVal.concentration === "Bless" && pubVal.sceneId === "scn_upstairs", JSON.stringify(pubVal && { hp: pubVal.hp, sheetId: pubVal.sheetId, concentration: pubVal.concentration, sceneId: pubVal.sceneId }));
 
-const floors = [].slice.call(dmW.document.querySelectorAll("[data-act='sceneFloorPop'] [data-floor]"));
+const floors = [].slice.call(dmW.document.querySelectorAll("[data-act='floorStrip'] [data-floor]"));
 const labels = floors.map((b) => b.textContent.replace(/\s+/g, " ").trim());
 check("floors.stack", labels.some((t) => t.indexOf("▲") === 0 && /Upstairs/.test(t)) && labels.some((t) => t.indexOf("▼") === 0 && /Saloon|Ground|Dusty/.test(t)), labels.join(" | "));
 check("floors.badge", floors.every((b) => b.querySelector("[data-act='floorCount']")) && floors.some((b) => b.classList.contains("is-on")));

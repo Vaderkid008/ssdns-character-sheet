@@ -89,7 +89,7 @@ const dm = boot(dmW, "dm");
 await new Promise((r) => setTimeout(r, 120));
 check("fresh.dm", idle(dmW, "dm") && dm.syncCombatants && !dmW.document.querySelector(".turn-chip"));
 const freshRead = dmW.document.querySelector("[data-act='sceneReadout']");
-check("fresh.map", dm.viewedScene() === "scn_between" && freshRead && freshRead.textContent === "Scene: Six-Shooters & Sorcery — Between Encounters ▾", (dm.viewedScene() || "") + " | " + (freshRead && freshRead.textContent));
+check("fresh.map", dm.viewedScene() === "scn_between" && freshRead && freshRead.textContent === "Scene: Six-Shooters & Sorcery — Between Encounters", (dm.viewedScene() || "") + " | " + (freshRead && freshRead.textContent));
 dm.maps().save({ id: "scn_temp_room", name: "Temp room", src: "temp.webp", grid: { cols: 10, rows: 10, px: 70 } });
 dm.maps().swap("scn_temp_room");
 check("picked.temp", dm.viewedScene() === "scn_temp_room", dm.viewedScene());

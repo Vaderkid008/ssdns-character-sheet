@@ -69,7 +69,9 @@
   padding: 8px 12px; border-radius: 6px;
   display: flex; gap: 8px; align-items: center; font-size: 13px;
   flex-wrap: wrap;
-  overflow: hidden;
+  overflow: visible;
+  height: auto;
+  max-height: none;
 }
 .ssdns-map .ssdns-toolbar .ssm-toolbar-main {
   display: flex;
@@ -77,12 +79,16 @@
   min-width: 0;
   gap: 8px;
   align-items: center;
-  overflow-x: auto;
-  flex-wrap: nowrap;
+  overflow: visible;
+  flex-wrap: wrap;
+  height: auto;
+  max-height: none;
 }
 .ssdns-map .ssdns-toolbar .ssm-toolbar-main > * {
-  flex: 0 0 auto;
-  white-space: nowrap;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
 }
 .ssdns-map .ssdns-toolbar .ssm-toolbar-main button,
 .ssdns-map .ssdns-toolbar .ssm-toolbar-main select {
@@ -97,12 +103,14 @@
 .ssdns-map .ssm-bar-spacer { flex: 1 1 12px; }
 .ssdns-map .ssm-bar-pair { display: inline-flex; gap: 8px; align-items: center; flex: 0 0 auto; }
 .ssdns-map .ssm-scene-readout { position: relative; flex: 0 1 auto; }
-.ssdns-map .ssm-scene-readout > button {
+.ssdns-map .ssdns-toolbar .ssm-scene-readout > button {
   background: #241e18;
   border: 1px solid #5a4e40;
   color: #f0e4cf;
   font-weight: 650;
-  white-space: nowrap;
+  white-space: normal;
+  max-width: 100%;
+  text-align: left;
 }
 .ssdns-map .ssm-floor-pop {
   position: absolute;
@@ -131,9 +139,10 @@
 }
 .ssdns-map .ssm-maps-cluster { position: relative; flex: 0 0 auto; }
 @media (max-width: 720px) {
-  .ssdns-map .ssdns-toolbar .ssm-toolbar-main { flex-wrap: wrap; overflow-x: visible; }
-  .ssdns-map .ssm-scene-readout,
-  .ssdns-map .ssm-bar-right { flex: 1 0 100%; }
+  .ssdns-map .ssdns-toolbar .ssm-toolbar-main { flex-wrap: wrap; overflow: visible; }
+  .ssdns-map .ssdns-toolbar .ssm-toolbar-main > .ssm-bar-left,
+  .ssdns-map .ssm-bar-left > .ssm-scene-readout,
+  .ssdns-map .ssdns-toolbar .ssm-toolbar-main > .ssm-bar-right { flex: 1 0 100%; max-width: 100%; }
   .ssdns-map .ssm-bar-spacer { display: none; }
   .ssdns-map .ssm-bar-pair { flex: 0 0 auto; }
 }
@@ -157,29 +166,44 @@
 .ssdns-map .ssm-maps-menu[hidden] { display: none; }
 .ssdns-map .ssm-floor-row {
   position: static;
-  flex: 1 0 100%;
-  order: 5;
+  flex: 0 1 auto;
+  order: 0;
   z-index: 3;
   min-width: 0;
   max-width: 100%;
+  height: auto;
+  max-height: none;
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  overflow: visible;
+}
+.ssdns-map .ssdns-toolbar .ssm-toolbar-main > .ssm-floor-row {
+  flex: 0 1 auto;
+  white-space: normal;
+  max-width: 100%;
+  overflow: visible;
+  height: auto;
+  max-height: none;
 }
 .ssdns-map .ssm-floor-strip {
   position: static;
   grid-area: auto;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   order: 0;
   z-index: 2;
   min-width: 0;
   max-width: 100%;
+  height: auto;
+  max-height: none;
   margin: 0;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  flex-wrap: nowrap;
-  gap: 4px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
   overflow: visible;
   pointer-events: auto;
   font-size: 12px;
@@ -1949,8 +1973,8 @@ body.map-fullscreen #mapMount .ssm-turnstrip {
   .ssdns-chathead, .ssm-tools, .ssdns-leftbar, .ssdns-rightbar {
     flex-wrap: wrap;
   }
-  .ssdns-map .ssdns-toolbar { flex-wrap: wrap; overflow: hidden; }
-  .ssdns-map .ssdns-toolbar .ssm-toolbar-main { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .ssdns-map .ssdns-toolbar { flex-wrap: wrap; overflow: visible; height: auto; max-height: none; }
+  .ssdns-map .ssdns-toolbar .ssm-toolbar-main { overflow: visible; flex-wrap: wrap; height: auto; max-height: none; }
   .ssdns-map button, .ssdns-chathead button, .name-mode button, .ssdns-chat-overlay-bar button, .ssdns-chat-overlay-form button, .ssm-turnstrip .btn,
   .ssdns-chat-filters button, .ssm-chat-tab, body.ssdns-chat-pop button {
     min-height: 40px;
@@ -2172,7 +2196,9 @@ body.map-fullscreen #mapMount > canvas.ssm-fx {
   min-width: 0;
   display: flex;
   align-items: center;
-  overflow: hidden;
+  overflow: visible;
+  height: auto;
+  max-height: none;
   border-top: 1px solid #2a241c;
   padding-top: 4px;
 }
@@ -2187,7 +2213,9 @@ body.map-fullscreen #mapMount > canvas.ssm-fx {
   border: 0;
   box-shadow: none;
   border-radius: 0;
-  overflow: hidden;
+  overflow: visible;
+  height: auto;
+  max-height: none;
   flex-wrap: wrap;
 }
 .ssm-turnstrip .ssm-strip-tools .ssdns-toolbar button,
