@@ -687,18 +687,77 @@ toolbarMain.className = 'ssm-toolbar-main';
 const moveTools = toolbar.querySelector('[data-act="moveTools"]');
 while (toolbar.firstChild && toolbar.firstChild !== moveTools) toolbarMain.appendChild(toolbar.firstChild);
 toolbar.insertBefore(toolbarMain, toolbar.firstChild);
-if (role === 'dm') {
+{
+  const row = document.createElement('div');
+  row.className = 'ssm-floor-row ssm-map-ui';
+  row.setAttribute('data-act', 'floorRow');
+  if (role === 'dm') {
+    const scenes = document.createElement('div');
+    scenes.className = 'ssm-scenes-menu';
+    scenes.setAttribute('data-act', 'scenesMenu');
+    scenes.innerHTML = '<button type="button" data-act="scenesBtn" aria-expanded="false" aria-haspopup="true" title="Saved scenes">Scenes ▾</button>'
+      + '<div class="ssm-scenes-pop" data-act="scenesPop" hidden>'
+      + '<button type="button" data-act="scenesOpenBuilder">Open Scene builder</button>'
+      + '<div data-act="scenesList"></div>'
+      + '<p class="ssm-scenes-confirm" data-act="scenesConfirm" hidden></p>'
+      + '</div>';
+    row.appendChild(scenes);
+  }
   const strip = document.createElement('div');
-  strip.className = 'ssm-floor-strip ssm-map-ui';
+  strip.className = 'ssm-floor-strip';
   strip.setAttribute('data-act', 'floorStrip');
-  strip.addEventListener('click', (e) => {
+  row.appendChild(strip);
+  row.addEventListener('click', (e) => {
+    const actEl = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
+    const act = actEl && actEl.getAttribute('data-act');
+    if (act === 'scenesBtn') {
+      e.stopPropagation();
+      const pop = q('scenesPop');
+      const opening = !!(pop && pop.hidden);
+      hideScenesMenu();
+      if (opening && pop) {
+        renderScenesMenu();
+        pop.hidden = false;
+        placeScenesMenu();
+        const btn = q('scenesBtn');
+        if (btn) btn.setAttribute('aria-expanded', 'true');
+      }
+      return;
+    }
+    if (act === 'scenesOpenBuilder') {
+      e.stopPropagation();
+      hideScenesMenu();
+      openSceneBuilder();
+      return;
+    }
+    if (act === 'scenesLoad') {
+      e.stopPropagation();
+      askLoadScene(actEl.getAttribute('data-scene'));
+      return;
+    }
+    if (act === 'scenesLoadYes') {
+      e.stopPropagation();
+      const pending = state.sceneLoadId;
+      state.sceneLoadId = '';
+      hideScenesMenu();
+      const scene = savedScenes().filter(s => s && s.id === pending)[0];
+      if (scene) adoptSavedScene(scene);
+      return;
+    }
+    if (act === 'scenesLoadNo') {
+      e.stopPropagation();
+      state.sceneLoadId = '';
+      const ask = q('scenesConfirm');
+      if (ask) ask.hidden = true;
+      return;
+    }
     const btn = e.target && e.target.closest ? e.target.closest('[data-floor]') : null;
     if (!btn) return;
     e.stopPropagation();
     const id = btn.getAttribute('data-floor');
-    if (id) swapScene(id);
+    if (id) switchFloor(id);
   });
-  toolbar.appendChild(strip);
+  toolbar.appendChild(row);
 }
 if (window.SSDNSDice && window.SSDNSDice.mount) {
   const diceBar = document.createElement('div');
@@ -725,6 +784,22 @@ function typingInField(target) {
 }
 on(document, 'keydown', e => {
   if (typingInField(e.target) && e.key !== 'Escape') return;
+  if (role === 'dm' && (e.key === 'PageUp' || e.key === 'PageDown')) {
+    e.preventDefault();
+    if (e.stopPropagation) e.stopPropagation();
+    stepFloor(e.key === 'PageUp' ? -1 : 1);
+    return;
+  }
+  if (e.key === 'Escape' && el.querySelector('[data-act="linkPrompt"]')) {
+    e.preventDefault();
+    stayLink();
+    return;
+  }
+  if (e.key === 'Escape' && q('scenesPop') && !q('scenesPop').hidden) {
+    e.preventDefault();
+    hideScenesMenu();
+    return;
+  }
   if (e.key === 'Escape' && state.reposition) {
     const tag = e.target && e.target.tagName;
     if (tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'TEXTAREA') {
@@ -7153,6 +7228,7 @@ function closeMapMenus(keep) {
     if (panel && !panel.hidden && typeof toggleBestiary === "function") toggleBestiary(false);
   }
   if (keep !== "link") hideLinkMenu();
+  if (keep !== "scenes") hideScenesMenu();
   if (keep !== "scene" && keep !== "link" && keep !== "cmd" && keep !== "dm" && keep !== "chest" && window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.isOpen && window.SSDNSSceneBuilder.isOpen()) {
     window.SSDNSSceneBuilder.close();
   }
@@ -10380,7 +10456,16 @@ function onControlledTurn(token) {
 function tokenWho(t) {
   return (t && (t.name || t.label)) || "A player";
 }
-/* Squares already taken on this floor. Party markers and the tokens we are about to move do not count. */
+function floorGrid(sceneId) {
+  const sc = allScenes().find(s => s && s.id === sceneId);
+  return (sc && sc.grid) || { cols: 30, rows: 20 };
+}
+function floorCentre(grid) {
+  return {
+    x: Math.floor((Number(grid.cols) || 30) / 2),
+    y: Math.floor((Number(grid.rows) || 20) / 2)
+  };
+}
 function floorTaken(sceneId, ignoreIds) {
   const used = {};
   const skip = ignoreIds || {};
@@ -10397,13 +10482,18 @@ function floorTaken(sceneId, ignoreIds) {
 function nearestOpenSquare(origin, grid, used) {
   const cols = Math.max(1, Number(grid.cols) || 30);
   const rows = Math.max(1, Number(grid.rows) || 20);
+  const centre = floorCentre(grid);
   const ox = Math.max(0, Math.min(cols - 1, Math.round(Number(origin.x) || 0)));
   const oy = Math.max(0, Math.min(rows - 1, Math.round(Number(origin.y) || 0)));
   let best = null;
   let bestD = 1e9;
+  let fallback = null;
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       if (used[x + "," + y]) continue;
+      const centreSquare = x === centre.x && y === centre.y;
+      if (!fallback) fallback = { x: x, y: y };
+      if (centreSquare) continue;
       const d = Math.max(Math.abs(x - ox), Math.abs(y - oy));
       if (d < bestD || (d === bestD && best && (y < best.y || (y === best.y && x < best.x)))) {
         bestD = d;
@@ -10411,12 +10501,21 @@ function nearestOpenSquare(origin, grid, used) {
       }
     }
   }
-  return best || { x: ox, y: oy };
+  return best || fallback || { x: ox, y: oy };
 }
-/* Set floor, Send to, and Move party here share this order:
-   link landing, default spawn group, other scene spawns, then a square near the map entry.
-   The map centre is not an entry. Two people never take the same square. */
-function floorLandingSpots(sceneId) {
+/* A link this token is standing on, whose other end is the floor we are moving to. */
+function linkUnderFeet(token, destId) {
+  if (!token || !token.pos) return null;
+  const mapId = sceneKey(token);
+  const size = token.size || 1;
+  return liveLinks().find(link => {
+    if (!link || link.mapId !== mapId || link.destMapId !== destId) return false;
+    if (link.landX == null || link.landY == null) return false;
+    return link.x >= token.pos.x && link.x < token.pos.x + size && link.y >= token.pos.y && link.y < token.pos.y + size;
+  }) || null;
+}
+/* Default spawn group (or the group the DM picked), then scene spawns, then a landing from the other floor. */
+function floorArrivalSpots(sceneId, groupId) {
   const spots = [];
   const seen = {};
   function add(x, y) {
@@ -10428,47 +10527,59 @@ function floorLandingSpots(sceneId) {
     seen[key] = 1;
     spots.push({ x: x, y: y });
   }
+  const groups = (shared.sceneSpawns && shared.sceneSpawns[sceneId] && shared.sceneSpawns[sceneId].groups) || [];
+  const chosen = groupId ? groups.filter(g => g && g.id === groupId)[0] : null;
+  const preferred = chosen || groups.filter(g => g && g.isDefault)[0] || null;
+  const group = preferred && (preferred.spots || []).length ? preferred : null;
+  if (group) {
+    (group.spots || []).slice().sort((a, b) => (a.n || 0) - (b.n || 0)).forEach(sp => add(sp.x, sp.y));
+    return spots;
+  }
+  const sd = sceneData(sceneId);
+  const party = Array.isArray(sd.spawns) ? sd.spawns.filter(s => s && s.pos && (s.side === "party" || /^P/i.test(String(s.tag || "")))) : [];
+  if (party.length) {
+    party.forEach(s => add(s.pos.x, s.pos.y));
+    return spots;
+  }
   liveLinks().forEach(link => {
     if (!link || link.destMapId !== sceneId || link.mapId === sceneId) return;
     if (link.landX == null || link.landY == null) return;
     add(link.landX, link.landY);
   });
-  const groups = (shared.sceneSpawns && shared.sceneSpawns[sceneId] && shared.sceneSpawns[sceneId].groups) || [];
-  const preferred = groups.filter(g => g && g.isDefault)[0] || groups[0] || null;
-  ((preferred && preferred.spots) || []).slice().sort((a, b) => (a.n || 0) - (b.n || 0)).forEach(sp => add(sp.x, sp.y));
-  groups.forEach(g => {
-    if (!g || (preferred && g.id === preferred.id)) return;
-    (g.spots || []).slice().sort((a, b) => (a.n || 0) - (b.n || 0)).forEach(sp => add(sp.x, sp.y));
-  });
-  const sd = sceneData(sceneId);
-  const party = Array.isArray(sd.spawns) ? sd.spawns.filter(s => s && s.pos && (s.side === "party" || /^P/i.test(String(s.tag || "")))) : [];
-  party.forEach(s => add(s.pos.x, s.pos.y));
   return spots;
 }
-function floorLandingPlan(sceneId, count, ignoreIds) {
-  const sc = allScenes().find(s => s && s.id === sceneId);
-  const grid = (sc && sc.grid) || { cols: 30, rows: 20 };
-  const used = floorTaken(sceneId, ignoreIds);
-  const spots = floorLandingSpots(sceneId);
-  const entry = spots.length ? spots[0] : { x: 1, y: 1 };
+/* One square per token. Standing on a link uses that landing. Otherwise the arrival list.
+   Extras take the nearest open square to the entry, never the dead centre, and never a shared square. */
+function floorLandingPlan(sceneId, tokens, groupId) {
+  const grid = floorGrid(sceneId);
+  const ignore = {};
+  (tokens || []).forEach(t => { if (t && t.id) ignore[t.id] = 1; });
+  const used = floorTaken(sceneId, ignore);
+  const pool = floorArrivalSpots(sceneId, groupId);
+  const entry = pool.length ? pool[0] : { x: 1, y: 1 };
   const plan = [];
-  const n = Math.max(0, Number(count) || 0);
-  for (let i = 0; i < n; i++) {
+  (tokens || []).forEach(token => {
+    const stood = linkUnderFeet(token, sceneId);
     let cell = null;
-    for (let s = 0; s < spots.length; s++) {
-      if (used[spots[s].x + "," + spots[s].y]) continue;
-      cell = { x: spots[s].x, y: spots[s].y };
-      break;
+    if (stood) {
+      const key = Math.round(stood.landX) + "," + Math.round(stood.landY);
+      if (!used[key]) cell = { x: Math.round(stood.landX), y: Math.round(stood.landY) };
+      else cell = nearestOpenSquare({ x: stood.landX, y: stood.landY }, grid, used);
+    } else {
+      const spot = pool.find(sp => !used[sp.x + "," + sp.y]);
+      if (spot) cell = { x: spot.x, y: spot.y };
+      else cell = nearestOpenSquare(entry, grid, used);
     }
-    if (!cell) cell = nearestOpenSquare(entry, grid, used);
     used[cell.x + "," + cell.y] = 1;
     plan.push(cell);
-  }
+  });
   return plan;
 }
 function entryCell(sceneId, index) {
   const n = Math.max(0, Number(index) || 0);
-  const plan = floorLandingPlan(sceneId, n + 1, {});
+  const blanks = [];
+  for (let i = 0; i < n + 1; i++) blanks.push({ id: "entry_" + i, pos: null });
+  const plan = floorLandingPlan(sceneId, blanks, "");
   return plan[n] || { x: 1, y: 1 };
 }
 function savePreps() {
@@ -10719,7 +10830,16 @@ function publishShownLinks() {
     if (!link.mapId) return;
     if (!byMap[link.mapId]) byMap[link.mapId] = [];
     if (!link.visible) return;
-    byMap[link.mapId].push({ id: link.id, kind: link.kind, x: link.x, y: link.y });
+    byMap[link.mapId].push({
+      id: link.id,
+      kind: link.kind,
+      x: link.x,
+      y: link.y,
+      destMapId: link.destMapId || link.destFloorId || "",
+      landX: link.landX,
+      landY: link.landY,
+      playersCanUse: link.playersCanUse !== false
+    });
   });
   Object.keys(byMap).forEach(sid => {
     const data = sceneData(sid);
@@ -10736,12 +10856,105 @@ function publishShownLinks() {
     data.shownLinks = [];
     saveScene(sid);
   });
+  publishFloorIndex();
+}
+function publishFloorIndex() {
+  if (role !== "dm") return;
+  const list = [];
+  Object.keys(shared.places || {}).forEach(pid => {
+    const place = shared.places[pid];
+    ((place && place.floors) || []).forEach((floor, i) => {
+      if (!floor || !floor.mapId) return;
+      list.push({
+        mapId: floor.mapId,
+        name: floor.name || floorName(floor.mapId),
+        order: floor.order != null ? floor.order : i,
+        placeId: pid
+      });
+    });
+  });
+  const next = JSON.stringify(list);
+  if (state.floorIndexSig === next) return;
+  state.floorIndexSig = next;
+  write("map/public/floors", { list: list });
+}
+function savedScenes() {
+  const B = window.SSDNSSceneBuilder;
+  if (!B || !B.readLibrary) return [];
+  let lib = { scenes: {} };
+  try { lib = B.readLibrary() || lib; } catch (e) { lib = { scenes: {} }; }
+  return Object.keys(lib.scenes || {}).map(id => lib.scenes[id]).filter(Boolean).sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+}
+function roomHasScene() {
+  return Object.keys(shared.places || {}).some(id => {
+    const place = shared.places[id];
+    return !!(place && (place.floors || []).length);
+  });
+}
+function hideScenesMenu() {
+  const pop = q("scenesPop");
+  if (pop) pop.hidden = true;
+  const btn = q("scenesBtn");
+  if (btn) btn.setAttribute("aria-expanded", "false");
+  state.sceneLoadId = "";
+}
+function placeScenesMenu() {
+  const btn = q("scenesBtn");
+  const pop = q("scenesPop");
+  if (!btn || !pop) return;
+  const r = btn.getBoundingClientRect();
+  pop.style.left = Math.max(8, Math.round(r.left)) + "px";
+  pop.style.top = Math.round(r.bottom + 4) + "px";
+}
+function renderScenesMenu() {
+  const list = q("scenesList");
+  const ask = q("scenesConfirm");
+  if (ask) { ask.hidden = true; ask.innerHTML = ""; }
+  if (!list) return;
+  const scenes = savedScenes();
+  if (!scenes.length) {
+    list.innerHTML = '<p class="ssm-scenes-empty">No saved scenes yet.</p>';
+    return;
+  }
+  list.innerHTML = scenes.map(scene => {
+    const floors = (scene.floors || []).length;
+    return '<div class="ssm-scenes-row"><span>' + esc(scene.name || "Scene") + " · " + floors + " floors</span>"
+      + '<button type="button" data-act="scenesLoad" data-scene="' + esc(scene.id) + '">Load into room</button></div>';
+  }).join("");
+}
+function askLoadScene(id) {
+  const scene = savedScenes().filter(s => s && s.id === id)[0];
+  if (!scene) return;
+  const already = !!(shared.places && shared.places[scene.id] && (shared.places[scene.id].floors || []).length);
+  if (!roomHasScene()) {
+    hideScenesMenu();
+    adoptSavedScene(scene);
+    return;
+  }
+  state.sceneLoadId = scene.id;
+  const ask = q("scenesConfirm");
+  if (!ask) return;
+  const name = scene.name || "This scene";
+  const text = already
+    ? (name + " is already loaded. Load it again? Maps and tokens already here stay put.")
+    : ("A scene is already loaded. Load " + name + " beside it? Maps and tokens already here stay put.");
+  ask.hidden = false;
+  ask.innerHTML = esc(text) + '<span class="ssm-scenes-ask"><button type="button" data-act="scenesLoadYes">Load</button><button type="button" data-act="scenesLoadNo">Cancel</button></span>';
 }
 function syncSceneLinks(draft) {
-  if (draft && shared.places && shared.places[draft.id]) {
-    const place = shared.places[draft.id];
+  if (draft && shared.places) {
     (draft.floors || []).forEach(floor => {
-      const row = (place.floors || []).find(fl => fl && fl.mapId === floor.mapId);
+      let row = null;
+      if (shared.places[draft.id]) {
+        row = ((shared.places[draft.id].floors) || []).find(fl => fl && fl.mapId === floor.mapId) || null;
+      }
+      if (!row) {
+        Object.keys(shared.places).some(pid => {
+          const hit = (((shared.places[pid] && shared.places[pid].floors) || []).find(fl => fl && fl.mapId === floor.mapId));
+          if (hit) row = hit;
+          return !!hit;
+        });
+      }
       if (!row) return;
       row.stairs = (floor.stairs || []).map(link => {
         const dest = (draft.floors || []).find(d => d && (d.id === link.destFloorId || d.mapId === link.destMapId));
@@ -10795,10 +11008,13 @@ function commitLinkRemove(id) {
 }
 function setLinkVisible(id, visible) {
   const B = window.SSDNSSceneBuilder;
-  if (B && B.isOpen && B.isOpen() && B.setLinkMark) { B.setLinkMark(id, { visible: !!visible }); return; }
+  const patch = { visible: !!visible };
+  if (visible) patch.playersCanUse = true;
+  if (B && B.isOpen && B.isOpen() && B.setLinkMark) { B.setLinkMark(id, patch); return; }
   const hit = roomLinkById(id);
   if (!hit) return;
   hit.link.visible = !!visible;
+  if (visible) hit.link.playersCanUse = true;
   saveRoomPlaces();
   draw();
 }
@@ -10913,23 +11129,115 @@ function openLinkMenu(link) {
   const s = worldToScreen(((Number(link.x) || 0) + 0.5) * px, ((Number(link.y) || 0) + 0.5) * px);
   anchorMenuOnce(menu, (canvas ? canvas.offsetLeft || 0 : 0) + s.x + 14, (canvas ? canvas.offsetTop || 0 : 0) + s.y - 8);
 }
-function takeLink(link, tokenIds, floor) {
-  if (role !== "dm" || !link) return [];
-  const dest = link.destMapId || link.destFloorId || "";
-  const fromMap = (floor && floor.mapId) || link.mapId || "";
-  if (!dest || link.landX == null || link.landY == null) { toast("This link needs a landing first."); return []; }
-  let ids = Array.isArray(tokenIds) && tokenIds.length ? tokenIds.slice() : (state.selectedIds || []).slice();
-  if (!ids.length && state.selected) ids = [state.selected.id];
-  const tokens = [];
-  const seen = {};
-  ids.forEach(id => {
-    const t = (state.tokens || []).find(tok => tok && (tok.id === id || tok.ownerUid === id));
-    if (!t || seen[t.id] || isPartyToken(t)) return;
-    seen[t.id] = 1;
-    tokens.push(t);
+function linkAsk(kind) {
+  if (kind === "down") return "Go downstairs?";
+  if (kind === "ladder") return "Climb ladder?";
+  if (kind === "door") return "Go through door?";
+  return "Go upstairs?";
+}
+function linkWent(kind) {
+  if (kind === "down") return "went downstairs";
+  if (kind === "ladder") return "climbed the ladder";
+  if (kind === "door") return "went through the door";
+  return "went upstairs";
+}
+function shownLinkUnder(token) {
+  if (!token || !token.pos) return null;
+  const data = shared.scenes && shared.scenes[sceneKey(token)];
+  const list = (data && data.shownLinks) || [];
+  const size = token.size || 1;
+  const x = Math.round(token.pos.x);
+  const y = Math.round(token.pos.y);
+  return list.find(link => {
+    if (!link || link.playersCanUse === false) return false;
+    if (link.landX == null || link.landY == null) return false;
+    if (!(link.destMapId || link.destFloorId)) return false;
+    return link.x >= x && link.x < x + size && link.y >= y && link.y < y + size;
+  }) || null;
+}
+function hideLinkPrompt() {
+  state.linkPrompt = null;
+  const box = el && el.querySelector('[data-act="linkPrompt"]');
+  if (box) box.remove();
+}
+function linkPromptState() {
+  const box = el && el.querySelector('[data-act="linkPrompt"]');
+  if (!box) return null;
+  const title = box.querySelector("b");
+  return { open: true, text: title ? title.textContent : "", tokenId: state.linkPrompt && state.linkPrompt.tokenId, linkId: state.linkPrompt && state.linkPrompt.linkId };
+}
+function placeLinkPrompt(token) {
+  const box = el && el.querySelector('[data-act="linkPrompt"]');
+  if (!box || !token || !token.pos || !state.scene) return;
+  const px = (state.scene.grid && state.scene.grid.px) || 70;
+  const s = worldToScreen((token.pos.x + 0.5) * px, (token.pos.y + 0.5) * px);
+  anchorMenuOnce(box, (canvas ? canvas.offsetLeft || 0 : 0) + s.x + 18, (canvas ? canvas.offsetTop || 0 : 0) + s.y - 8);
+}
+function showLinkPrompt(token, link) {
+  if (!el || !token || !link) return;
+  if (state.linkPrompt && state.linkPrompt.tokenId === token.id && state.linkPrompt.linkId === link.id && el.querySelector('[data-act="linkPrompt"]')) {
+    placeLinkPrompt(token);
+    return;
+  }
+  hideLinkPrompt();
+  state.linkPrompt = { tokenId: token.id, linkId: link.id, kind: link.kind };
+  const box = document.createElement("div");
+  box.className = "ssm-token-cmd ssm-link-prompt";
+  box.setAttribute("data-act", "linkPrompt");
+  box.innerHTML = floatBar(linkAsk(link.kind)) + '<div class="ssm-card-body"><button type="button" data-act="linkGo">Go</button><button type="button" data-act="linkStay">Stay</button></div>';
+  box.addEventListener("pointerdown", ev => ev.stopPropagation());
+  box.addEventListener("click", ev => {
+    ev.stopPropagation();
+    const hit = ev.target && ev.target.closest ? ev.target.closest("[data-act], [data-menu-close]") : ev.target;
+    const act = hit && hit.getAttribute && hit.getAttribute("data-act");
+    if (hit && hit.hasAttribute && hit.hasAttribute("data-menu-close")) { stayLink(); return; }
+    if (act === "linkGo") requestLinkGo();
+    if (act === "linkStay") stayLink();
   });
-  const ordered = tokens.filter(t => tokenStandsOn(t, link, fromMap)).concat(tokens.filter(t => !tokenStandsOn(t, link, fromMap)));
-  if (!ordered.length) { toast("Select tokens, then Take link."); return []; }
+  el.appendChild(box);
+  placeLinkPrompt(token);
+}
+function maybeOfferLink(token) {
+  if (role !== "player" || !token || !token.pos || !canControl(token) || isPartyToken(token)) return;
+  const link = shownLinkUnder(token);
+  if (!link) {
+    state.linkDismiss = "";
+    hideLinkPrompt();
+    return;
+  }
+  const key = token.id + ":" + link.id + ":" + Math.round(token.pos.x) + "," + Math.round(token.pos.y);
+  if (state.linkDismiss === key) return;
+  showLinkPrompt(token, link);
+}
+function stayLink() {
+  const prompt = state.linkPrompt;
+  if (prompt) {
+    const token = (state.tokens || []).find(t => t && t.id === prompt.tokenId);
+    if (token && token.pos) state.linkDismiss = prompt.tokenId + ":" + prompt.linkId + ":" + Math.round(token.pos.x) + "," + Math.round(token.pos.y);
+  }
+  hideLinkPrompt();
+}
+function requestLinkGo() {
+  const prompt = state.linkPrompt;
+  if (!prompt || role !== "player") return;
+  const token = (state.tokens || []).find(t => t && t.id === prompt.tokenId);
+  hideLinkPrompt();
+  if (!token) return;
+  write("map/public/events/link", { tokenId: token.id, linkId: prompt.linkId, by: uid, seq: Date.now() });
+}
+function postLinkLog(line) {
+  if (!adapter || !adapter.write) return;
+  const id = "linkgo_" + Date.now();
+  adapter.write("tableFeed/" + id, {
+    id: id,
+    ts: new Date().toISOString(),
+    from: uid,
+    fromName: "Table",
+    text: line,
+    kind: "note"
+  }, { by: uid });
+}
+function landingCells(link, dest, ordered) {
   const sc = allScenes().find(s => s && s.id === dest);
   const grid = (sc && sc.grid) || { cols: 30, rows: 20 };
   const cols = Math.max(1, Number(grid.cols) || 30);
@@ -10960,6 +11268,56 @@ function takeLink(link, tokenIds, floor) {
     used[best.x + "," + best.y] = 1;
     plan.push(best);
   });
+  return plan;
+}
+function applyPlayerLink(req) {
+  if (role !== "dm" || !req || !req.tokenId || !req.linkId) return null;
+  const seq = Number(req.seq) || 0;
+  if (seq && state.linkUseSeq && seq <= state.linkUseSeq) return null;
+  if (seq) state.linkUseSeq = seq;
+  const token = (state.tokens || []).find(t => t && t.id === req.tokenId);
+  if (!token || isPartyToken(token)) return null;
+  if (req.by && !canControlBy(token, req.by)) return null;
+  const hit = roomLinkById(req.linkId);
+  const link = hit && hit.link;
+  if (!link || !link.visible || link.playersCanUse === false) return null;
+  const fromMap = hit.floor && hit.floor.mapId;
+  const marked = Object.assign({}, link, { mapId: fromMap });
+  if (!tokenStandsOn(token, marked, fromMap)) return null;
+  const dest = link.destMapId || link.destFloorId || "";
+  if (!dest || link.landX == null || link.landY == null) return null;
+  const cell = landingCells(marked, dest, [token])[0];
+  landToken(token, dest, cell);
+  if (req.by) {
+    if (!shared.playerScenes) shared.playerScenes = {};
+    shared.playerScenes[req.by] = dest;
+  }
+  postScenes();
+  const line = tokenWho(token) + " " + linkWent(link.kind);
+  toast(line);
+  postLinkLog(line);
+  renderFloorStrip();
+  draw();
+  return { id: token.id, sceneId: dest, x: cell.x, y: cell.y };
+}
+function takeLink(link, tokenIds, floor) {
+  if (role !== "dm" || !link) return [];
+  const dest = link.destMapId || link.destFloorId || "";
+  const fromMap = (floor && floor.mapId) || link.mapId || "";
+  if (!dest || link.landX == null || link.landY == null) { toast("This link needs a landing first."); return []; }
+  let ids = Array.isArray(tokenIds) && tokenIds.length ? tokenIds.slice() : (state.selectedIds || []).slice();
+  if (!ids.length && state.selected) ids = [state.selected.id];
+  const tokens = [];
+  const seen = {};
+  ids.forEach(id => {
+    const t = (state.tokens || []).find(tok => tok && (tok.id === id || tok.ownerUid === id));
+    if (!t || seen[t.id] || isPartyToken(t)) return;
+    seen[t.id] = 1;
+    tokens.push(t);
+  });
+  const ordered = tokens.filter(t => tokenStandsOn(t, link, fromMap)).concat(tokens.filter(t => !tokenStandsOn(t, link, fromMap)));
+  if (!ordered.length) { toast("Select tokens, then Take link."); return []; }
+  const plan = landingCells(link, dest, ordered);
   ordered.forEach((t, i) => landToken(t, dest, plan[i]));
   if (activeSceneId() !== dest) swapScene(dest);
   postScenes();
@@ -11027,9 +11385,10 @@ function landToken(t, sceneId, cell) {
   if (!active || active.id === t.id) shared.playerScenes[t.ownerUid] = sceneId;
   saveToken(t.id);
 }
-/* Move party here. A prep ghost keeps its square. Everyone else lands on a link
-   landing, then the default spawn group, then the other scene spawns, then a
-   square near that entry. Nobody is dropped on the centre, and nobody stacks.
+/* Move party here. A prep ghost keeps its square. Anyone else standing on a link
+   to this floor uses that landing. Otherwise the chosen spawn group, or the default
+   group, then the scene spawns, then the other floor's landing, then a square near
+   the entry. Nobody is dropped on the centre, and nobody stacks.
    A copy that is not the active token stays on its own map. Fog on each map stays. */
 function openSpawnGroupPick(groups, done) {
   let panel = q("spawnGroupPick");
@@ -11059,6 +11418,12 @@ function movePartyHere(uids, groupId) {
   const name = floorName(id);
   saveScene(id);
     const wanted = Array.isArray(uids) && uids.length ? uids : null;
+  const groups = (shared.sceneSpawns && shared.sceneSpawns[id] && shared.sceneSpawns[id].groups) || [];
+  if (groups.length > 1 && !groupId) {
+    openSpawnGroupPick(groups, (picked) => movePartyHere(uids, picked));
+    return [];
+  }
+  const group = groups.filter(g => g.id === groupId)[0] || groups.filter(g => g.isDefault)[0] || groups[0] || null;
   const movers = [];
   const seen = {};
   (state.tokens || []).forEach(t => {
@@ -11074,10 +11439,8 @@ function movePartyHere(uids, groupId) {
   });
   const ghosts = movers.filter(row => row.ghost);
   const fresh = movers.filter(row => !row.ghost);
-  const ignore = {};
-  fresh.forEach(row => { ignore[row.token.id] = 1; });
   ghosts.forEach(row => landToken(row.token, id, { x: row.ghost.x, y: row.ghost.y }));
-  const plan = floorLandingPlan(id, fresh.length, ignore);
+  const plan = floorLandingPlan(id, fresh.map(row => row.token), group && group.id);
   fresh.forEach((row, i) => landToken(row.token, id, plan[i] || { x: 1, y: 1 }));
   const moved = [];
   movers.forEach(row => {
@@ -11105,9 +11468,7 @@ function sendTokenTo(tokenId, sceneId) {
   const ghost = state.preps && state.preps[sceneId] && state.preps[sceneId][t.ownerUid];
   const active = activeOwned(t.ownerUid);
   const useGhost = !!(ghost && active && active.id === t.id);
-  const ignore = {};
-  ignore[t.id] = 1;
-  const cell = useGhost ? { x: ghost.x, y: ghost.y } : (floorLandingPlan(sceneId, 1, ignore)[0] || { x: 1, y: 1 });
+  const cell = useGhost ? { x: ghost.x, y: ghost.y } : (floorLandingPlan(sceneId, [t], "")[0] || { x: 1, y: 1 });
   landToken(t, sceneId, cell);
   if (useGhost) {
     delete state.preps[sceneId][t.ownerUid];
@@ -11219,10 +11580,16 @@ function refreshPlaces() {
 }
 function siblingFloors(mapId) {
   const api = window.SSDNSPlaces;
-  if (!api || typeof api.resolve !== "function") return [];
-  const hit = api.resolve(shared.places || {}, mapId || activeSceneId());
-  if (!hit || !hit.place) return [];
-  return (hit.place.floors || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  const sid = mapId || activeSceneId();
+  if (role === "dm" && api && typeof api.resolve === "function") {
+    const hit = api.resolve(shared.places || {}, sid);
+    if (hit && hit.place) return (hit.place.floors || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  }
+  const list = (shared.publicFloors || []).slice();
+  const mine = list.filter(f => f && f.mapId === sid)[0];
+  const placeId = mine && mine.placeId;
+  const rows = list.filter(f => f && f.mapId && (!placeId || f.placeId === placeId));
+  return rows.sort((a, b) => (a.order || 0) - (b.order || 0));
 }
 function floorStripText() {
   const groups = {};
@@ -11252,38 +11619,66 @@ function floorStripText() {
     return (floor && floor.name) || floorName(sid);
   }).join(" · ");
 }
+function tokensOnFloor(sid) {
+  return (state.tokens || []).filter(t => t && !isPartyToken(t) && sceneKey(t) === sid).length;
+}
+function floorMark(floor, floors) {
+  if (!floor || floor.loose || floor.order == null || !floors || floors.length < 2) return "";
+  const ranked = floors.filter(f => f && !f.loose && f.order != null).sort((a, b) => (a.order || 0) - (b.order || 0) || String(a.mapId).localeCompare(String(b.mapId)));
+  if (ranked.length < 2) return "";
+  const top = ranked[ranked.length - 1];
+  const bottom = ranked[0];
+  if (top && top.mapId === floor.mapId && bottom.mapId !== floor.mapId) return "▲";
+  if (bottom && bottom.mapId === floor.mapId && top.mapId !== floor.mapId) return "▼";
+  return ranked.length > 2 ? "•" : "";
+}
+function floorChoices() {
+  const here = activeSceneId();
+  let floors = siblingFloors(here).slice();
+  if (role === "dm") {
+    const extra = {};
+    (state.tokens || []).forEach(t => {
+      if (!t || isPartyToken(t)) return;
+      const sid = sceneKey(t);
+      if (sid && !floors.some(f => f && f.mapId === sid)) extra[sid] = 1;
+    });
+    Object.keys(state.preps || {}).forEach(sid => {
+      if (sid && !floors.some(f => f && f.mapId === sid)) extra[sid] = 1;
+    });
+    Object.keys(extra).forEach(sid => floors.push({ mapId: sid, name: floorName(sid), order: null, loose: true }));
+  } else {
+    const allow = {};
+    (state.tokens || []).forEach(t => {
+      if (!t || t.hidden) return;
+      if (t.ownerUid || isPartyToken(t)) allow[sceneKey(t)] = 1;
+    });
+    Object.keys(state.seenFloors || {}).forEach(id => { allow[id] = 1; });
+    allow[ownFloorId()] = 1;
+    floors = floors.filter(f => f && allow[f.mapId]);
+    Object.keys(allow).forEach(id => {
+      if (!floors.some(f => f && f.mapId === id)) floors.push({ mapId: id, name: floorName(id), order: 0 });
+    });
+  }
+  if (!floors.length) floors = [{ mapId: here, name: floorName(here), order: 0 }];
+  return floors.slice().sort((a, b) => (b.order || 0) - (a.order || 0) || String(a.mapId).localeCompare(String(b.mapId)));
+}
 function renderFloorStrip() {
-  if (role !== "dm") return;
   const strip = q("floorStrip");
   if (!strip) return;
-  const text = floorStripText();
-  if (strip.dataset.sig === text) return;
-  strip.dataset.sig = text;
-  const groups = {};
-  (state.tokens || []).forEach(t => {
-    if (!t || !t.ownerUid || isPartyToken(t)) return;
-    const sid = t.sceneId || "scn_dustyspur01";
-    if (!groups[sid]) groups[sid] = [];
-    const active = activeOwned(t.ownerUid);
-    const label = tokenWho(t) + (active && active.id === t.id ? "" : " (copy)");
-    if (groups[sid].indexOf(label) < 0) groups[sid].push(label);
-  });
-  Object.keys(state.preps || {}).forEach(sid => {
-    Object.keys(state.preps[sid] || {}).forEach(owner => {
-      if (!groups[sid]) groups[sid] = [];
-      const label = ((state.preps[sid][owner] && state.preps[sid][owner].name) || owner) + " (prep)";
-      if (groups[sid].indexOf(label) < 0) groups[sid].push(label);
-    });
-  });
-  const floors = siblingFloors(activeSceneId());
-  floors.forEach(f => { if (f && f.mapId && !groups[f.mapId]) groups[f.mapId] = []; });
-  const order = floors.map(f => f.mapId).concat(Object.keys(groups).filter(id => !floors.some(f => f.mapId === id)));
-  strip.innerHTML = order.map(sid => {
-    const floor = floors.filter(f => f.mapId === sid)[0];
-    const people = groups[sid] || [];
-    const label = people.length ? (floorName(sid) + ": " + people.join(", ")) : ((floor && floor.name) || floorName(sid));
-    const on = sid === activeSceneId() ? " is-on" : "";
-    return '<button type="button" class="ssm-floor' + on + '" data-floor="' + esc(sid) + '">' + esc(label) + "</button>";
+  const floors = floorChoices();
+  const current = activeSceneId();
+  const sig = role + "|" + current + "|" + floors.map(f => (f.mapId || "") + ":" + (f.name || "") + ":" + (f.order || 0) + ":" + tokensOnFloor(f.mapId)).join(",") + "|" + (role === "player" ? floorName(current) : "");
+  if (strip.dataset.sig === sig) return;
+  strip.dataset.sig = sig;
+  const you = role === "player" ? '<div class="ssm-floor-you" data-act="floorYou">You are on: ' + esc(floorName(current)) + "</div>" : "";
+  strip.innerHTML = you + floors.map(floor => {
+    const sid = floor.mapId;
+    const on = sid === current ? " is-on" : "";
+    const mark = floorMark(floor, floors);
+    const name = floor.name || floorName(sid);
+    const badge = role === "dm" ? '<span class="ssm-floor-n" data-act="floorCount">' + tokensOnFloor(sid) + "</span>" : "";
+    const currentAttr = sid === current ? ' aria-current="true"' : "";
+    return '<button type="button" class="ssm-floor' + on + '" data-floor="' + esc(sid) + '"' + currentAttr + ">" + (mark ? esc(mark) + " " : "") + esc(name) + badge + "</button>";
   }).join("");
 }
 function renderCopySwitch() {
@@ -13687,6 +14082,7 @@ function onPointerUp(e) {
     postSlide(t.id, pts);
   } else if (state.drag && state.drag.token && role === 'player' && !state.offline) {
     publishPlayerMove(state.drag.token);
+    if (!state.drag.clickOnly && !state.drag.blocked) maybeOfferLink(state.drag.token);
   }
   if (state.drag && state.drag.token && role === 'dm' && !state.offline) {
     const ids = state.selectedIds.length ? state.selectedIds : [state.drag.token.id];
@@ -16945,19 +17341,16 @@ function douseSelected(out) {
     }
     if (!targets.length) { toast("Select a token first"); return []; }
     const moving = targets.filter(t => (t.sceneId || "") !== sceneId);
-    const ignore = {};
-    moving.forEach(t => { ignore[t.id] = 1; });
-    const plan = floorLandingPlan(sceneId, moving.length, ignore);
+    const plan = floorLandingPlan(sceneId, moving, "");
     moving.forEach((t, i) => landToken(t, sceneId, plan[i] || { x: 1, y: 1 }));
     targets.forEach(t => {
-      if ((t.sceneId || "") === sceneId && moving.indexOf(t) < 0) {
-        if (t.ownerUid) {
-          const active = activeOwned(t.ownerUid);
-          if (!shared.playerScenes) shared.playerScenes = {};
-          if (!active || active.id === t.id) shared.playerScenes[t.ownerUid] = sceneId;
-        }
-        saveToken(t.id);
+      if (moving.indexOf(t) >= 0) return;
+      if (t.ownerUid) {
+        const active = activeOwned(t.ownerUid);
+        if (!shared.playerScenes) shared.playerScenes = {};
+        if (!active || active.id === t.id) shared.playerScenes[t.ownerUid] = sceneId;
       }
+      saveToken(t.id);
     });
     postScenes();
     draw();
@@ -16966,11 +17359,11 @@ function douseSelected(out) {
   }
   q('setFloorBtn').addEventListener('click', () => {
     const sel = q('sceneSelect');
-    const sceneId = sel.value;
+    const sceneId = sel && sel.value;
     const moved = setFloor(sceneId);
     if (!moved.length && !(state.selectedIds.length || state.selected)) return;
     flashBtn('setFloorBtn');
-    toast('Floor set to ' + sel.options[sel.selectedIndex].text);
+    toast('Floor set to ' + (sel && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex].text : floorName(sceneId)));
   });
   q('showSceneBtn').addEventListener('click', () => {
     showToPlayers();
@@ -17470,17 +17863,62 @@ function migrateGlobalToScenes() {
   if (shared.fogRevealed === true && saloon.fogRevealed !== true) { saloon.fogRevealed = true; changed = true; }
   if (changed) saveScene();
 }
+function ownFloorId() {
+  const my = activeOwned(uid);
+  return (my && my.sceneId) || (shared.playerScenes && shared.playerScenes[uid]) || 'scn_dustyspur01';
+}
+function rememberFloor(id) {
+  if (role !== 'player' || !id) return;
+  if (!state.seenFloors) state.seenFloors = {};
+  state.seenFloors[id] = 1;
+}
 function getPlayerScene() {
   if (role !== 'player') return state.dmView || 'scn_dustyspur01';
-  const my = activeOwned(uid);
-  return my?.sceneId || shared.playerScenes?.[uid] || 'scn_dustyspur01';
+  if (state.playerPeek) return state.playerPeek;
+  return ownFloorId();
 }
 function followPlayerScene() {
   if (role !== 'player' || !state || !state.scene) return;
+  const home = ownFloorId();
+  if (state._ownFloor && home && state._ownFloor !== home) state.playerPeek = null;
+  if (home) {
+    state._ownFloor = home;
+    rememberFloor(home);
+  }
   const sid = getPlayerScene();
   if (!sid) return;
-  if ((state.scene.mapId || state.scene.id) === sid) return;
+  if ((state.scene.mapId || state.scene.id) === sid) {
+    renderFloorStrip();
+    return;
+  }
   loadSceneImage(sid);
+  renderFloorStrip();
+}
+function switchFloor(id) {
+  if (!id) return false;
+  if (role === 'player') {
+    const allowed = floorChoices().some(f => f && f.mapId === id);
+    if (!allowed) return false;
+    state.playerPeek = id === ownFloorId() ? null : id;
+    rememberFloor(id);
+    loadSceneImage(id, { center: true });
+    renderFloorStrip();
+    draw();
+    return true;
+  }
+  const picked = state.selectedIds.length ? state.tokens.filter(t => t && state.selectedIds.includes(t.id)) : (state.selected ? [state.selected] : []);
+  const moving = picked.filter(t => t && (t.sceneId || "") !== id);
+  if (moving.length) setFloor(id, moving.map(t => t.id));
+  return swapScene(id);
+}
+function stepFloor(dir) {
+  if (role !== 'dm') return false;
+  const floors = floorChoices();
+  if (!floors || floors.length < 2) return false;
+  const ids = floors.map(f => f.mapId);
+  let i = ids.indexOf(activeSceneId());
+  if (i < 0) i = 0;
+  return switchFloor(ids[(i + dir + ids.length) % ids.length]);
 }
 async function loadSceneImage(sceneId, opts) {
   const found = SCENES.find(s => s.id === sceneId);
@@ -17532,6 +17970,7 @@ async function loadSceneImage(sceneId, opts) {
           if (shared.tokens[t.id]) shared.tokens[t.id].pos = { x: t.pos.x, y: t.pos.y, by: uid, seq: Date.now() };
           if (role === 'dm') write('map/public/tokens/' + t.id + '/pos', shared.tokens[t.id].pos);
           else publishPlayerMove(t);
+          if (role === 'player') maybeOfferLink(t);
           return false;
         }
         return true;
@@ -21404,6 +21843,14 @@ function syncCombatants(initiative) {
       if (!value || role !== 'dm') return;
       if (window.SSDNSLootGive && window.SSDNSLootGive.applyRemote) window.SSDNSLootGive.applyRemote(value);
     }));
+    unsubs.push(adapter.subscribe('map/public/events/link', (value) => {
+      if (!value || role !== 'dm') return;
+      applyPlayerLink(value);
+    }));
+    unsubs.push(adapter.subscribe('map/public/floors', (value) => {
+      shared.publicFloors = (value && value.list) || [];
+      renderFloorStrip();
+    }));
     unsubs.push(adapter.subscribe('table/initiative', (value) => syncCombatants(value)));
     unsubs.push(adapter.subscribe('chat', (value) => { if (Array.isArray(value)) setChat(value); }));
     unsubs.push(adapter.subscribe('tableFeed', (value) => { if (value) pushFeed(value); }));
@@ -21911,7 +22358,15 @@ return {
       list: function () { return liveLinks(); },
       drawn: linksDrawn,
       take: function (link, ids) { return takeLink(link, ids, link && link.mapId ? { mapId: link.mapId } : null); },
-      under: linkUnderToken
+      under: linkUnderToken,
+      offer: function (id) {
+        const t = (state.tokens || []).find(tok => tok && tok.id === id);
+        maybeOfferLink(t);
+        return linkPromptState();
+      },
+      prompt: linkPromptState,
+      go: requestLinkGo,
+      stay: stayLink
     };
   },
   layers: function () {

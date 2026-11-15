@@ -1,7 +1,7 @@
 /* DM Scene Builder. A scene is a named stack of floors the DM saves on this device
    and can load into any room. Pack files and room maps are never rewritten.
    Each floor.stairs entry is a link (stairs, ladder, or door) plus its landing.
-   Encounter pieces stay null. Players do not walk links yet. */
+   playersCanUse defaults on when the link is visible. Hidden links stay DM-only. */
 (function (root) {
   "use strict";
   var KEY = "ssdns.sceneLibrary.v1";
@@ -258,7 +258,8 @@
           landY: dest ? optNum(link.landY) : null,
           twoWay: !!link.twoWay,
           pairId: link.pairId || "",
-          visible: !!link.visible
+          visible: !!link.visible,
+          playersCanUse: link.playersCanUse == null ? !!link.visible : !!link.playersCanUse
         };
         if (!dest) { row.twoWay = false; row.pairId = ""; }
         byId[row.id] = row;
@@ -302,7 +303,8 @@
         landY: link.y,
         twoWay: true,
         pairId: link.id,
-        visible: false
+        visible: false,
+        playersCanUse: false
       };
       dest.stairs.push(made);
       link.pairId = made.id;
@@ -439,7 +441,8 @@
       landY: optNum(link.landY),
       twoWay: !!link.twoWay,
       pairId: link.pairId || "",
-      visible: !!link.visible
+      visible: !!link.visible,
+      playersCanUse: link.playersCanUse == null ? !!link.visible : !!link.playersCanUse
     });
     return tidy(scene);
   }
@@ -462,7 +465,12 @@
     if (patch.landX != null) link.landX = num(patch.landX);
     if (patch.landY != null) link.landY = num(patch.landY);
     if (patch.twoWay != null) link.twoWay = !!patch.twoWay;
-    if (patch.visible != null) link.visible = !!patch.visible;
+    if (patch.visible != null) {
+      var turningOn = !!patch.visible && !link.visible;
+      link.visible = !!patch.visible;
+      if (turningOn && patch.playersCanUse == null) link.playersCanUse = true;
+    }
+    if (patch.playersCanUse != null) link.playersCanUse = !!patch.playersCanUse;
     syncPair(scene, hit.floor, link);
     return tidy(scene);
   }
@@ -601,7 +609,8 @@
         landY: link.landY,
         twoWay: !!link.twoWay,
         pairId: link.pairId || "",
-        visible: !!link.visible
+        visible: !!link.visible,
+        playersCanUse: link.playersCanUse == null ? !!link.visible : !!link.playersCanUse
       };
     });
   }
@@ -1154,10 +1163,19 @@
         var visLab = el("label");
         visLab.appendChild(vis);
         visLab.appendChild(document.createTextNode("Players see this"));
+        var use = el("input", { type: "checkbox", "data-act": "linkUse", "data-floor": floor.id, "data-link": link.id });
+        if (link.playersCanUse !== false && link.visible) use.checked = true;
+        if (!link.visible) use.disabled = true;
+        var useLab = el("label");
+        useLab.appendChild(use);
+        useLab.appendChild(document.createTextNode("Players can use"));
+        var playerOpts = el("div", { class: "ssm-scene-playeropts" });
+        playerOpts.appendChild(visLab);
+        playerOpts.appendChild(useLab);
         var bar = el("div", { class: "ssm-scene-linkbar" });
         bar.appendChild(land);
         bar.appendChild(twoLab);
-        bar.appendChild(visLab);
+        bar.appendChild(playerOpts);
         bar.appendChild(el("button", { type: "button", "data-act": "linkTake", "data-floor": floor.id, "data-link": link.id }, "Take link"));
         line.appendChild(kind);
         line.appendChild(el("button", { type: "button", "data-act": "linkRemove", "data-floor": floor.id, "data-link": link.id, "aria-label": "Remove link" }, "×"));
@@ -1165,7 +1183,7 @@
         line.appendChild(bar);
         links.appendChild(line);
       });
-      links.appendChild(el("p", { class: "ssm-scene-stairs" }, "Players stepping onto a link comes in a later update. Take link moves the tokens you selected."));
+      links.appendChild(el("p", { class: "ssm-scene-stairs" }, "A visible link asks the player Go or Stay. Hidden links and spawn squares stay DM-only. Take link still moves the tokens you selected."));
       row.appendChild(links);
       row.appendChild(encounterBlock(panel, draft, floor));
       if (index === draft.floors.length - 1) row.setAttribute("data-last", "1");
@@ -1460,12 +1478,16 @@
         draw();
         return;
       }
-      if (act === "linkKind" || act === "linkDest" || act === "linkTwoWay" || act === "linkVisible") {
+      if (act === "linkKind" || act === "linkDest" || act === "linkTwoWay" || act === "linkVisible" || act === "linkUse") {
         var patch = {};
         if (act === "linkKind") patch.kind = node.value;
         if (act === "linkDest") patch.destFloorId = node.value;
         if (act === "linkTwoWay") patch.twoWay = !!node.checked;
-        if (act === "linkVisible") patch.visible = !!node.checked;
+        if (act === "linkVisible") {
+          patch.visible = !!node.checked;
+          if (node.checked) patch.playersCanUse = true;
+        }
+        if (act === "linkUse") patch.playersCanUse = !!node.checked;
         draft = setLink(draft, node.getAttribute("data-floor"), node.getAttribute("data-link"), patch);
         if (opts.onChange) opts.onChange(tidy(draft));
         draw();
@@ -1698,6 +1720,7 @@
             destFloorId: link.destFloorId, destMapId: link.destMapId,
             landX: link.landX, landY: link.landY, twoWay: !!link.twoWay,
             pairId: link.pairId || "", visible: !!link.visible,
+            playersCanUse: link.playersCanUse == null ? !!link.visible : !!link.playersCanUse,
             mapId: f.mapId, floorId: f.id, floorName: f.name
           };
           if (!mapId || f.mapId === mapId) markers.push(row);

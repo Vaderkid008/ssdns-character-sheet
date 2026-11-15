@@ -1,5 +1,5 @@
 /**
- * Dry Fork props are Asset Library tokens (sheet 0.3.323 / DMCC 0.2.336).
+ * Dry Fork props are Asset Library tokens (sheet 0.3.324 / DMCC 0.2.337).
  *   node tools/test-dry-fork-assets-03320.mjs
  * Loads the built-in scene and both encounter packs. Each prop asset id
  * and origin square appears once. No rules.js edits. No Firebase writes.
@@ -19,8 +19,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.323" && version.sheetBuild === "sheet-playtest-v03323", JSON.stringify(version));
-check("ver.dmcc", version.dmcc === "0.2.336" && version.dmccBuild === "dmcc-playtest-v02336");
+check("ver.sheet", version.sheet === "0.3.324" && version.sheetBuild === "sheet-playtest-v03324", JSON.stringify(version));
+check("ver.dmcc", version.dmcc === "0.2.337" && version.dmccBuild === "dmcc-playtest-v02337");
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js database.rules.json", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
@@ -206,5 +206,5 @@ if (failures.length) {
   console.error("\n" + failures.length + " failed");
   process.exit(1);
 }
-console.log("dry fork assets 0.3.323 ok");
+console.log("dry fork assets 0.3.324 ok");
 setTimeout(() => process.exit(0), 200);
