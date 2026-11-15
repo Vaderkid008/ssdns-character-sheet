@@ -88,6 +88,12 @@
     });
     return out;
   }
+  function spanOf(span) {
+    if (!span) return undefined;
+    var w = clampInt(span.w, 1, 6, 0);
+    var h = clampInt(span.h, 1, 6, 0);
+    return w >= 1 && h >= 1 ? { w: w, h: h } : undefined;
+  }
   function coverOf(v) {
     v = String(v || "");
     return v === "half" || v === "three-quarters" || v === "full" ? v : "";
@@ -148,6 +154,7 @@
       id: opts.id || makeId(opts.name, taken),
       name: String(opts.name || "New asset").slice(0, 80),
       size: clampInt(opts.size, 1, 4, 1),
+      span: spanOf(opts.span),
       image: String(images[0] || opts.image || ""),
       images: images,
       sfx: normalizeSfx(opts.sfx),
@@ -488,7 +495,9 @@
     return (tokens || []).some(function (t) {
       if (!gateBlocks(t) || !t.pos) return false;
       var s = squaresOf(t.size || (t.asset && t.asset.size));
-      return x >= t.pos.x && x < t.pos.x + s && y >= t.pos.y && y < t.pos.y + s;
+      var w = t.span && Number(t.span.w) >= 1 ? Number(t.span.w) : s;
+      var h = t.span && Number(t.span.h) >= 1 ? Number(t.span.h) : s;
+      return x >= t.pos.x && x < t.pos.x + w && y >= t.pos.y && y < t.pos.y + h;
     });
   }
   function noteRound(round, tokens) {
@@ -664,6 +673,7 @@
       id: keepId || "",
       name: d.name,
       size: d.size,
+      span: d.span,
       image: d.image,
       images: [d.image || "", d.imageOn || ""],
       sfx: d.sfx,

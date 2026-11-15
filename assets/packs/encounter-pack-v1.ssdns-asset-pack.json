@@ -143,6 +143,7 @@
       "id": "ast_fence-gate",
       "name": "Fence Gate",
       "size": 1,
+      "span": { "w": 1, "h": 2 },
       "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-fence-gate-closed.webp",
       "images": [
         "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-fence-gate-closed.webp",

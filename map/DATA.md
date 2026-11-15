@@ -99,7 +99,7 @@ Dry Fork Water Stop is built-in scene `scn_dry_fork` in `map/map-packs.js`. My M
 
 | File | Role |
 |------|------|
-| `map/packs/showcase-dry-fork/showcase-dry-fork_40x30_70px.png` | Painted 2800×2100 map, 40×30 squares, 70 px, no grid, tokens, or letters |
+| `map/packs/showcase-dry-fork/showcase-dry-fork_40x30_70px-painted.webp` | Cleaned 2800×2100 map, 40×30 squares, 70 px, no grid, tokens, or letters. The doubled props, the shed barrel, and the shed rubble are painted out |
 | `map/packs/thumbs/scn_dry_fork.png` | My Maps card |
 | `map/packs/showcase-dry-fork/showcase-dry-fork_40x30_70px_SCHEMATIC.png` | Labeled guide. Not the map image |
 | `map/packs/showcase-dry-fork/showcase-dry-fork.walls.json` | 31 wall segments, Import Walls shape |
@@ -109,6 +109,8 @@ Dry Fork Water Stop is built-in scene `scn_dry_fork` in `map/map-packs.js`. My M
 | `showcase/pregens/*.ssdns` | 12 Module-start level 3 sheets. Open on the sheet |
 
 Opening the scene runs `seedPackWalls`: if that scene has no walls yet, the pack walls are copied in and saved. Import Walls opens with those same walls already filled in, so OK writes them again. `seedPackPlay` then places the play tokens once (order board starts off / RED, lanterns and the campfire start lit at 20+20, corral gate closed, Saddlebag unlocked at AE16, Outlaw Stash hidden DC 13 then lock DC 13 at AB18). A room that already had the N90 walls still gets the play seed. No new Firebase path.
+
+Every Dry Fork prop that has a matching Encounter Pack picture is an asset token (`kind: "asset"`, pack `assetDefId`, github.io map-prop art). Pack v2 adds the west and east switch stands (I9, AG9), the baggage cart (V12), the coal bin (F11), the rain barrel (W15), and the two water troughs (K19, AL22). The powder barrel and plunger stay blast props and sit at E11 and D11, just west of the coal bin, so the bin is the only token on F11–H12. Cover rects are unchanged. There is no strongbox. The cleaned map paints those asset props out, and also removes the shed barrel (Y18–Z19), the shed rubble heap (AB15–AC19), the shed bench (Y17–Z17), and the loose lump that sat on L5. Water tower, ladder, spout, the telegraph pole, boulder, mesquite, handcar, desk, stove, bunks, table, woodpile, wagon, horses, outhouse, and wash rocks stay painted. The toolbox and the stash boards are ordinary shed floor. The painted pole stands in column K; the L5 cover square stays on the layout key.
 
 The painted tank sits about 2 squares north of layout O3–R6. Jessey kept the paint and the layout hotspots. Ladder S5 and spout Q7 are unchanged. Dust Devils are listed as optional spawns and are not placed. Encounter Pack JSON defaults are unchanged.
 

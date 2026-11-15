@@ -1,7 +1,7 @@
 # Dry Fork Water Stop: showcase battle map (40×30 squares, 5 ft each)
 **DRAFT for Jessey morning review (Sun Oct 25 2026).** Fresh set piece, not a Dusty Spur reuse. Spoiler-free, no Act I places.
 
-Final art file (Art Bot): `showcase-dry-fork_40x30_70px.png` = **2800×2100 px**, 70 px per square, straight top-down, no border/margin/title, **no grid lines, tokens or letters baked in**.
+Loaded map: `showcase-dry-fork_40x30_70px-painted.webp` = **2800×2100 px**, 70 px per square, straight top-down, no border/margin/title, **no grid lines, tokens or letters baked in**. The cleaned paint removes the doubled props, the shed barrel, and the shed rubble.
 Schematic guide: `showcase-dry-fork_40x30_70px_SCHEMATIC.png`. Columns A–Z, AA–AN left to right; rows 1–30 top to bottom; A1 is top-left. Walls sit on square edges.
 Walls for DMCC **Import Walls**: `showcase-dry-fork.walls.json` (31 segments, grid-corner coords, WALLS-FOR-BOTS format). Full edge list + zones + spawns: `showcase-dry-fork.map.json` (DRAFT; schema per Ellen Manor, waiting on Coder).
 Rebuild: `python3 build.py` (uses `../maplib.py`).

@@ -1,7 +1,7 @@
 {
   "ambient": "dim",
   "paint": "painted",
-  "paintNote": "Painted 2800×2100 map, no grid or letters. Jessey liked the paint. The tank sits about 2 squares north of layout O3–R6. Cover, zones, ladder S5, and spout Q7 stay on the layout key.",
+  "paintNote": "Cleaned 2800\u00d72100 WebP, no grid or letters. Asset props are painted out so the pack tokens are the only copy. The shed barrel (Y18\u2013Z19), the shed rubble (AB15\u2013AC19), and the L5 lump are gone. The tank sits about 2 squares north of layout O3\u2013R6. Cover, zones, ladder S5, and spout Q7 stay on the layout key.",
   "zones": [
     {
       "label": "ROCKY RISE (+5 ft, half cover crouched)",
@@ -794,7 +794,11 @@
         "y": 5
       },
       "sceneId": "scn_dry_fork",
-      "sq": "AH6"
+      "sq": "AH6",
+      "span": {
+        "w": 1,
+        "h": 1
+      }
     },
     {
       "id": "df_lantern_ah6",
@@ -900,7 +904,12 @@
         "y": 5
       },
       "sceneId": "scn_dry_fork",
-      "sq": "AH6"
+      "sq": "AH6",
+      "span": {
+        "w": 1,
+        "h": 1
+      },
+      "labelPlace": "above"
     },
     {
       "id": "df_lantern_k12",
@@ -1006,7 +1015,11 @@
         "y": 11
       },
       "sceneId": "scn_dry_fork",
-      "sq": "K12"
+      "sq": "K12",
+      "span": {
+        "w": 1,
+        "h": 1
+      }
     },
     {
       "id": "df_lantern_ad12",
@@ -1112,7 +1125,11 @@
         "y": 11
       },
       "sceneId": "scn_dry_fork",
-      "sq": "AD12"
+      "sq": "AD12",
+      "span": {
+        "w": 1,
+        "h": 1
+      }
     },
     {
       "id": "df_gate",
@@ -1210,7 +1227,11 @@
         "y": 17
       },
       "sceneId": "scn_dry_fork",
-      "sq": "AF18"
+      "sq": "AF18",
+      "span": {
+        "w": 1,
+        "h": 2
+      }
     },
     {
       "id": "df_telegraph",
@@ -1308,7 +1329,11 @@
         "y": 14
       },
       "sceneId": "scn_dry_fork",
-      "sq": "N15"
+      "sq": "N15",
+      "span": {
+        "w": 1,
+        "h": 1
+      }
     },
     {
       "id": "df_campfire",
@@ -1414,7 +1439,11 @@
         "y": 22
       },
       "sceneId": "scn_dry_fork",
-      "sq": "AD23"
+      "sq": "AD23",
+      "span": {
+        "w": 1,
+        "h": 1
+      }
     },
     {
       "id": "df_crate",
@@ -1509,7 +1538,11 @@
         "y": 15
       },
       "sceneId": "scn_dry_fork",
-      "sq": "AA16"
+      "sq": "AA16",
+      "span": {
+        "w": 1,
+        "h": 1
+      }
     },
     {
       "id": "df_powder",
@@ -1603,11 +1636,16 @@
       "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-powder-barrel-off.webp",
       "lights": [],
       "pos": {
-        "x": 5,
+        "x": 4,
         "y": 10
       },
       "sceneId": "scn_dry_fork",
-      "sq": "F11"
+      "sq": "E11",
+      "span": {
+        "w": 1,
+        "h": 1
+      },
+      "labelPlace": "above"
     },
     {
       "id": "df_plunger",
@@ -1701,11 +1739,723 @@
       "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-plunger-box-off.webp",
       "lights": [],
       "pos": {
-        "x": 6,
+        "x": 3,
         "y": 10
       },
       "sceneId": "scn_dry_fork",
-      "sq": "G11"
+      "sq": "D11",
+      "span": {
+        "w": 1,
+        "h": 1
+      }
+    },
+    {
+      "id": "df_switch_w",
+      "kind": "asset",
+      "name": "Switch Stand",
+      "label": "West switch",
+      "size": 1,
+      "color": "#c9a227",
+      "ownerCanMove": false,
+      "ownerUid": "",
+      "hidden": false,
+      "noInit": true,
+      "noHpPool": true,
+      "notTargetable": true,
+      "assetDefId": "ast_switch-stand",
+      "asset": {
+        "defId": "ast_switch-stand",
+        "name": "Switch Stand",
+        "size": 1,
+        "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-switch-stand-off.webp",
+        "images": [
+          "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-switch-stand-off.webp",
+          "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-switch-stand-on.webp"
+        ],
+        "sfx": {
+          "interact": "",
+          "on": "thud.wav",
+          "off": "ui-back.mp3",
+          "open": "",
+          "close": ""
+        },
+        "props": {
+          "light": {
+            "on": false,
+            "bright": 0,
+            "dim": 0,
+            "color": ""
+          },
+          "toggle": {
+            "on": false,
+            "labelOn": "Throw switch",
+            "labelOff": "Reset switch"
+          },
+          "gate": {
+            "open": true,
+            "blocksMove": false,
+            "blocksSight": false
+          },
+          "health": {
+            "max": 15,
+            "cover": "half"
+          },
+          "trap": {
+            "attack": 0,
+            "dc": 0,
+            "save": "",
+            "damage": "",
+            "onFail": ""
+          },
+          "range": {
+            "feet": 0,
+            "condition": "",
+            "effect": ""
+          },
+          "links": [],
+          "immunities": [],
+          "timer": {
+            "mode": "",
+            "fuseRounds": 0
+          }
+        },
+        "interact": {
+          "reachFt": 5,
+          "actions": [
+            "toggle"
+          ],
+          "dmApprove": false
+        },
+        "targetable": false,
+        "notes": "Rail switch stand. Off = main line, on = siding thrown. Half cover. What the rails do is DM-ruled until linked switches ship.",
+        "state": {
+          "on": false,
+          "open": true,
+          "lit": false,
+          "hp": 15,
+          "armedAtRound": null,
+          "firesAtRound": null
+        },
+        "v": 1
+      },
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-switch-stand-off.webp",
+      "lights": [],
+      "pos": {
+        "x": 8,
+        "y": 8
+      },
+      "sceneId": "scn_dry_fork",
+      "sq": "I9",
+      "span": {
+        "w": 1,
+        "h": 1
+      }
+    },
+    {
+      "id": "df_switch_e",
+      "kind": "asset",
+      "name": "Switch Stand",
+      "label": "East switch",
+      "size": 1,
+      "color": "#c9a227",
+      "ownerCanMove": false,
+      "ownerUid": "",
+      "hidden": false,
+      "noInit": true,
+      "noHpPool": true,
+      "notTargetable": true,
+      "assetDefId": "ast_switch-stand",
+      "asset": {
+        "defId": "ast_switch-stand",
+        "name": "Switch Stand",
+        "size": 1,
+        "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-switch-stand-off.webp",
+        "images": [
+          "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-switch-stand-off.webp",
+          "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-switch-stand-on.webp"
+        ],
+        "sfx": {
+          "interact": "",
+          "on": "thud.wav",
+          "off": "ui-back.mp3",
+          "open": "",
+          "close": ""
+        },
+        "props": {
+          "light": {
+            "on": false,
+            "bright": 0,
+            "dim": 0,
+            "color": ""
+          },
+          "toggle": {
+            "on": false,
+            "labelOn": "Throw switch",
+            "labelOff": "Reset switch"
+          },
+          "gate": {
+            "open": true,
+            "blocksMove": false,
+            "blocksSight": false
+          },
+          "health": {
+            "max": 15,
+            "cover": "half"
+          },
+          "trap": {
+            "attack": 0,
+            "dc": 0,
+            "save": "",
+            "damage": "",
+            "onFail": ""
+          },
+          "range": {
+            "feet": 0,
+            "condition": "",
+            "effect": ""
+          },
+          "links": [],
+          "immunities": [],
+          "timer": {
+            "mode": "",
+            "fuseRounds": 0
+          }
+        },
+        "interact": {
+          "reachFt": 5,
+          "actions": [
+            "toggle"
+          ],
+          "dmApprove": false
+        },
+        "targetable": false,
+        "notes": "Rail switch stand. Off = main line, on = siding thrown. Half cover. What the rails do is DM-ruled until linked switches ship.",
+        "state": {
+          "on": false,
+          "open": true,
+          "lit": false,
+          "hp": 15,
+          "armedAtRound": null,
+          "firesAtRound": null
+        },
+        "v": 1
+      },
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-switch-stand-off.webp",
+      "lights": [],
+      "pos": {
+        "x": 32,
+        "y": 8
+      },
+      "sceneId": "scn_dry_fork",
+      "sq": "AG9",
+      "span": {
+        "w": 1,
+        "h": 1
+      }
+    },
+    {
+      "id": "df_baggage",
+      "kind": "asset",
+      "name": "Baggage Cart",
+      "label": "Baggage cart",
+      "size": 2,
+      "color": "#c9a227",
+      "ownerCanMove": false,
+      "ownerUid": "",
+      "hidden": false,
+      "noInit": true,
+      "noHpPool": true,
+      "notTargetable": true,
+      "assetDefId": "ast_baggage-cart",
+      "asset": {
+        "defId": "ast_baggage-cart",
+        "name": "Baggage Cart",
+        "size": 2,
+        "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-baggage-cart.webp",
+        "images": [
+          "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-baggage-cart.webp"
+        ],
+        "sfx": {
+          "interact": "",
+          "on": "",
+          "off": "",
+          "open": "",
+          "close": ""
+        },
+        "props": {
+          "light": {
+            "on": false,
+            "bright": 0,
+            "dim": 0,
+            "color": ""
+          },
+          "toggle": {
+            "on": false,
+            "labelOn": "On",
+            "labelOff": "Off"
+          },
+          "gate": {
+            "open": true,
+            "blocksMove": false,
+            "blocksSight": false
+          },
+          "health": {
+            "max": 30,
+            "cover": "three-quarters"
+          },
+          "trap": {
+            "attack": 0,
+            "dc": 0,
+            "save": "",
+            "damage": "",
+            "onFail": ""
+          },
+          "range": {
+            "feet": 0,
+            "condition": "",
+            "effect": ""
+          },
+          "links": [],
+          "immunities": [],
+          "timer": {
+            "mode": "",
+            "fuseRounds": 0
+          }
+        },
+        "interact": {
+          "reachFt": 5,
+          "actions": [],
+          "dmApprove": false
+        },
+        "targetable": false,
+        "notes": "Platform baggage cart. Three-quarters cover, 30 HP stub. Size 2. DM can shove along a platform (flavor).",
+        "state": {
+          "on": false,
+          "open": true,
+          "lit": false,
+          "hp": 30,
+          "armedAtRound": null,
+          "firesAtRound": null
+        },
+        "v": 1
+      },
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-baggage-cart.webp",
+      "lights": [],
+      "pos": {
+        "x": 21,
+        "y": 11
+      },
+      "sceneId": "scn_dry_fork",
+      "sq": "V12",
+      "span": {
+        "w": 2,
+        "h": 1
+      }
+    },
+    {
+      "id": "df_coal",
+      "kind": "asset",
+      "name": "Coal Bin",
+      "label": "Coal bin",
+      "size": 2,
+      "color": "#c9a227",
+      "ownerCanMove": false,
+      "ownerUid": "",
+      "hidden": false,
+      "noInit": true,
+      "noHpPool": true,
+      "notTargetable": true,
+      "assetDefId": "ast_coal-bin",
+      "asset": {
+        "defId": "ast_coal-bin",
+        "name": "Coal Bin",
+        "size": 2,
+        "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-coal-bin.webp",
+        "images": [
+          "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-coal-bin.webp"
+        ],
+        "sfx": {
+          "interact": "",
+          "on": "",
+          "off": "",
+          "open": "",
+          "close": ""
+        },
+        "props": {
+          "light": {
+            "on": false,
+            "bright": 0,
+            "dim": 0,
+            "color": ""
+          },
+          "toggle": {
+            "on": false,
+            "labelOn": "On",
+            "labelOff": "Off"
+          },
+          "gate": {
+            "open": true,
+            "blocksMove": false,
+            "blocksSight": false
+          },
+          "health": {
+            "max": 40,
+            "cover": "three-quarters"
+          },
+          "trap": {
+            "attack": 0,
+            "dc": 0,
+            "save": "",
+            "damage": "",
+            "onFail": ""
+          },
+          "range": {
+            "feet": 0,
+            "condition": "",
+            "effect": ""
+          },
+          "links": [],
+          "immunities": [],
+          "timer": {
+            "mode": "",
+            "fuseRounds": 0
+          }
+        },
+        "interact": {
+          "reachFt": 5,
+          "actions": [],
+          "dmApprove": false
+        },
+        "targetable": false,
+        "notes": "Open coal bin / crib. Three-quarters cover, 40 HP stub. Size 2.",
+        "state": {
+          "on": false,
+          "open": true,
+          "lit": false,
+          "hp": 40,
+          "armedAtRound": null,
+          "firesAtRound": null
+        },
+        "v": 1
+      },
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-coal-bin.webp",
+      "lights": [],
+      "pos": {
+        "x": 5,
+        "y": 10
+      },
+      "sceneId": "scn_dry_fork",
+      "sq": "F11",
+      "span": {
+        "w": 3,
+        "h": 2
+      }
+    },
+    {
+      "id": "df_rain",
+      "kind": "asset",
+      "name": "Rain Barrel",
+      "label": "Rain barrel",
+      "size": 1,
+      "color": "#c9a227",
+      "ownerCanMove": false,
+      "ownerUid": "",
+      "hidden": false,
+      "noInit": true,
+      "noHpPool": true,
+      "notTargetable": true,
+      "assetDefId": "ast_rain-barrel",
+      "asset": {
+        "defId": "ast_rain-barrel",
+        "name": "Rain Barrel",
+        "size": 1,
+        "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-rain-barrel-off.webp",
+        "images": [
+          "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-rain-barrel-off.webp",
+          "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-rain-barrel-on.webp"
+        ],
+        "sfx": {
+          "interact": "",
+          "on": "thud.wav",
+          "off": "ui-back.mp3",
+          "open": "",
+          "close": ""
+        },
+        "props": {
+          "light": {
+            "on": false,
+            "bright": 0,
+            "dim": 0,
+            "color": ""
+          },
+          "toggle": {
+            "on": false,
+            "labelOn": "Tip over",
+            "labelOff": "Set upright"
+          },
+          "gate": {
+            "open": true,
+            "blocksMove": false,
+            "blocksSight": false
+          },
+          "health": {
+            "max": 12,
+            "cover": "half"
+          },
+          "trap": {
+            "attack": 0,
+            "dc": 0,
+            "save": "",
+            "damage": "",
+            "onFail": ""
+          },
+          "range": {
+            "feet": 0,
+            "condition": "",
+            "effect": ""
+          },
+          "links": [],
+          "immunities": [],
+          "timer": {
+            "mode": "",
+            "fuseRounds": 0
+          }
+        },
+        "interact": {
+          "reachFt": 5,
+          "actions": [
+            "toggle"
+          ],
+          "dmApprove": false
+        },
+        "targetable": false,
+        "notes": "Wooden rain barrel. Off = upright (half cover), on = tipped (puddle / no cover). DM rules the wet square.",
+        "state": {
+          "on": false,
+          "open": true,
+          "lit": false,
+          "hp": 12,
+          "armedAtRound": null,
+          "firesAtRound": null
+        },
+        "v": 1
+      },
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-rain-barrel-off.webp",
+      "lights": [],
+      "pos": {
+        "x": 22,
+        "y": 14
+      },
+      "sceneId": "scn_dry_fork",
+      "sq": "W15",
+      "span": {
+        "w": 1,
+        "h": 1
+      }
+    },
+    {
+      "id": "df_trough_road",
+      "kind": "asset",
+      "name": "Water Trough",
+      "label": "Road trough",
+      "size": 2,
+      "color": "#c9a227",
+      "ownerCanMove": false,
+      "ownerUid": "",
+      "hidden": false,
+      "noInit": true,
+      "noHpPool": true,
+      "notTargetable": true,
+      "assetDefId": "ast_water-trough",
+      "asset": {
+        "defId": "ast_water-trough",
+        "name": "Water Trough",
+        "size": 2,
+        "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-water-trough-off.webp",
+        "images": [
+          "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-water-trough-off.webp",
+          "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-water-trough-on.webp"
+        ],
+        "sfx": {
+          "interact": "",
+          "on": "ui-tick.mp3",
+          "off": "ui-back.mp3",
+          "open": "",
+          "close": ""
+        },
+        "props": {
+          "light": {
+            "on": false,
+            "bright": 0,
+            "dim": 0,
+            "color": ""
+          },
+          "toggle": {
+            "on": false,
+            "labelOn": "Fill",
+            "labelOff": "Empty"
+          },
+          "gate": {
+            "open": true,
+            "blocksMove": false,
+            "blocksSight": false
+          },
+          "health": {
+            "max": 15,
+            "cover": "half"
+          },
+          "trap": {
+            "attack": 0,
+            "dc": 0,
+            "save": "",
+            "damage": "",
+            "onFail": ""
+          },
+          "range": {
+            "feet": 0,
+            "condition": "",
+            "effect": ""
+          },
+          "links": [],
+          "immunities": [],
+          "timer": {
+            "mode": "",
+            "fuseRounds": 0
+          }
+        },
+        "interact": {
+          "reachFt": 5,
+          "actions": [
+            "toggle"
+          ],
+          "dmApprove": false
+        },
+        "targetable": false,
+        "notes": "Long horse trough. Off = empty, on = full. Half cover, 15 HP stub. Size 2.",
+        "state": {
+          "on": false,
+          "open": true,
+          "lit": false,
+          "hp": 15,
+          "armedAtRound": null,
+          "firesAtRound": null
+        },
+        "v": 1
+      },
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-water-trough-off.webp",
+      "lights": [],
+      "pos": {
+        "x": 10,
+        "y": 18
+      },
+      "sceneId": "scn_dry_fork",
+      "sq": "K19",
+      "span": {
+        "w": 1,
+        "h": 2
+      }
+    },
+    {
+      "id": "df_trough_corral",
+      "kind": "asset",
+      "name": "Water Trough",
+      "label": "Corral trough",
+      "size": 2,
+      "color": "#c9a227",
+      "ownerCanMove": false,
+      "ownerUid": "",
+      "hidden": false,
+      "noInit": true,
+      "noHpPool": true,
+      "notTargetable": true,
+      "assetDefId": "ast_water-trough",
+      "asset": {
+        "defId": "ast_water-trough",
+        "name": "Water Trough",
+        "size": 2,
+        "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-water-trough-off.webp",
+        "images": [
+          "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-water-trough-off.webp",
+          "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-water-trough-on.webp"
+        ],
+        "sfx": {
+          "interact": "",
+          "on": "ui-tick.mp3",
+          "off": "ui-back.mp3",
+          "open": "",
+          "close": ""
+        },
+        "props": {
+          "light": {
+            "on": false,
+            "bright": 0,
+            "dim": 0,
+            "color": ""
+          },
+          "toggle": {
+            "on": false,
+            "labelOn": "Fill",
+            "labelOff": "Empty"
+          },
+          "gate": {
+            "open": true,
+            "blocksMove": false,
+            "blocksSight": false
+          },
+          "health": {
+            "max": 15,
+            "cover": "half"
+          },
+          "trap": {
+            "attack": 0,
+            "dc": 0,
+            "save": "",
+            "damage": "",
+            "onFail": ""
+          },
+          "range": {
+            "feet": 0,
+            "condition": "",
+            "effect": ""
+          },
+          "links": [],
+          "immunities": [],
+          "timer": {
+            "mode": "",
+            "fuseRounds": 0
+          }
+        },
+        "interact": {
+          "reachFt": 5,
+          "actions": [
+            "toggle"
+          ],
+          "dmApprove": false
+        },
+        "targetable": false,
+        "notes": "Long horse trough. Off = empty, on = full. Half cover, 15 HP stub. Size 2.",
+        "state": {
+          "on": false,
+          "open": true,
+          "lit": false,
+          "hp": 15,
+          "armedAtRound": null,
+          "firesAtRound": null
+        },
+        "v": 1
+      },
+      "image": "https://vaderkid008.github.io/ssdns-character-sheet/assets/map-props/asset-water-trough-off.webp",
+      "lights": [],
+      "pos": {
+        "x": 37,
+        "y": 21
+      },
+      "sceneId": "scn_dry_fork",
+      "sq": "AL22",
+      "span": {
+        "w": 1,
+        "h": 2
+      }
     },
     {
       "id": "df_saddlebag",

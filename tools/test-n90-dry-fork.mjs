@@ -18,17 +18,19 @@ function check(id, cond, detail) {
 }
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function exists(rel) { return fs.existsSync(path.join(root, rel)); }
-function pngSize(rel) {
+function webpSize(rel) {
   const buf = fs.readFileSync(path.join(root, rel));
-  if (buf.slice(0, 8).toString("hex") !== "89504e470d0a1a0a") return null;
-  return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20), bytes: buf.length };
+  if (buf.slice(0, 4).toString() !== "RIFF" || buf.slice(8, 12).toString() !== "WEBP" || buf.slice(12, 16).toString() !== "VP8 ") return null;
+  const o = 20;
+  if (buf[o + 3] !== 0x9d || buf[o + 4] !== 0x01 || buf[o + 5] !== 0x2a) return null;
+  return { w: buf.readUInt16LE(o + 6) & 0x3fff, h: buf.readUInt16LE(o + 8) & 0x3fff, bytes: buf.length };
 }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.322" && version.sheetBuild === "sheet-playtest-v03322", JSON.stringify(version));
-check("ver.dmcc", version.dmcc === "0.2.335" && version.dmccBuild === "dmcc-playtest-v02335");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.322"') && read("assets/js/app.js").includes("sheet-playtest-v03322"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.335"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02335"));
+check("ver.sheet", version.sheet === "0.3.323" && version.sheetBuild === "sheet-playtest-v03323", JSON.stringify(version));
+check("ver.dmcc", version.dmcc === "0.2.336" && version.dmccBuild === "dmcc-playtest-v02336");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.323"') && read("assets/js/app.js").includes("sheet-playtest-v03323"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.336"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02336"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js database.rules.json", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
@@ -40,8 +42,8 @@ const scene = sb.SSDNS_MAP_PACKS.scenes.find((s) => s.id === "scn_dry_fork");
 check("pack.scene", !!scene && scene.name === "Dry Fork Water Stop" && scene.group === "Showcase");
 check("pack.grid", scene && scene.grid.cols === 40 && scene.grid.rows === 30 && scene.grid.px === 70);
 check("pack.paths", scene && exists("map/" + scene.img) && exists("map/" + scene.thumb));
-const png = pngSize("map/packs/showcase-dry-fork/showcase-dry-fork_40x30_70px.png");
-check("pack.png", png && png.w === 2800 && png.h === 2100 && png.bytes > 1.5e6, JSON.stringify(png));
+const webp = webpSize("map/packs/showcase-dry-fork/showcase-dry-fork_40x30_70px-painted.webp");
+check("pack.webp", webp && webp.w === 2800 && webp.h === 2100 && webp.bytes > 5e5 && webp.bytes < 1.5e6 && !exists("map/packs/showcase-dry-fork/showcase-dry-fork_40x30_70px.png"), JSON.stringify(webp));
 const wallsFile = JSON.parse(read("map/packs/showcase-dry-fork/showcase-dry-fork.walls.json"));
 check("pack.walls", scene && scene.walls.length === 31 && JSON.stringify(scene.walls) === JSON.stringify(wallsFile));
 const bad = (scene ? scene.walls : []).filter((w) => {
@@ -62,8 +64,8 @@ check("layout", exists("map/packs/showcase-dry-fork/LAYOUT-KEY.md") && read("map
 const mapSrc = read("map/ssdns-map.js");
 check("import.prefill", mapSrc.includes("const fromPack = packScene && Array.isArray(packScene.walls)") && mapSrc.includes("prompt('Paste walls JSON (array of {x1,y1,x2,y2}):', fromPack)"));
 check("seed.kept", mapSrc.includes("function seedPackWalls(sc)") && mapSrc.includes("sd.walls = sc.walls.map(w => Object.assign({}, w))"));
-check("html.sheet", read("index.html").includes("map/map-packs.js?v=0.3.221-encounter2") && read("index.html").includes("map/ssdns-map.js?v=0.3.322-playfix"));
-check("html.dm", read("dm/index.html").includes("../map/map-packs.js?v=0.2.234-encounter2") && read("dm/index.html").includes("../map/ssdns-map.js?v=0.2.335-playfix"));
+check("html.sheet", read("index.html").includes("map/map-packs.js?v=0.3.323-between") && read("index.html").includes("map/ssdns-map.js?v=0.3.323-force"));
+check("html.dm", read("dm/index.html").includes("../map/map-packs.js?v=0.2.336-between") && read("dm/index.html").includes("../map/ssdns-map.js?v=0.2.336-force"));
 check("docs", read("map/DATA.md").includes("scn_dry_fork") && read("map/DATA.md").includes("seedPackWalls") && read("docs/SCHEMA.md").includes("scn_dry_fork"));
 
 if (failures.length) {
