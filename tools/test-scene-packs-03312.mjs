@@ -107,6 +107,7 @@ await page.evaluate(() => {
   const name = panel().querySelector("[data-act='sceneName']");
   name.value = "Pack house";
   name.dispatchEvent(new Event("input", { bubbles: true }));
+  panel().querySelector("[data-act='sceneStep'][data-step='4']").click();
   panel().querySelector("[data-act='sceneSave']").click();
 });
 await page.waitForTimeout(200);

@@ -30,8 +30,30 @@
     } catch (e) { return { scenes: {} }; }
   }
   function writeLibrary(store, lib) {
-    storeOf(store).setItem(KEY, JSON.stringify({ scenes: lib.scenes || {} }));
+    var box = storeOf(store);
+    var payload = JSON.stringify({ scenes: lib.scenes || {} });
+    try { box.setItem(KEY, payload); }
+    catch (e) {
+      var failed = new Error("save-failed");
+      failed.code = "save-failed";
+      throw failed;
+    }
+    if (box.getItem(KEY) !== payload) {
+      var missed = new Error("save-failed");
+      missed.code = "save-failed";
+      throw missed;
+    }
     return lib;
+  }
+  function stampEdited(lib, scene) {
+    var newest = 0;
+    Object.keys((lib && lib.scenes) || {}).forEach(function (id) {
+      var t = Number(lib.scenes[id] && lib.scenes[id].editedAt) || 0;
+      if (t > newest) newest = t;
+    });
+    var now = Date.now();
+    scene.editedAt = now > newest ? now : newest + 1;
+    return scene;
   }
   function blank(name) {
     return {
@@ -847,6 +869,7 @@
   function saveScene(store, scene) {
     var lib = readLibrary(store);
     scene = tidy(scene);
+    stampEdited(lib, scene);
     lib.scenes[scene.id] = scene;
     writeLibrary(store, lib);
     return scene;
@@ -1052,25 +1075,58 @@
     });
     return block;
   }
+  var BUILD_STEPS = [
+    ["floors", "1 Floors", "Add the maps this place uses, and pick where the party starts."],
+    ["spawns", "2 Spawns", "Drop a group on each floor. The default group is where people land."],
+    ["links", "3 Stairs & doors", "Place a link, then its landing on the other floor."],
+    ["loot", "4 Loot & enemies", "Chests, strongboxes, and who is waiting."],
+    ["save", "5 Save & load", "This scene is already in this browser. Export a copy to keep it somewhere else."]
+  ];
   function paint(panel, draft, lib, maps) {
     var focus = document.activeElement;
     var focusKey = focus && panel.contains(focus) ? (focus.getAttribute("data-act") || "") + ":" + (focus.getAttribute("data-floor") || "") + ":" + (focus.getAttribute("data-spawn") || "") + ":" + (focus.getAttribute("data-link") || "") : "";
     var focusVal = focus && panel.contains(focus) && "value" in focus ? focus.value : null;
     panel.innerHTML = "";
+    var step = panel._step || 0;
+    if (step < 0 || step > 4) step = 0;
+    var stepId = BUILD_STEPS[step][0];
     var head = el("div", { class: "ssm-scene-head" });
     head.appendChild(el("b", null, "Scene builder"));
     head.appendChild(el("button", { type: "button", "data-act": "sceneClose", "aria-label": "Close" }, "×"));
     panel.appendChild(head);
     var name = el("input", { type: "text", "data-act": "sceneName", value: draft.name, maxlength: "80", "aria-label": "Scene name" });
     name.value = draft.name;
-    panel.appendChild(field("Scene name", name));
-    var tools = el("div", { class: "ssm-scene-tools" });
-    [["sceneNew", "New"], ["sceneSave", "Save"], ["sceneDuplicate", "Duplicate"]].forEach(function (pair) {
-      tools.appendChild(el("button", { type: "button", "data-act": pair[0] }, pair[1]));
+    var nameRow = el("div", { class: "ssm-scene-namerow" });
+    nameRow.appendChild(field("Scene name", name));
+    var saveState = panel._saveState === "saving" ? "saving" : (panel._saveState === "saved" ? "saved" : "");
+    var status = el("span", {
+      class: "ssm-scene-save" + (saveState ? (" is-" + saveState) : ""),
+      "data-act": "sceneSaveStatus",
+      role: "status"
+    }, saveState === "saving" ? "Saving…" : (saveState === "saved" ? "Saved" : ""));
+    if (!saveState) status.hidden = true;
+    nameRow.appendChild(status);
+    panel.appendChild(nameRow);
+    var tabs = el("div", { class: "ssm-scene-steps", "data-act": "sceneSteps" });
+    BUILD_STEPS.forEach(function (row, i) {
+      var tab = el("button", { type: "button", "data-act": "sceneStep", "data-step": String(i) }, row[1]);
+      if (i === step) tab.className = "is-on";
+      tabs.appendChild(tab);
     });
-    panel.appendChild(tools);
-    panel.appendChild(el("p", { class: "ssm-scene-note" }, "Floors use maps you already have. Removing one here does not delete the map."));
+    panel.appendChild(tabs);
+    panel.appendChild(el("p", { class: "ssm-scene-note", "data-act": "sceneHint" }, BUILD_STEPS[step][2]));
+    if (panel._leaveAsk) {
+      var ask = el("div", { class: "ssm-scene-warn", "data-act": "sceneLeaveAsk", role: "alertdialog", "aria-label": "Leave without the latest change?" });
+      ask.appendChild(el("b", null, "Leave without the latest change?"));
+      ask.appendChild(el("p", null, (draft.name || "This scene") + " has a change that is not saved yet. Stay, or leave and lose that change."));
+      var askBtns = el("div", { class: "ssm-scene-warn-actions" });
+      askBtns.appendChild(el("button", { type: "button", "data-act": "sceneLeaveStay" }, "Stay"));
+      askBtns.appendChild(el("button", { type: "button", "data-act": "sceneLeaveDrop" }, "Leave without saving"));
+      ask.appendChild(askBtns);
+      panel.appendChild(ask);
+    }
     var addRow = el("div", { class: "ssm-scene-add" });
+    if (stepId !== "floors") addRow.hidden = true;
     var pick = el("select", { "data-act": "floorPick", "aria-label": "Map to add" });
     pick.appendChild(el("option", { value: "" }, "Add a floor…"));
     (maps || []).forEach(function (m) {
@@ -1097,7 +1153,7 @@
       actions.appendChild(el("button", { type: "button", "data-act": "floorUp", "data-floor": floor.id, "aria-label": "Move floor up" }, "Up"));
       actions.appendChild(el("button", { type: "button", "data-act": "floorDown", "data-floor": floor.id, "aria-label": "Move floor down" }, "Down"));
       actions.appendChild(el("button", { type: "button", "data-act": "floorRemove", "data-floor": floor.id }, "Remove"));
-      row.appendChild(actions);
+      if (stepId === "floors") row.appendChild(actions);
       var spawns = el("div", { class: "ssm-scene-spawns" });
       spawns.appendChild(el("div", { class: "ssm-scene-k" }, "Spawn groups"));
       (floor.groups || []).forEach(function (group) {
@@ -1129,7 +1185,7 @@
         spawns.appendChild(block);
       });
       spawns.appendChild(el("button", { type: "button", "data-act": "groupAdd", "data-floor": floor.id }, "New group"));
-      row.appendChild(spawns);
+      if (stepId === "spawns") row.appendChild(spawns);
       var links = el("div", { class: "ssm-scene-links" });
       links.appendChild(el("div", { class: "ssm-scene-k" }, "Links"));
       var placeLink = el("button", { type: "button", "data-act": "linkPlace", "data-floor": floor.id }, "Place link");
@@ -1184,14 +1240,14 @@
         links.appendChild(line);
       });
       links.appendChild(el("p", { class: "ssm-scene-stairs" }, "A visible link asks the player Go or Stay. Hidden links and spawn squares stay DM-only. Take link still moves the tokens you selected."));
-      row.appendChild(links);
-      row.appendChild(encounterBlock(panel, draft, floor));
+      if (stepId === "links") row.appendChild(links);
+      if (stepId === "loot") row.appendChild(encounterBlock(panel, draft, floor));
       if (index === draft.floors.length - 1) row.setAttribute("data-last", "1");
-      list.appendChild(row);
+      if (stepId === "floors" || stepId === "spawns" || stepId === "links" || stepId === "loot") list.appendChild(row);
     });
-    if (!draft.floors.length) list.appendChild(el("li", { class: "ssm-scene-empty" }, "No floors yet."));
-    panel.appendChild(list);
-    if (draft.encounters) {
+    if (!draft.floors.length && stepId !== "save") list.appendChild(el("li", { class: "ssm-scene-empty" }, stepId === "floors" ? "No floors yet." : "Add a floor on step 1 first."));
+    if (stepId !== "save") panel.appendChild(list);
+    if (stepId === "loot" && draft.encounters) {
       var sum = draft.encounters;
       var lootLine = (sum.loot || []).map(function (row) { return row.name + (row.items && row.items.length ? " (" + row.items.join(", ") + ")" : ""); }).join("; ");
       panel.appendChild(el("p", { class: "ssm-scene-stairs", "data-act": "encounterSummary" }, "Encounter: " + sum.xp + " XP · " + sum.enemies + " enemies (" + sum.hidden + " start hidden) · " + sum.containers + " containers" + (lootLine ? " · " + lootLine : "")));
@@ -1205,28 +1261,52 @@
     var packFile = el("input", { type: "file", accept: "application/json,.json", "data-act": "scenePackFile", hidden: "hidden" });
     port.appendChild(file);
     port.appendChild(packFile);
-    panel.appendChild(port);
+    if (stepId === "save") panel.appendChild(port);
     if (panel._notice && panel._notice.text) {
       panel.appendChild(el("p", { class: "ssm-scene-notice" + (panel._notice.err ? " is-err" : ""), "data-act": "scenePackNotice", role: "status" }, panel._notice.text));
     }
+    var nav = el("div", { class: "ssm-scene-nav" });
+    if (step > 0) nav.appendChild(el("button", { type: "button", "data-act": "sceneBack" }, "Back"));
+    else nav.appendChild(el("span", null, ""));
+    if (step < 4) nav.appendChild(el("button", { type: "button", "data-act": "sceneNext" }, "Next"));
+    panel.appendChild(nav);
+    if (stepId === "save") {
+    var saveRow = el("div", { class: "ssm-scene-tools" });
+    saveRow.appendChild(el("button", { type: "button", "data-act": "sceneSave" }, "Save"));
+    saveRow.appendChild(el("button", { type: "button", "data-act": "sceneNew" }, "New"));
+    saveRow.appendChild(el("button", { type: "button", "data-act": "sceneDuplicate" }, "Duplicate"));
+    panel.appendChild(saveRow);
     panel.appendChild(el("h3", null, "Scene library"));
+    panel.appendChild(el("p", { class: "ssm-scene-note", "data-act": "sceneStoreNote" }, "Scenes are stored in this browser only. Export a copy to back up, or to open them on another computer."));
     var saved = Object.keys(lib.scenes || {}).map(function (id) { return lib.scenes[id]; });
-    saved.sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+    var inRoom = panel._opts && panel._opts.inRoom;
+    saved.sort(function (a, b) {
+      var ar = inRoom && inRoom(a.id) ? 1 : 0;
+      var br = inRoom && inRoom(b.id) ? 1 : 0;
+      if (ar !== br) return br - ar;
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    });
     var libList = el("ul", { class: "ssm-scene-library", "data-act": "sceneLibrary" });
     if (!saved.length) libList.appendChild(el("li", { class: "ssm-scene-empty" }, "Nothing saved yet."));
     saved.forEach(function (scene) {
-      var item = el("li", null);
+      var here = !!(inRoom && inRoom(scene.id));
+      var item = el("li", { class: "ssm-lib-card" + (here ? " is-active" : "") });
       var tick = el("input", { type: "checkbox", "data-act": "scenePackPick", "data-id": scene.id, "aria-label": "Include " + scene.name + " in a pack" });
       if (panel._packPick && panel._packPick[scene.id]) tick.checked = true;
-      item.appendChild(tick);
-      item.appendChild(el("b", null, scene.name));
-      item.appendChild(document.createTextNode(" · " + (scene.floors || []).length + " floors"));
-      var acts = el("div", { class: "ssm-scene-tools" });
-      acts.appendChild(el("button", { type: "button", "data-act": "sceneExportOne", "data-id": scene.id }, "Export scene"));
-      acts.appendChild(el("button", { type: "button", "data-act": "sceneOpen", "data-id": scene.id }, "Edit"));
-      acts.appendChild(el("button", { type: "button", "data-act": "sceneLoad", "data-id": scene.id }, "Load into room"));
-      acts.appendChild(el("button", { type: "button", "data-act": "sceneDelete", "data-id": scene.id }, "Delete"));
-      item.appendChild(acts);
+      var title = el("div", { class: "ssm-lib-title" });
+      title.appendChild(tick);
+      title.appendChild(el("b", null, scene.name));
+      if (here) title.appendChild(el("span", { class: "ssm-in-room" }, "In this room"));
+      item.appendChild(title);
+      item.appendChild(el("p", { class: "ssm-scene-note" }, (scene.floors || []).length + " floors"));
+      var big = el("div", { class: "ssm-lib-big" });
+      big.appendChild(el("button", { type: "button", "data-act": "sceneLoad", "data-id": scene.id }, "Load into room"));
+      big.appendChild(el("button", { type: "button", "data-act": "sceneOpen", "data-id": scene.id }, "Edit"));
+      item.appendChild(big);
+      var small = el("div", { class: "ssm-lib-small" });
+      small.appendChild(el("button", { type: "button", "data-act": "sceneExportOne", "data-id": scene.id }, "Export"));
+      small.appendChild(el("button", { type: "button", "data-act": "sceneDelete", "data-id": scene.id }, "Delete"));
+      item.appendChild(small);
       if (panel._confirmDelete === scene.id) {
         var ask = el("p", { class: "ssm-scene-confirm" });
         ask.appendChild(document.createTextNode("Delete “" + scene.name + "” from the library? The maps stay."));
@@ -1237,6 +1317,7 @@
       libList.appendChild(item);
     });
     panel.appendChild(libList);
+    }
     if (focusKey) {
       var focusParts = focusKey.split(":");
       var again = panel.querySelector('[data-act="' + focusParts[0] + '"]' + (focusParts[1] ? '[data-floor="' + focusParts[1] + '"]' : "") + (focusParts[2] ? '[data-spawn="' + focusParts[2] + '"]' : "") + (focusParts[3] ? '[data-link="' + focusParts[3] + '"]' : ""));
@@ -1248,7 +1329,10 @@
 
   function open(parent, opts) {
     if (!parent || (opts && opts.role === "player")) return null;
-    close();
+    if (isOpen()) {
+      close();
+      if (isOpen()) return live;
+    }
     opts = opts || {};
     var store = storeOf(opts.store);
     var draft = tidy(opts.scene || blank(opts.name));
@@ -1260,7 +1344,73 @@
       try { list = (opts.maps && opts.maps()) || []; } catch (e) { list = []; }
       return list;
     }
-    function draw() { paint(panel, draft, readLibrary(store), maps()); }
+    var lastSig = "";
+    var dirty = false;
+    var saveTimer = 0;
+    var forcing = false;
+    function draftSig(scene) {
+      var t = tidy(scene);
+      return JSON.stringify({ id: t.id, name: t.name, startFloorId: t.startFloorId, floors: t.floors, stairs: t.stairs });
+    }
+    lastSig = draftSig(draft);
+    var known = readLibrary(store).scenes[draft.id];
+    panel._saveState = known && draftSig(known) === lastSig ? "saved" : "";
+    function applyNote() {
+      var node = panel.querySelector("[data-act='sceneSaveStatus']");
+      if (!node) return;
+      var state = panel._saveState === "saving" ? "saving" : (panel._saveState === "saved" ? "saved" : "");
+      node.hidden = !state;
+      node.textContent = state === "saving" ? "Saving…" : "Saved";
+      node.className = "ssm-scene-save" + (state ? (" is-" + state) : "");
+    }
+    function persist() {
+      if (saveTimer) { root.clearTimeout(saveTimer); saveTimer = 0; }
+      try {
+        draft = saveScene(store, draft);
+        lastSig = draftSig(draft);
+        dirty = false;
+        panel._saveState = "saved";
+        panel._saveError = "";
+        return true;
+      } catch (e) {
+        panel._saveState = "";
+        panel._saveError = "save-failed";
+        dirty = true;
+        return false;
+      }
+    }
+    function noteIfDirty() {
+      var sig = draftSig(draft);
+      if (sig === lastSig) return;
+      dirty = true;
+      panel._saveState = "saving";
+      applyNote();
+      if (saveTimer) root.clearTimeout(saveTimer);
+      saveTimer = root.setTimeout(function () {
+        saveTimer = 0;
+        persist();
+        draw();
+      }, 400);
+    }
+    function pendingChange() {
+      return !!(dirty || saveTimer || panel._saveError || panel._saveState === "saving");
+    }
+    function onPageHide(ev) {
+      if (!pendingChange()) return;
+      if (ev && ev.preventDefault) ev.preventDefault();
+      if (ev) ev.returnValue = "Leave without the latest change?";
+    }
+    if (root.addEventListener) root.addEventListener("beforeunload", onPageHide);
+    function draw() {
+      noteIfDirty();
+      paint(panel, draft, readLibrary(store), maps());
+    }
+    function requestClose() {
+      if (forcing) return;
+      if (pendingChange()) { panel._leaveAsk = true; paint(panel, draft, readLibrary(store), maps()); return; }
+      forcing = true;
+      close();
+    }
     function stopKey(ev) {
       var tag = ev.target && ev.target.tagName;
       if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") ev.stopPropagation();
@@ -1269,7 +1419,8 @@
         ev.stopPropagation();
         if (panel._arm || panel._linkArm || panel._encArm) { panel._arm = null; panel._linkArm = null; panel._encArm = null; if (opts.onDisarm) opts.onDisarm(); draw(); return; }
         if (panel._confirmDelete) { panel._confirmDelete = ""; draw(); return; }
-        close();
+        if (panel._leaveAsk) { panel._leaveAsk = false; draw(); return; }
+        requestClose();
       }
     }
     panel.addEventListener("keydown", stopKey);
@@ -1281,9 +1432,35 @@
       var act = btn.getAttribute("data-act");
       var floorId = btn.getAttribute("data-floor");
       var sceneId = btn.getAttribute("data-id");
-      if (act === "sceneClose") close();
-      else if (act === "sceneNew") { draft = blank("New scene"); panel._confirmDelete = ""; panel._arm = null; panel._linkArm = null; panel._encArm = null; }
-      else if (act === "sceneSave") { draft = saveScene(store, draft); }
+      if (act === "sceneClose") requestClose();
+      else if (act === "sceneLeaveStay") panel._leaveAsk = false;
+      else if (act === "sceneLeaveDrop") {
+        panel._leaveAsk = false;
+        dirty = false;
+        panel._saveError = "";
+        panel._saveState = "";
+        if (saveTimer) { root.clearTimeout(saveTimer); saveTimer = 0; }
+        forcing = true;
+        close();
+        return;
+      }
+      else if (act === "sceneStep") panel._step = Number(btn.getAttribute("data-step")) || 0;
+      else if (act === "sceneNext") panel._step = Math.min(4, (panel._step || 0) + 1);
+      else if (act === "sceneBack") panel._step = Math.max(0, (panel._step || 0) - 1);
+      else if (act === "sceneNew") {
+        if (pendingChange()) persist();
+        draft = tidy(blank("New scene"));
+        lastSig = draftSig(draft);
+        dirty = false;
+        panel._saveState = "";
+        panel._saveError = "";
+        panel._step = 0;
+        panel._confirmDelete = "";
+        panel._arm = null;
+        panel._linkArm = null;
+        panel._encArm = null;
+      }
+      else if (act === "sceneSave") persist();
       else if (act === "sceneDuplicate") {
         draft = saveScene(store, draft);
         draft = duplicateScene(store, draft.id) || draft;
@@ -1421,6 +1598,7 @@
         if (act === "spawnY") patch.y = node.value;
         draft = setSpawn(draft, node.getAttribute("data-floor"), node.getAttribute("data-spawn"), patch);
       }
+      noteIfDirty();
     });
     panel.addEventListener("change", function (ev) {
       var node = ev.target;
@@ -1531,6 +1709,9 @@
       el: panel,
       onClose: opts.onClose || null,
       store: store,
+      requestClose: requestClose,
+      forcing: function () { return forcing; },
+      unbind: function () { if (root.removeEventListener) root.removeEventListener("beforeunload", onPageHide); },
       draft: function () { return tidy(draft); },
       arm: function () { return panel._encArm || panel._linkArm || panel._arm || null; },
       disarm: function () { panel._arm = null; panel._linkArm = null; panel._encArm = null; draw(); },
@@ -1644,6 +1825,11 @@
     return live;
   }
   function close() {
+    if (live && live.requestClose && !(live.forcing && live.forcing())) {
+      live.requestClose();
+      return;
+    }
+    if (live && live.unbind) live.unbind();
     var hook = live && live.onClose;
     if (live && live.el && live.el.parentNode) live.el.parentNode.removeChild(live.el);
     live = null;

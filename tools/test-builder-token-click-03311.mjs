@@ -72,6 +72,8 @@ async function openBuilder() {
 async function closeBuilder() {
   const btn = await page.$("[data-act='sceneClose']");
   if (btn) await btn.click();
+  const leave = await page.$("[data-act='sceneLeaveDrop']");
+  if (leave) await leave.click();
   await page.waitForTimeout(150);
 }
 
@@ -106,6 +108,7 @@ await page.evaluate(() => {
   };
   add("scn_dustyspur01");
   add("scn_upstairs");
+  panel().querySelector("[data-act='sceneStep'][data-step='2']").click();
   panel().querySelector("[data-act='linkPlace']").click();
 });
 await page.waitForTimeout(100);
@@ -133,6 +136,7 @@ await page.evaluate(() => {
   };
   add("scn_dustyspur01");
   add("scn_upstairs");
+  panel().querySelector("[data-act='sceneStep'][data-step='2']").click();
   panel().querySelector("[data-act='linkPlace']").click();
   window.SSDNSSceneBuilder.dropLink(8, 8);
   const dest = window.SSDNSSceneBuilder.draft().floors[1];
