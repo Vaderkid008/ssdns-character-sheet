@@ -10418,7 +10418,13 @@ function ensureDefaultScene() {
      The bootstrap write of an empty Dusty Spur during boot does not count. */
   if (cur.walls && cur.walls.length) { defaultSceneDone = true; return; }
   if (roomAlreadyMapped()) { defaultSceneDone = true; return; }
-  if (sawRemoteScene && sid !== 'scn_dustyspur01' && sid !== DEFAULT_SCENE_ID) { defaultSceneDone = true; return; }
+  /* A remote scene the catalog still has is a map the DM already picked. A saved
+     id that is no longer in the catalog is missing, so the room opens on the cover. */
+  if (sawRemoteScene && sid !== 'scn_dustyspur01' && sid !== DEFAULT_SCENE_ID) {
+    defaultSceneDone = true;
+    if (!knownScene(sid)) showBetweenEncounters({ moveTokens: false, quiet: true });
+    return;
+  }
   defaultSceneDone = true;
   showBetweenEncounters({ moveTokens: false, quiet: true });
 }
@@ -11739,7 +11745,9 @@ function renderSceneReadout() {
   const hit = loadedSceneHit();
   const here = activeSceneId();
   const floorLabel = (hit && hit.floor && hit.floor.name) || floorName(here);
-  btn.textContent = hit ? ("Scene: " + (hit.place.name || "Scene") + " · " + floorLabel + " ▾") : "No scene loaded";
+  if (hit) btn.textContent = "Scene: " + (hit.place.name || "Scene") + " · " + floorLabel + " ▾";
+  else if (here === DEFAULT_SCENE_ID) btn.textContent = "Scene: " + floorName(here) + " ▾";
+  else btn.textContent = "No scene loaded";
   if (!pop) return;
   const floors = floorChoices();
   pop.innerHTML = floors.map(floor => {
@@ -17910,9 +17918,19 @@ function autosave() {
     saveLibraryEntry(entry);
   }, 1500);
 }
+function knownScene(id) {
+  return !!(id && allScenes().some(s => s && s.id === id));
+}
 function swapScene(id) {
-  const sc = allScenes().find(s => s.id === id);
-  if (!sc) return false;
+  let sc = allScenes().find(s => s && s.id === id);
+  /* A missing saved map opens the cover. A different map the DM already has open stays put. */
+  if (!sc) {
+    const kept = state.dmView && state.dmView !== id && knownScene(state.dmView);
+    if (kept || id === DEFAULT_SCENE_ID || !coverRecord()) return false;
+    id = DEFAULT_SCENE_ID;
+    sc = allScenes().find(s => s && s.id === id);
+    if (!sc) return false;
+  }
   if (role === 'dm') {
     const cur = activeSceneId();
     if (library[cur] && cur !== id) { library[cur].snapshot = snapshotScene(cur); saveLibraryEntry(library[cur]); }
@@ -18051,6 +18069,12 @@ function stepFloor(dir) {
 }
 async function loadSceneImage(sceneId, opts) {
   const found = SCENES.find(s => s.id === sceneId);
+  if (!found && sceneId !== DEFAULT_SCENE_ID) {
+    const kept = state.dmView && state.dmView !== sceneId && knownScene(state.dmView);
+    if (!kept) return swapScene(DEFAULT_SCENE_ID);
+    draw();
+    return;
+  }
   const scene = found || { id: sceneId, name: floorName(sceneId), grid: (state.scene && state.scene.grid) || {} };
   if (state.scene) {
     const before = state.scene.grid || {};
