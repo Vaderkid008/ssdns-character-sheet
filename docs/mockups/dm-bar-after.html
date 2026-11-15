@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DM map bar, proposed</title>
+<link rel="stylesheet" href="mock.css">
+</head>
+<body>
+<div class="page">
+  <p class="kicker">Mock-up · not in the app</p>
+  <h1>Map bar, proposed</h1>
+  <p class="note">Four things on the left: where you are, Maps, Edit tokens, Move party here. Framing stays on the right. Challenge and dice stay on the app bar.</p>
+  <div class="shot" id="after">
+    <div class="bar">
+      <span class="readout">Scene: <b>Dry Fork</b> · Ground ▾</span>
+      <span class="pair">
+        <button type="button">Maps ▾</button>
+        <button type="button" class="gold">Edit tokens</button>
+      </span>
+      <button type="button">Move party here</button>
+      <span class="grow"></span>
+      <label class="grid">Grid <input type="range" min="1" max="3" value="1" aria-label="Grid"></label>
+      <span class="zoom">1.00×</span>
+      <button type="button">?</button>
+      <button type="button">Reset view</button>
+    </div>
+    <div class="map" role="img" aria-label="Map grid" style="margin-top:8px;min-height:120px"></div>
+  </div>
+</div>
+</body>
+</html>

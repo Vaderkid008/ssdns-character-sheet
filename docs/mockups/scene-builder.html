@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scene Builder mock-up</title>
+<link rel="stylesheet" href="mock.css">
+</head>
+<body>
+<div class="page">
+  <p class="kicker">Mock-up · not in the app</p>
+  <h1>Scene Builder, five steps</h1>
+  <p class="note">Each step is one job, with a hint and Back / Next. The scene writes itself. Saved means this browser has it.</p>
+
+  <article class="shot" id="step-floors">
+    <section class="builder">
+      <header><b>Scene builder</b><button type="button" aria-label="Close">×</button></header>
+      <div class="namerow">
+        <label>Scene name <input value="Dry Fork" aria-label="Scene name"></label>
+        <span class="saved">Saved</span>
+      </div>
+      <nav class="steps" aria-label="Steps">
+        <span class="on">1 Floors</span><span>2 Spawns</span><span>3 Stairs &amp; doors</span><span>4 Loot &amp; enemies</span><span>5 Save &amp; load</span>
+      </nav>
+      <p class="hint">Add the maps this place uses, and pick where the party starts.</p>
+      <div class="row">
+        <select aria-label="Map to add"><option>Dusty Spur — Saloon</option></select>
+        <button type="button">Add floor</button>
+      </div>
+      <div class="card">
+        <input value="Saloon" aria-label="Floor name">
+        <div class="row"><button type="button">Start</button><button type="button">Up</button><button type="button">Down</button><button type="button">Remove</button></div>
+      </div>
+      <div class="card">
+        <input value="Upstairs" aria-label="Floor name">
+        <div class="row"><button type="button">Set start</button><button type="button">Up</button><button type="button">Down</button><button type="button">Remove</button></div>
+      </div>
+      <div class="nav"><span></span><a class="btn" href="#step-spawns">Next</a></div>
+    </section>
+  </article>
+
+  <article class="shot" id="step-spawns">
+    <section class="builder">
+      <header><b>Scene builder</b><button type="button" aria-label="Close">×</button></header>
+      <div class="namerow">
+        <label>Scene name <input value="Dry Fork" aria-label="Scene name"></label>
+        <span class="saved">Saved</span>
+      </div>
+      <nav class="steps" aria-label="Steps">
+        <span>1 Floors</span><span class="on">2 Spawns</span><span>3 Stairs &amp; doors</span><span>4 Loot &amp; enemies</span><span>5 Save &amp; load</span>
+      </nav>
+      <p class="hint">Drop a group on each floor. The default group is where people land.</p>
+      <div class="card">
+        <b>Saloon</b>
+        <div class="row" style="margin-top:8px"><input value="Party" aria-label="Group name"><button type="button">Default</button><button type="button">Place spawn</button></div>
+        <p class="hint">1 · Party · square 2, 4</p>
+        <button type="button">New group</button>
+      </div>
+      <div class="nav"><a class="btn" href="#step-floors">Back</a><a class="btn" href="#step-links">Next</a></div>
+    </section>
+  </article>
+
+  <article class="shot" id="step-links">
+    <section class="builder">
+      <header><b>Scene builder</b><button type="button" aria-label="Close">×</button></header>
+      <div class="namerow">
+        <label>Scene name <input value="Dry Fork" aria-label="Scene name"></label>
+        <span class="saved">Saved</span>
+      </div>
+      <nav class="steps" aria-label="Steps">
+        <span>1 Floors</span><span>2 Spawns</span><span class="on">3 Stairs &amp; doors</span><span>4 Loot &amp; enemies</span><span>5 Save &amp; load</span>
+      </nav>
+      <p class="hint">Place a link, then its landing on the other floor.</p>
+      <div class="card">
+        <b>Saloon</b>
+        <button type="button" style="margin-top:8px">Place link</button>
+        <div class="row">
+          <select aria-label="Link kind"><option>Stairs up</option></select>
+          <select aria-label="Destination"><option>Upstairs</option></select>
+        </div>
+        <p class="hint">Landing 14, 17 · Two-way · Players see this</p>
+      </div>
+      <div class="nav"><a class="btn" href="#step-spawns">Back</a><a class="btn" href="#step-loot">Next</a></div>
+    </section>
+  </article>
+
+  <article class="shot" id="step-loot">
+    <section class="builder">
+      <header><b>Scene builder</b><button type="button" aria-label="Close">×</button></header>
+      <div class="namerow">
+        <label>Scene name <input value="Dry Fork" aria-label="Scene name"></label>
+        <span class="saved">Saved</span>
+      </div>
+      <nav class="steps" aria-label="Steps">
+        <span>1 Floors</span><span>2 Spawns</span><span>3 Stairs &amp; doors</span><span class="on">4 Loot &amp; enemies</span><span>5 Save &amp; load</span>
+      </nav>
+      <p class="hint">Chests, strongboxes, and who is waiting.</p>
+      <div class="card">
+        <b>Saloon</b>
+        <div class="row" style="margin-top:8px">
+          <button type="button">Place chest</button>
+          <button type="button">Place strongbox</button>
+        </div>
+        <div class="row">
+          <select aria-label="Creature"><option>Bandit</option></select>
+          <button type="button">Place enemy</button>
+        </div>
+        <p class="hint">Strongbox at 18, 9 · locked. Bandit at 6, 4 · starts hidden.</p>
+      </div>
+      <div class="nav"><a class="btn" href="#step-links">Back</a><a class="btn" href="#step-save">Next</a></div>
+    </section>
+  </article>
+
+  <article class="shot" id="step-save">
+    <section class="builder">
+      <header><b>Scene builder</b><button type="button" aria-label="Close">×</button></header>
+      <div class="namerow">
+        <label>Scene name <input value="Dry Fork" aria-label="Scene name"></label>
+        <span class="saved">Saved</span>
+      </div>
+      <nav class="steps" aria-label="Steps">
+        <span>1 Floors</span><span>2 Spawns</span><span>3 Stairs &amp; doors</span><span>4 Loot &amp; enemies</span><span class="on">5 Save &amp; load</span>
+      </nav>
+      <p class="hint">This scene is already in this browser. Export a copy to keep it somewhere else.</p>
+      <div class="card">
+        <b>Dry Fork</b>
+        <p class="hint">2 floors · Saloon is the start · saved just now</p>
+        <div class="big">
+          <button type="button" class="gold">Load into room</button>
+          <button type="button">Export scene</button>
+        </div>
+      </div>
+      <div class="nav"><a class="btn" href="#step-loot">Back</a><a class="btn" href="#library">Library</a></div>
+    </section>
+  </article>
+
+  <article class="shot" id="warn">
+    <section class="warn">
+      <h2>Leave without the latest change?</h2>
+      <p>Dry Fork has a change that is not saved yet. Stay, or leave and lose that change. Refresh asks the same question.</p>
+      <div class="actions">
+        <button type="button" class="stay">Stay</button>
+        <button type="button">Leave without saving</button>
+      </div>
+    </section>
+  </article>
+
+  <article class="shot" id="library">
+    <section class="builder">
+      <header><b>Scene library</b><button type="button" aria-label="Close">×</button></header>
+      <p class="lib-note">Scenes are stored in this browser only. Export a copy to back up, or to open them on another computer.</p>
+      <article class="lib-card active">
+        <h3>Dry Fork <span class="tag">In this room</span></h3>
+        <p class="hint">2 floors · Saloon, Upstairs</p>
+        <div class="big">
+          <button type="button" class="gold">Load into room</button>
+          <button type="button">Edit</button>
+        </div>
+        <div class="small"><button type="button">Export</button><button type="button">Delete</button></div>
+      </article>
+      <article class="lib-card">
+        <h3>Bitter Spring</h3>
+        <p class="hint">2 floors · Taproom, Loft</p>
+        <div class="big">
+          <button type="button" class="gold">Load into room</button>
+          <button type="button">Edit</button>
+        </div>
+        <div class="small"><button type="button">Export</button><button type="button">Delete</button></div>
+      </article>
+      <article class="lib-card">
+        <h3>Alpha camp</h3>
+        <p class="hint">1 floor · Yard</p>
+        <div class="big">
+          <button type="button" class="gold">Load into room</button>
+          <button type="button">Edit</button>
+        </div>
+        <div class="small"><button type="button">Export</button><button type="button">Delete</button></div>
+      </article>
+    </section>
+  </article>
+</div>
+</body>
+</html>
