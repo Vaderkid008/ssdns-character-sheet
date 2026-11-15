@@ -1,7 +1,7 @@
 /**
  * Multi-map party layers: each player stays on their own map until the DM moves them.
  * Two clients, one mocked RTDB. A write that still contains undefined is dropped.
- * Sheet 0.3.321 / DMCC 0.2.334.
+ * Sheet 0.3.322 / DMCC 0.2.335.
  *   node tools/test-map-layers-03300.mjs
  */
 import fs from "node:fs";
@@ -15,8 +15,8 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.321" && ver.dmcc === "0.2.334");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.321") && !read("database.rules.json").includes("0.3.321"));
+check("ver", ver.sheet === "0.3.322" && ver.dmcc === "0.2.335");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.322") && !read("database.rules.json").includes("0.3.322"));
 
 function undefs(v, path, out) {
   if (v === undefined) { out.push(path); return; }

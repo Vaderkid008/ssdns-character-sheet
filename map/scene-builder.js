@@ -30,9 +30,32 @@
     } catch (e) { return { scenes: {} }; }
   }
   function writeLibrary(store, lib) {
-    storeOf(store).setItem(KEY, JSON.stringify({ scenes: lib.scenes || {} }));
+    var box = storeOf(store);
+    var payload = JSON.stringify({ scenes: lib.scenes || {} });
+    try { box.setItem(KEY, payload); }
+    catch (e) {
+      var failed = new Error("save-failed");
+      failed.code = "save-failed";
+      throw failed;
+    }
+    if (box.getItem(KEY) !== payload) {
+      var missed = new Error("save-failed");
+      missed.code = "save-failed";
+      throw missed;
+    }
     return lib;
   }
+  function stampEdited(lib, scene) {
+    var newest = 0;
+    Object.keys((lib && lib.scenes) || {}).forEach(function (id) {
+      var t = Number(lib.scenes[id] && lib.scenes[id].editedAt) || 0;
+      if (t > newest) newest = t;
+    });
+    var now = Date.now();
+    scene.editedAt = now > newest ? now : newest + 1;
+    return scene;
+  }
+  var SAVE_FAIL = "This scene could not be saved. Export scene to keep a copy.";
   function blank(name) {
     return {
       id: nid("scene"),
@@ -812,6 +835,7 @@
       if (warnings.length) message += " " + warnings[0];
       return { ok: true, scenes: scenes, maps: mapsOut, added: added, copied: copied, kept: kept, warnings: warnings, message: message, large: large };
     } catch (e) {
+      if (e && e.code === "save-failed") return { ok: false, error: SAVE_FAIL };
       return { ok: false, error: "That file isn't valid JSON." };
     }
   }
@@ -838,6 +862,7 @@
   function saveScene(store, scene) {
     var lib = readLibrary(store);
     scene = tidy(scene);
+    stampEdited(lib, scene);
     lib.scenes[scene.id] = scene;
     writeLibrary(store, lib);
     return scene;
@@ -855,6 +880,7 @@
     var copy = tidy(lib.scenes[id]);
     copy.id = nid("scene");
     copy.name = copy.name + " copy";
+    stampEdited(lib, copy);
     lib.scenes[copy.id] = copy;
     writeLibrary(store, lib);
     return copy;
@@ -1054,7 +1080,15 @@
     panel.appendChild(head);
     var name = el("input", { type: "text", "data-act": "sceneName", value: draft.name, maxlength: "80", "aria-label": "Scene name" });
     name.value = draft.name;
-    panel.appendChild(field("Scene name", name));
+    var saveState = panel._saveState === "saved" || panel._saveState === "saving" ? panel._saveState : "unsaved";
+    var nameRow = el("div", { class: "ssm-scene-namerow" });
+    nameRow.appendChild(field("Scene name", name));
+    nameRow.appendChild(el("span", {
+      class: "ssm-scene-save is-" + saveState,
+      "data-act": "sceneSaveStatus",
+      role: "status"
+    }, saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : "Not saved"));
+    panel.appendChild(nameRow);
     var tools = el("div", { class: "ssm-scene-tools" });
     [["sceneNew", "New"], ["sceneSave", "Save"], ["sceneDuplicate", "Duplicate"]].forEach(function (pair) {
       tools.appendChild(el("button", { type: "button", "data-act": pair[0] }, pair[1]));
@@ -1189,11 +1223,19 @@
     port.appendChild(packFile);
     panel.appendChild(port);
     if (panel._notice && panel._notice.text) {
-      panel.appendChild(el("p", { class: "ssm-scene-notice" + (panel._notice.err ? " is-err" : ""), "data-act": "scenePackNotice", role: "status" }, panel._notice.text));
+      var note = el("p", { class: "ssm-scene-notice" + (panel._notice.err ? " is-err" : ""), "data-act": "scenePackNotice", role: "status" });
+      note.appendChild(document.createTextNode(panel._notice.text));
+      if (panel._notice.export) note.appendChild(el("button", { type: "button", "data-act": "sceneExportDraft" }, "Export scene"));
+      panel.appendChild(note);
     }
     panel.appendChild(el("h3", null, "Scene library"));
     var saved = Object.keys(lib.scenes || {}).map(function (id) { return lib.scenes[id]; });
-    saved.sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+    saved.sort(function (a, b) {
+      var ta = Number(a && a.editedAt) || 0;
+      var tb = Number(b && b.editedAt) || 0;
+      if (ta !== tb) return tb - ta;
+      return String(a && a.name || "").localeCompare(String(b && b.name || ""));
+    });
     var libList = el("ul", { class: "ssm-scene-library", "data-act": "sceneLibrary" });
     if (!saved.length) libList.appendChild(el("li", { class: "ssm-scene-empty" }, "Nothing saved yet."));
     saved.forEach(function (scene) {
@@ -1228,21 +1270,87 @@
     }
   }
 
+  function draftSig(scene) {
+    var t = tidy(scene);
+    return JSON.stringify({ id: t.id, name: t.name, startFloorId: t.startFloorId, floors: t.floors, stairs: t.stairs });
+  }
   function open(parent, opts) {
     if (!parent || (opts && opts.role === "player")) return null;
-    close();
+    if (isOpen()) {
+      close();
+      if (isOpen()) return live;
+    }
     opts = opts || {};
     var store = storeOf(opts.store);
     var draft = tidy(opts.scene || blank(opts.name));
     var panel = el("section", { class: "ssm-scene-builder ssm-map-ui", "data-act": "sceneBuilder", role: "dialog", "aria-label": "Scene builder" });
     panel._opts = opts || {};
+    var lastSig = draftSig(draft);
+    var dirty = false;
+    var failedSig = "";
+    var saveTimer = 0;
+    var known = readLibrary(store).scenes[draft.id];
+    panel._saveState = known && draftSig(known) === lastSig ? "saved" : "unsaved";
     parent.appendChild(panel);
     function maps() {
       var list = [];
       try { list = (opts.maps && opts.maps()) || []; } catch (e) { list = []; }
       return list;
     }
-    function draw() { paint(panel, draft, readLibrary(store), maps()); }
+    function applyStatus() {
+      var node = panel.querySelector("[data-act='sceneSaveStatus']");
+      var state = panel._saveState || "unsaved";
+      if (!node) return;
+      node.textContent = state === "saving" ? "Saving…" : state === "saved" ? "Saved" : "Not saved";
+      node.className = "ssm-scene-save is-" + state;
+    }
+    function persist() {
+      if (saveTimer) { root.clearTimeout(saveTimer); saveTimer = 0; }
+      try {
+        draft = saveScene(store, draft);
+        lastSig = draftSig(draft);
+        dirty = false;
+        failedSig = "";
+        panel._saveState = "saved";
+        if (panel._notice && panel._notice.code === "save-failed") panel._notice = null;
+        return true;
+      } catch (e) {
+        panel._saveState = "unsaved";
+        failedSig = draftSig(draft);
+        panel._notice = { err: true, code: "save-failed", export: true, text: SAVE_FAIL };
+        return false;
+      }
+    }
+    function noteIfDirty() {
+      var sig = draftSig(draft);
+      if (sig === lastSig) return;
+      dirty = true;
+      if (sig === failedSig && panel._saveState === "unsaved") return;
+      if (live) live.warned = false;
+      panel._saveState = "saving";
+      applyStatus();
+      if (saveTimer) root.clearTimeout(saveTimer);
+      saveTimer = root.setTimeout(function () {
+        saveTimer = 0;
+        persist();
+        draw();
+      }, 400);
+    }
+    function flushSave() {
+      if (saveTimer) { root.clearTimeout(saveTimer); saveTimer = 0; }
+      if (!dirty && panel._saveState !== "saving") return true;
+      if (draftSig(draft) === lastSig && panel._saveState === "saved") { dirty = false; return true; }
+      return persist();
+    }
+    function onPageHide() { flushSave(); }
+    if (root.addEventListener) {
+      root.addEventListener("pagehide", onPageHide);
+      root.addEventListener("beforeunload", onPageHide);
+    }
+    function draw() {
+      noteIfDirty();
+      paint(panel, draft, readLibrary(store), maps());
+    }
     function stopKey(ev) {
       var tag = ev.target && ev.target.tagName;
       if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") ev.stopPropagation();
@@ -1264,11 +1372,34 @@
       var floorId = btn.getAttribute("data-floor");
       var sceneId = btn.getAttribute("data-id");
       if (act === "sceneClose") close();
-      else if (act === "sceneNew") { draft = blank("New scene"); panel._confirmDelete = ""; panel._arm = null; panel._linkArm = null; panel._encArm = null; }
-      else if (act === "sceneSave") { draft = saveScene(store, draft); }
+      else if (act === "sceneNew") {
+        if (flushSave() !== false) {
+          draft = tidy(blank("New scene"));
+          lastSig = draftSig(draft);
+          dirty = false;
+          failedSig = "";
+          panel._saveState = "unsaved";
+          panel._confirmDelete = "";
+          panel._arm = null;
+          panel._linkArm = null;
+          panel._encArm = null;
+        }
+      }
+      else if (act === "sceneSave") persist();
       else if (act === "sceneDuplicate") {
-        draft = saveScene(store, draft);
-        draft = duplicateScene(store, draft.id) || draft;
+        if (persist()) {
+          try {
+            draft = duplicateScene(store, draft.id) || draft;
+            lastSig = draftSig(draft);
+            dirty = false;
+            failedSig = "";
+            panel._saveState = "saved";
+          } catch (e) {
+            panel._saveState = "unsaved";
+            failedSig = draftSig(draft);
+            panel._notice = { err: true, code: "save-failed", export: true, text: SAVE_FAIL };
+          }
+        }
       }
       else if (act === "floorAdd") {
         var sel = panel.querySelector("[data-act='floorPick']");
@@ -1337,6 +1468,11 @@
         draft = revealEnemies(draft, floorId);
         if (opts.onRevealAll) opts.onRevealAll((floorOf(draft, floorId) || {}).mapId);
       }
+      else if (act === "sceneExportDraft") {
+        var packedDraft = exportScenePack([draft], opts.mapRow);
+        if (opts.onExport) opts.onExport(packedDraft.text, "ssdns-scene.json");
+        panel._notice = { err: false, text: "Exported " + (draft.name || "scene") + "." };
+      }
       else if (act === "sceneExport") {
         if (opts.onExport) opts.onExport(exportLibrary(store));
       }
@@ -1372,13 +1508,38 @@
         if (picker) picker.click();
         return;
       }
-      else if (act === "sceneOpen") { draft = tidy(readLibrary(store).scenes[sceneId] || draft); panel._confirmDelete = ""; }
+      else if (act === "sceneOpen") {
+        if (flushSave() !== false) {
+          draft = tidy(readLibrary(store).scenes[sceneId] || draft);
+          lastSig = draftSig(draft);
+          dirty = false;
+          failedSig = "";
+          panel._saveState = "saved";
+          panel._confirmDelete = "";
+        }
+      }
       else if (act === "sceneLoad") {
         var saved = readLibrary(store).scenes[sceneId];
         if (saved && opts.onLoad) opts.onLoad(tidy(saved));
       }
       else if (act === "sceneDelete") { panel._confirmDelete = sceneId; }
-      else if (act === "sceneDeleteYes") { deleteScene(store, sceneId, true); panel._confirmDelete = ""; if (draft.id === sceneId) draft = blank("New scene"); }
+      else if (act === "sceneDeleteYes") {
+        try { deleteScene(store, sceneId, true); }
+        catch (e) {
+          panel._saveState = "unsaved";
+          panel._notice = { err: true, code: "save-failed", export: true, text: SAVE_FAIL };
+          draw();
+          return;
+        }
+        panel._confirmDelete = "";
+        if (draft.id === sceneId) {
+          draft = tidy(blank("New scene"));
+          lastSig = draftSig(draft);
+          dirty = false;
+          failedSig = "";
+          panel._saveState = "unsaved";
+        }
+      }
       else if (act === "sceneDeleteNo") panel._confirmDelete = "";
       else return;
       draw();
@@ -1403,6 +1564,7 @@
         if (act === "spawnY") patch.y = node.value;
         draft = setSpawn(draft, node.getAttribute("data-floor"), node.getAttribute("data-spawn"), patch);
       }
+      noteIfDirty();
     });
     panel.addEventListener("change", function (ev) {
       var node = ev.target;
@@ -1509,6 +1671,14 @@
       el: panel,
       onClose: opts.onClose || null,
       store: store,
+      flush: flushSave,
+      redraw: draw,
+      unbind: function () {
+        if (root.removeEventListener) {
+          root.removeEventListener("pagehide", onPageHide);
+          root.removeEventListener("beforeunload", onPageHide);
+        }
+      },
       draft: function () { return tidy(draft); },
       arm: function () { return panel._encArm || panel._linkArm || panel._arm || null; },
       disarm: function () { panel._arm = null; panel._linkArm = null; panel._encArm = null; draw(); },
@@ -1526,6 +1696,7 @@
           if (f.spawns.some(function (sp) { return sp.id === spawnId; })) draft = setSpawn(draft, f.id, spawnId, { x: x, y: y });
         });
         if (opts.onChange) opts.onChange(tidy(draft));
+        noteIfDirty();
         return tidy(draft);
       },
       removeGhost: function (spawnId) {
@@ -1622,6 +1793,11 @@
     return live;
   }
   function close() {
+    if (live && live.flush && live.flush() === false) {
+      if (live.redraw) live.redraw();
+      if (!live.warned) { live.warned = true; return; }
+    }
+    if (live && live.unbind) live.unbind();
     var hook = live && live.onClose;
     if (live && live.el && live.el.parentNode) live.el.parentNode.removeChild(live.el);
     live = null;

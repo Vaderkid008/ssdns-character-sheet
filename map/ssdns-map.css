@@ -3105,6 +3105,12 @@ body.map-phone #mapMount.ssdns-map {
 .ssdns-map .ssm-scene-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .ssdns-map .ssm-scene-head b { font-size: 16px; }
 .ssdns-map .ssm-scene-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; margin-bottom: 8px; }
+.ssdns-map .ssm-scene-namerow { display: flex; align-items: flex-end; gap: 8px; }
+.ssdns-map .ssm-scene-namerow .ssm-scene-field { flex: 1 1 auto; min-width: 0; }
+.ssdns-map .ssm-scene-save { flex: 0 0 auto; margin: 0 0 8px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.ssdns-map .ssm-scene-save.is-saved { color: #9dce86; }
+.ssdns-map .ssm-scene-save.is-saving { color: #e2c56a; }
+.ssdns-map .ssm-scene-save.is-unsaved { color: #e07a6a; }
 .ssdns-map .ssm-scene-builder input,
 .ssdns-map .ssm-scene-builder select {
   width: 100%;
