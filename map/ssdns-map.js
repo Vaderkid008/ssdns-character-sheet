@@ -18325,12 +18325,13 @@ function syncCombatants(initiative) {
     /* 0.2.77: the DM keeps the strip with no fight running ("No fight running" + Roll Initiative);
        players still see it only while there is a turn order. */
     const fightStarted = !!(state.initiative && state.initiative.started);
-    strip.hidden = role !== 'dm' && (!order.length || !fightStarted);
+    strip.hidden = role !== 'dm' && !fightStarted;
     if (role === 'dm' && toolbar.parentNode) toolbar.parentNode.removeChild(toolbar);
     strip.innerHTML = '';
-    strip.classList.toggle('is-idle', !order.length);
+    strip.classList.toggle('is-idle', !fightStarted);
     strip.classList.remove('is-crowded');
-    if (!order.length) {
+    /* A roster can exist before anyone rolls. Chips, Round, and Next appear only after Roll initiative. */
+    if (!fightStarted) {
       if (role === 'dm') {
         const idle = document.createElement('span');
         idle.className = 'ssm-strip-idle';

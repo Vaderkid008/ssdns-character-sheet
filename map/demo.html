@@ -247,7 +247,7 @@ const host = {
     options.tokens = await fetch('tokens.json').then(r => r.json());
     window.__cards = await fetch('cards.json').then(r => r.json()).catch(() => ({}));
   }
-  if (role === 'dm' || params.get('fight') === '1') {
+  if (params.get('fight') === '1') {
     const enemyTurn = params.get('turn') === 'enemy';
     const init = { round: 1, turn: enemyTurn ? 1 : 0, started: true, seq: 1, order: [
       { id: 'p_jolene', playerId: 'p_jolene', name: 'Jolene', kind: 'player', speed: 30 },

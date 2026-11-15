@@ -2540,6 +2540,7 @@ function nextTurn() {
   syncDamageMode();
   if (fight.idle) fight.idle = false;
   if (!fight.order.length) { DM.toast("Add someone to the turn order first"); return; }
+  if (!fight.started) { DM.toast("Roll initiative first"); return; }
   turnGate = now;
   const before = window.SSDNSTurn ? window.SSDNSTurn.snapshot(fight) : null;
   fight.recruit = true;
@@ -2551,20 +2552,7 @@ function nextTurn() {
     zonePhase(ending, "end");
     riderPhase(ending, "end");
   }
-  if (!fight.started) {
-    sortInitiative();
-    fight.started = true;
-    fight.round = 1;
-    fight.turn = 0;
-    if (window.SSDNSInteract && window.SSDNSInteract.onCombatStart) {
-      try { window.SSDNSInteract.onCombatStart(fight.round); } catch (eStart) {}
-    }
-    let guard = 0;
-    while (enemyFled(fight.order[fight.turn]) && guard++ < fight.order.length) {
-      fight.turn = (fight.turn + 1) % fight.order.length;
-    }
-  } else {
-    const step = nextLivingIndex(fight.turn);
+  const step = nextLivingIndex(fight.turn);
     fight.turn = step.index;
     if (step.wrapped) {
       fight.round += 1;
@@ -2573,7 +2561,6 @@ function nextTurn() {
         try { window.SSDNSAssets.onRound(fight.round); } catch (eRound) {}
       }
     }
-  }
   const phaseWho = fight.order[fight.turn];
   if (phaseWho && phaseWho.shieldUntilTurn && phaseWho.kind !== "player") {
     phaseWho.shieldUntilTurn = false;
@@ -9059,6 +9046,15 @@ function rollInitiativeForAll(opts) {
       row.initFrom = "auto";
     });
     sortInitiative();
+    if (!fight.started) {
+      fight.started = true;
+      fight.idle = false;
+      fight.round = 1;
+      fight.turn = 0;
+      if (window.SSDNSInteract && window.SSDNSInteract.onCombatStart) {
+        try { window.SSDNSInteract.onCombatStart(fight.round); } catch (eStart) {}
+      }
+    }
     saveRemoteTable();
     renderFight();
     if (btn) btn.disabled = false;
