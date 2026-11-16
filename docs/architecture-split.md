@@ -243,7 +243,7 @@ That rules edit is a separate approval from the function deploy. Jessey has to s
 
 Each slice is its own draft. Versions continue after 0.3.332 / 0.2.345. Nothing here merges.
 
-**Slice 1 — client actions, no hosting, no rules change.** `moveToken`, `setTokenImage`, `rollInitiative`, and `setInitiative`. The map, the portrait, and the initiative strip subscribe to that one listener. App Check client code ships in this slice behind `window.SSDNS_APP_CHECK`, default off. Sync bugs this closes:
+**Slice 1 — client actions, no hosting, no rules change.** `moveToken`, `setTokenImage`, `rollInitiative`, and `setInitiative`. The map, the portrait, and the initiative strip subscribe to that one listener. The transport is `send` / `subscribe`, with a local adapter in this slice and Firebase kept out of `game-actions.js`. App Check client code ships here behind `window.SSDNS_APP_CHECK`, default off. Sync bugs this closes:
 
 - Edit tokens: the last cell of a drag can lose to an earlier cell that lands late, so the player sees the token jump back. `moveToken` puts a `seq` on the square and on the public token. The older write loses.
 - Portraits: an older picture write can cover a newer one, and the bitmap can stick. `setTokenImage` carries `imageSeq`. A smaller seq does not replace the picture, and the listener is what drops the old bitmap.
