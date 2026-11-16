@@ -2,7 +2,7 @@
  * A granted Bite is swung by the Dust Devil, not by the player's own token.
  * The effect origin, the log name, and the damage target all use the grant.
  * Melee stays a blade strike, not a ranged shot.
- * Sheet 0.3.328 / DMCC 0.2.341.
+ * Sheet 0.3.329 / DMCC 0.2.342.
  *   node tools/test-grant-shot-03308.mjs
  */
 import fs from "node:fs";
@@ -18,8 +18,8 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.328" && ver.dmcc === "0.2.341" && ver.sheetBuild === "sheet-playtest-v03328" && ver.dmccBuild === "dmcc-playtest-v02341");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.328") && !read("database.rules.json").includes("0.3.328"));
+check("ver", ver.sheet === "0.3.329" && ver.dmcc === "0.2.342" && ver.sheetBuild === "sheet-playtest-v03329" && ver.dmccBuild === "dmcc-playtest-v02342");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.329") && !read("database.rules.json").includes("0.3.329"));
 
 function makeWindow() {
   const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/dm/", pretendToBeVisual: true, runScripts: "dangerously" });
@@ -242,5 +242,5 @@ if (failures.length) {
   failures.forEach((line) => console.log(" - " + line));
   process.exit(1);
 }
-console.log("grant shot 0.3.328 ok");
+console.log("grant shot 0.3.329 ok");
 process.exit(0);
