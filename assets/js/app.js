@@ -4,7 +4,7 @@
  */
 (function () {
   "use strict";
-  var APP_VERSION = "0.3.330"; // sheet-playtest-v03330
+  var APP_VERSION = "0.3.331"; // sheet-playtest-v03331
   var TR_BELT_MSG = "Need a gun belt or bandolier for Tactical Reload.";
   var FORMAT = "ssdns-character";
   var SCHEMA = 2;
@@ -4733,7 +4733,7 @@
       var color = "";
       try {
         var bag = window.SSDNSTokenColors || {};
-        color = bag[String((ch && ch.name) || "").trim().toLowerCase()] || "";
+        color = bag[String(S.doc.id || "").trim().toLowerCase()] || bag[String((ch && ch.name) || "").trim().toLowerCase()] || "";
       } catch (e2) {}
       Bridge.writeWallet({
         characterId: S.doc.id,

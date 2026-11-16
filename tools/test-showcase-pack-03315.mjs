@@ -1,6 +1,6 @@
 /**
  * Bitter Spring Relay showcase pack imports through the scene pack code.
- * Sheet 0.3.330 / DMCC 0.2.343.
+ * Sheet 0.3.331 / DMCC 0.2.344.
  *   node tools/test-showcase-pack-03315.mjs
  */
 import fs from "node:fs";
@@ -16,7 +16,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.330" && ver.dmcc === "0.2.343" && ver.sheetBuild === "sheet-playtest-v03330" && ver.dmccBuild === "dmcc-playtest-v02343");
+check("ver", ver.sheet === "0.3.331" && ver.dmcc === "0.2.344" && ver.sheetBuild === "sheet-playtest-v03331" && ver.dmccBuild === "dmcc-playtest-v02344");
 check("rules.clean", !read("assets/data/rules.js").includes("bitter-spring") && !read("database.rules.json").includes("bitter-spring"));
 
 const sandbox = { window: {}, globalThis: {} };
@@ -199,5 +199,5 @@ if (failures.length) {
   failures.forEach((line) => console.log(" - " + line));
   process.exit(1);
 }
-console.log("showcase pack 0.3.330 ok");
+console.log("showcase pack 0.3.331 ok");
 process.exit(0);

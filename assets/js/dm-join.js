@@ -1137,7 +1137,15 @@
       var lineText = String(msg.text || "").slice(0, 240);
       if (msg.color && lineName) {
         root.SSDNSTokenColors = root.SSDNSTokenColors || {};
-        root.SSDNSTokenColors[lineName.trim().toLowerCase()] = String(msg.color).slice(0, 32);
+        root.SSDNSNameColors = root.SSDNSNameColors || {};
+        var color = String(msg.color).slice(0, 32);
+        var whoId = String(msg.playerId || msg.uid || "").trim().toLowerCase();
+        if (whoId) root.SSDNSTokenColors[whoId] = color;
+        var nk = lineName.trim().toLowerCase();
+        var stamp = whoId || nk;
+        if (!root.SSDNSNameColors[nk]) root.SSDNSNameColors[nk] = stamp;
+        if (root.SSDNSNameColors[nk] === stamp) root.SSDNSTokenColors[nk] = color;
+        else delete root.SSDNSTokenColors[nk];
       }
       if (root.SSDNSSheet && root.SSDNSSheet.addLog) {
         root.SSDNSSheet.addLog({ id: "saloon:" + msg.id, kind: "note", text: lineText });
@@ -2941,6 +2949,18 @@
         roster.push({ uid: id, name: s.name || s.player || "Someone", player: s.player || "", online: online });
       });
       state._roster = roster;
+      if (root.SSDNSTurn && root.SSDNSTurn.duplicateNames && state.joined) {
+        var mineName = "";
+        try { var ch = doc() && doc().character; mineName = (ch && ch.name) || ""; } catch (eName) {}
+        var mineKey = String(mineName).trim().toLowerCase();
+        state._nameWarn = state._nameWarn || {};
+        root.SSDNSTurn.duplicateNames(roster).forEach(function (name) {
+          if (String(name).trim().toLowerCase() !== mineKey || !mineKey) return;
+          if (state._nameWarn[mineKey]) return;
+          state._nameWarn[mineKey] = 1;
+          toast("Another character is also named " + mineName + ". Yours shows with a number, like " + mineName + " (2).");
+        });
+      }
       if (root.SSDNSMapHost && root.SSDNSMapHost.setPlayers) {
         root.SSDNSMapHost.setPlayers(Object.keys(val || {}).map(function (id) {
           var p = val[id] || {};

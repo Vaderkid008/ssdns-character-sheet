@@ -1120,6 +1120,13 @@ function compactAttackButtons(row, i) {
     return `<button type="button" class="btn sm" data-row-atk="${i}" data-atk-n="${n}">${esc(label)}</button>`;
   }).join("") + open;
 }
+function shownCombatantName(row) {
+  const base = (row && row.name) || "Someone";
+  if (!row || row.kind !== "player" || !window.SSDNSTurn || !window.SSDNSTurn.displayTags) return base;
+  const rows = (fight.order || []).filter((r) => r && r.kind === "player").map((r) => ({ id: r.playerId || r.id, name: r.name || "" }));
+  const tags = window.SSDNSTurn.displayTags(rows);
+  return tags[row.playerId || row.id] || base;
+}
 function turnRowHtml(row, i) {
   const flash = fight.flash === i ? " flash" : "";
   const friendly = row.kind === "enemy" && isFriendly(row);
@@ -1140,7 +1147,7 @@ function turnRowHtml(row, i) {
     : "";
   return `<div class="init-row card-fight${current}${flash}${fled ? " fled" : ""}${friendly ? " friendly" : ""}${sideClass}" data-fight-card="${i}">
       <input class="init-score" type="number" data-init-val="${i}" data-row-id="${esc(row.id || "")}" value="${row.init == null ? "" : esc(row.init)}" aria-label="Initiative for ${esc(row.name || "combatant")}">
-      <span class="init-who" title="${esc(row.name || "Someone")}">        <span class="who-name">${row.kind === "enemy" ? `<button type="button" class="name-btn" data-open-enemy="${esc(row.id || "")}">${esc(row.name || "Someone")}</button>` : `<b>${esc(row.name || "Someone")}</b>`}${sideBadge}</span>
+      <span class="init-who" title="${esc(shownCombatantName(row))}">        <span class="who-name">${row.kind === "enemy" ? `<button type="button" class="name-btn" data-open-enemy="${esc(row.id || "")}">${esc(row.name || "Someone")}</button>` : `<b>${esc(shownCombatantName(row))}</b>`}${sideBadge}</span>
         <span class="fine">${esc(sideWord)}${row.tie ? " · tie" : ""}${status ? " · " + esc(status) : ""}${detail ? " · " + esc(detail) : ""}${esc(turnAckLabel(row))}</span>
         ${downBadge}
         ${statusChipsHtml(row)}
@@ -9186,7 +9193,10 @@ function findCombatant(meta) {
     const want = String(id);
     row = fight.order.find((r) => r && (r.id === id || r.playerId === id || r.mapTokenId === want || combatantKey(r) === want));
   }
-  if (!row && name) row = fight.order.find((r) => String(r.name || "").trim().toLowerCase() === name);
+  if (!row && name) {
+    const hits = fight.order.filter((r) => r && String(r.name || "").trim().toLowerCase() === name);
+    if (hits.length === 1) row = hits[0];
+  }
   if (!row && id && window.SSDNSMapHost && typeof window.SSDNSMapHost.tokenLink === "function") {
     const link = window.SSDNSMapHost.tokenLink(id);
     if (link) {
