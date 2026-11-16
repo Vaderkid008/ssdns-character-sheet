@@ -1,6 +1,6 @@
 /**
  * Combat stays off until the DM rolls initiative.
- * Sheet 0.3.329 / DMCC 0.2.342.
+ * Sheet 0.3.330 / DMCC 0.2.343.
  *   node tools/test-combat-default-03327.mjs
  */
 import fs from "node:fs";
@@ -18,7 +18,7 @@ function check(id, cond, detail) {
 }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.329" && ver.dmcc === "0.2.342" && ver.sheetBuild === "sheet-playtest-v03329" && ver.dmccBuild === "dmcc-playtest-v02342");
+check("ver", ver.sheet === "0.3.330" && ver.dmcc === "0.2.343" && ver.sheetBuild === "sheet-playtest-v03330" && ver.dmccBuild === "dmcc-playtest-v02343");
 check("rules.clean", !read("assets/data/rules.js").includes("fight.started") && !read("database.rules.json").includes("rollInitiative"));
 const demo = read("map/demo.html");
 check("demo.gated", demo.includes("if (params.get('fight') === '1')") && !demo.includes("if (role === 'dm' || params.get('fight') === '1')"));
@@ -168,5 +168,5 @@ if (failures.length) {
   failures.forEach((line) => console.error(" - " + line));
   process.exit(1);
 }
-console.log("\ncombat default 0.3.329 ok");
+console.log("\ncombat default 0.3.330 ok");
 setTimeout(() => process.exit(0), 50);
