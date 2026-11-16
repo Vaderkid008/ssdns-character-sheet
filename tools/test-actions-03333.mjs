@@ -31,6 +31,9 @@ check("wire.posSeq", mapSrc.includes("pos.seq = moveSeq"));
 check("wire.roll", joinSrc.includes("SSDNSGameActions.rollInitiative"));
 check("wire.turn", v2Src.includes("SSDNSGameActions.setInitiative") && v2Src.includes("actionSeq"));
 check("wire.fightSeq", v2Src.includes("seq: fight.seq || 0"));
+const appCheckSrc = read("assets/js/app-check.js");
+check("appcheck.flag", appCheckSrc.includes("enabled !== true") && appCheckSrc.includes("ReCaptchaV3Provider") && appCheckSrc.includes("ReCaptchaEnterpriseProvider"));
+check("appcheck.wire", joinSrc.includes("SSDNSAppCheck.start") && v2Src.includes("SSDNSAppCheck.start") === false && read("dm/assets/js/dmcc.js").includes("SSDNSAppCheck.start"));
 
 function fakeFirebase() {
   const tree = {};
@@ -151,6 +154,13 @@ function pointer(canvas, type, x, y) {
 const scene = JSON.parse(read("map/scene-dusty-spur.json"));
 const tokens = JSON.parse(read("map/tokens.json"));
 const w = makeWindow();
+addScript(w, "assets/js/app-check.js");
+const appCheckOff = await w.SSDNSAppCheck.start({ name: "unused" });
+check("appcheck.off", appCheckOff && appCheckOff.skipped === true && w.SSDNSAppCheck.enabled() === false);
+w.SSDNS_APP_CHECK = { enabled: true, siteKey: "  " };
+check("appcheck.blankKey", (await w.SSDNSAppCheck.start({ name: "unused" })).skipped === true && w.SSDNSAppCheck.enabled() === false);
+w.SSDNS_APP_CHECK = { enabled: false, siteKey: "site-key", enterprise: true };
+check("appcheck.disabled", w.SSDNSAppCheck.enabled() === false && (await w.SSDNSAppCheck.start({ name: "unused" })).skipped === true);
 ["assets/js/game-actions.js", "map/ssdns-map-move.js", "map/places.js", "map/ssdns-map-firebase.js", "map/ssdns-map.js"].forEach((f) => addScript(w, f));
 const GA = w.SSDNSGameActions;
 check("loaded", !!(GA && GA.moveToken && GA.accept(10, 11) && !GA.accept(11, 10)));

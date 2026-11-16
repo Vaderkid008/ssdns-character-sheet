@@ -287,6 +287,10 @@ async function runFirebaseInit() {
       state.app = fb.getApp("ssdns-dm");
     }
     state.auth = fb.getAuth(state.app);
+    if (window.SSDNSAppCheck && window.SSDNSAppCheck.start) {
+      try { await window.SSDNSAppCheck.start(state.app); }
+      catch (err) { console.warn("[DMCC] App Check", err); }
+    }
     const emu = /(?:\?|&)emu=1(?:&|$)/.test(String((window.location && window.location.search) || ""));
     if (emu && authMod.connectAuthEmulator) {
       try { authMod.connectAuthEmulator(state.auth, "http://127.0.0.1:9099", { disableWarnings: true }); }

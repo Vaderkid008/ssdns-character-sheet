@@ -423,6 +423,10 @@
     });
     state.app = app;
     state.auth = auth;
+    if (root.SSDNSAppCheck && root.SSDNSAppCheck.start) {
+      try { await root.SSDNSAppCheck.start(app); }
+      catch (e) { console.warn("[DM Join] App Check", e); }
+    }
     state.db = dbMod.getDatabase(app);
     if (emu && dbMod.connectDatabaseEmulator) {
       try { dbMod.connectDatabaseEmulator(state.db, "127.0.0.1", 9000); }
