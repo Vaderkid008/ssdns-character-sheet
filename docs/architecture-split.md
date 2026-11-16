@@ -2,7 +2,7 @@
 
 Jessey's goal is a faster table that stays in agreement. Today every screen writes the shared room straight to Firebase, and every screen listens to those paths on its own. Two writes that leave a laptop close together can land in the wrong order. The screen that sent them already moved on. The other screens show whatever arrived last.
 
-This note is the map of those writes, the game-actions layer that replaces them, and the later step where a referee (not the browsers) is the only writer. Nothing in this document changes the app. Slice 1, the first code change, is a separate draft.
+This note is the map of those writes, the game-actions layer that replaces them, and the later step where a Cloud Function (not the browsers) is the only writer. The Firebase project is already on the Blaze plan, so that function does not need a plan change or a separate Node host. Nothing in this document changes the app, deploys a function, or edits the security rules. Slice 1, the first code change, is a separate draft.
 
 Line numbers are from the disconnect-presence draft (sheet 0.3.332 / DMCC 0.2.345).
 
@@ -117,31 +117,41 @@ Firebase stays the pipe in the first slices. A callback's only job is to turn a 
 
 The action is stamped onto the object Firebase already stores (`pos.seq`, `imageSeq`, `playerInit.seq`, `initiative.actionSeq`). The existing transaction can then refuse an older write. No new database path is required for Slice 1, so the security rules stay as they are.
 
-## Server referee, later
+## Server referee: Cloud Functions
 
-After the clients all speak actions, a referee should be the only thing that writes tokens, initiative, HP, and loot. Browsers append "I want this action". The referee checks the order, assigns the room `seq`, and writes the result. Two players cannot both take the last item, and a slow laptop cannot rewind a move.
+After the clients all speak actions, one Cloud Function should be the only thing that writes tokens, initiative, HP, and loot. Browsers append "I want this action". The function checks the order, assigns the room `seq`, and writes the result. Two players cannot both take the last item, and a slow laptop cannot rewind a move.
 
-Two ways to host it. Neither is part of Slice 1. No new paid service is turned on by this draft.
+Use Cloud Functions on the Firebase project that is already on Blaze. A separate Node host is not needed: Blaze is already the plan, and the function runs in the same project as the Realtime Database. Nothing in the doc draft or in Slice 1 deploys that function. Deploying it is its own step, and Jessey has to say yes before any function is put on the project.
 
-### Cloud Functions
+### Rough cost per month
 
-A function on the Firebase project runs when an action is appended. It needs the **Blaze** plan (the pay-as-you-go plan). Spark cannot deploy functions.
+Prices below are the published Blaze Cloud Functions rates ([Firebase pricing](https://firebase.google.com/pricing)). They are a rough table-sized estimate, not a quote.
 
-Rough cost, not a quote: a busy session is thousands of actions, not millions. Moves during a drag are the hot spot, about six a second while a token is sliding. Blaze includes a large free monthly invocation allowance (on the order of two million). A weekly game lands in that allowance. The bill that already exists is the database traffic, and that does not go up just because a function wrote the row instead of the browser. Expect about $0 in function charges most months, and a few dollars if the table is up every night and functions are kept warm. Blaze has no monthly minimum, but a card has to be on the project. The first call after a quiet stretch can take a fraction of a second (cold start).
+This is one table, a DM and the players at it, not a public site. Count a busy night high on purpose:
 
-### A small Node server
+- Dragging is the hot path, about six actions a second, and only while a token is actually moving. Ten minutes of dragging is about 3,600 moves.
+- Rolls, chat, initiative, loot, doors, and conditions sit on top of that. Call the whole night 10,000 actions.
+- Four nights a month is about 40,000 function calls. A table that played every night would still be a few hundred thousand calls.
 
-One process the table can reach. It reads the action, assigns `seq`, and writes with the Firebase Admin SDK. That works on the current Spark project. Cloud Functions are the piece that force Blaze, not the Admin SDK.
+What Blaze includes at no cost each month, then what it charges after that:
 
-Rough cost: a small always-on box is about $5 a month (a shared VM on Fly, Railway, or a small VPS). The cost is the box, including months you do not play. You have to keep that process running. There is no cold start if it stays up.
+| | Included each month | After that |
+|---|---|---|
+| Invocations | 2,000,000 | $0.40 per million |
+| Compute | 400,000 GB-seconds and 200,000 CPU-seconds | Google Cloud rates |
+| Outbound network | 5 GB | $0.12 per GB |
 
-Either choice is a Jessey decision. Slice 1 does not pick one and does not deploy one.
+A referee call is a short read and a few small writes. 40,000 calls at about a quarter of a second and 256 MB is roughly 2,500 GB-seconds and 10,000 CPU-seconds. Both sit inside the free allowance, and a few hundred thousand calls a month still does. Two million free calls is about fifty busy nights before the invocation line starts. Past that, each extra million is $0.40.
+
+**About $0 a month** in Cloud Functions charges at this scale. The Realtime Database bill that already exists does not grow because the function writes the row the browser used to write. One deploy stores a small container (500 MB of Artifact Registry is included) and uses a couple of minutes of Cloud Build (120 minutes a day are included), so the deploy itself is not a monthly charge.
+
+Do not turn on minimum instances. That is the setting that bills while nobody is playing. The first action after a quiet stretch can take a fraction of a second to a couple of seconds while the function wakes up. That is fine at the start of a session.
 
 ## The rules lock, only after Jessey says so
 
-When the referee is the writer, `database.rules.json` changes so a browser can append an action and can still write its own presence, but cannot `set` `map/public/tokens`, `table`, `playerInit`, `encounter/*`, or `conditions` itself. Until that lock, a modified client can still write those paths the way it does today.
+When the function is the writer, `database.rules.json` changes so a browser can append an action and can still write its own presence, but cannot `set` `map/public/tokens`, `table`, `playerInit`, `encounter/*`, or `conditions` itself. Until that lock, a modified client can still write those paths the way it does today.
 
-That rules edit is a separate draft. It does not happen in the doc or in Slice 1. `assets/data/rules.js` (the game text) stays out of this split until Jessey wants the referee to enforce it.
+That rules edit is a separate approval from the function deploy. Jessey has to say yes to each one. Neither happens in this doc or in Slice 1. `assets/data/rules.js` (the game text) stays out of this split until Jessey wants the function to enforce it.
 
 ## Slice plan
 
@@ -159,13 +169,13 @@ Each slice is its own draft. Versions continue after 0.3.332 / 0.2.345. Nothing 
 
 **Slice 4 — presence and the DM disconnect menu.** `setPresence`, `holdTurn`, `skipTurn`, `takeControl`, `handControl`, `removeToken`. The menu from the disconnect draft stays. The bug this closes: the menu buttons and the reconnect write presence, the token, and the turn row as separate sets, so a reconnect can clear "away" while an older "remove" is still in flight. One seq makes the later choice the one that sticks, and a rejoin does not respawn a token the DM removed.
 
-**Slice 5 — referee.** Pick Cloud Functions (Blaze) or the small Node server. Clients append actions only. This is the efficiency step: one writer, one order, less echo traffic from every browser writing the whole token.
+**Slice 5 — Cloud Functions referee.** Only after Jessey says to deploy. Browsers append actions. A function on the existing Blaze project assigns the room seq and is the only writer of tokens, initiative, HP, and loot. No separate Node host. Until that deploy, a browser can still write the shared paths directly, so the seq from Slice 1 can be skipped by a modified client. The function is what makes one order stick for the whole table.
 
-**Slice 6 — rules lock.** Jessey approves the `database.rules.json` change. Browsers lose the direct writes listed above. Not before.
+**Slice 6 — rules lock.** A separate yes from the deploy. Jessey approves the `database.rules.json` change. Browsers lose the direct writes listed above. Not before.
 
-## What Slice 1 will not do
+## What these drafts will not do
 
 - No edit to `database.rules.json` or `assets/data/rules.js`.
-- No Cloud Function, no new server, no Blaze upgrade, no other paid service.
+- No function deploy, and no other new service. Blaze is already the plan. A deploy waits for Jessey's OK.
 - No write to a live room. Tests use the in-memory adapter.
 - No merge. Jessey merges.
