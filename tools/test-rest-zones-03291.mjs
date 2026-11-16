@@ -1,5 +1,5 @@
 /**
- * Rest clears concentration. DM zone size footprints (sheet 0.3.327 / DMCC 0.2.340).
+ * Rest clears concentration. DM zone size footprints (sheet 0.3.328 / DMCC 0.2.341).
  *   node tools/test-rest-zones-03291.mjs
  */
 import fs from "node:fs";
@@ -16,7 +16,7 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.327" && ver.dmcc === "0.2.340");
+check("ver", ver.sheet === "0.3.328" && ver.dmcc === "0.2.341");
 check("rules.clean", !read("assets/data/rules.js").includes("sizeFootprint") && !read("database.rules.json").includes("end_conc"));
 
 const sheet = read("assets/js/sheet-extras.js");
