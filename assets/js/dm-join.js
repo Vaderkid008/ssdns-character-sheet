@@ -423,6 +423,10 @@
     });
     state.app = app;
     state.auth = auth;
+    if (root.SSDNSAppCheck && root.SSDNSAppCheck.start) {
+      try { await root.SSDNSAppCheck.start(app); }
+      catch (e) { console.warn("[DM Join] App Check", e); }
+    }
     state.db = dbMod.getDatabase(app);
     if (emu && dbMod.connectDatabaseEmulator) {
       try { dbMod.connectDatabaseEmulator(state.db, "127.0.0.1", 9000); }
@@ -687,9 +691,16 @@
     if (/initiative/i.test(String(entry.label || ""))) {
       try {
         var initKey = entry.tokenId ? (state.uid + "__" + entry.tokenId) : state.uid;
-        await fb.set(fb.ref(state.db, roomPath("playerInit/" + initKey)), {
+        var initRow = {
           ts: entry.ts, init: Number(entry.result) || 0, name: entry.characterName || entry.who, from: state.uid, tokenId: entry.tokenId || ""
-        });
+        };
+        if (root.SSDNSGameActions) {
+          var initAct = root.SSDNSGameActions.rollInitiative({
+            key: initKey, playerId: state.uid, tokenId: initRow.tokenId, init: initRow.init, name: initRow.name || "", ts: initRow.ts
+          }, state.uid);
+          initRow.seq = initAct.seq;
+        }
+        await fb.set(fb.ref(state.db, roomPath("playerInit/" + initKey)), initRow);
         fadeToast("Initiative: " + (Number(entry.result) || 0), 4500);
       } catch (err) { console.warn("[DM Join] initiative", err); }
     }
@@ -2829,6 +2840,18 @@
     });
     var inspPrimed = false;
     var inspSeen = "";
+    if (root.SSDNSGameActions && !root.__ssdnsInitListener) {
+      root.__ssdnsInitListener = true;
+      root.SSDNSGameActions.on(function (action) {
+        if (!action || action.name !== "setInitiative") return;
+        var p = action.payload || {};
+        if (root.SSDNSPlaytest && root.SSDNSPlaytest.showTurn) {
+          root.SSDNSPlaytest.showTurn({
+            round: p.round, turn: p.turn, started: !!p.started, order: p.order, seq: p.turnSeq
+          });
+        }
+      });
+    }
     bind("table", function (val) {
       if (root.SSDNSTableLog && root.SSDNSTableLog.setClearedAt) {
         var mark = val && val.logClearedAt != null && val.logClearedAt !== "" ? val.logClearedAt : null;
@@ -2844,7 +2867,13 @@
         }
       } else if (!val.storeOpen) state._storeOpened = false;
       if (root.SSDNSPlaytest && root.SSDNSPlaytest.setDamageMode) root.SSDNSPlaytest.setDamageMode(val.damageMode || "auto");
-      if (root.SSDNSPlaytest && root.SSDNSPlaytest.showTurn) root.SSDNSPlaytest.showTurn(val.initiative || null);
+      var initSnap = val.initiative || null;
+      if (root.SSDNSGameActions && initSnap && Number(initSnap.actionSeq)) {
+        root.SSDNSGameActions.applyRemote("setInitiative", {
+          round: initSnap.round, turn: initSnap.turn, started: !!initSnap.started,
+          order: initSnap.order || null, turnSeq: initSnap.seq || 0
+        }, Number(initSnap.actionSeq), "dm");
+      } else if (root.SSDNSPlaytest && root.SSDNSPlaytest.showTurn) root.SSDNSPlaytest.showTurn(initSnap);
       var insp = val.inspiration;
       var count = 0, last = null;
       if (insp && typeof insp === "object") { count = Number(insp.count) || 0; last = insp.last || null; }
@@ -2992,7 +3021,13 @@
       fb.get(fb.ref(state.db, roomPath("table"))).then(function (snap) {
         if (!state.joined || state.roomCode !== code) return;
         var val = (snap && snap.val && snap.val()) || {};
-        root.SSDNSPlaytest.showTurn(val.initiative || null);
+        var pulled = val.initiative || null;
+        if (root.SSDNSGameActions && pulled && Number(pulled.actionSeq)) {
+          root.SSDNSGameActions.applyRemote("setInitiative", {
+            round: pulled.round, turn: pulled.turn, started: !!pulled.started,
+            order: pulled.order || null, turnSeq: pulled.seq || 0
+          }, Number(pulled.actionSeq), "dm");
+        } else root.SSDNSPlaytest.showTurn(pulled);
       }).catch(function () {});
       fb.get(fb.ref(state.db, roomPath("encounter/public"))).then(function (snap) {
         if (!state.joined || state.roomCode !== code) return;

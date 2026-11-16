@@ -534,9 +534,16 @@ async function writeRemoteTableOnce() {
        An empty array is dropped by update() and the previous children stay, so the strip never clears.
        The DM roster (mapTokenId and all) stays local. A missing order on the echo is not an array, so it is not adopted. */
     const visibleOrder = fight.idle ? null : first.order;
+    let actionSeq = 0;
+    if (window.SSDNSGameActions) {
+      const act = window.SSDNSGameActions.setInitiative({
+        round: fight.round, turn: fight.turn, started: !!fight.started, order: visibleOrder, turnSeq: fight.seq || 0
+      }, DM.state.uid || "dm");
+      actionSeq = act.seq;
+    }
     await fb.update(DM.roomRef("table"), {
       initiative: { round: fight.round, turn: fight.turn, started: !!fight.started, recruit: fight.recruit !== false, order: visibleOrder,
-        seq: fight.seq || 0, turnStarts: fight.turnStarts || {}, undo: fight.undo || [], markers: fight.markers || {},
+        seq: fight.seq || 0, actionSeq: actionSeq || 0, turnStarts: fight.turnStarts || {}, undo: fight.undo || [], markers: fight.markers || {},
         unlock: fight.unlock || {}, oa: fight.oa || {},
         campaignDay: fight.campaignDay || 1, gunClean: fight.gunClean || {},
         showDowned: !!(window.SSDNSApplied && window.SSDNSApplied.showDowned && window.SSDNSApplied.showDowned()) },
@@ -591,7 +598,14 @@ function applyRemoteTable(v) {
   const localAt = Date.parse(fight.updatedAt || "") || 0;
   const init = v.initiative || {};
   const stale = remoteAt && localAt && remoteAt + 1500 < localAt;
-  if (!stale) {
+  let adopt = !stale;
+  if (window.SSDNSGameActions && Number(init.actionSeq)) {
+    const applied = window.SSDNSGameActions.applyRemote("setInitiative", {
+      round: init.round, turn: init.turn, started: !!init.started, order: init.order || null, turnSeq: init.seq || 0
+    }, Number(init.actionSeq), "dm");
+    if (!applied) adopt = false;
+  }
+  if (adopt) {
     if (Array.isArray(init.order)) {
       /* N75: our own save publishes an empty strip while the roster stays here. Do not adopt that empty order. */
       const keepRoster = !!(fight.idle && init.order.length === 0 && fight.order.length);
@@ -11231,6 +11245,24 @@ function acForRoll(r) {
   const row = findCombatant({ targetId: r && r.targetId, targetName: r && r.targetName });
   return row ? knownNumber(row.ac) : null;
 }
+function bindRollActions() {
+  if (!window.SSDNSGameActions || window.__ssdnsRollListener) return;
+  window.__ssdnsRollListener = true;
+  window.SSDNSGameActions.on(function (action) {
+    if (!action || action.name !== "rollInitiative" || !DM.state) return;
+    const p = action.payload || {};
+    const key = p.key || p.playerId;
+    if (!key) return;
+    if (!DM.state.playerInit) DM.state.playerInit = {};
+    const prev = Number(DM.state.playerInit[key] && DM.state.playerInit[key].seq) || 0;
+    if (action.seq && prev && action.seq < prev) return;
+    DM.state.playerInit[key] = {
+      ts: p.ts || "", init: p.init, name: p.name || "", from: p.playerId || "", tokenId: p.tokenId || "", seq: action.seq || 0
+    };
+    if (window.DMCCEnhance && window.DMCCEnhance.onPlayerInit) window.DMCCEnhance.onPlayerInit(DM.state.playerInit);
+  });
+}
+bindRollActions();
 function onPlayerInit(map) {
   DM.state.playerInit = map || {};
   if (fight.recruit === false) return;

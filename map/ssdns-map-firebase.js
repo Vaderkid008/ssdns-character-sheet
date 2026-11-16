@@ -175,7 +175,10 @@
           op = fb.runTransaction(r, function (cur) {
             if (isBuried(path) && !(meta && meta.revive)) return;
             var curSeq = cur && typeof cur === "object" ? num(cur.seq) : 0;
+            var curPosSeq = cur && cur.pos ? num(cur.pos.seq) : 0;
+            var nextPosSeq = value && value.pos ? num(value.pos.seq) : 0;
             if (seq && curSeq && seq < curSeq) return;
+            if (nextPosSeq && curPosSeq && nextPosSeq < curPosSeq) return;
             return value;
           });
         } else {

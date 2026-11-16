@@ -1,6 +1,6 @@
 /**
  * A drag ends when the button comes up, wherever the pointer is.
- * Real mouse. Sheet 0.3.332 / DMCC 0.2.345.
+ * Real mouse. Sheet 0.3.333 / DMCC 0.2.346.
  *   node tools/test-drag-release-03296.mjs
  */
 import fs from "node:fs";
@@ -15,7 +15,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(fs.readFileSync(path.join(root, "version.json"), "utf8"));
-check("ver", ver.sheet === "0.3.332" && ver.dmcc === "0.2.345");
+check("ver", ver.sheet === "0.3.333" && ver.dmcc === "0.2.346");
 
 function samePos(a, b) {
   return !!(a && b && Math.abs(a.x - b.x) <= 1 && Math.abs(a.y - b.y) <= 1);
