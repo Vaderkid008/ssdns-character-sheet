@@ -1,6 +1,6 @@
 /**
  * Floor buttons and Scenes sit on the map bar. The bar does not scroll.
- * Sheet 0.3.329 / DMCC 0.2.342.
+ * Sheet 0.3.330 / DMCC 0.2.343.
  *   node tools/test-floor-bar-inline-03328.mjs
  */
 import fs from "node:fs";
@@ -16,8 +16,8 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.329" && ver.dmcc === "0.2.342" && ver.sheetBuild === "sheet-playtest-v03329" && ver.dmccBuild === "dmcc-playtest-v02342");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.329") && !read("database.rules.json").includes("0.3.329"));
+check("ver", ver.sheet === "0.3.330" && ver.dmcc === "0.2.343" && ver.sheetBuild === "sheet-playtest-v03330" && ver.dmccBuild === "dmcc-playtest-v02343");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.330") && !read("database.rules.json").includes("0.3.330"));
 
 const css = read("map/ssdns-map.css");
 const stripRule = css.slice(css.indexOf(".ssdns-map .ssm-floor-strip {"), css.indexOf(".ssdns-map .ssm-floor-strip:empty"));
@@ -95,4 +95,4 @@ if (failures.length) {
   failures.forEach((line) => console.error(" - " + line));
   process.exit(1);
 }
-console.log("floor bar inline 0.3.329 ok");
+console.log("floor bar inline 0.3.330 ok");

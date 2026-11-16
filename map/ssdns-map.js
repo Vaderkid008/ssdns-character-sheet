@@ -846,6 +846,19 @@ on(document, 'keydown', e => {
     cancelPendingTarget();
     return;
   }
+  /* The door card's X and Esc both drop the card and any armed Move. */
+  if (e.key === 'Escape') {
+    const doorCard = el.querySelector('[data-act="doorMenu"]');
+    if (doorCard && !doorCard.hidden) {
+      const tag = e.target && e.target.tagName;
+      const typing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
+      if (!typing) {
+        e.preventDefault();
+        dismissDoorCard();
+        return;
+      }
+    }
+  }
   /* B13: Esc leaves Move mode even when the strip, not the canvas, has focus. A fog polygon
      in progress and a text field keep Esc for themselves. */
   if (e.key === 'Escape' && state.moveArmed) {
@@ -9154,7 +9167,7 @@ function showDoorMenu(wall) {
     (roll ? '<p class="ssm-roll">' + roll + "</p>" : "") +
     (wall._lockedNote ? '<p class="ssm-note">' + wall._lockedNote + "</p>" : "") +
     actions + "</div>");
-  bindFloatingMenu(menu, hideDoorMenu);
+  bindFloatingMenu(menu, dismissDoorCard);
   if (role === "dm") dockDmPropMenu(menu);
   else anchorChestMenu(menu, { pos: { x: (Number(wall.x1) + Number(wall.x2)) / 2 - 0.5, y: (Number(wall.y1) + Number(wall.y2)) / 2 - 0.5 }, size: 1 });
 }
@@ -9613,6 +9626,14 @@ function hideCommandMenu() {
   if (menu) menu.remove();
   if (el) el.dataset.moveArmed = state.moveArmed ? '1' : '0';
 }
+/* The token card X uses the same cancel as Esc. hideCommandMenu only removes the card. */
+function dismissTokenCommand() {
+  cancelTokenCommand("menu-x");
+}
+function dismissDoorCard() {
+  hideDoorMenu();
+  cancelTokenCommand("door-x");
+}
 function cancelTokenCommand(why) {
   state.moveArmed = false;
   state.moveHover = null;
@@ -9689,7 +9710,7 @@ function placeCommandMenu() {
     menu.className = 'ssm-token-cmd';
     menu.setAttribute('data-act', 'tokenCmd');
     replaceMenuHtml(menu, tokenCmdBar() + '<div class="ssm-card-body"><button type="button" data-act="tokenCmdMove">Move</button><button type="button" data-act="tokenCmdInteract">Interact</button><button type="button" data-act="tokenCmdDrop">Drop</button></div>');
-    bindFloatingMenu(menu, hideCommandMenu);
+    bindFloatingMenu(menu, dismissTokenCommand);
     menu.addEventListener('pointerdown', ev => ev.stopPropagation());
     menu.addEventListener('click', ev => {
       ev.stopPropagation();

@@ -31,8 +31,8 @@ function webpSize(rel) {
 }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.329" && version.sheetBuild === "sheet-playtest-v03329");
-check("ver.dmcc", version.dmcc === "0.2.342" && version.dmccBuild === "dmcc-playtest-v02342");
+check("ver.sheet", version.sheet === "0.3.330" && version.sheetBuild === "sheet-playtest-v03330");
+check("ver.dmcc", version.dmcc === "0.2.343" && version.dmccBuild === "dmcc-playtest-v02343");
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js database.rules.json firebase.json", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
