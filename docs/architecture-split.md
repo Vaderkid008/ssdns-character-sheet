@@ -2,7 +2,7 @@
 
 Jessey's goal is a faster table that stays in agreement. Today every screen writes the shared room straight to Firebase, and every screen listens to those paths on its own. Two writes that leave a laptop close together can land in the wrong order. The screen that sent them already moved on. The other screens show whatever arrived last.
 
-This note is the map of those writes, the game-actions layer that replaces them, and the later step where a Cloud Function (not the browsers) is the only writer. The Firebase project is already on the Blaze plan, so that function does not need a plan change or a separate Node host. Nothing in this document changes the app, deploys a function, or edits the security rules. Slice 1, the first code change, is a separate draft.
+This note is the map of those writes, and the game-actions layer that replaces them. Firebase is a stopgap. The likely end is a rewrite (React or Flutter is on the table) on some other backend, so the layer does not speak Firebase. A Cloud Function is only the referee while Firebase is still the backend. The project is already on the Blaze plan, so that function needs no plan change and no separate Node host. Nothing in this document changes the app, deploys a function, or edits the security rules. Slice 1, the first code change, is a separate draft.
 
 Line numbers are from the disconnect-presence draft (sheet 0.3.332 / DMCC 0.2.345).
 
@@ -107,21 +107,62 @@ Names we already know we need:
 
 `seq` only goes forward for that subject (that token, that player, or the one initiative strip). A late action with a smaller `seq` is ignored. `by` is the uid that asked.
 
-Screens subscribe once:
+Screens do not choose a backend. They call a named action, and they paint from one listener:
 
 ```js
+SSDNSGameActions.moveToken(id, { x: 12, y: 4 }, uid);
 SSDNSGameActions.on(function (action) { /* paint from the action */ });
 ```
 
-Firebase stays the pipe in the first slices. A callback's only job is to turn a snapshot into `applyRemote(...)`. It does not also poke the canvas, the fight strip, and a second cache. Local clicks call `moveToken` / `setTokenImage` / `rollInitiative` and that same listener paints them, so the DM and the player run one path.
+### The adapter
 
-The action is stamped onto the object Firebase already stores (`pos.seq`, `imageSeq`, `playerInit.seq`, `initiative.actionSeq`). The existing transaction can then refuse an older write. No new database path is required for Slice 1, so the security rules stay as they are.
+Under that, the only backend API is two methods. `send` hands an action to whatever is hosting the table. `subscribe` hands committed actions back. That stream is the state the screens paint.
 
-## Server referee: Cloud Functions
+```js
+SSDNSGameActions.use({
+  name: "ws",
+  send: function (action) { socket.send(JSON.stringify(action)); },
+  subscribe: function (onAction) {
+    socket.onmessage = function (e) { onAction(JSON.parse(e.data)); };
+    return function () { socket.onmessage = null; };
+  }
+});
+```
 
-After the clients all speak actions, one Cloud Function should be the only thing that writes tokens, initiative, HP, and loot. Browsers append "I want this action". The function checks the order, assigns the room `seq`, and writes the result. Two players cannot both take the last item, and a slow laptop cannot rewind a move.
+`assets/js/game-actions.js` is that layer. It does not import Firebase. Slice 1 ships a local adapter: `send` delivers straight to `subscribe` on the same page, which is how a single screen stays in order before a server exists. `use(adapter)` swaps the transport. The map, the fight strip, and the sheet keep calling `moveToken`, `setTokenImage`, `rollInitiative`, `setInitiative`, and `on`. They do not change when the adapter changes.
 
-Use Cloud Functions on the Firebase project that is already on Blaze. A separate Node host is not needed: Blaze is already the plan, and the function runs in the same project as the Realtime Database. Nothing in the doc draft or in Slice 1 deploys that function. Deploying it is its own step, and Jessey has to say yes before any function is put on the project.
+A Node process with WebSockets, or Supabase Realtime, is another adapter with the same two methods. A React or Flutter client speaks the same JSON action. The web paint code is not the contract. The action is.
+
+### Firebase is one adapter, and a stopgap
+
+While Firebase is the host, `send` is still the room writes that already exist: a token square on `map/public/tokens/{id}/pos`, a portrait on the token or its `/patch`, a player's total on `playerInit/{key}`, and the turn strip on `table.initiative`. Those writes stamp `pos.seq`, `imageSeq`, `playerInit.seq`, and `initiative.actionSeq`. A listener turns the snapshot back into an action with `applyRemote`, which is the inbound side of `subscribe`. It does not also poke the canvas. The listener does that.
+
+Those call sites in `map/ssdns-map.js`, `assets/js/dm-join.js`, and `dm/assets/js/v2.js` are the Firebase adapter, still split across the files that used to write the room. A later slice gathers them into one adapter module and the paint code stops calling them. Slice 1 does not add a new `actions/` path. That would need a rules change, and the rules stay as they are.
+
+Firebase-only pieces stay in their own files, or out of the repo:
+
+- `assets/js/app-check.js` is the only App Check code. The flag defaults off. Enforcement is a console step.
+- Cloud Functions, the budget alert, and the billing cutoff are Firebase console and deploy steps. They are not imported by the map or the sheet.
+- `assets/js/firebase-config.js` and `map/ssdns-map-firebase.js` are the Realtime Database client. Nothing in `game-actions.js` loads them.
+
+### What carries over when Firebase is dropped
+
+| Carries over | Left behind with Firebase |
+|---|---|
+| Action names and the JSON payload | `rooms/{code}/...` paths |
+| The seq rule: a smaller seq never wins | `database.rules.json` |
+| Screen calls: `moveToken`, `setTokenImage`, `rollInitiative`, `setInitiative`, `on` | `firebase-config.js` and the Realtime Database SDK |
+| The adapter: `send(action)` and `subscribe(onAction)` | `app-check.js`, reCAPTCHA, and App Check enforcement |
+| The write caps (8 moves a second per token, 30 other actions a minute per player, 20 writes a second per room), enforced by whoever the referee is | Cloud Functions, the $5 budget, and the billing cutoff |
+| The map, the fight strip, and the sheet, painting from the action | `deliverTree` and the direct `fb.set` / `fb.update` call sites |
+
+The cost-safety idea carries over in plain form: know what a month should cost, get told before it runs away, and put a ceiling on writes. The Google billing screen and App Check do not.
+
+## Server referee while Firebase is the host: Cloud Functions
+
+After the clients all speak actions, one referee should be the only writer of tokens, initiative, HP, and loot. Browsers `send` "I want this action". The referee checks the order, assigns the room `seq`, and the adapter's `subscribe` delivers the result. Two players cannot both take the last item, and a slow laptop cannot rewind a move. That job is the same on a future Node or Supabase host. Only the box that runs it changes.
+
+While the host is Firebase, the referee is a Cloud Function on the project that is already on Blaze. A separate Node host is not needed for this stopgap: the function runs in the same project as the Realtime Database. Nothing in the doc draft or in Slice 1 deploys that function. Deploying it is its own step, and Jessey has to say yes before any function is put on the project. If Firebase is dropped first, this function is not built.
 
 ### Rough cost per month
 
