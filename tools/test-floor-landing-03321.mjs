@@ -1,7 +1,7 @@
 /**
  * Set floor, Send to, and Move party here land off the centre.
  * Order: link landing, default spawn group, other scene spawns, then near the entry.
- * Nobody stacks. Sheet 0.3.331 / DMCC 0.2.344.
+ * Nobody stacks. Sheet 0.3.332 / DMCC 0.2.345.
  *   node tools/test-floor-landing-03321.mjs
  */
 import fs from "node:fs";
@@ -17,7 +17,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.331" && ver.dmcc === "0.2.344" && ver.sheetBuild === "sheet-playtest-v03331" && ver.dmccBuild === "dmcc-playtest-v02344");
+check("ver", ver.sheet === "0.3.332" && ver.dmcc === "0.2.345" && ver.sheetBuild === "sheet-playtest-v03332" && ver.dmccBuild === "dmcc-playtest-v02345");
 check("rules.clean", !read("assets/data/rules.js").includes("floorLandingPlan") && !read("database.rules.json").includes("floorLandingPlan"));
 const mapSrc = read("map/ssdns-map.js");
 check("src.order", mapSrc.includes("link landing, default spawn group") && mapSrc.includes("function floorLandingPlan") && mapSrc.includes("function setFloor"));
@@ -270,4 +270,4 @@ if (failures.length) {
   console.error("\n" + failures.length + " failed");
   process.exit(1);
 }
-console.log("floor landing 0.3.331 ok");
+console.log("floor landing 0.3.332 ok");

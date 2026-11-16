@@ -209,6 +209,7 @@
           id: id,
           name: snap.name || snap.player || id,
           portrait: snap.portrait || "",
+          online: root.DMCC.playerOnline ? !!root.DMCC.playerOnline(root.DMCC.state.players[id]) : true,
           /* B2: the sheet snapshot, so the DM map can stamp lights while the player's Map tab is closed. */
           lightProfile: snap.lightProfile || null
         };
@@ -1191,6 +1192,7 @@
       return { uid: p.uid || p.id, id: p.id || p.uid, name: p.name || p.label || p.uid || p.id };
     }).filter(function (p) { return p.uid; });
     if (map && map.refreshPlayers) map.refreshPlayers();
+    if (map && map.requestDraw) map.requestDraw();
   }
   function wire() {
     var full = $("btnMapFull");
@@ -1304,7 +1306,14 @@
       try { return map.focusLootChest(boxId); }
       catch (e) { return ""; }
     },
-    removeToken: removeToken,
+    holdOwner: function (pid) {
+      if (!isDmPage() || !map || typeof map.holdOwner !== "function") return null;
+      try { return map.holdOwner(pid); } catch (e) { return null; }
+    },
+    handOwner: function (pid, toUid) {
+      if (!isDmPage() || !map || typeof map.handOwner !== "function") return null;
+      try { return map.handOwner(pid, toUid); } catch (e) { return null; }
+    },
     dropTokenKeepRow: dropTokenKeepRow,
     tokenForPlayer: tokenForPlayer,
     hasToken: hasToken,

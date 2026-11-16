@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.344"; // dmcc-playtest-v02344
+const VERSION = "0.2.345"; // dmcc-playtest-v02345
 if (window.SSDNSRollCard) {
   window.SSDNSRollCard.setAudience("dm");
   window.SSDNSRollCard.setPortraitLookup(function (name, spec) {
@@ -512,10 +512,9 @@ function attachLiveListeners() {
             who: name, playerId: id, playerName: snap.player || "", characterName: snap.name || "",
             type: "leave", what: name + " left the table", oldVal: null, newVal: "left", flag: false
           });
-          if (window.DMCCEnhance && window.DMCCEnhance.notePresence) window.DMCCEnhance.notePresence(id, false);
         }, wait);
       }
-      if (on && window.DMCCEnhance && window.DMCCEnhance.notePresence) window.DMCCEnhance.notePresence(id, true);
+      if (on && state.awayDismiss) delete state.awayDismiss[id];
     });
     guardFocus(() => {
       holdUi(() => {
@@ -1506,6 +1505,85 @@ function playerNameTags() {
     return { id: id, name: s.name || s.player || "" };
   }));
 }
+function paintAwayAlert() {
+  let bar = document.getElementById("awayAlert");
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.id = "awayAlert";
+    bar.setAttribute("data-act", "awayAlert");
+    bar.style.cssText = "position:fixed;left:12px;right:12px;bottom:12px;z-index:50;display:flex;flex-direction:column;gap:6px;pointer-events:none;";
+    document.body.appendChild(bar);
+    bar.addEventListener("click", onAwayClick);
+  }
+  state.awayDismiss = state.awayDismiss || {};
+  const gone = Object.keys(state.players || {}).filter((id) => {
+    const p = state.players[id];
+    return p && !playerOnline(p) && !state.awayDismiss[id];
+  });
+  if (!gone.length) { bar.hidden = true; bar.innerHTML = ""; return; }
+  bar.hidden = false;
+  const tags = playerNameTags();
+  bar.innerHTML = gone.map((id) => {
+    const name = tags[id] || ((state.players[id].snapshot || {}).name) || id;
+    const others = Object.keys(state.players).filter((pid) => pid !== id && playerOnline(state.players[pid]));
+    const hand = others.length
+      ? `<select data-away-who="${esc(id)}">${others.map((pid) => `<option value="${esc(pid)}">${esc(tags[pid] || pid)}</option>`).join("")}</select> <button type="button" data-away="hand" data-pid="${esc(id)}">Hand control</button>`
+      : "";
+    return `<div class="away-line" data-away-line="${esc(id)}" style="pointer-events:auto;display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:#2a2118;color:#f6e7b2;border:1px solid #e2c56a;border-radius:8px;padding:8px 10px;box-shadow:0 8px 24px rgba(0,0,0,.35);">
+      <span>${esc(name)} disconnected. The token stays, marked away.</span>
+      <button type="button" data-away="skip" data-pid="${esc(id)}">Skip turn</button>
+      <button type="button" data-away="control" data-pid="${esc(id)}">Take control</button>
+      ${hand}
+      <button type="button" data-away="remove" data-pid="${esc(id)}">Remove token</button>
+      <button type="button" data-away="dismiss" data-pid="${esc(id)}">Dismiss</button>
+    </div>`;
+  }).join("");
+}
+function onAwayClick(ev) {
+  const btn = ev.target && ev.target.closest && ev.target.closest("[data-away]");
+  if (!btn) return;
+  const id = btn.getAttribute("data-pid");
+  const act = btn.getAttribute("data-away");
+  if (!id) return;
+  if (act === "dismiss") {
+    state.awayDismiss = state.awayDismiss || {};
+    state.awayDismiss[id] = true;
+    paintAwayAlert();
+    return;
+  }
+  if (act === "skip") {
+    const E = window.DMCCEnhance;
+    const order = E && E.fightOrder ? E.fightOrder() : [];
+    const turn = E && E.fightTurn ? E.fightTurn() : 0;
+    const row = order[turn];
+    const theirs = row && (row.playerId === id || row.id === id);
+    if (theirs && E && E.nextTurn) E.nextTurn();
+    else toast(theirs ? "Can't skip that turn" : "It isn't their turn. Their row stays in the order.");
+    return;
+  }
+  const host = window.SSDNSMapHost;
+  if (act === "control") {
+    if (host && host.holdOwner) host.holdOwner(id);
+    toast("You have the token until they return.");
+    return;
+  }
+  if (act === "hand") {
+    const sel = document.querySelector('[data-away-who="' + id + '"]');
+    const to = sel && sel.value;
+    if (!to) { toast("Pick a player who is still here"); return; }
+    if (host && host.handOwner) host.handOwner(id, to);
+    toast("Control handed over. The sheet link stays put.");
+    return;
+  }
+  if (act === "remove") {
+    const tokenId = host && host.tokenForPlayer ? host.tokenForPlayer(id) : "";
+    if (tokenId && host.removeToken) host.removeToken(tokenId);
+    else toast("No token on the map to remove");
+    state.awayDismiss = state.awayDismiss || {};
+    state.awayDismiss[id] = true;
+    paintAwayAlert();
+  }
+}
 function warnDuplicateNames() {
   if (!window.SSDNSTurn || !window.SSDNSTurn.duplicateNames) return;
   const rows = Object.keys(state.players || {}).map((id) => {
@@ -1877,6 +1955,13 @@ function renderPlayers() {
     return;
   }
   warnDuplicateNames();
+  if (window.DMCCEnhance && window.DMCCEnhance.notePresence) {
+    Object.keys(state.players || {}).forEach((id) => {
+      window.DMCCEnhance.notePresence(id, playerOnline(state.players[id]));
+    });
+    if (window.DMCCEnhance.renderFight) window.DMCCEnhance.renderFight();
+  }
+  paintAwayAlert();
   grid.innerHTML = list.map((p) => {
     const s = p.snapshot || {};
     const tags = playerNameTags();

@@ -20,10 +20,10 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.331" && version.sheetBuild === "sheet-playtest-v03331");
-check("ver.dmcc", version.dmcc === "0.2.344" && version.dmccBuild === "dmcc-playtest-v02344");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.331"') && read("assets/js/app.js").includes("sheet-playtest-v03331"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.344"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02344"));
+check("ver.sheet", version.sheet === "0.3.332" && version.sheetBuild === "sheet-playtest-v03332");
+check("ver.dmcc", version.dmcc === "0.2.345" && version.dmccBuild === "dmcc-playtest-v02345");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.332"') && read("assets/js/app.js").includes("sheet-playtest-v03332"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.345"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02345"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
@@ -35,9 +35,9 @@ check("css.dmChip", dmcc.includes("font-size: 17px; padding: 6px 14px"));
 
 const html = read("index.html");
 const dm = read("dm/index.html");
-check("html.sheet", html.includes("map/ssdns-map.js?v=0.3.331-playfix") && html.includes("assets/js/conditions.js?v=0.3.210-pills") && html.includes("assets/js/app.js?v=0.3.331-playfix"));
-check("html.dm", dm.includes("../map/ssdns-map.js?v=0.2.344-playfix") && dm.includes("../assets/js/conditions.js?v=0.2.223-pills") && dm.includes("assets/js/dmcc.js?v=0.2.344-playfix"));
-check("html.demo", read("map/demo.html").includes("ssdns-map.js?v=0.3.331-playfix"));
+check("html.sheet", html.includes("map/ssdns-map.js?v=0.3.332-playfix") && html.includes("assets/js/conditions.js?v=0.3.210-pills") && html.includes("assets/js/app.js?v=0.3.332-playfix"));
+check("html.dm", dm.includes("../map/ssdns-map.js?v=0.2.345-playfix") && dm.includes("../assets/js/conditions.js?v=0.2.223-pills") && dm.includes("assets/js/dmcc.js?v=0.2.345-playfix"));
+check("html.demo", read("map/demo.html").includes("ssdns-map.js?v=0.3.332-playfix"));
 
 const map = read("map/ssdns-map.js");
 check("map.pills", map.includes("function paintCondWordPills") && map.includes("pillWordFit") && map.includes("paintCondWordPills(ctx, s, r, condRaws)"));

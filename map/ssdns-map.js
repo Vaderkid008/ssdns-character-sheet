@@ -5725,6 +5725,7 @@ function draw() {
       ctx.translate(0, -10);
     }
     if (isHidden && role === 'dm') ctx.globalAlpha = 0.4;
+    if (ownerAway(t.ownerUid)) ctx.globalAlpha = 0.4;
     if (isChestProp(t)) {
       paintChestProp(ctx, t, px);
       ctx.restore();
@@ -5845,6 +5846,19 @@ function draw() {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('🔒', s.x, s.y);
+      ctx.restore();
+    }
+    if (ownerAway(t.ownerUid)) {
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.font = "bold 11px system-ui";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillStyle = "#f6e7b2";
+      ctx.strokeStyle = "rgba(12,9,6,0.85)";
+      ctx.lineWidth = 3;
+      ctx.strokeText("Away", s.x, s.y - r - 2);
+      ctx.fillText("Away", s.x, s.y - r - 2);
       ctx.restore();
     }
 
@@ -6648,6 +6662,11 @@ function scheduleDefaultImage(t, src) {
 function partyList() {
   const raw = typeof options.players === 'function' ? options.players() : (options.players || (host.players && host.players()) || []);
   return (Array.isArray(raw) ? raw : []).filter(p => p && (p.uid || p.id));
+}
+function ownerAway(ownerUid) {
+  if (!ownerUid) return false;
+  const row = partyList().find(p => p && (p.uid === ownerUid || p.id === ownerUid));
+  return !!(row && row.online === false);
 }
 function dismissedMap() {
   if (!state.dismissed || typeof state.dismissed !== 'object') state.dismissed = {};
@@ -16255,6 +16274,30 @@ function tokenForPlayer(pid) {
   const hits = state.tokens.filter(t => t && (t.id === want || t.ownerUid === pid || t.combatantId === pid || t.sheetId === pid));
   return hits.find(t => t.id === want) || hits[0] || null;
 }
+function holdOwner(pid) {
+  if (role !== "dm") return null;
+  const t = tokenForPlayer(pid);
+  if (!t) return null;
+  t.ownerCanMove = false;
+  if (shared.tokens[t.id]) shared.tokens[t.id].ownerCanMove = false;
+  saveToken(t.id);
+  requestDraw();
+  return t.id;
+}
+function handOwner(pid, toUid) {
+  if (role !== "dm" || !toUid) return null;
+  const t = tokenForPlayer(pid);
+  if (!t) return null;
+  t.controlledBy = t.controlledBy || [];
+  if (t.controlledBy.indexOf(toUid) < 0) t.controlledBy.push(toUid);
+  if (!shared.tokens[t.id]) shared.tokens[t.id] = { id: t.id };
+  shared.tokens[t.id].controlledBy = t.controlledBy.slice();
+  shared.tokens[t.id].ownerUid = t.ownerUid || "";
+  postGrant(t);
+  saveToken(t.id);
+  requestDraw();
+  return t.id;
+}
 /* Remove the map piece and leave the fight row. Disintegrate uses this after the dust crumb.
    silent skips combatant:remove, which would delete the combatant. keepOwner does not dismiss a PC. */
 function dropTokenKeepRow(id) {
@@ -22438,6 +22481,8 @@ return {
   applyLink,
   patchToken,
   tokenForPlayer,
+  holdOwner,
+  handOwner,
   hasToken,
   releaseToken,
   armAttack,
@@ -22577,6 +22622,7 @@ return {
         story: isPartyToken(t), noInit: !!t.noInit, notTargetable: !!t.notTargetable, noHpPool: !!t.noHpPool,
         controlledBy: (t.controlledBy || []).slice(), spellPiece: t.spellPiece || '', zoneId: t.zoneId || '',
         budgetLeft: t.budgetLeft != null ? t.budgetLeft : null, image: t.image || '',
+        away: ownerAway(t.ownerUid),
         screen: { x1: a.x, y1: a.y, x2: b.x, y2: b.y } };
     });
   },
