@@ -1,6 +1,6 @@
 /**
  * Map bar order, Scene Builder autosave, and the unsaved-close warning.
- * Sheet 0.3.332 / DMCC 0.2.345.
+ * Sheet 0.3.333 / DMCC 0.2.346.
  *   node tools/test-dm-bar-builder-03325.mjs
  */
 import fs from "node:fs";
@@ -23,7 +23,7 @@ function mem() {
 }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.332" && ver.dmcc === "0.2.345" && ver.sheetBuild === "sheet-playtest-v03332" && ver.dmccBuild === "dmcc-playtest-v02345");
+check("ver", ver.sheet === "0.3.333" && ver.dmcc === "0.2.346" && ver.sheetBuild === "sheet-playtest-v03333" && ver.dmccBuild === "dmcc-playtest-v02346");
 check("rules.clean", !read("assets/data/rules.js").includes("sceneReadout") && !read("database.rules.json").includes("sceneReadout"));
 
 const mapSrc = read("map/ssdns-map.js");
@@ -100,4 +100,4 @@ if (failures.length) {
   failures.forEach((line) => console.error(" - " + line));
   process.exit(1);
 }
-console.log("dm bar builder 0.3.332 ok");
+console.log("dm bar builder 0.3.333 ok");

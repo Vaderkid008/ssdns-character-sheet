@@ -194,7 +194,9 @@ window.SSDNSMap = { create(opts) {
     try { return JSON.parse(JSON.stringify(value)); } catch (e) { return value; }
   }
   function write(path, value, extra) {
-    const seq = Date.now();
+    const tokenWrite = typeof path === "string" && path.indexOf("map/public/tokens/") === 0;
+    const stamped = tokenWrite && value && typeof value === "object" ? Number(value.seq) || 0 : 0;
+    const seq = stamped || Date.now();
     if (!newer(path, seq)) return;
     if (adapter && adapter.write) adapter.write(path, rtdbSafe(value), Object.assign({ seq: seq, by: uid }, extra || {}));
   }
@@ -210,9 +212,17 @@ window.SSDNSMap = { create(opts) {
     if (t.kind === 'asset' && t.asset && t.asset.hiddenFromPlayers) return null;
     const pubAsset = (t.kind === 'asset' && window.SSDNSAssetLibrary && window.SSDNSAssetLibrary.publicAsset)
       ? window.SSDNSAssetLibrary.publicAsset(t) : null;
+    const moveSeq = t.pos && Number(t.pos.seq) || 0;
+    const pos = t.pos ? { x: t.pos.x, y: t.pos.y } : { x: 0, y: 0 };
+    if (moveSeq) {
+      pos.seq = moveSeq;
+      if (t.pos.by) pos.by = t.pos.by;
+    }
+    const imageSeq = Number(t.imageSeq) || 0;
     return {
       id: t.id,
-      pos: t.pos ? { x: t.pos.x, y: t.pos.y } : { x: 0, y: 0 },
+      seq: moveSeq || undefined,
+      pos: pos,
       color: t.color || '', torch: !!t.torch, status: t.status || '',
       lights: Array.isArray(t.lights) ? t.lights.map(l => Object.assign({}, l)) : [],
       darkvision: Number(t.darkvision) || 0, skulker: !!t.skulker, devilsSight: !!t.devilsSight,
@@ -220,6 +230,7 @@ window.SSDNSMap = { create(opts) {
       conditions: t.conditions ? [...t.conditions] : [],
       conditionSpells: t.conditionSpells ? Object.assign({}, t.conditionSpells) : {},
       sceneId: t.sceneId || activeSceneId() || 'scn_dustyspur01', image: t.image || '',
+      imageSeq: imageSeq || undefined,
       veil: !!t.veil,
       ownerUid: t.ownerUid || '', controlledBy: t.controlledBy || [],
       sheetId: t.sheetId || '', combatantId: t.combatantId || '',
@@ -288,11 +299,28 @@ window.SSDNSMap = { create(opts) {
   function tokenBuried(id) {
     return !!(id && buriedTokens[String(id)]);
   }
+  function noteMove(token) {
+    if (!token || !token.pos) return Date.now();
+    const GA = window.SSDNSGameActions;
+    let seq = Date.now();
+    if (GA) {
+      const act = GA.moveToken(token.id, {
+        x: Number(token.pos.x) || 0,
+        y: Number(token.pos.y) || 0,
+        sceneId: token.sceneId || ""
+      }, uid);
+      seq = act.seq;
+    }
+    token.pos.seq = seq;
+    token.pos.by = uid;
+    return seq;
+  }
   function saveToken(id) {
     if (role !== 'dm') return;
     if (tokenBuried(id)) return;
     const t = shared.tokens && shared.tokens[id];
     if (!t) return;
+    if (t.pos && !Number(t.pos.seq)) noteMove(t);
     const pub = publicToken(t);
     if (pub) write('map/public/tokens/' + id, pub, { revive: true });
     else if (adapter && adapter.remove) adapter.remove('map/public/tokens/' + id);
@@ -317,7 +345,15 @@ window.SSDNSMap = { create(opts) {
   }
   function publishPlayerMove(token) {
     if (!token || role !== 'player') return;
-    const pos = { x: token.pos.x, y: token.pos.y, by: uid, seq: Date.now() };
+    if (shared.tokens[token.id]) {
+      shared.tokens[token.id].pos = { x: token.pos.x, y: token.pos.y, by: uid };
+      if (token.sceneId) shared.tokens[token.id].sceneId = token.sceneId;
+      noteMove(shared.tokens[token.id]);
+      token.pos.seq = shared.tokens[token.id].pos.seq;
+    } else noteMove(token);
+    const src = (shared.tokens[token.id] && shared.tokens[token.id].pos) || token.pos;
+    const pos = { x: src.x, y: src.y, by: uid, seq: src.seq || Date.now() };
+    if (token.sceneId) pos.sceneId = token.sceneId;
     write('map/public/tokens/' + token.id + '/pos', pos);
   }
   function publishPlayerPatch(token, patch) {
@@ -332,7 +368,10 @@ window.SSDNSMap = { create(opts) {
     if (patch && patch.devilsSight != null) safe.devilsSight = !!patch.devilsSight;
     if (patch && patch.facing != null) safe.facing = Number(patch.facing) || 0;
     if (patch && patch.playerActive != null) safe.playerActive = !!patch.playerActive;
-    if (patch && patch.image != null) safe.image = String(patch.image);
+    if (patch && patch.image != null) {
+      safe.image = String(patch.image);
+      if (Number(token.imageSeq)) safe.imageSeq = Number(token.imageSeq);
+    }
     write('map/public/tokens/' + token.id + '/patch', safe);
   }
   // About 6 Hz. Inside the 5–8 Hz cap, and only when the cell changed.
@@ -366,6 +405,8 @@ window.SSDNSMap = { create(opts) {
     }
     if (!shared.tokens[t.id]) return;
     shared.tokens[t.id].pos = { x: t.pos.x, y: t.pos.y, by: uid, ts: Date.now() };
+    noteMove(shared.tokens[t.id]);
+    t.pos.seq = shared.tokens[t.id].pos.seq;
     if (t.hidden || shared.tokens[t.id].hidden) {
       write('map/dm/tokens/' + t.id, JSON.parse(JSON.stringify(shared.tokens[t.id], (k, v) => k === '_img' ? undefined : v)));
       return;
@@ -6641,6 +6682,12 @@ function rememberTokenImage(t, src) {
     shared.tokens[t.id].image = src;
     delete shared.tokens[t.id]._img;
     delete shared.tokens[t.id]._imgSrc;
+  }
+  const GA = window.SSDNSGameActions;
+  if (GA) {
+    const act = GA.setTokenImage(t.id, src, uid);
+    t.imageSeq = act.seq;
+    if (shared.tokens[t.id]) shared.tokens[t.id].imageSeq = act.seq;
   }
   loadTokenImage(t, same);
   if (role === 'dm') saveToken(t.id);
@@ -14229,6 +14276,8 @@ function onPointerUp(e) {
       if (piece && piece.pos && shared.tokens[id] && !state.drag.clickOnly && !state.drag.blocked) {
         shared.tokens[id].pos = { x: piece.pos.x, y: piece.pos.y, by: uid, ts: Date.now() };
         if (piece.sceneId) shared.tokens[id].sceneId = piece.sceneId;
+        noteMove(shared.tokens[id]);
+        piece.pos.seq = shared.tokens[id].pos.seq;
       }
       saveToken(id);
     });
@@ -16375,6 +16424,11 @@ function removeMapTokens(ids, opts) {
     if (fields.image && t.image !== fields.image) {
       t.image = fields.image;
       t._img = null;
+      const GA = window.SSDNSGameActions;
+      if (GA) {
+        const act = GA.setTokenImage(t.id, t.image, uid);
+        t.imageSeq = act.seq;
+      }
     }
     if (Array.isArray(fields.conditions)) {
       const names = [];
@@ -16403,7 +16457,13 @@ function removeMapTokens(ids, opts) {
     if (t.maxHp != null && t.maxHp !== "") copy.maxHp = t.maxHp;
     if (t.name) copy.name = t.name;
     if (t.size != null) copy.size = t.size;
-    if (t.pos) copy.pos = { x: t.pos.x, y: t.pos.y };
+    if (t.pos) {
+      copy.pos = { x: t.pos.x, y: t.pos.y };
+      if (Number(t.pos.seq)) {
+        copy.pos.seq = Number(t.pos.seq);
+        if (t.pos.by) copy.pos.by = t.pos.by;
+      }
+    }
     if (t.label) copy.label = t.label;
     if (t.combatantId) copy.combatantId = t.combatantId;
     if (t.sheetId) copy.sheetId = t.sheetId;
@@ -16413,6 +16473,7 @@ function removeMapTokens(ids, opts) {
     if (Array.isArray(t.lights)) copy.lights = t.lights.map(l => Object.assign({}, l));
     if (t.image) {
       copy.image = t.image;
+      if (Number(t.imageSeq)) copy.imageSeq = Number(t.imageSeq);
       loadTokenImage(t);
     }
     saveToken(t.id);
@@ -18156,9 +18217,11 @@ async function loadSceneImage(sceneId, opts) {
         t.pos.y = a.y + (b.y - a.y) * k;
         if (u >= 1) {
           t.pos.x = s.points[segs].x; t.pos.y = s.points[segs].y;
-          if (shared.tokens[t.id]) shared.tokens[t.id].pos = { x: t.pos.x, y: t.pos.y, by: uid, seq: Date.now() };
-          if (role === 'dm') write('map/public/tokens/' + t.id + '/pos', shared.tokens[t.id].pos);
-          else publishPlayerMove(t);
+          if (shared.tokens[t.id]) shared.tokens[t.id].pos = { x: t.pos.x, y: t.pos.y, by: uid };
+          if (role === 'dm' && shared.tokens[t.id]) {
+            noteMove(shared.tokens[t.id]);
+            write('map/public/tokens/' + t.id + '/pos', shared.tokens[t.id].pos);
+          } else publishPlayerMove(t);
           if (role === 'player') maybeOfferLink(t);
           return false;
         }
@@ -21894,18 +21957,27 @@ function syncCombatants(initiative) {
     let remotePos = false;
     if (sub === 'pos') {
       if (!(keep && keep[id])) {
-        const t = shared.tokens[id];
-        const prevPos = t && t.pos ? { x: t.pos.x, y: t.pos.y } : null;
-        const by = (meta && meta.by) || (value && value.by);
-        if (role === 'dm' && t && by && by !== uid) {
-          if (!canControlBy(t, by)) return;
-          t.pos = { x: value.x, y: value.y, by, seq };
-          saveToken(id);
-        } else if (shared.tokens[id]) {
-          shared.tokens[id].pos = { x: value.x, y: value.y };
+        const GA = window.SSDNSGameActions;
+        const incoming = Number(value && value.seq) || Number(seq) || 0;
+        const by = (meta && meta.by) || (value && value.by) || "";
+        if (GA) {
+          const applied = GA.applyRemote("moveToken", {
+            tokenId: id, x: value.x, y: value.y, sceneId: value.sceneId || "", source: "pos"
+          }, incoming, by);
+          if (applied) remotePos = true;
+        } else {
+          const t = shared.tokens[id];
+          const prevPos = t && t.pos ? { x: t.pos.x, y: t.pos.y } : null;
+          if (role === 'dm' && t && by && by !== uid) {
+            if (!canControlBy(t, by)) return;
+            t.pos = { x: value.x, y: value.y, by, seq };
+            saveToken(id);
+          } else if (shared.tokens[id]) {
+            shared.tokens[id].pos = { x: value.x, y: value.y };
+          }
+          if (prevPos && value) markRangeMoved(id, prevPos, { x: value.x, y: value.y });
+          remotePos = true;
         }
-        if (prevPos && value) markRangeMoved(id, prevPos, { x: value.x, y: value.y });
-        remotePos = true;
       }
     } else if (sub === 'patch') {
       const t = shared.tokens[id];
@@ -21918,7 +21990,16 @@ function syncCombatants(initiative) {
       if (value.veil != null) cosmetic.veil = !!value.veil;
       if (value.facing != null) cosmetic.facing = Number(value.facing) || 0;
       if (value.playerActive != null) cosmetic.playerActive = !!value.playerActive;
-      if (value.image != null) cosmetic.image = String(value.image);
+      if (value.image != null) {
+        const incomingImg = Number(value.imageSeq) || 0;
+        const prevImg = Number(t.imageSeq) || 0;
+        const GA = window.SSDNSGameActions;
+        if (!(GA && !GA.accept(prevImg, incomingImg))) {
+          cosmetic.image = String(value.image);
+          if (incomingImg) t.imageSeq = incomingImg;
+          if (GA) GA.applyRemote("setTokenImage", { tokenId: id, image: String(value.image) }, incomingImg, by || "");
+        }
+      }
       /* Non-DM clients paint the patch as sent. The DM re-merges so dmDoused and a hand torch/darkvision win. */
       if (role !== 'dm') {
         if (value.lights) cosmetic.lights = value.lights;
@@ -21955,6 +22036,25 @@ function syncCombatants(initiative) {
       const prevTok = shared.tokens[tid] || {};
       delete next._img;
       delete next._imgSrc;
+      const GA = window.SSDNSGameActions;
+      const inMove = Number(value.pos && value.pos.seq) || Number(value.seq) || 0;
+      const prevMove = Number(prevTok.pos && prevTok.pos.seq) || 0;
+      if (GA && value.pos && !GA.accept(prevMove, inMove) && prevTok.pos) {
+        next.pos = prevTok.pos;
+        if (Number(prevTok.seq)) next.seq = prevTok.seq;
+      } else if (GA && value.pos) {
+        GA.applyRemote("moveToken", {
+          tokenId: tid, x: value.pos.x, y: value.pos.y, sceneId: value.sceneId || "", source: "token"
+        }, inMove, (value.pos && value.pos.by) || "");
+      }
+      const inImg = Number(value.imageSeq) || 0;
+      const prevImgSeq = Number(prevTok.imageSeq) || 0;
+      let keepImage = false;
+      if (GA && value.image != null && !GA.accept(prevImgSeq, inImg)) {
+        next.image = prevTok.image || "";
+        if (prevImgSeq) next.imageSeq = prevImgSeq;
+        keepImage = true;
+      }
       if (!next.ownerUid && prevTok.ownerUid) next.ownerUid = prevTok.ownerUid;
       if (!next.combatantId && prevTok.combatantId) next.combatantId = prevTok.combatantId;
       if (!next.sheetId && prevTok.sheetId) next.sheetId = prevTok.sheetId;
@@ -21968,8 +22068,11 @@ function syncCombatants(initiative) {
         return;
       }
       shared.tokens[tid] = Object.assign({}, prevTok, next);
-      delete shared.tokens[tid]._img;
-      delete shared.tokens[tid]._imgSrc;
+      if (!keepImage) {
+        delete shared.tokens[tid]._img;
+        delete shared.tokens[tid]._imgSrc;
+      }
+      if (GA && !keepImage && value.image) GA.applyRemote("setTokenImage", { tokenId: tid, image: shared.tokens[tid].image || "" }, inImg, "");
       if (role === 'dm' && !state.tokens.some(tok => tok && tok.id === tid)) {
         state.tokens.push(JSON.parse(JSON.stringify(shared.tokens[tid])));
       }
@@ -21980,6 +22083,46 @@ function syncCombatants(initiative) {
     if (remotePos) refreshRangeSurfaces();
     if (role === 'player') followPlayerScene();
     requestDraw();
+  }
+
+  function applyGameAction(action) {
+    if (!action || !action.payload) return;
+    if (action.name === "moveToken") {
+      const id = action.payload.tokenId;
+      const keepDrag = dragPosKeep();
+      if (keepDrag && keepDrag[id]) return;
+      const t = shared.tokens[id];
+      if (!t) return;
+      const prevPos = t.pos ? { x: t.pos.x, y: t.pos.y } : null;
+      const by = action.by || "";
+      const moveSeq = action.seq || 0;
+      if (action.payload.source === "pos" && role === "dm" && by && by !== uid) {
+        if (!canControlBy(t, by)) return;
+        t.pos = { x: action.payload.x, y: action.payload.y, by: by, seq: moveSeq };
+        if (action.payload.sceneId) t.sceneId = action.payload.sceneId;
+        saveToken(id);
+      } else {
+        t.pos = { x: action.payload.x, y: action.payload.y, by: by, seq: moveSeq };
+        if (action.payload.sceneId) t.sceneId = action.payload.sceneId;
+      }
+      if (prevPos) markRangeMoved(id, prevPos, { x: action.payload.x, y: action.payload.y });
+      return;
+    }
+    if (action.name === "setTokenImage") {
+      const id = action.payload.tokenId;
+      const t = shared.tokens[id];
+      if (!t) return;
+      const src = action.payload.image || "";
+      if (action.seq) t.imageSeq = action.seq;
+      if (t.image === src && t._imgSrc === src) return;
+      t.image = src;
+      t._img = null;
+      t._imgSrc = "";
+      loadTokenImage(t, true);
+    }
+  }
+  if (window.SSDNSGameActions && !state._gameActions) {
+    state._gameActions = window.SSDNSGameActions.on(applyGameAction);
   }
 
   if (adapter && adapter.subscribe) {

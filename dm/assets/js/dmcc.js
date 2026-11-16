@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.345"; // dmcc-playtest-v02345
+const VERSION = "0.2.346"; // dmcc-playtest-v02346
 if (window.SSDNSRollCard) {
   window.SSDNSRollCard.setAudience("dm");
   window.SSDNSRollCard.setPortraitLookup(function (name, spec) {
@@ -567,8 +567,22 @@ function attachLiveListeners() {
     if (window.DMCCEnhance && window.DMCCEnhance.onTable) window.DMCCEnhance.onTable(v || {});
   });
   bind("playerInit", (v) => {
-    state.playerInit = v || {};
-    if (window.DMCCEnhance && window.DMCCEnhance.onPlayerInit) window.DMCCEnhance.onPlayerInit(v || {});
+    const next = v || {};
+    const GA = window.SSDNSGameActions;
+    if (!GA) {
+      state.playerInit = next;
+      if (window.DMCCEnhance && window.DMCCEnhance.onPlayerInit) window.DMCCEnhance.onPlayerInit(next);
+      return;
+    }
+    state.playerInit = state.playerInit || {};
+    Object.keys(state.playerInit).forEach((key) => { if (!next[key]) delete state.playerInit[key]; });
+    Object.keys(next).forEach((key) => {
+      const row = next[key] || {};
+      GA.applyRemote("rollInitiative", {
+        key: key, init: Number(row.init) || 0, name: row.name || "", tokenId: row.tokenId || "",
+        playerId: row.from || "", ts: row.ts || ""
+      }, Number(row.seq) || 0, row.from || "");
+    });
   });
   bind("chat", (v) => {
     const rows = objToArr(v);
