@@ -332,6 +332,7 @@ window.SSDNSMap = { create(opts) {
     if (patch && patch.devilsSight != null) safe.devilsSight = !!patch.devilsSight;
     if (patch && patch.facing != null) safe.facing = Number(patch.facing) || 0;
     if (patch && patch.playerActive != null) safe.playerActive = !!patch.playerActive;
+    if (patch && patch.image != null) safe.image = String(patch.image);
     write('map/public/tokens/' + token.id + '/patch', safe);
   }
   // About 6 Hz. Inside the 5–8 Hz cap, and only when the cell changed.
@@ -449,8 +450,18 @@ function applySharedToTokens() {
       t.conditions = s.conditions ? [...s.conditions] : [];
       if (s.conditionSpells && typeof s.conditionSpells === "object") t.conditionSpells = Object.assign({}, s.conditionSpells);
       stampScene(t, s);
-      if ((s.kind === 'asset' || t.kind === 'asset') && s.image && s.image !== t.image) t._img = null;
-      t.image = s.image || t.image || '';
+      /* A new picture has to drop the bitmap already on screen. Keeping _img
+         left every other client on the old portrait until a full reload. */
+      const incoming = typeof s.image === "string" ? s.image : "";
+      /* The shared record and the on-screen token are often the same object, so
+         comparing t.image would already see the new URL and keep the old bitmap. */
+      if (incoming !== (t._imgSrc || "")) {
+        t.image = incoming;
+        t._img = null;
+        t._imgSrc = "";
+      } else if (incoming) {
+        t.image = incoming;
+      }
       if (s.partyLight != null) t.partyLight = !!s.partyLight;
       if (s.kind === 'party' || s.storyMarker === 'party' || t.kind === 'party' || t.storyMarker === 'party') {
         if (t.partyLight !== false && !(Array.isArray(t.lights) && t.lights.some(l => l && ((Number(l.bright) || 0) + (Number(l.dim) || 0) > 0)))) {
@@ -6564,14 +6575,16 @@ function paintChestProp(ctx, t, px) {
     ctx.restore();
   }
 }
-function loadTokenImage(t) {
-  if (!t || !t.image || t._img) return;
+function loadTokenImage(t, bust) {
+  if (!t || !t.image) return;
+  if (t._img && !bust) return;
   const im = new Image();
-  const src = asset(t.image);
+  let src = asset(t.image);
+  if (bust && src && /^https?:/i.test(src)) src += (src.indexOf("?") >= 0 ? "&" : "?") + "t=" + Date.now();
   if (src && !/^(data:|blob:)/.test(src)) {
     try { im.crossOrigin = 'anonymous'; } catch (e) {}
   }
-  im.onload = () => { t._img = im; draw(); };
+  im.onload = () => { t._img = im; t._imgSrc = t.image || ""; draw(); };
   im.onerror = () => {
     if (im.crossOrigin) {
       const plain = new Image();
@@ -6586,11 +6599,18 @@ function loadTokenImage(t) {
 }
 function rememberTokenImage(t, src) {
   if (!t || !src) return;
+  const same = t.image === src && t._imgSrc === src;
   t.image = src;
   t._img = null;
-  if (shared.tokens[t.id]) shared.tokens[t.id].image = src;
-  loadTokenImage(t);
+  t._imgSrc = "";
+  if (shared.tokens[t.id]) {
+    shared.tokens[t.id].image = src;
+    delete shared.tokens[t.id]._img;
+    delete shared.tokens[t.id]._imgSrc;
+  }
+  loadTokenImage(t, same);
   if (role === 'dm') saveToken(t.id);
+  else publishPlayerPatch(t, { image: src });
   draw();
 }
 function scheduleDefaultImage(t, src) {
@@ -14163,6 +14183,11 @@ function onPointerUp(e) {
     ids.forEach(id => {
       const piece = state.tokens.find(tok => tok && tok.id === id);
       if (piece && piece.spellPiece) syncPieceOrigin(piece);
+      /* Publish the square on screen, including the last cell of an Edit tokens drag. */
+      if (piece && piece.pos && shared.tokens[id] && !state.drag.clickOnly && !state.drag.blocked) {
+        shared.tokens[id].pos = { x: piece.pos.x, y: piece.pos.y, by: uid, ts: Date.now() };
+        if (piece.sceneId) shared.tokens[id].sceneId = piece.sceneId;
+      }
       saveToken(id);
     });
   }
@@ -16281,7 +16306,10 @@ function removeMapTokens(ids, opts) {
     if (Array.isArray(fields.attacks) || typeof fields.attacks === "string") t.attacks = fields.attacks;
     if (Array.isArray(fields.spells) || typeof fields.spells === "string") t.spells = fields.spells;
     if (Array.isArray(fields.lights)) t.lights = fields.lights.map(l => Object.assign({}, l));
-    if (fields.image && !t.image) t.image = fields.image;
+    if (fields.image && t.image !== fields.image) {
+      t.image = fields.image;
+      t._img = null;
+    }
     if (Array.isArray(fields.conditions)) {
       const names = [];
       const spells = Object.assign({}, t.conditionSpells || {});
@@ -16402,7 +16430,10 @@ function removeMapTokens(ids, opts) {
   if (patch.name) t.name = patch.name;
   if (patch.label) t.label = String(patch.label).slice(0, 16);
   if (patch.color) t.color = patch.color;
-  if (patch.image && !t.image) t.image = patch.image;
+  if (patch.image && t.image !== patch.image) {
+    t.image = patch.image;
+    t._img = null;
+  }
   if (patch.portrait && !t.image && !patch.image) scheduleDefaultImage(t, patch.portrait);
   if (patch.status != null) t.status = patch.status;
   if (patch.ownerCanMove != null) t.ownerCanMove = patch.ownerCanMove !== false;
@@ -21826,6 +21857,7 @@ function syncCombatants(initiative) {
       if (value.veil != null) cosmetic.veil = !!value.veil;
       if (value.facing != null) cosmetic.facing = Number(value.facing) || 0;
       if (value.playerActive != null) cosmetic.playerActive = !!value.playerActive;
+      if (value.image != null) cosmetic.image = String(value.image);
       /* Non-DM clients paint the patch as sent. The DM re-merges so dmDoused and a hand torch/darkvision win. */
       if (role !== 'dm') {
         if (value.lights) cosmetic.lights = value.lights;
@@ -21846,6 +21878,7 @@ function syncCombatants(initiative) {
           devilsSight: value.devilsSight != null ? value.devilsSight : live.devilsSight
         }, 'patch');
       } else if (role === 'dm') saveToken(id);
+      if (role === 'dm' && value.image != null && (value.lights || value.darkvision != null || value.skulker != null)) saveToken(id);
     } else if (value && (value.id || id)) {
       const tid = value.id || id;
       const next = Object.assign({}, value);
@@ -21859,6 +21892,8 @@ function syncCombatants(initiative) {
       /* A public snapshot omits combatantId and can arrive with a blank ownerUid.
          Do not wipe the DM token's player link. */
       const prevTok = shared.tokens[tid] || {};
+      delete next._img;
+      delete next._imgSrc;
       if (!next.ownerUid && prevTok.ownerUid) next.ownerUid = prevTok.ownerUid;
       if (!next.combatantId && prevTok.combatantId) next.combatantId = prevTok.combatantId;
       if (!next.sheetId && prevTok.sheetId) next.sheetId = prevTok.sheetId;
@@ -21872,6 +21907,8 @@ function syncCombatants(initiative) {
         return;
       }
       shared.tokens[tid] = Object.assign({}, prevTok, next);
+      delete shared.tokens[tid]._img;
+      delete shared.tokens[tid]._imgSrc;
       if (role === 'dm' && !state.tokens.some(tok => tok && tok.id === tid)) {
         state.tokens.push(JSON.parse(JSON.stringify(shared.tokens[tid])));
       }

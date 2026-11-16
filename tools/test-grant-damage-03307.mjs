@@ -1,7 +1,7 @@
 /**
  * A granted Bite rolls damage, crits by doubling the dice, and the DM applies HP once.
  * A later DM HP edit refreshes the player's grant card without changing who controls the token.
- * Sheet 0.3.326 / DMCC 0.2.339.
+ * Sheet 0.3.327 / DMCC 0.2.340.
  *   node tools/test-grant-damage-03307.mjs
  */
 import fs from "node:fs";
@@ -17,8 +17,8 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.326" && ver.dmcc === "0.2.339" && ver.sheetBuild === "sheet-playtest-v03326" && ver.dmccBuild === "dmcc-playtest-v02339");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.326") && !read("database.rules.json").includes("0.3.326"));
+check("ver", ver.sheet === "0.3.327" && ver.dmcc === "0.2.340" && ver.sheetBuild === "sheet-playtest-v03327" && ver.dmccBuild === "dmcc-playtest-v02340");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.327") && !read("database.rules.json").includes("0.3.327"));
 
 function makeWindow() {
   const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/dm/", pretendToBeVisual: true, runScripts: "dangerously" });
@@ -165,5 +165,5 @@ if (failures.length) {
   failures.forEach((line) => console.log(" - " + line));
   process.exit(1);
 }
-console.log("grant damage 0.3.326 ok");
+console.log("grant damage 0.3.327 ok");
 process.exit(0);
