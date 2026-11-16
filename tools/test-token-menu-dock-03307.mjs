@@ -1,7 +1,7 @@
 /**
  * The token Move / Interact / Drop menu docks and remembers that choice.
  * Phone menus stay on screen and above the player drawer.
- * Sheet 0.3.330 / DMCC 0.2.343.
+ * Sheet 0.3.331 / DMCC 0.2.344.
  *   node tools/test-token-menu-dock-03307.mjs
  */
 import fs from "node:fs";
@@ -22,9 +22,9 @@ function check(id, cond, detail) {
 }
 
 const version = JSON.parse(fs.readFileSync(path.join(root, "version.json"), "utf8"));
-check("ver.sheet", version.sheet === "0.3.330" && version.sheetBuild === "sheet-playtest-v03330");
-check("ver.dmcc", version.dmcc === "0.2.343" && version.dmccBuild === "dmcc-playtest-v02343");
-check("rules.clean", !fs.readFileSync(path.join(root, "assets/data/rules.js"), "utf8").includes("0.3.330") && !fs.readFileSync(path.join(root, "database.rules.json"), "utf8").includes("0.3.330"));
+check("ver.sheet", version.sheet === "0.3.331" && version.sheetBuild === "sheet-playtest-v03331");
+check("ver.dmcc", version.dmcc === "0.2.344" && version.dmccBuild === "dmcc-playtest-v02344");
+check("rules.clean", !fs.readFileSync(path.join(root, "assets/data/rules.js"), "utf8").includes("0.3.331") && !fs.readFileSync(path.join(root, "database.rules.json"), "utf8").includes("0.3.331"));
 
 const sheet = {
   tokenId: "devil",
@@ -289,4 +289,4 @@ if (failures.length) {
   failures.forEach((line) => console.log(" - " + line));
   process.exit(1);
 }
-console.log("token menu dock 0.3.330 ok");
+console.log("token menu dock 0.3.331 ok");

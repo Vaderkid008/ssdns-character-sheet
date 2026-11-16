@@ -162,7 +162,7 @@
     var box = ensureHost();
     if (!box) return null;
     var name = spec.name || "Someone";
-    var src = portraitSrc(spec.portrait || (portraitLookup ? portraitLookup(name) : ""));
+    var src = portraitSrc(spec.portrait || (portraitLookup ? portraitLookup(name, spec) : ""));
     var face = src
       ? '<img class="face" alt="" src="' + esc(src) + '">'
       : '<span class="face">' + esc(initials(name)) + "</span>";

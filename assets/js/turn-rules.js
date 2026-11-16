@@ -31,7 +31,11 @@
     var list = order(init);
     var i;
     if (uid) for (i = 0; i < list.length; i++) if (list[i] && list[i].kind === "player" && list[i].playerId === uid) return list[i];
-    if (name) for (i = 0; i < list.length; i++) if (list[i] && list[i].kind === "player" && !list[i].playerId && list[i].name === name) return list[i];
+    if (name) {
+      var hits = [];
+      for (i = 0; i < list.length; i++) if (list[i] && list[i].kind === "player" && !list[i].playerId && list[i].name === name) hits.push(list[i]);
+      if (hits.length === 1) return hits[0];
+    }
     return null;
   }
   function isTurnOf(init, row) {
@@ -209,11 +213,45 @@
     return { value: "__free", sticky: "" };
   }
 
+  function nameKey(name) { return String(name || "").trim().toLowerCase(); }
+  /* Two people with the same name show as "Wren (1)" and "Wren (2)". One person keeps the bare name. */
+  function displayTags(rows) {
+    var counts = {};
+    (rows || []).forEach(function (r) {
+      if (!r) return;
+      var key = nameKey(r.name);
+      if (!key) return;
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    var seen = {};
+    var out = {};
+    (rows || []).forEach(function (r) {
+      if (!r || r.id == null || r.id === "") return;
+      var key = nameKey(r.name);
+      var total = counts[key] || 0;
+      seen[key] = (seen[key] || 0) + 1;
+      var base = String(r.name || "").trim() || "Someone";
+      out[String(r.id)] = total > 1 ? (base + " (" + seen[key] + ")") : base;
+    });
+    return out;
+  }
+  function duplicateNames(rows) {
+    var counts = {};
+    (rows || []).forEach(function (r) {
+      var key = nameKey(r && r.name);
+      if (!key) return;
+      if (!counts[key]) counts[key] = { name: String(r.name).trim(), n: 0 };
+      counts[key].n += 1;
+    });
+    return Object.keys(counts).filter(function (key) { return counts[key].n > 1; }).map(function (key) { return counts[key].name; });
+  }
+
   root.SSDNSTurn = {
     unlocked: unlocked, inFight: inFight, lockedFor: lockedFor, canMoveToken: canMoveToken, oaEntry: oaEntry, oaApproved: oaApproved,
     moveLeft: moveLeft, pruneOa: pruneOa,
     UNDO_MAX: UNDO_MAX, current: current, rowFor: rowFor, isTurnOf: isTurnOf, keyFor: keyFor, fresh: fresh, markersFor: markersFor,
     snapshot: snapshot, beginTurn: beginTurn, undoNext: undoNext, canUndo: canUndo, clearTurnState: clearTurnState,
-    canEndTurn: canEndTurn, outOfTurn: outOfTurn, hostileDead: hostileDead, chooseTarget: chooseTarget
+    canEndTurn: canEndTurn, outOfTurn: outOfTurn, hostileDead: hostileDead, chooseTarget: chooseTarget,
+    displayTags: displayTags, duplicateNames: duplicateNames, nameKey: nameKey
   };
 })(typeof window !== "undefined" ? window : this);

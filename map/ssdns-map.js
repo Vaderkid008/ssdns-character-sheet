@@ -1078,13 +1078,19 @@ function chatName(row) {
 }
 function publishTokenColors() {
   const bag = {};
+  const counts = {};
   (state.tokens || []).forEach(t => {
-    if (!t || !t.color) return;
-    if (t.hidden && role !== 'dm') return;
-    [t.name, t.label, t.ownerUid].forEach(key => {
-      const id = String(key || '').trim().toLowerCase();
-      if (id) bag[id] = String(t.color);
-    });
+    if (!t || !t.color || (t.hidden && role !== 'dm')) return;
+    const key = String(t.name || '').trim().toLowerCase();
+    if (key) counts[key] = (counts[key] || 0) + 1;
+  });
+  (state.tokens || []).forEach(t => {
+    if (!t || !t.color || (t.hidden && role !== 'dm')) return;
+    const color = String(t.color);
+    if (t.id) bag[String(t.id).trim().toLowerCase()] = color;
+    if (t.ownerUid) bag[String(t.ownerUid).trim().toLowerCase()] = color;
+    const key = String(t.name || '').trim().toLowerCase();
+    if (key && counts[key] === 1) bag[key] = color;
   });
   window.SSDNSTokenColors = bag;
 }

@@ -5,17 +5,19 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.343"; // dmcc-playtest-v02343
+const VERSION = "0.2.344"; // dmcc-playtest-v02344
 if (window.SSDNSRollCard) {
   window.SSDNSRollCard.setAudience("dm");
-  window.SSDNSRollCard.setPortraitLookup(function (name) {
+  window.SSDNSRollCard.setPortraitLookup(function (name, spec) {
     const players = state.players || {};
+    const id = spec && (spec.playerId || spec.uid || spec.from);
+    if (id && players[id] && players[id].snapshot && players[id].snapshot.portrait) return players[id].snapshot.portrait;
     const want = String(name || "");
-    const ids = Object.keys(players);
-    for (let i = 0; i < ids.length; i++) {
-      const snap = players[ids[i]] && players[ids[i]].snapshot;
-      if (snap && (snap.name === want || snap.player === want) && snap.portrait) return snap.portrait;
-    }
+    const hits = Object.keys(players).filter((pid) => {
+      const snap = players[pid] && players[pid].snapshot;
+      return !!(snap && snap.portrait && (snap.name === want || snap.player === want));
+    });
+    if (hits.length === 1) return players[hits[0]].snapshot.portrait;
     return "";
   });
 }
@@ -680,17 +682,18 @@ function flushConsume() {
   while (consumeQueue.length) recordConsume(consumeQueue.shift());
 }
 function matchPlayer(meta) {
-  const name = String((meta && meta.name) || "").trim().toLowerCase();
-  const player = String((meta && meta.player) || "").trim().toLowerCase();
+  const direct = meta && (meta.playerId || meta.uid || meta.targetId);
+  if (direct && state.players && state.players[direct]) return String(direct);
   const ids = Object.keys(state.players || {});
-  if (name) {
-    const hit = ids.find((id) => String((state.players[id].snapshot || {}).name || "").trim().toLowerCase() === name);
-    if (hit) return hit;
+  function hits(field, want) {
+    const needle = String(want || "").trim().toLowerCase();
+    if (!needle) return [];
+    return ids.filter((id) => String((state.players[id].snapshot || {})[field] || "").trim().toLowerCase() === needle);
   }
-  if (player) {
-    const hit = ids.find((id) => String((state.players[id].snapshot || {}).player || "").trim().toLowerCase() === player);
-    if (hit) return hit;
-  }
+  const byName = hits("name", meta && meta.name);
+  if (byName.length === 1) return byName[0];
+  const byPlayer = hits("player", meta && meta.player);
+  if (byPlayer.length === 1) return byPlayer[0];
   return "";
 }
 function saveAddiction(pid) {
@@ -1496,6 +1499,27 @@ function renderRoomHero() {
   if (window.SSDNSJoinCode && window.SSDNSJoinCode.sync) window.SSDNSJoinCode.sync();
 }
 
+function playerNameTags() {
+  if (!window.SSDNSTurn || !window.SSDNSTurn.displayTags) return {};
+  return window.SSDNSTurn.displayTags(Object.keys(state.players || {}).map((id) => {
+    const s = (state.players[id] && state.players[id].snapshot) || {};
+    return { id: id, name: s.name || s.player || "" };
+  }));
+}
+function warnDuplicateNames() {
+  if (!window.SSDNSTurn || !window.SSDNSTurn.duplicateNames) return;
+  const rows = Object.keys(state.players || {}).map((id) => {
+    const s = (state.players[id] && state.players[id].snapshot) || {};
+    return { id: id, name: s.name || "" };
+  });
+  state._nameWarn = state._nameWarn || {};
+  window.SSDNSTurn.duplicateNames(rows).forEach((name) => {
+    const key = String(name).toLowerCase();
+    if (state._nameWarn[key]) return;
+    state._nameWarn[key] = 1;
+    toast("Two characters are named " + name + ". They show as " + name + " (1) and " + name + " (2).");
+  });
+}
 function prettyCalling(raw) {
   const s = String(raw || "").trim();
   if (!s) return "";
@@ -1523,7 +1547,8 @@ function renderPresence() {
       ? window.SSDNSApplied.presenceShownOnline(rawOn, held)
       : rawOn;
     const extra = presenceExtra(s);
-    const label = esc(s.name || id) + (extra ? " · " + esc(extra) : "");
+    const shown = (playerNameTags()[id]) || s.name || id;
+    const label = esc(shown) + (extra ? " · " + esc(extra) : "");
     return `<span class="pill ${on ? "online" : "offline"}"><span class="dot"></span>${label}</span>`;
   }).join("");
 }
@@ -1851,8 +1876,11 @@ function renderPlayers() {
     grid.innerHTML = '<div class="empty"><b>Empty table</b>Players appear here when they Join with the room code.</div>';
     return;
   }
+  warnDuplicateNames();
   grid.innerHTML = list.map((p) => {
     const s = p.snapshot || {};
+    const tags = playerNameTags();
+    const shown = tags[p.id] || s.name || "Unknown";
     const on = playerOnline(p);
     const hpCur = Number(s.hpCurrent);
     const downed = isFinite(hpCur) && hpCur <= 0;
@@ -1883,7 +1911,7 @@ function renderPlayers() {
       <div class="pcard-head">
         ${portrait}
         <div>
-          <div class="pcard-name">${esc(s.name || "Unknown")}</div>
+          <div class="pcard-name">${esc(shown)}</div>
           <div class="pcard-sub">${esc(s.calling || "?")} · L${esc(s.level ?? "?")} · ${esc(s.player || "")}</div>
         </div>
         <span class="badge ${downed ? "danger" : (on ? "eld" : "")}">${downed ? "Unconscious" : (on ? "Online" : "Away")}</span>

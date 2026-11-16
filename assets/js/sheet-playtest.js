@@ -1758,7 +1758,8 @@
       var cur = order[turn] || {};
       var c = ch();
       var uid = root.SSDNSDmJoin && root.SSDNSDmJoin.uid && root.SSDNSDmJoin.uid();
-      var mine = (uid && cur.playerId && cur.playerId === uid) || (c && c.name && cur.kind === "player" && cur.name === c.name && !cur.playerId);
+      var named = order.filter(function (r) { return r && r.kind === "player" && !r.playerId && c && c.name && r.name === c.name; });
+      var mine = (uid && cur.playerId && cur.playerId === uid) || (named.length === 1 && cur === named[0]);
       /* ruling 2 (turn order PR 1): End turn only on my own turn, by the shared rule */
       var ownTurn = root.SSDNSTurn ? root.SSDNSTurn.canEndTurn({ started: true, round: round, turn: turn, order: order }, uid) : !!(uid && cur.playerId === uid);
       endTurnAt = ownTurn ? { round: round, turn: turn, rowId: cur.id || "" } : null;
@@ -1829,7 +1830,8 @@
         return row;
       });
       function rank(row) {
-        var self = row.kind === "player" && ((uid && row.playerId === uid) || (selfName && row.name === selfName));
+        var named = rows.filter(function (r) { return selfName && r && r.name === selfName && !r.playerId; });
+        var self = row.kind === "player" && ((uid && row.playerId === uid) || (named.length === 1 && row === named[0]));
         if (self) return 2;
         if (row.kind === "player") return 1;
         return 0;
