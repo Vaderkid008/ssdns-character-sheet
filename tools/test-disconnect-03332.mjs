@@ -25,6 +25,8 @@ const dmcc = read("dm/assets/js/dmcc.js");
 const note = v2.slice(v2.indexOf("function notePresence"), v2.indexOf("function clearFight"));
 check("src.keepsRow", note.includes("fight.away[id] = true") && !note.includes("fight.order ="));
 check("src.alert", dmcc.includes('data-away="skip"') && dmcc.includes('data-away="control"') && dmcc.includes('data-away="hand"') && dmcc.includes('data-away="remove"') && dmcc.includes('data-away="dismiss"'));
+const awayCss = read("dm/assets/css/dmcc.css");
+check("src.place", awayCss.includes("#awayAlert") && awayCss.includes("z-index: 90") && awayCss.includes("var(--dock-w") && !dmcc.includes("left:12px;right:12px;bottom:12px"));
 check("src.dim", read("map/ssdns-map.js").includes('fillText("Away"'));
 check("rules.untouched", !read("assets/data/rules.js").includes("awayAlert") && !read("database.rules.json").includes("awayAlert"));
 

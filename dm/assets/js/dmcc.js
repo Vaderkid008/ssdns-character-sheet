@@ -1511,7 +1511,7 @@ function paintAwayAlert() {
     bar = document.createElement("div");
     bar.id = "awayAlert";
     bar.setAttribute("data-act", "awayAlert");
-    bar.style.cssText = "position:fixed;left:12px;right:12px;bottom:12px;z-index:50;display:flex;flex-direction:column;gap:6px;pointer-events:none;";
+    bar.style.cssText = "";
     document.body.appendChild(bar);
     bar.addEventListener("click", onAwayClick);
   }
@@ -1529,7 +1529,7 @@ function paintAwayAlert() {
     const hand = others.length
       ? `<select data-away-who="${esc(id)}">${others.map((pid) => `<option value="${esc(pid)}">${esc(tags[pid] || pid)}</option>`).join("")}</select> <button type="button" data-away="hand" data-pid="${esc(id)}">Hand control</button>`
       : "";
-    return `<div class="away-line" data-away-line="${esc(id)}" style="pointer-events:auto;display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:#2a2118;color:#f6e7b2;border:1px solid #e2c56a;border-radius:8px;padding:8px 10px;box-shadow:0 8px 24px rgba(0,0,0,.35);">
+    return `<div class="away-line" data-away-line="${esc(id)}">
       <span>${esc(name)} disconnected. The token stays, marked away.</span>
       <button type="button" data-away="skip" data-pid="${esc(id)}">Skip turn</button>
       <button type="button" data-away="control" data-pid="${esc(id)}">Take control</button>
