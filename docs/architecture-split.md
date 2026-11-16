@@ -147,6 +147,51 @@ A referee call is a short read and a few small writes. 40,000 calls at about a q
 
 Do not turn on minimum instances. That is the setting that bills while nobody is playing. The first action after a quiet stretch can take a fraction of a second to a couple of seconds while the function wakes up. That is fine at the start of a session.
 
+## Cost safety
+
+Jessey's priority is that there is never a surprise large Firebase bill. A normal month for one table is small. The bill that can run away is Realtime Database download if a script or a stuck client reads and writes the room in a loop, plus Functions if a referee is deployed with no ceiling. Four controls cover that. None of them are turned on by these drafts. No console changes, no deploys, no rules edits.
+
+### 1. Firebase App Check
+
+App Check is how Firebase tells a real browser on our site from a script that copied the public web config. The site is GitHub Pages at `vaderkid008.github.io`. reCAPTCHA v3 and reCAPTCHA Enterprise both work on a static site: the site key is public, and the secret stays in Google. Pick Enterprise if the Firebase console offers it for this project. Use reCAPTCHA v3 if it does not. Register the key for `vaderkid008.github.io` and for `localhost`.
+
+Slice 1 prepares the client and leaves it off. `assets/js/app-check.js` reads `window.SSDNS_APP_CHECK`. With the flag missing or `enabled` not exactly `true`, the sheet and the DM page do not load reCAPTCHA and do not send an App Check token. Play is unchanged. When Jessey wants it on, he adds this next to the Firebase config:
+
+```js
+window.SSDNS_APP_CHECK = { enabled: true, siteKey: "the site key", enterprise: true };
+```
+
+`enterprise: false` uses reCAPTCHA v3. Both pages call `SSDNSAppCheck.start(app)` after the Firebase app exists and before the database opens. A local test can set `self.FIREBASE_APPCHECK_DEBUG_TOKEN` in the browser console. Do not put a debug token in the repo.
+
+Enforcement is Jessey's console step, separate from the flag: Firebase console, App Check, then Realtime Database and Storage, then Enforce. Until that switch is on, a missing token still works, so the flag can be tried without locking the table out. Do not enforce until a live room has been opened with the flag on and App Check shows the token as verified. These drafts do not flip that switch and do not register a site key.
+
+App Check does not shrink a normal game's bill. It stops strangers and copied scripts from running one up.
+
+### 2. Budget alert at $5 a month
+
+In Google Cloud Billing, create one budget for this project only (`ssdns-dm-hub`), amount $5 per month, with email at 50%, 90%, and 100%. The mail goes to the billing admins on the account. This does not stop spending. It is the early warning, and $5 is well above a normal month for one table, so a message means something is wrong. Creating the budget is Jessey's step. Not done here.
+
+### 3. Optional hard cap
+
+A budget can also publish to a Pub/Sub topic. The usual Cloud Function on that topic detaches billing from the project when the threshold is crossed. That is a real ceiling: Realtime Database, Auth, Storage, and Functions stop, and the app goes offline for everyone at the table until someone links billing again in the console. It can trip mid-session. Budget mail and Pub/Sub are not instant, so spend can pass the threshold before the function runs. The function also needs permission to change billing on the project, which is a strong permission. Leave this off unless the outage is preferable to a larger bill. Not deployed here.
+
+### 4. Function limits and per-room write rates
+
+When the referee function is deployed, and only after Jessey says to deploy, set:
+
+- 256 MB of memory
+- a 10 second timeout, so a hung call does not bill for a full minute
+- `maxInstances` of 10, so a bug cannot scale out to hundreds of instances
+- no minimum instances
+
+The actions layer uses the same write caps, in the client and again in the function so a modified client cannot skip them:
+
+- `moveToken`: at most 8 per second per token per room. A drag already sends about 6 per second.
+- every other action: at most 30 per minute per player per room
+- the whole room: at most 20 writes per second, so one stuck client cannot fill the database
+
+Slice 1 does not enforce these caps yet. The numbers are here so the client and the function use one set when that slice is built.
+
 ## The rules lock, only after Jessey says so
 
 When the function is the writer, `database.rules.json` changes so a browser can append an action and can still write its own presence, but cannot `set` `map/public/tokens`, `table`, `playerInit`, `encounter/*`, or `conditions` itself. Until that lock, a modified client can still write those paths the way it does today.
@@ -157,7 +202,7 @@ That rules edit is a separate approval from the function deploy. Jessey has to s
 
 Each slice is its own draft. Versions continue after 0.3.332 / 0.2.345. Nothing here merges.
 
-**Slice 1 — client actions, no hosting, no rules change.** `moveToken`, `setTokenImage`, `rollInitiative`, and `setInitiative`. The map, the portrait, and the initiative strip subscribe to that one listener. Sync bugs this closes:
+**Slice 1 — client actions, no hosting, no rules change.** `moveToken`, `setTokenImage`, `rollInitiative`, and `setInitiative`. The map, the portrait, and the initiative strip subscribe to that one listener. App Check client code ships in this slice behind `window.SSDNS_APP_CHECK`, default off. Sync bugs this closes:
 
 - Edit tokens: the last cell of a drag can lose to an earlier cell that lands late, so the player sees the token jump back. `moveToken` puts a `seq` on the square and on the public token. The older write loses.
 - Portraits: an older picture write can cover a newer one, and the bitmap can stick. `setTokenImage` carries `imageSeq`. A smaller seq does not replace the picture, and the listener is what drops the old bitmap.
@@ -176,6 +221,6 @@ Each slice is its own draft. Versions continue after 0.3.332 / 0.2.345. Nothing 
 ## What these drafts will not do
 
 - No edit to `database.rules.json` or `assets/data/rules.js`.
-- No function deploy, and no other new service. Blaze is already the plan. A deploy waits for Jessey's OK.
+- No function deploy, no budget, no billing change, and no App Check enforcement in the console. Blaze is already the plan. Each of those waits for Jessey's OK.
 - No write to a live room. Tests use the in-memory adapter.
 - No merge. Jessey merges.
