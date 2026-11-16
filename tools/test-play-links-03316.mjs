@@ -1,7 +1,7 @@
 /**
  * Scene Builder Slice 5: players take a visible link themselves,
  * the floor switcher, and the DM Scenes menu.
- * Sheet 0.3.331 / DMCC 0.2.344.
+ * Sheet 0.3.332 / DMCC 0.2.345.
  *   node tools/test-play-links-03316.mjs
  */
 import fs from "node:fs";
@@ -17,8 +17,8 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.331" && ver.dmcc === "0.2.344" && ver.sheetBuild === "sheet-playtest-v03331" && ver.dmccBuild === "dmcc-playtest-v02344");
-check("rules.clean", !read("assets/data/rules.js").includes("floor.stairs") && !read("database.rules.json").includes("shownLinks") && !read("assets/data/rules.js").includes("0.3.331"));
+check("ver", ver.sheet === "0.3.332" && ver.dmcc === "0.2.345" && ver.sheetBuild === "sheet-playtest-v03332" && ver.dmccBuild === "dmcc-playtest-v02345");
+check("rules.clean", !read("assets/data/rules.js").includes("floor.stairs") && !read("database.rules.json").includes("shownLinks") && !read("assets/data/rules.js").includes("0.3.332"));
 const mapSrc = read("map/ssdns-map.js");
 check("src.page", mapSrc.includes("PageUp") && mapSrc.includes("PageDown") && mapSrc.includes("stepFloor"));
 check("src.ask", mapSrc.includes("Go upstairs?") && mapSrc.includes("Go downstairs?") && mapSrc.includes("Climb ladder?") && mapSrc.includes("Go through door?"));
@@ -260,4 +260,4 @@ if (failures.length) {
   console.error("\n" + failures.length + " failed");
   process.exit(1);
 }
-console.log("\nplay links 0.3.331 ok");
+console.log("\nplay links 0.3.332 ok");

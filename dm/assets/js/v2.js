@@ -1125,7 +1125,9 @@ function shownCombatantName(row) {
   if (!row || row.kind !== "player" || !window.SSDNSTurn || !window.SSDNSTurn.displayTags) return base;
   const rows = (fight.order || []).filter((r) => r && r.kind === "player").map((r) => ({ id: r.playerId || r.id, name: r.name || "" }));
   const tags = window.SSDNSTurn.displayTags(rows);
-  return tags[row.playerId || row.id] || base;
+  const tagged = tags[row.playerId || row.id] || base;
+  if (fight.away && fight.away[row.playerId || row.id]) return tagged + " · away";
+  return tagged;
 }
 function turnRowHtml(row, i) {
   const flash = fight.flash === i ? " flash" : "";
@@ -11203,17 +11205,12 @@ function paintTurnAck() {
 }
 function notePresence(id, on) {
   if (!id) return;
+  if (!fight.away) fight.away = {};
   if (on) {
+    delete fight.away[id];
     if (fight.departed) delete fight.departed[id];
-    return;
-  }
-  fight.departed[id] = true;
-  const before = (fight.order || []).length;
-  fight.order = (fight.order || []).filter((row) => !(row && row.kind === "player" && (row.playerId === id || row.id === id)));
-  if (fight.turn >= fight.order.length) fight.turn = 0;
-  if (fight.order.length !== before) {
-    saveRemoteTable();
-    renderFight();
+  } else {
+    fight.away[id] = true;
   }
 }
 function clearFight() {
@@ -11583,6 +11580,9 @@ async function bootV2() {
     syncPlayers: syncPlayerVitals,
     onPlayerInit: onPlayerInit,
     notePresence: notePresence,
+    fightOrder: function () { return (fight.order || []).slice(); },
+    fightTurn: function () { return fight.turn || 0; },
+    nextTurn: nextTurn,
     clearFight: clearFight,
     acFor: acForRoll,
     enterRoom: enterRoom,

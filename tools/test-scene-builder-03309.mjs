@@ -1,7 +1,7 @@
 /**
  * DM Scene Builder: save a scene, reload it, and load it into a room
  * without touching pack maps, room maps, or tokens.
- * Sheet 0.3.331 / DMCC 0.2.344.
+ * Sheet 0.3.332 / DMCC 0.2.345.
  *   node tools/test-scene-builder-03309.mjs
  */
 import fs from "node:fs";
@@ -18,7 +18,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.331" && ver.dmcc === "0.2.344" && ver.sheetBuild === "sheet-playtest-v03331" && ver.dmccBuild === "dmcc-playtest-v02344");
+check("ver", ver.sheet === "0.3.332" && ver.dmcc === "0.2.345" && ver.sheetBuild === "sheet-playtest-v03332" && ver.dmccBuild === "dmcc-playtest-v02345");
 check("rules.clean", !read("assets/data/rules.js").includes("sceneLibrary") && !read("database.rules.json").includes("sceneLibrary"));
 
 const sandbox = { window: {}, globalThis: {} };
@@ -152,4 +152,4 @@ if (failures.length) {
   failures.forEach((line) => console.log(" - " + line));
   process.exit(1);
 }
-console.log("scene builder 0.3.331 ok");
+console.log("scene builder 0.3.332 ok");
