@@ -1,6 +1,7 @@
 /* Slice 1 game actions. Each shared change is a named action with a seq.
    A smaller seq never replaces a larger one for the same subject.
-   Screens subscribe with on(). No server and no rules change. */
+   Screens call the named actions and on(). The backend is an adapter
+   (send + subscribe). This file does not talk to a host. */
 (function (root) {
   "use strict";
   var lastSeq = {};
@@ -50,6 +51,37 @@
     clock = n;
     return n;
   }
+  var transport = null;
+  var detachTransport = null;
+  function localAdapter() {
+    var subs = [];
+    return {
+      name: "local",
+      send: function (action) {
+        subs.slice().forEach(function (fn) {
+          try { fn(action); } catch (e) {}
+        });
+      },
+      subscribe: function (fn) {
+        subs.push(fn);
+        return function () {
+          var i = subs.indexOf(fn);
+          if (i >= 0) subs.splice(i, 1);
+        };
+      }
+    };
+  }
+  function use(next) {
+    if (detachTransport) {
+      try { detachTransport(); } catch (e) {}
+      detachTransport = null;
+    }
+    if (!next || typeof next.send !== "function" || typeof next.subscribe !== "function") next = localAdapter();
+    transport = next;
+    var off = transport.subscribe(function (action) { emit(action); });
+    detachTransport = typeof off === "function" ? off : null;
+    return transport.name || "";
+  }
   function dispatch(name, payload, meta) {
     meta = meta || {};
     var action = {
@@ -58,7 +90,7 @@
       by: meta.by || "",
       payload: payload || {}
     };
-    emit(action);
+    transport.send(action);
     return action;
   }
   function on(fn) {
@@ -70,8 +102,11 @@
     };
   }
 
+  use(null);
   root.SSDNSGameActions = {
     accept: accept,
+    use: use,
+    transport: function () { return transport && transport.name || ""; },
     dispatch: dispatch,
     applyRemote: function (name, payload, seq, by) {
       return emit({ name: name, seq: num(seq), by: by || "", payload: payload || {} });

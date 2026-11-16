@@ -34,6 +34,8 @@ check("wire.fightSeq", v2Src.includes("seq: fight.seq || 0"));
 const appCheckSrc = read("assets/js/app-check.js");
 check("appcheck.flag", appCheckSrc.includes("enabled !== true") && appCheckSrc.includes("ReCaptchaV3Provider") && appCheckSrc.includes("ReCaptchaEnterpriseProvider"));
 check("appcheck.wire", joinSrc.includes("SSDNSAppCheck.start") && v2Src.includes("SSDNSAppCheck.start") === false && read("dm/assets/js/dmcc.js").includes("SSDNSAppCheck.start"));
+const actionsSrc = read("assets/js/game-actions.js");
+check("adapter.clean", actionsSrc.includes("function localAdapter") && actionsSrc.includes("send:") && !actionsSrc.includes("gstatic.com") && !actionsSrc.includes("firebase"));
 
 function fakeFirebase() {
   const tree = {};
@@ -261,6 +263,17 @@ await flush(20);
 w.__pump();
 const picKept = box(pl.api, who);
 check("pic.oldIgnored", picKept && picKept.image === "data:image/png;base64,pic-b", picKept && picKept.image);
+
+const sent = [];
+let push = null;
+const swapped = GA.use({
+  name: "ws",
+  send: function (action) { sent.push(action); if (push) push(action); },
+  subscribe: function (fn) { push = fn; return function () { push = null; }; }
+});
+const via = GA.moveToken("tok_swap", { x: 3, y: 4 }, "p");
+check("adapter.swap", swapped === "ws" && GA.transport() === "ws" && sent.length === 1 && sent[0].name === "moveToken" && via.payload.x === 3);
+check("adapter.local", GA.use(null) === "local" && GA.transport() === "local");
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");
