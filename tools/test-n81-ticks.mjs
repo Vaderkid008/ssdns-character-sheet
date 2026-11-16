@@ -117,8 +117,8 @@ const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js databas
 check("rules.untouched", rulesDiff === "", rulesDiff);
 check("rules.nover", !read("assets/data/rules.js").includes("0.3.169") && !read("assets/data/rules.js").includes("spell-riders"));
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.328" && version.sheetBuild === "sheet-playtest-v03328");
-check("ver.dmcc", version.dmcc === "0.2.341" && version.dmccBuild === "dmcc-playtest-v02341");
+check("ver.sheet", version.sheet === "0.3.329" && version.sheetBuild === "sheet-playtest-v03329");
+check("ver.dmcc", version.dmcc === "0.2.342" && version.dmccBuild === "dmcc-playtest-v02342");
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

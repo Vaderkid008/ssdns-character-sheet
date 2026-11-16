@@ -27,10 +27,10 @@ function webpSize(rel) {
 }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.328" && version.sheetBuild === "sheet-playtest-v03328", JSON.stringify(version));
-check("ver.dmcc", version.dmcc === "0.2.341" && version.dmccBuild === "dmcc-playtest-v02341");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.328"') && read("assets/js/app.js").includes("sheet-playtest-v03328"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.341"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02341"));
+check("ver.sheet", version.sheet === "0.3.329" && version.sheetBuild === "sheet-playtest-v03329", JSON.stringify(version));
+check("ver.dmcc", version.dmcc === "0.2.342" && version.dmccBuild === "dmcc-playtest-v02342");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.329"') && read("assets/js/app.js").includes("sheet-playtest-v03329"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.342"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02342"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js database.rules.json", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
@@ -64,8 +64,8 @@ check("layout", exists("map/packs/showcase-dry-fork/LAYOUT-KEY.md") && read("map
 const mapSrc = read("map/ssdns-map.js");
 check("import.prefill", mapSrc.includes("const fromPack = packScene && Array.isArray(packScene.walls)") && mapSrc.includes("prompt('Paste walls JSON (array of {x1,y1,x2,y2}):', fromPack)"));
 check("seed.kept", mapSrc.includes("function seedPackWalls(sc)") && mapSrc.includes("sd.walls = sc.walls.map(w => Object.assign({}, w))"));
-check("html.sheet", read("index.html").includes("map/map-packs.js?v=0.3.328-between") && read("index.html").includes("map/ssdns-map.js?v=0.3.328-force"));
-check("html.dm", read("dm/index.html").includes("../map/map-packs.js?v=0.2.341-between") && read("dm/index.html").includes("../map/ssdns-map.js?v=0.2.341-force"));
+check("html.sheet", read("index.html").includes("map/map-packs.js?v=0.3.329-between") && read("index.html").includes("map/ssdns-map.js?v=0.3.329-force"));
+check("html.dm", read("dm/index.html").includes("../map/map-packs.js?v=0.2.342-between") && read("dm/index.html").includes("../map/ssdns-map.js?v=0.2.342-force"));
 check("docs", read("map/DATA.md").includes("scn_dry_fork") && read("map/DATA.md").includes("seedPackWalls") && read("docs/SCHEMA.md").includes("scn_dry_fork"));
 
 if (failures.length) {

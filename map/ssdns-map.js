@@ -668,7 +668,7 @@ toolbar.className = 'ssdns-toolbar';
 toolbar.innerHTML = `
   ${role === 'dm' ? `<div class="ssm-bar-left" data-act="barLeft">
     <div class="ssm-scene-readout" data-act="sceneReadoutWrap">
-      <button type="button" data-act="sceneReadout" aria-haspopup="listbox" aria-expanded="false">No scene loaded</button>
+      <button type="button" data-act="sceneReadout">No scene loaded</button>
       <div class="ssm-floor-pop" data-act="sceneFloorPop" hidden></div>
     </div>
     <span class="ssm-bar-pair" data-act="barPair">
@@ -713,22 +713,23 @@ toolbar.insertBefore(toolbarMain, toolbar.firstChild);
   const row = document.createElement('div');
   row.className = 'ssm-floor-row ssm-map-ui';
   row.setAttribute('data-act', 'floorRow');
+  let scenesMenu = null;
   if (role === 'dm') {
-    const scenes = document.createElement('div');
-    scenes.className = 'ssm-scenes-menu';
-    scenes.setAttribute('data-act', 'scenesMenu');
-    scenes.innerHTML = '<button type="button" data-act="scenesBtn" aria-expanded="false" aria-haspopup="true" title="Saved scenes">Scenes ▾</button>'
+    scenesMenu = document.createElement('div');
+    scenesMenu.className = 'ssm-scenes-menu';
+    scenesMenu.setAttribute('data-act', 'scenesMenu');
+    scenesMenu.innerHTML = '<button type="button" data-act="scenesBtn" aria-expanded="false" aria-haspopup="true" title="Saved scenes">Scenes ▾</button>'
       + '<div class="ssm-scenes-pop" data-act="scenesPop" hidden>'
       + '<button type="button" data-act="scenesOpenBuilder">Open Scene builder</button>'
       + '<div data-act="scenesList"></div>'
       + '<p class="ssm-scenes-confirm" data-act="scenesConfirm" hidden></p>'
       + '</div>';
-    row.appendChild(scenes);
   }
   const strip = document.createElement('div');
   strip.className = 'ssm-floor-strip';
   strip.setAttribute('data-act', 'floorStrip');
   row.appendChild(strip);
+  if (scenesMenu) row.appendChild(scenesMenu);
   row.addEventListener('click', (e) => {
     const actEl = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
     const act = actEl && actEl.getAttribute('data-act');
@@ -779,7 +780,7 @@ toolbar.insertBefore(toolbarMain, toolbar.firstChild);
     const id = btn.getAttribute('data-floor');
     if (id) switchFloor(id);
   });
-  toolbar.appendChild(row);
+  toolbarMain.appendChild(row);
 }
 if (window.SSDNSDice && window.SSDNSDice.mount) {
   const diceBar = document.createElement('div');
@@ -11745,28 +11746,15 @@ function renderSceneReadout() {
   const hit = loadedSceneHit();
   const here = activeSceneId();
   const floorLabel = (hit && hit.floor && hit.floor.name) || floorName(here);
-  if (hit) btn.textContent = "Scene: " + (hit.place.name || "Scene") + " · " + floorLabel + " ▾";
-  else if (here === DEFAULT_SCENE_ID) btn.textContent = "Scene: " + floorName(here) + " ▾";
+  if (hit) btn.textContent = "Scene: " + (hit.place.name || "Scene") + " · " + floorLabel;
+  else if (here === DEFAULT_SCENE_ID) btn.textContent = "Scene: " + floorName(here);
   else btn.textContent = "No scene loaded";
-  if (!pop) return;
-  const floors = floorChoices();
-  pop.innerHTML = floors.map(floor => {
-    const sid = floor.mapId;
-    const on = sid === here ? " is-on" : "";
-    const mark = floorMark(floor, floors);
-    const name = floor.name || floorName(sid);
-    const currentAttr = sid === here ? ' aria-current="true"' : "";
-    return '<button type="button" class="ssm-floor' + on + '" data-floor="' + esc(sid) + '"' + currentAttr + ">" + (mark ? esc(mark) + " " : "") + esc(name) + '<span class="ssm-floor-n" data-act="floorCount">' + tokensOnFloor(sid) + "</span></button>";
-  }).join("");
+  if (pop) { pop.hidden = true; pop.innerHTML = ""; }
 }
 function renderFloorStrip() {
   if (role === "dm") renderSceneReadout();
   const strip = q("floorStrip");
   if (!strip) return;
-  if (role === "dm") {
-    if (strip.dataset.sig !== "dm-readout") { strip.innerHTML = ""; strip.dataset.sig = "dm-readout"; }
-    return;
-  }
   const floors = floorChoices();
   const current = activeSceneId();
   const sig = role + "|" + current + "|" + floors.map(f => (f.mapId || "") + ":" + (f.name || "") + ":" + (f.order || 0) + ":" + tokensOnFloor(f.mapId)).join(",") + "|" + (role === "player" ? floorName(current) : "");
@@ -17405,28 +17393,6 @@ function adoptSavedScene(scene) {
     el.classList.add("ssm-scene-open");
     paintPlaceBanner();
   }
-  const readoutWrap = q("sceneReadoutWrap");
-  if (readoutWrap) readoutWrap.addEventListener("click", (e) => {
-    const actEl = e.target && e.target.closest ? e.target.closest("[data-act], [data-floor]") : null;
-    if (!actEl || !readoutWrap.contains(actEl)) return;
-    if (actEl.getAttribute("data-act") === "sceneReadout") {
-      e.stopPropagation();
-      const pop = q("sceneFloorPop");
-      const opening = !!(pop && pop.hidden);
-      if (pop) pop.hidden = !opening;
-      actEl.setAttribute("aria-expanded", pop && !pop.hidden ? "true" : "false");
-      if (opening) renderSceneReadout();
-      return;
-    }
-    const floorBtn = actEl.closest ? actEl.closest("[data-floor]") : null;
-    if (!floorBtn) return;
-    e.stopPropagation();
-    const pop = q("sceneFloorPop");
-    if (pop) pop.hidden = true;
-    const readout = q("sceneReadout");
-    if (readout) readout.setAttribute("aria-expanded", "false");
-    switchFloor(floorBtn.getAttribute("data-floor"));
-  });
   if (q('mapsBtn')) q('mapsBtn').addEventListener('click', (e) => {
     e.stopPropagation();
     if (window.SSDNSSceneBuilder && window.SSDNSSceneBuilder.isOpen && window.SSDNSSceneBuilder.isOpen()) window.SSDNSSceneBuilder.close();

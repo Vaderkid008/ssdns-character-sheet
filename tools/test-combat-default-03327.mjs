@@ -1,6 +1,6 @@
 /**
  * Combat stays off until the DM rolls initiative.
- * Sheet 0.3.328 / DMCC 0.2.341.
+ * Sheet 0.3.329 / DMCC 0.2.342.
  *   node tools/test-combat-default-03327.mjs
  */
 import fs from "node:fs";
@@ -18,7 +18,7 @@ function check(id, cond, detail) {
 }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.328" && ver.dmcc === "0.2.341" && ver.sheetBuild === "sheet-playtest-v03328" && ver.dmccBuild === "dmcc-playtest-v02341");
+check("ver", ver.sheet === "0.3.329" && ver.dmcc === "0.2.342" && ver.sheetBuild === "sheet-playtest-v03329" && ver.dmccBuild === "dmcc-playtest-v02342");
 check("rules.clean", !read("assets/data/rules.js").includes("fight.started") && !read("database.rules.json").includes("rollInitiative"));
 const demo = read("map/demo.html");
 check("demo.gated", demo.includes("if (params.get('fight') === '1')") && !demo.includes("if (role === 'dm' || params.get('fight') === '1')"));
@@ -89,7 +89,7 @@ const dm = boot(dmW, "dm");
 await new Promise((r) => setTimeout(r, 120));
 check("fresh.dm", idle(dmW, "dm") && dm.syncCombatants && !dmW.document.querySelector(".turn-chip"));
 const freshRead = dmW.document.querySelector("[data-act='sceneReadout']");
-check("fresh.map", dm.viewedScene() === "scn_between" && freshRead && freshRead.textContent === "Scene: Six-Shooters & Sorcery — Between Encounters ▾", (dm.viewedScene() || "") + " | " + (freshRead && freshRead.textContent));
+check("fresh.map", dm.viewedScene() === "scn_between" && freshRead && freshRead.textContent === "Scene: Six-Shooters & Sorcery — Between Encounters", (dm.viewedScene() || "") + " | " + (freshRead && freshRead.textContent));
 dm.maps().save({ id: "scn_temp_room", name: "Temp room", src: "temp.webp", grid: { cols: 10, rows: 10, px: 70 } });
 dm.maps().swap("scn_temp_room");
 check("picked.temp", dm.viewedScene() === "scn_temp_room", dm.viewedScene());
@@ -168,5 +168,5 @@ if (failures.length) {
   failures.forEach((line) => console.error(" - " + line));
   process.exit(1);
 }
-console.log("\ncombat default 0.3.328 ok");
+console.log("\ncombat default 0.3.329 ok");
 setTimeout(() => process.exit(0), 50);

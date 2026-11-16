@@ -1,7 +1,7 @@
 /**
  * Scene Builder Slice 5: players take a visible link themselves,
  * the floor switcher, and the DM Scenes menu.
- * Sheet 0.3.328 / DMCC 0.2.341.
+ * Sheet 0.3.329 / DMCC 0.2.342.
  *   node tools/test-play-links-03316.mjs
  */
 import fs from "node:fs";
@@ -17,8 +17,8 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.328" && ver.dmcc === "0.2.341" && ver.sheetBuild === "sheet-playtest-v03328" && ver.dmccBuild === "dmcc-playtest-v02341");
-check("rules.clean", !read("assets/data/rules.js").includes("floor.stairs") && !read("database.rules.json").includes("shownLinks") && !read("assets/data/rules.js").includes("0.3.328"));
+check("ver", ver.sheet === "0.3.329" && ver.dmcc === "0.2.342" && ver.sheetBuild === "sheet-playtest-v03329" && ver.dmccBuild === "dmcc-playtest-v02342");
+check("rules.clean", !read("assets/data/rules.js").includes("floor.stairs") && !read("database.rules.json").includes("shownLinks") && !read("assets/data/rules.js").includes("0.3.329"));
 const mapSrc = read("map/ssdns-map.js");
 check("src.page", mapSrc.includes("PageUp") && mapSrc.includes("PageDown") && mapSrc.includes("stepFloor"));
 check("src.ask", mapSrc.includes("Go upstairs?") && mapSrc.includes("Go downstairs?") && mapSrc.includes("Climb ladder?") && mapSrc.includes("Go through door?"));
@@ -218,7 +218,7 @@ const pub = store.pub["map/public/tokens/" + jolene.id];
 const pubVal = pub && (pub.value || pub);
 check("go.public", pubVal && pubVal.hp == null && pubVal.sheetId === "ada" && pubVal.concentration === "Bless" && pubVal.sceneId === "scn_upstairs", JSON.stringify(pubVal && { hp: pubVal.hp, sheetId: pubVal.sheetId, concentration: pubVal.concentration, sceneId: pubVal.sceneId }));
 
-const floors = [].slice.call(dmW.document.querySelectorAll("[data-act='sceneFloorPop'] [data-floor]"));
+const floors = [].slice.call(dmW.document.querySelectorAll("[data-act='floorStrip'] [data-floor]"));
 const labels = floors.map((b) => b.textContent.replace(/\s+/g, " ").trim());
 check("floors.stack", labels.some((t) => t.indexOf("▲") === 0 && /Upstairs/.test(t)) && labels.some((t) => t.indexOf("▼") === 0 && /Saloon|Ground|Dusty/.test(t)), labels.join(" | "));
 check("floors.badge", floors.every((b) => b.querySelector("[data-act='floorCount']")) && floors.some((b) => b.classList.contains("is-on")));
@@ -260,4 +260,4 @@ if (failures.length) {
   console.error("\n" + failures.length + " failed");
   process.exit(1);
 }
-console.log("\nplay links 0.3.328 ok");
+console.log("\nplay links 0.3.329 ok");
