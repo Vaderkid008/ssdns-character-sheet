@@ -1,6 +1,6 @@
 /**
  * Showcase packs ship example links the table can try.
- * Sheet 0.3.327 / DMCC 0.2.340.
+ * Sheet 0.3.328 / DMCC 0.2.341.
  *   node tools/test-showcase-links-03326.mjs
  */
 import fs from "node:fs";
@@ -17,7 +17,7 @@ function check(id, cond, detail) {
 }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.327" && ver.dmcc === "0.2.340" && ver.sheetBuild === "sheet-playtest-v03327" && ver.dmccBuild === "dmcc-playtest-v02340");
+check("ver", ver.sheet === "0.3.328" && ver.dmcc === "0.2.341" && ver.sheetBuild === "sheet-playtest-v03328" && ver.dmccBuild === "dmcc-playtest-v02341");
 check("rules.clean", !read("assets/data/rules.js").includes("lnk_inside_up") && !read("database.rules.json").includes("playersCanUse"));
 check("publish.room", read("map/ssdns-map.js").includes("function roomLinks()") && /function publishShownLinks\(\) \{\n  if \(role !== "dm"\) return;\n  const byMap = \{\};\n  roomLinks\(\)\.forEach/.test(read("map/ssdns-map.js")));
 
@@ -85,4 +85,4 @@ if (failures.length) {
   console.error("\n" + failures.length + " failed");
   process.exit(1);
 }
-console.log("\nshowcase links 0.3.327 ok");
+console.log("\nshowcase links 0.3.328 ok");
