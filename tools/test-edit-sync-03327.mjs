@@ -1,6 +1,6 @@
 /**
  * Edit tokens drag and a new token picture reach the other client at once.
- * Two clients, one fake RTDB (deliverTree). Sheet 0.3.327 / DMCC 0.2.340.
+ * Two clients, one fake RTDB (deliverTree). Sheet 0.3.328 / DMCC 0.2.341.
  *   node tools/test-edit-sync-03327.mjs
  */
 import fs from "node:fs";
@@ -17,8 +17,8 @@ function check(id, cond, detail) {
 }
 function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.327" && ver.dmcc === "0.2.340" && ver.sheetBuild === "sheet-playtest-v03327" && ver.dmccBuild === "dmcc-playtest-v02340");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.327") && !read("database.rules.json").includes("0.3.327"));
+check("ver", ver.sheet === "0.3.328" && ver.dmcc === "0.2.341" && ver.sheetBuild === "sheet-playtest-v03328" && ver.dmccBuild === "dmcc-playtest-v02341");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.328") && !read("database.rules.json").includes("0.3.328"));
 
 function fakeFirebase() {
   const tree = {};
@@ -223,4 +223,4 @@ if (failures.length) {
   failures.forEach((line) => console.error(" - " + line));
   process.exit(1);
 }
-console.log("edit sync 0.3.327 ok");
+console.log("edit sync 0.3.328 ok");
