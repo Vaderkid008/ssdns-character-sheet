@@ -181,7 +181,7 @@ const host = {
       speed: 30,
       init: 2,
       attacks: [
-        { id: 'gunroll:0', name: 'Navy / Army Ball n Cap Revolver', toHit: 6, damage: '1d8', action: 'Percussion revolver (slow)', weapon: 'navy-army-ball-n-cap-revolver', ammoName: 'percussion', spare: 4, ammo: { loaded: 3, cap: 6, chambers: [1, 1, 1, 0, 0, 0], spare: 4 }, reloadId: 'reload:0' },
+        { id: 'gunroll:0', name: 'Navy / Army Ball n Cap Revolver', toHit: 6, damage: '1d8', action: 'Percussion revolver (slow)', weapon: 'navy-army-ball-n-cap-revolver', ammoName: 'percussion', spare: 4, ammo: (window.__demoCyl || (window.__demoCyl = { loaded: 3, cap: 6, chambers: [1, 1, 1, 0, 0, 0], spare: 4 })), reloadId: 'reload:0' },
         { id: 'gunroll:1', name: 'Henrietta Repeating Rifle', toHit: 5, damage: '1d8', action: 'Lever (tube)', weapon: 'henrietta-repeating-rifle', ammoName: 'cartridge', spare: 6, ammo: { loaded: 4, cap: 6, chambers: [1, 1, 1, 1, 0, 0], spare: 6 }, reloadId: 'reload:1' },
         { id: 'gunroll:2', name: 'Dulls Rolling-Block Rifle', toHit: 4, damage: '2d6 +1 piercing', action: 'Break', weapon: 'dulls-rolling-block-rifle', spare: 0, ammo: { loaded: 0, cap: 1, spare: 0 }, reloadId: 'reload:2' },
         { id: 'melee:0', name: 'Bowie knife', toHit: 5, damage: '1d4 +3 slashing' }

@@ -32,6 +32,7 @@ check("pictures", map.includes("function playerAmmoPicture") && map.includes("SS
 check("red", css.includes("#c0392b") && css.includes(".n62-target-label"));
 check("ratio", css.includes("aspect-ratio: 3 / 1") && css.includes(".n62-wart.has-art img"));
 check("phone", css.includes("max-width: 719px") && css.includes(".n62-guncard .ssdns-ammo { display: none; }") && css.includes(".n62-guncard .chamber-dots { display: inline-flex !important;"));
+check("bullets", css.includes("border-radius: 2px 10px 10px 2px") && css.includes(".chamber-dot.full") && css.includes("#c2421f") && css.includes(".chamber-dot.hammer"));
 check("sheet", !map.slice(map.indexOf("card.innerHTML"), map.indexOf("el.appendChild(card)")).includes("1 · Identity") && !map.slice(map.indexOf("card.innerHTML"), map.indexOf("el.appendChild(card)")).includes("2 · Primary"));
 
 function artAt(url) {
