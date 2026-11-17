@@ -135,11 +135,15 @@
     return slug === "the-peace-maker" || slug === "hell-maker";
   }
 
+  function pathName() {
+    try { return (root.location && root.location.pathname) || ""; } catch (e) { return ""; }
+  }
+
+  /* Sheet pages sit at the site root. /dm/ and /map/ are one folder down, so art
+     has to climb out or the engraving 404s (map/assets/… instead of assets/…). */
   function pagePrefix() {
-    try {
-      var path = (root.location && root.location.pathname) || "";
-      if (path.indexOf("/dm/") >= 0) return "../";
-    } catch (e) {}
+    var path = pathName();
+    if (path.indexOf("/dm/") >= 0 || path.indexOf("/map/") >= 0) return "../";
     return "";
   }
 
@@ -152,7 +156,7 @@
       if (!opts || !opts.dm) return "";
       return pagePrefix() + "assets/img/dm-only/" + slug + ".webp";
     }
-    return "assets/img/weapons/" + slug + ".webp";
+    return pagePrefix() + "assets/img/weapons/" + slug + ".webp";
   }
 
   function clearPhoto(box) {
@@ -231,7 +235,7 @@
     if (!slug && weapon && typeof weapon === "object" && weapon.id && weapon.id !== id) slug = slugFor(weapon);
     return slug && !NO_TILE[slug] && (bySlug[slug] || slug === "the-peace-maker") ? slug : "";
   }
-  function onDmPage() { return pagePrefix() === "../"; }
+  function onDmPage() { return pathName().indexOf("/dm/") >= 0; }
   function tileFor(weapon, opts) {
     var slug = tileSlug(weapon);
     if (!slug) return "";

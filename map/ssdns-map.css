@@ -2807,6 +2807,81 @@ body.map-fullscreen #mapMount:has(> .ssm-turnstrip:not([hidden])) .ssdns-toolbar
   box-shadow: inset 0 0 0 1px #0006;
 }
 .n62-wart small { display: block; color: #8d8a82; font-size: 10px; }
+.n62-wcard { min-height: 0; }
+.n62-guncard { gap: 3px; padding: 5px 8px 6px; }
+.n62-wname { margin: 2px 0 0; color: #ffe7a8; font-size: 13px; line-height: 1.2; }
+.n62-wmeta { margin: 0 0 2px; color: #8d8274; font-size: 11px; }
+.n62-ammo-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.n62-ammo-line .ssdns-ammo { flex: 0 0 auto; }
+.n62-count { color: #ffe7a8; font-size: 13px; }
+.n62-guncard .chamber-dots { display: none; }
+.n62-guncard .n62-ammo-line:not(:has(.ssdns-ammo)) .chamber-dots { display: inline-flex; }
+.n62-wart.has-art {
+  min-height: 0;
+  width: min(100%, 168px);
+  aspect-ratio: 3 / 1;
+  height: auto;
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  background: #f4efe4;
+  border-color: #a07840;
+}
+.n62-wart.has-art img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.ssdns-playercard label.n62-aim,
+.ssm-drawer label.n62-aim,
+label.ssm-act.ssm-target,
+label.ssm-act.n62-aim {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  color: #c0392b;
+  font-weight: 800;
+}
+.n62-target-label { color: #c0392b; font-weight: 800; }
+.ssdns-playercard label.n62-aim select,
+.ssm-drawer label.n62-aim select,
+label.ssm-act.ssm-target select,
+label.ssm-act.n62-aim select {
+  flex: 1;
+  width: auto;
+  color: #f0e4cf;
+  font-weight: 600;
+}
+.n62-guncard .n62-roll { width: 100%; margin-top: 2px; min-height: 26px; padding: 3px 8px; }
+.n62-pair { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.ssdns-playercard .n62-pair > button,
+.ssm-drawer .n62-pair > button { flex: 1 1 30%; width: auto; min-height: 24px; padding: 3px 6px; }
+.ssdns-playercard .n62-pair > .ssm-pool,
+.ssm-drawer .n62-pair > .ssm-pool { flex: 1 1 120px; width: auto; min-width: 0; flex-direction: row; }
+.ssdns-playercard .n62-pair > .ssm-mode,
+.ssm-drawer .n62-pair > .ssm-mode { flex: 0 0 auto; width: auto; flex-direction: row; }
+.ssdns-playercard .n62-guncard .ssdns-ammo-cylinder,
+.ssdns-playercard .n62-guncard .ssdns-ammo-cylinder.is-drawer,
+.ssm-drawer .n62-guncard .ssdns-ammo-cylinder,
+.ssm-drawer .n62-guncard .ssdns-ammo-cylinder.is-drawer {
+  width: 72px;
+  height: 72px;
+}
+.ssdns-playercard button.n62-li,
+.ssm-drawer button.n62-li {
+  width: 100%;
+  text-align: left;
+  margin-top: 4px;
+  padding: 6px 8px;
+}
+.n62-guncard.gun-x .ssdns-ammo { position: relative; }
+.n62-guncard.gun-x .ssdns-ammo::after,
+.n62-guncard.gun-x .chamber-dots::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom right, transparent 46%, #c41212 46%, #c41212 54%, transparent 54%),
+    linear-gradient(to bottom left, transparent 46%, #c41212 46%, #c41212 54%, transparent 54%);
+  pointer-events: none;
+  z-index: 3;
+}
 .n62-attacks { display: grid; gap: 4px; }
 .n62-wait {
   margin-top: 10px; border: 1px dashed #2f5a54; border-radius: 10px;
@@ -3153,7 +3228,7 @@ body.map-phone #mapMount.ssdns-map {
   width: auto !important;
   height: auto !important;
   max-width: none;
-  max-height: min(46vh, 420px) !important;
+  max-height: min(70vh, 640px) !important;
   z-index: 24;
   margin: 0;
   border-radius: 14px 14px 8px 8px;
@@ -3355,4 +3430,19 @@ body.map-phone #mapMount.ssdns-map {
       "dock dock dock";
   }
   .ssdns-map.ssm-scene-open .ssm-scene-builder { max-height: 240px; }
+}
+
+/* Narrow viewports already use the phone bottom sheet (.ssm-phone).
+   Swap the cylinder and tube pictures for the dots row there only. */
+@media (max-width: 719px) {
+  .n62-guncard .ssdns-ammo { display: none; }
+  .n62-guncard .chamber-dots { display: inline-flex !important; gap: 6px; }
+  .ssdns-playercard .n62-guncard .chamber-dots .chamber-dot,
+  .ssm-drawer .n62-guncard .chamber-dots .chamber-dot {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+    flex: 0 0 28px;
+  }
 }
