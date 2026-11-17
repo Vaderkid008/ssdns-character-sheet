@@ -1,5 +1,5 @@
 /**
- * Strongbox Force open. Chests have no button. Sheet 0.3.333 / DMCC 0.2.346.
+ * Strongbox Force open. Chests have no button. Sheet 0.3.334 / DMCC 0.2.347.
  *   node tools/test-force-open-03281.mjs
  */
 import fs from "node:fs";

@@ -8622,7 +8622,28 @@ function collectMapLoot(box, who, rows) {
   box.reveal = "everyone";
   box.boxType = box.boxType || "enemy-drop";
   const claim = (path, value) => {
-    if (adapter && adapter.claim) return adapter.claim(path, value);
+    const GA = window.SSDNSGameActions;
+    const body = { boxId: value && value.boxId || "", rowId: value && value.rowId || "", name: value && value.text || "" };
+    const whoId = (value && value.from) || who || uid;
+    const record = (owner, won) => {
+      if (!GA || !GA.takeLoot) return;
+      if (won) GA.takeLoot(body, whoId);
+      else GA.applyRemote("takeLoot", body, 1, owner || "");
+    };
+    if (GA && GA.takeLoot) {
+      const prior = GA.recent ? GA.recent().filter(a => a.name === "takeLoot" && a.payload && a.payload.boxId === body.boxId && a.payload.rowId === body.rowId) : [];
+      if (prior.length) return Promise.resolve({ ok: true, won: false, owner: prior[0].by || "" });
+    }
+    if (adapter && adapter.claim) {
+      return Promise.resolve(adapter.claim(path, value)).then(res => {
+        record(res && res.owner, !!(res && res.won));
+        return res;
+      });
+    }
+    if (GA && GA.takeLoot) {
+      const gate = GA.takeLoot(body, whoId);
+      return Promise.resolve({ ok: true, won: !!gate.ok, owner: gate.ok ? whoId : (gate.action && gate.action.by) || "" });
+    }
     return Promise.resolve({ ok: false, won: false, reason: "no claim" });
   };
   return Promise.resolve(Loot.claimTake(box, who || uid, rows || null, claim)).then(result => {
@@ -9247,6 +9268,10 @@ function runDoorAction(wall, action) {
   const I = interactApi();
   const Assets = window.SSDNSAssets;
   if (!I || !Assets || !Assets.onInteract) return;
+  if (action === "open" || action === "lockpick" || action === "force") {
+    const noted = noteDoorAction(wall, action);
+    if (noted && noted.cancelled) { toast("Cancelled"); return; }
+  }
   const mine = role === "dm" ? null : myMapToken();
   if (role !== "dm") {
     const pack = I.doorMenu(wall, { token: mine, dm: false });
@@ -9264,6 +9289,7 @@ function runDoorAction(wall, action) {
       if (res && res.line) wall.pickAttempts[uid] = Object.assign({}, wall.pickAttempts[uid], { line: res.line });
       const threw = res && res.nat != null && !res.noTools && !res.already;
       const finishDoor = (shown) => {
+        if (doorCancelled(wall, action)) { toast("Cancelled"); showDoorMenu(wall); return; }
         if (success) wall.locked = false;
         toast(res && (res.line || res.reason) || (success ? "Unlocked" : "Still locked"));
         const line = (sheet.name || "Someone") + " " + (res && (res.line || res.reason) || "tries the lock");
@@ -9294,6 +9320,7 @@ function runDoorAction(wall, action) {
         : (Loot && Loot.pickLock ? Loot.pickLock(box, sheet, uid, null, { improvise: true }) : { ok: false, reason: "Can't pick that" });
       const threw = res && res.nat != null && !res.already && !res.noTools;
       const finishDoor = (shown) => {
+        if (doorCancelled(wall, action)) { toast("Cancelled"); showDoorMenu(wall); return; }
         if (box.lock) {
           wall.pickAttempts = box.lock.attempts || wall.pickAttempts || {};
           wall.forceAttempts = box.lock.forceAttempts || wall.forceAttempts || {};
@@ -9332,6 +9359,7 @@ function runDoorAction(wall, action) {
       return;
     }
     else toast(action === "peek" ? "Peek sent" : "Sent");
+    if (doorCancelled(wall, action)) { toast("Cancelled"); return; }
     const attempt = wall.pickAttempts && wall.pickAttempts[uid];
     postDoorReq({ door: I.wallRef(wall), action: action, by: uid, nat: nat, total: total, success: success, attempt: attempt || null }, action);
     return;
@@ -9706,7 +9734,38 @@ function dismissDoorCard() {
   hideDoorMenu();
   cancelTokenCommand("door-x");
 }
+function doorActionId(wall) {
+  const I = interactApi();
+  const ref = I && I.wallRef ? I.wallRef(wall) : null;
+  if (!ref) return "";
+  return [ref.x1, ref.y1, ref.x2, ref.y2].join(",");
+}
+function doorCancelled(wall, action) {
+  const GA = window.SSDNSGameActions;
+  if (!GA || !GA.blocked || !wall) return false;
+  const name = action === "lockpick" ? "pickLock" : action === "force" ? "forceLock" : "openDoor";
+  return GA.blocked(name, { doorId: doorActionId(wall) });
+}
+function noteDoorAction(wall, action) {
+  const GA = window.SSDNSGameActions;
+  if (!GA || !wall) return null;
+  const body = { doorId: doorActionId(wall), action: action || "" };
+  if (action === "lockpick" && GA.pickLock) return GA.pickLock(body, uid);
+  if (action === "force" && GA.forceLock) return GA.forceLock(body, uid);
+  if (action === "open" && GA.openDoor) return GA.openDoor(body, uid);
+  return null;
+}
 function cancelTokenCommand(why) {
+  const GA = window.SSDNSGameActions;
+  if (GA && GA.cancelCommand) {
+    const door = el && el.querySelector && el.querySelector('[data-act="doorMenu"]');
+    const wall = door && door._wallRef;
+    GA.cancelCommand({
+      tokenId: state.commandToken || (state.drag && state.drag.token && state.drag.token.id) || "",
+      doorId: wall ? doorActionId(wall) : "",
+      why: why || ""
+    }, uid);
+  }
   state.moveArmed = false;
   state.moveHover = null;
   if (state.moveConfirm) state.moveConfirm.pending = null;
@@ -22614,6 +22673,7 @@ return {
   maps: function () { return libraryApi(); },
   placeLinkedToken,
   pinLootChest,
+  takeChest: function (box, who, rows) { return collectMapLoot(box, who || uid, rows || null); },
   pinWeaponDrop,
   tokenPos,
   tokenScreen,

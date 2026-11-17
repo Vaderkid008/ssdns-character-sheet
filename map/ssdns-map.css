@@ -1597,8 +1597,8 @@ body.map-fullscreen #mapMount .ssm-cropper canvas {
 .ssm-prop-dock .ssm-lock-dc button { flex: 1 1 0; width: auto; margin: 0; text-align: center; }
 .ssm-prop-dock .ssm-dc-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(6.75rem, 1fr));
+  gap: 6px 8px;
 }
 .ssm-prop-dock .ssm-dc-row label,
 .ssm-prop-dock label.ssm-line {
@@ -1608,7 +1608,12 @@ body.map-fullscreen #mapMount .ssm-cropper canvas {
   white-space: nowrap;
   min-width: 0;
 }
-.ssm-prop-dock .ssm-dc-row input { width: 100%; min-width: 0; flex: 1 1 auto; }
+.ssm-prop-dock .ssm-dc-row label {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+.ssm-prop-dock .ssm-dc-row input { width: 100%; min-width: 0; box-sizing: border-box; }
 .ssm-prop-dock label.ssm-line input[type="checkbox"] { flex: 0 0 auto; width: auto; }
 @media (min-width: 721px) {
   body .ssdns-map.ssdns-role-dm.ssm-token-dock.ssm-token-right,
