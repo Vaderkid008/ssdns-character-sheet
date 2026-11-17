@@ -23,6 +23,9 @@ const actionsSrc = read("assets/js/game-actions.js");
 check("wire.loot", mapSrc.includes("GA.takeLoot") && actionsSrc.includes("takeLoot:"));
 check("wire.cancel", mapSrc.includes("GA.cancelCommand") && mapSrc.includes("doorCancelled"));
 check("wire.door", mapSrc.includes("GA.openDoor") && mapSrc.includes("GA.pickLock") && mapSrc.includes("GA.forceLock"));
+const dcRow = read("map/ssdns-map.css");
+check("dc.wraps", dcRow.includes("repeat(auto-fit, minmax(6.75rem, 1fr))") && !dcRow.includes("repeat(3, minmax(0, 1fr))"));
+check("strongbox.default", mapSrc.includes('forceDc: kind === "strongbox" ? 25 : 15'));
 check("adapter.clean", !actionsSrc.includes("gstatic.com") && !actionsSrc.includes("firebase"));
 
 const ctx = { window: {}, console };
