@@ -1,6 +1,6 @@
 /**
  * Slice 3: one action paints the feed, the roll log, and the fight strip.
- * Sheet 0.3.335 / DMCC 0.2.348.
+ * Sheet 0.3.336 / DMCC 0.2.349.
  *   node tools/test-split-slice3-03335.mjs
  */
 import fs from "node:fs";
@@ -16,7 +16,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.335" && ver.dmcc === "0.2.348");
+check("ver", ver.sheet === "0.3.336" && ver.dmcc === "0.2.349");
 check("rules.clean", !read("assets/data/rules.js").includes("postRoll") && !read("database.rules.json").includes("postChat"));
 const dmcc = read("dm/assets/js/dmcc.js");
 const paint = dmcc.slice(dmcc.indexOf("function paintSharedAction"), dmcc.indexOf("async function pushRoll"));
@@ -55,4 +55,4 @@ if (failures.length) {
   failures.forEach((line) => console.error(" - " + line));
   process.exit(1);
 }
-console.log("split slice 3 0.3.335 ok");
+console.log("split slice 3 0.3.336 ok");

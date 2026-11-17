@@ -1,7 +1,7 @@
 /**
  * The token card X and the door card X cancel an armed command.
  * Clicking the map after X does not move the token.
- * Sheet 0.3.335 / DMCC 0.2.348.
+ * Sheet 0.3.336 / DMCC 0.2.349.
  *   node tools/test-x-cancel-03330.mjs
  */
 import fs from "node:fs";
@@ -19,8 +19,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.335" && version.sheetBuild === "sheet-playtest-v03335");
-check("ver.dmcc", version.dmcc === "0.2.348" && version.dmccBuild === "dmcc-playtest-v02348");
+check("ver.sheet", version.sheet === "0.3.336" && version.sheetBuild === "sheet-playtest-v03336");
+check("ver.dmcc", version.dmcc === "0.2.349" && version.dmccBuild === "dmcc-playtest-v02349");
 const mapSrc = read("map/ssdns-map.js");
 check("src.tokenX", mapSrc.includes("bindFloatingMenu(menu, dismissTokenCommand)") && mapSrc.includes('cancelTokenCommand("menu-x")'));
 check("src.doorX", mapSrc.includes("bindFloatingMenu(menu, dismissDoorCard)") && mapSrc.includes('cancelTokenCommand("door-x")'));
@@ -150,4 +150,4 @@ if (failures.length) {
   console.error("\n" + failures.length + " failed");
   process.exit(1);
 }
-console.log("\nx cancel 0.3.335 ok");
+console.log("\nx cancel 0.3.336 ok");

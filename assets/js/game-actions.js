@@ -16,6 +16,7 @@
   }
   var holds = {};
   var lastKind = {};
+  var removed = {};
   function doorKey(payload) {
     payload = payload || {};
     return "door:" + (payload.doorId || payload.tokenId || "");
@@ -75,6 +76,11 @@
       seen[seenKey] = 1;
     }
     noteKind(action);
+    if (action.payload && action.payload.playerId) {
+      var pid = action.payload.playerId;
+      if (action.name === "removeToken") removed[pid] = num(action.seq);
+      else if (action.name !== "setPresence" && num(action.seq) >= num(removed[pid] || 0)) delete removed[pid];
+    }
     log.push(action);
     if (log.length > 80) log.shift();
     listeners.forEach(function (fn) {
@@ -231,6 +237,33 @@
       return dispatch("request", {
         id: body.id || "", kind: body.kind || body.type || "", text: body.text || "", targetId: body.targetId || ""
       }, { by: by || body.from || "" });
+    },
+    /* Slice 4. The latest choice for a player wins. Removing a token stays removed after they return. */
+    choice: function (playerId) { return lastKind["player:" + (playerId || "")] || null; },
+    removed: function (playerId) { return !!removed[playerId || ""]; },
+    setPresence: function (body, by) {
+      body = body || {};
+      return dispatch("setPresence", { playerId: body.playerId || "", online: !!body.online }, { by: by || "" });
+    },
+    holdTurn: function (body, by) {
+      body = body || {};
+      return dispatch("holdTurn", { playerId: body.playerId || "" }, { by: by || "" });
+    },
+    skipTurn: function (body, by) {
+      body = body || {};
+      return dispatch("skipTurn", { playerId: body.playerId || "" }, { by: by || "" });
+    },
+    takeControl: function (body, by) {
+      body = body || {};
+      return dispatch("takeControl", { playerId: body.playerId || "" }, { by: by || "" });
+    },
+    handControl: function (body, by) {
+      body = body || {};
+      return dispatch("handControl", { playerId: body.playerId || "", toUid: body.toUid || "" }, { by: by || "" });
+    },
+    removeToken: function (body, by) {
+      body = body || {};
+      return dispatch("removeToken", { playerId: body.playerId || "" }, { by: by || "" });
     }
   };
 })(typeof window !== "undefined" ? window : globalThis);
