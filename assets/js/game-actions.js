@@ -204,6 +204,33 @@
     cancelCommand: function (body, by) {
       var action = dispatch("cancelCommand", body || {}, { by: by || "" });
       return { ok: true, action: action };
+    },
+    /* Slice 3. One action reaches the feed, the roll log, and the fight strip. */
+    postRoll: function (body, by) {
+      body = body || {};
+      return dispatch("postRoll", {
+        id: body.id || "", ts: body.ts || "", label: body.label || "", formula: body.formula || "",
+        result: body.result, detail: body.detail || "", who: body.who || "", text: body.text || ""
+      }, { by: by || "" });
+    },
+    postChat: function (body, by) {
+      body = body || {};
+      return dispatch("postChat", {
+        id: body.id || "", ts: body.ts || "", text: body.text || "", fromName: body.fromName || "", to: body.to || "all"
+      }, { by: by || body.from || "" });
+    },
+    setCondition: function (body, by) {
+      body = body || {};
+      return dispatch("setCondition", {
+        id: body.id || body.subjectId || "", subjectId: body.subjectId || "", name: body.name || "",
+        names: body.names || [], rounds: body.rounds
+      }, { by: by || "" });
+    },
+    request: function (body, by) {
+      body = body || {};
+      return dispatch("request", {
+        id: body.id || "", kind: body.kind || body.type || "", text: body.text || "", targetId: body.targetId || ""
+      }, { by: by || body.from || "" });
     }
   };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -1,7 +1,7 @@
 /**
  * Lock proficiency comes from level when the sheet has no prof field.
  * Thieves' tools means the item, not a mention in the notes.
- * Sheet 0.3.334 / DMCC 0.2.347.
+ * Sheet 0.3.335 / DMCC 0.2.348.
  *   node tools/test-lock-prof-03314.mjs
  */
 import fs from "node:fs";
@@ -17,8 +17,8 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.334" && ver.dmcc === "0.2.347" && ver.sheetBuild === "sheet-playtest-v03334" && ver.dmccBuild === "dmcc-playtest-v02347");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.334") && !read("database.rules.json").includes("0.3.334"));
+check("ver", ver.sheet === "0.3.335" && ver.dmcc === "0.2.348" && ver.sheetBuild === "sheet-playtest-v03335" && ver.dmccBuild === "dmcc-playtest-v02348");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.335") && !read("database.rules.json").includes("0.3.335"));
 
 const sb = { console: console };
 sb.window = sb;
@@ -127,5 +127,5 @@ if (failures.length) {
   failures.forEach((line) => console.log(" - " + line));
   process.exit(1);
 }
-console.log("lock prof 0.3.334 ok");
+console.log("lock prof 0.3.335 ok");
 process.exit(0);

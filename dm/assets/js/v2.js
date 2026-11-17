@@ -1736,6 +1736,11 @@ function askRowConditions(i) {
   openDialog(dlg);
 }
 async function writeSubjectConditions(subjectId, kind, names, label, exhLevel, roundsByName, removeIds) {
+  if (window.SSDNSGameActions && window.SSDNSGameActions.setCondition) {
+    window.SSDNSGameActions.setCondition({
+      id: subjectId, subjectId: subjectId, names: names || [], name: label || ""
+    }, DM.state && DM.state.uid || "dm");
+  }
   const Cond = window.SSDNSConditions;
   if (!Cond || !subjectId) return;
   const existing = [];
