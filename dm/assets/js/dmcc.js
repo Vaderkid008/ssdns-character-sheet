@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.347"; // dmcc-playtest-v02347
+const VERSION = "0.2.348"; // dmcc-playtest-v02348
 if (window.SSDNSRollCard) {
   window.SSDNSRollCard.setAudience("dm");
   window.SSDNSRollCard.setPortraitLookup(function (name, spec) {
@@ -822,9 +822,35 @@ async function pushLedger(entry) {
   catch (e) { writeFailed(e, "Ledger write failed"); }
 }
 
+function paintSharedAction(action) {
+  if (!action || !action.payload) return;
+  const p = action.payload;
+  if (action.name === "postRoll") {
+    state.rolls = state.rolls || [];
+    if (p.id && !state.rolls.some((row) => row && row.id === p.id)) state.rolls.unshift(p);
+    renderRolls();
+    renderLiveDock();
+    if (window.DMCCEnhance && window.DMCCEnhance.renderFight) window.DMCCEnhance.renderFight();
+  } else if (action.name === "postChat") {
+    state.chat = state.chat || [];
+    if (p.id && !state.chat.some((row) => row && row.id === p.id)) state.chat.push(p);
+    renderLiveDock();
+    renderRolls();
+    if (window.DMCCEnhance && window.DMCCEnhance.renderFight) window.DMCCEnhance.renderFight();
+  } else if (action.name === "setCondition" || action.name === "request") {
+    renderLiveDock();
+    renderRolls();
+    if (window.DMCCEnhance && window.DMCCEnhance.renderFight) window.DMCCEnhance.renderFight();
+  }
+}
+if (window.SSDNSGameActions && !window.__ssdnsTablePaint) {
+  window.__ssdnsTablePaint = true;
+  window.SSDNSGameActions.on(paintSharedAction);
+}
 async function pushRoll(entry) {
   entry.id = entry.id || uid("r");
   entry.ts = entry.ts || new Date().toISOString();
+  if (window.SSDNSGameActions && window.SSDNSGameActions.postRoll) window.SSDNSGameActions.postRoll(entry, state.uid || "dm");
   if (entry.dieHold && window.SSDNSDice && window.SSDNSDice.show) {
     try { window.SSDNSDice.show({ sides: 20, face: "", formula: entry.formula || "1d20", total: "" }); } catch (err) {}
   } else if (window.SSDNSDice && window.SSDNSDice.showRoll) {
@@ -2751,9 +2777,10 @@ async function sendDockChat(text, to) {
     if (dockTo) dockTo.value = "all";
     return;
   }
+  if (window.SSDNSGameActions && window.SSDNSGameActions.postChat) window.SSDNSGameActions.postChat(row, row.from);
   if (state.demo || !state.db) {
     state.chat = state.chat || [];
-    state.chat.push(row);
+    if (!state.chat.some((have) => have && have.id === row.id)) state.chat.push(row);
     renderLiveDock();
     toast("Sent to the table");
     return;

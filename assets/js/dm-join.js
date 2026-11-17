@@ -636,6 +636,7 @@
     /* attack-fx: the map request rides on the public feed row only (never on rolls/), and only for rolls the sheet resolved itself */
     var fxReq = entry.fxReq;
     delete entry.fxReq;
+    if (root.SSDNSGameActions && root.SSDNSGameActions.postRoll) root.SSDNSGameActions.postRoll(entry, state.uid);
     await fb.set(fb.ref(state.db, roomPath("rolls/" + id)), entry);
     var quiet = !!(entry.private || entry.whisper);
     if (!quiet) {
@@ -780,6 +781,9 @@
     if (entry.riderSave) row.riderSave = String(entry.riderSave);
     if (entry.riderOnFail) row.riderOnFail = String(entry.riderOnFail);
     if (entry.riderSpell) row.riderSpell = String(entry.riderSpell);
+    if (root.SSDNSGameActions && root.SSDNSGameActions.request) {
+      root.SSDNSGameActions.request({ id: id, kind: row.type || "damage", text: row.label || "", targetId: row.targetId || "", from: state.uid }, state.uid);
+    }
     return state._fb.set(state._fb.ref(state.db, roomPath("encounter/requests/" + id)), row).then(function () {
       return { ok: true };
     }).catch(function (e) {
