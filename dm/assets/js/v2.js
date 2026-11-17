@@ -11224,6 +11224,10 @@ function paintTurnAck() {
 }
 function notePresence(id, on) {
   if (!id) return;
+  const GA = window.SSDNSGameActions;
+  if (GA && GA.removed && GA.removed(id)) return;
+  if (GA && GA.setPresence) GA.setPresence({ playerId: id, online: !!on }, (DM.state && DM.state.uid) || "dm");
+  if (!on && GA && GA.holdTurn) GA.holdTurn({ playerId: id }, (DM.state && DM.state.uid) || "dm");
   if (!fight.away) fight.away = {};
   if (on) {
     delete fight.away[id];

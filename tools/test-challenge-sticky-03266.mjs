@@ -1,7 +1,7 @@
 /**
  * Gold Challenge result stays until a click or Escape.
  * A normal d20 still closes on its own.
- * Sheet 0.3.335 / DMCC 0.2.348.
+ * Sheet 0.3.336 / DMCC 0.2.349.
  *   node tools/test-challenge-sticky-03266.mjs
  */
 import fs from "node:fs";
@@ -20,8 +20,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.335" && ver.dmcc === "0.2.348" && ver.sheetBuild === "sheet-playtest-v03335" && ver.dmccBuild === "dmcc-playtest-v02348");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.335") && !read("database.rules.json").includes("0.3.335"));
+check("ver", ver.sheet === "0.3.336" && ver.dmcc === "0.2.349" && ver.sheetBuild === "sheet-playtest-v03336" && ver.dmccBuild === "dmcc-playtest-v02349");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.336") && !read("database.rules.json").includes("0.3.336"));
 
 const zoom = read("assets/js/d20-zoom.js");
 const plain = read("assets/js/d20-plain.js");
@@ -29,8 +29,8 @@ const sheet = read("index.html");
 const dm = read("dm/index.html");
 check("src.hold", zoom.includes('layer.classList.add("is-hold")') && zoom.includes("click to close") && zoom.includes("stopChallengeSting") && !zoom.includes("later(finish"));
 check("src.plain", plain.includes('layer.classList.add("is-hold")') && plain.includes("click to close"));
-check("cache.sheet", sheet.includes("d20-zoom.js?v=0.3.335-lockdie") && sheet.includes("dice-art.js?v=0.3.335-lockdie") && sheet.includes("sfx.js?v=0.3.335-challenge") && sheet.includes("challenge-sfx.js?v=0.3.335-challsfx"));
-check("cache.dm", dm.includes("d20-zoom.js?v=0.2.348-lockdie") && dm.includes("dice-art.js?v=0.2.348-lockdie") && dm.includes("sfx.js?v=0.2.348-challenge") && dm.includes("challenge-sfx.js?v=0.2.348-challsfx"));
+check("cache.sheet", sheet.includes("d20-zoom.js?v=0.3.336-lockdie") && sheet.includes("dice-art.js?v=0.3.336-lockdie") && sheet.includes("sfx.js?v=0.3.336-challenge") && sheet.includes("challenge-sfx.js?v=0.3.336-challsfx"));
+check("cache.dm", dm.includes("d20-zoom.js?v=0.2.349-lockdie") && dm.includes("dice-art.js?v=0.2.349-lockdie") && dm.includes("sfx.js?v=0.2.349-challenge") && dm.includes("challenge-sfx.js?v=0.2.349-challsfx"));
 
 const join = read("assets/js/dm-join.js");
 const clickAt = join.indexOf('dieBtn.addEventListener("click"');

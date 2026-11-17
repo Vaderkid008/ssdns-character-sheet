@@ -1,7 +1,7 @@
 /**
  * The DM swaps maps from the Maps menu and the player follows.
  * Two clients, one mocked RTDB. A write that still contains undefined is dropped.
- * Sheet 0.3.335 / DMCC 0.2.348.
+ * Sheet 0.3.336 / DMCC 0.2.349.
  *   node tools/test-map-swap-03299.mjs
  */
 import fs from "node:fs";
@@ -15,8 +15,8 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.335" && ver.dmcc === "0.2.348");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.335") && !read("database.rules.json").includes("0.3.335"));
+check("ver", ver.sheet === "0.3.336" && ver.dmcc === "0.2.349");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.336") && !read("database.rules.json").includes("0.3.336"));
 
 function undefs(v, path, out) {
   if (v === undefined) { out.push(path); return; }

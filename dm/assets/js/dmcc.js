@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.348"; // dmcc-playtest-v02348
+const VERSION = "0.2.349"; // dmcc-playtest-v02349
 if (window.SSDNSRollCard) {
   window.SSDNSRollCard.setAudience("dm");
   window.SSDNSRollCard.setPortraitLookup(function (name, spec) {
@@ -1583,12 +1583,19 @@ function paintAwayAlert() {
     </div>`;
   }).join("");
 }
+function latestChoice(id, name) {
+  const GA = window.SSDNSGameActions;
+  if (!GA || !GA.choice) return true;
+  const last = GA.choice(id);
+  return !!(last && last.name === name);
+}
 function onAwayClick(ev) {
   const btn = ev.target && ev.target.closest && ev.target.closest("[data-away]");
   if (!btn) return;
   const id = btn.getAttribute("data-pid");
   const act = btn.getAttribute("data-away");
   if (!id) return;
+  const GA = window.SSDNSGameActions;
   if (act === "dismiss") {
     state.awayDismiss = state.awayDismiss || {};
     state.awayDismiss[id] = true;
@@ -1596,6 +1603,8 @@ function onAwayClick(ev) {
     return;
   }
   if (act === "skip") {
+    if (GA && GA.skipTurn) GA.skipTurn({ playerId: id }, state.uid || "dm");
+    if (!latestChoice(id, "skipTurn")) return;
     const E = window.DMCCEnhance;
     const order = E && E.fightOrder ? E.fightOrder() : [];
     const turn = E && E.fightTurn ? E.fightTurn() : 0;
@@ -1607,6 +1616,8 @@ function onAwayClick(ev) {
   }
   const host = window.SSDNSMapHost;
   if (act === "control") {
+    if (GA && GA.takeControl) GA.takeControl({ playerId: id }, state.uid || "dm");
+    if (!latestChoice(id, "takeControl")) return;
     if (host && host.holdOwner) host.holdOwner(id);
     toast("You have the token until they return.");
     return;
@@ -1615,11 +1626,15 @@ function onAwayClick(ev) {
     const sel = document.querySelector('[data-away-who="' + id + '"]');
     const to = sel && sel.value;
     if (!to) { toast("Pick a player who is still here"); return; }
+    if (GA && GA.handControl) GA.handControl({ playerId: id, toUid: to }, state.uid || "dm");
+    if (!latestChoice(id, "handControl")) return;
     if (host && host.handOwner) host.handOwner(id, to);
     toast("Control handed over. The sheet link stays put.");
     return;
   }
   if (act === "remove") {
+    if (GA && GA.removeToken) GA.removeToken({ playerId: id }, state.uid || "dm");
+    if (!latestChoice(id, "removeToken")) return;
     const tokenId = host && host.tokenForPlayer ? host.tokenForPlayer(id) : "";
     if (tokenId && host.removeToken) host.removeToken(tokenId);
     else toast("No token on the map to remove");
