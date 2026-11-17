@@ -1,5 +1,5 @@
 /**
- * DM prop menu: real mouse and keyboard (sheet 0.3.336 / DMCC 0.2.349).
+ * DM prop menu: real mouse and keyboard (sheet 0.3.337 / DMCC 0.2.350).
  * Backspace in a field must not delete the chest. The DM can drag a prop
  * without Edit tokens. Catalog pick works from the keyboard. The menu stays put.
  *   node tools/test-prop-menu-03290.mjs
@@ -16,7 +16,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(fs.readFileSync(path.join(root, "version.json"), "utf8"));
-check("ver", ver.sheet === "0.3.336" && ver.dmcc === "0.2.349");
+check("ver", ver.sheet === "0.3.337" && ver.dmcc === "0.2.350");
 const map = fs.readFileSync(path.join(root, "map/ssdns-map.js"), "utf8");
 check("src.typing", map.includes("function typingInField") && map.includes("typingInField(e.target)"));
 check("src.drag", map.includes("isPropTok(hit) && e.button === 0 && !state.tool && role !== 'dm'"));

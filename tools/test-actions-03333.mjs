@@ -1,7 +1,7 @@
 /**
  * Slice 1 game actions: token moves, portraits, and initiative keep order.
  * An older seq cannot rewind a square, a picture, or the turn strip.
- * Sheet 0.3.336 / DMCC 0.2.349.
+ * Sheet 0.3.337 / DMCC 0.2.350.
  *   node tools/test-actions-03333.mjs
  */
 import fs from "node:fs";
@@ -18,8 +18,8 @@ function check(id, cond, detail) {
 }
 function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.336" && ver.dmcc === "0.2.349" && ver.sheetBuild === "sheet-playtest-v03336" && ver.dmccBuild === "dmcc-playtest-v02349");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.336") && !read("database.rules.json").includes("0.3.336"));
+check("ver", ver.sheet === "0.3.337" && ver.dmcc === "0.2.350" && ver.sheetBuild === "sheet-playtest-v03337" && ver.dmccBuild === "dmcc-playtest-v02350");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.337") && !read("database.rules.json").includes("0.3.337"));
 check("rules.untouched", !read("database.rules.json").includes("actionSeq") && !read("assets/data/rules.js").includes("moveToken"));
 
 const mapSrc = read("map/ssdns-map.js");
@@ -280,4 +280,4 @@ if (failures.length) {
   failures.forEach((line) => console.error(" - " + line));
   process.exit(1);
 }
-console.log("actions slice 1 0.3.336 ok");
+console.log("actions slice 1 0.3.337 ok");

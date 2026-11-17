@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>SSDNS Map — M2 v4 demo</title>
-<link rel="stylesheet" href="ssdns-map.css?v=0.3.336-dice">
+<link rel="stylesheet" href="ssdns-map.css?v=0.3.337-dice">
 <link rel="stylesheet" href="../assets/css/dice.css?v=0.3.168-dice">
 <link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.3.200-digit">
 <style>
@@ -32,25 +32,26 @@
 <div id="mount" class="ssdns-map hidden"></div>
 <script src="../assets/js/range-rings.js?v=0.3.168-adv"></script>
 <script src="../assets/js/ammo-display.js?v=0.3.201-encounter"></script>
+<script src="../assets/js/weapon-art.js?v=0.3.337-drawer"></script>
 <script src="ssdns-map-chat.js?v=0.3.31-float"></script>
 <script src="token-size.js?v=0.3.168-size"></script>
-<script src="ssdns-map-fx.js?v=0.3.336-p1c"></script>
-<script src="../assets/js/challenge-sfx.js?v=0.3.336-challsfx"></script>
-<script src="../assets/js/dice-art.js?v=0.3.336-lockdie"></script>
-<script src="../assets/js/d20-plain.js?v=0.3.336-lockdie"></script>
-<script src="../assets/js/d20-zoom.js?v=0.3.336-lockdie"></script>
+<script src="ssdns-map-fx.js?v=0.3.337-p1c"></script>
+<script src="../assets/js/challenge-sfx.js?v=0.3.337-challsfx"></script>
+<script src="../assets/js/dice-art.js?v=0.3.337-lockdie"></script>
+<script src="../assets/js/d20-plain.js?v=0.3.337-lockdie"></script>
+<script src="../assets/js/d20-zoom.js?v=0.3.337-lockdie"></script>
 <script src="../assets/js/turn-rules.js?v=0.3.168-turn2"></script>
 <script src="ssdns-map-move.js?v=0.3.168-move"></script>
 <script src="../assets/js/conditions.js?v=0.3.210-pills"></script>
-<script src="zone-art.js?v=0.3.336-zones"></script>
-<script src="../assets/js/spell-zones.js?v=0.3.336-timers"></script>
-<script src="map-packs.js?v=0.3.336-between"></script>
-<script src="map-library.js?v=0.3.336-between"></script>
-<script src="../assets/js/loot.js?v=0.3.336-claim"></script>
-<script src="places.js?v=0.3.336-places"></script>
-<script src="scene-builder.js?v=0.3.336-scenes"></script>
-<script src="../assets/js/game-actions.js?v=0.3.336-actions"></script>
-<script src="ssdns-map.js?v=0.3.336-force"></script>
+<script src="zone-art.js?v=0.3.337-zones"></script>
+<script src="../assets/js/spell-zones.js?v=0.3.337-timers"></script>
+<script src="map-packs.js?v=0.3.337-between"></script>
+<script src="map-library.js?v=0.3.337-between"></script>
+<script src="../assets/js/loot.js?v=0.3.337-claim"></script>
+<script src="places.js?v=0.3.337-places"></script>
+<script src="scene-builder.js?v=0.3.337-scenes"></script>
+<script src="../assets/js/game-actions.js?v=0.3.337-actions"></script>
+<script src="ssdns-map.js?v=0.3.337-force"></script>
 <script>
 // demo.html is the only file allowed to read the URL, localStorage, and BroadcastChannel.
 const params = new URLSearchParams(location.search);
@@ -174,12 +175,14 @@ const host = {
     if (role !== 'player') return null;
     return {
       name: 'Jolene "Dusty" Pike',
+      calling: 'gunslinger',
       ac: 14,
       hp: { cur: 23, max: 27 },
       speed: 30,
+      init: 2,
       attacks: [
-        { id: 'gunroll:0', name: 'Navy/Army Ball n Cap Revolver', toHit: 6, damage: '1d6 +3 piercing', action: 'Revolver', weapon: 'navy-army-ball-n-cap-revolver', spare: 4, ammo: { loaded: 3, cap: 6, chambers: [1, 1, 1, 0, 0, 0], spare: 4 }, reloadId: 'reload:0' },
-        { id: 'gunroll:1', name: 'Dullards Tube Rifle', toHit: 4, damage: '1d6 +1 piercing', action: 'Lever (tube)', weapon: 'dullards-tube-rifle', spare: 0, ammo: { loaded: 2, cap: 8, spare: 0 }, reloadId: 'reload:1' },
+        { id: 'gunroll:0', name: 'Navy / Army Ball n Cap Revolver', toHit: 6, damage: '1d8', action: 'Percussion revolver (slow)', weapon: 'navy-army-ball-n-cap-revolver', ammoName: 'percussion', spare: 4, ammo: (window.__demoCyl || (window.__demoCyl = { loaded: 3, cap: 6, chambers: [1, 1, 1, 0, 0, 0], spare: 4 })), reloadId: 'reload:0' },
+        { id: 'gunroll:1', name: 'Henrietta Repeating Rifle', toHit: 5, damage: '1d8', action: 'Lever (tube)', weapon: 'henrietta-repeating-rifle', ammoName: 'cartridge', spare: 6, ammo: { loaded: 4, cap: 6, chambers: [1, 1, 1, 1, 0, 0], spare: 6 }, reloadId: 'reload:1' },
         { id: 'gunroll:2', name: 'Dulls Rolling-Block Rifle', toHit: 4, damage: '2d6 +1 piercing', action: 'Break', weapon: 'dulls-rolling-block-rifle', spare: 0, ammo: { loaded: 0, cap: 1, spare: 0 }, reloadId: 'reload:2' },
         { id: 'melee:0', name: 'Bowie knife', toHit: 5, damage: '1d4 +3 slashing' }
       ],

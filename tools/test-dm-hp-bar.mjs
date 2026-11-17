@@ -20,18 +20,18 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.336" && version.sheetBuild === "sheet-playtest-v03336");
-check("ver.dmcc", version.dmcc === "0.2.349" && version.dmccBuild === "dmcc-playtest-v02349");
-check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.336"') && read("assets/js/app.js").includes("sheet-playtest-v03336"));
-check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.349"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02349"));
+check("ver.sheet", version.sheet === "0.3.337" && version.sheetBuild === "sheet-playtest-v03337");
+check("ver.dmcc", version.dmcc === "0.2.350" && version.dmccBuild === "dmcc-playtest-v02350");
+check("ver.app", read("assets/js/app.js").includes('APP_VERSION = "0.3.337"') && read("assets/js/app.js").includes("sheet-playtest-v03337"));
+check("ver.dmjs", read("dm/assets/js/dmcc.js").includes('VERSION = "0.2.350"') && read("dm/assets/js/dmcc.js").includes("dmcc-playtest-v02350"));
 const rulesDiff = execSync("git diff --name-only -- assets/data/rules.js", { cwd: root }).toString().trim();
 check("rules.untouched", rulesDiff === "", rulesDiff);
 
 const html = read("index.html");
 const dm = read("dm/index.html");
-check("html.sheet", html.includes("map/ssdns-map.js?v=0.3.336-playfix") && html.includes("assets/js/app.js?v=0.3.336-playfix") && html.includes("map/ssdns-map-fx.js?v=0.3.336-p1c"));
-check("html.dm", dm.includes("../map/ssdns-map.js?v=0.2.349-playfix") && dm.includes("assets/js/dmcc.js?v=0.2.349-playfix") && dm.includes("assets/js/v2.js?v=0.2.349-playfix"));
-check("html.demo", read("map/demo.html").includes("ssdns-map.js?v=0.3.336-playfix"));
+check("html.sheet", html.includes("map/ssdns-map.js?v=0.3.337-playfix") && html.includes("assets/js/app.js?v=0.3.337-playfix") && html.includes("map/ssdns-map-fx.js?v=0.3.337-p1c"));
+check("html.dm", dm.includes("../map/ssdns-map.js?v=0.2.350-playfix") && dm.includes("assets/js/dmcc.js?v=0.2.350-playfix") && dm.includes("assets/js/v2.js?v=0.2.350-playfix"));
+check("html.demo", read("map/demo.html").includes("ssdns-map.js?v=0.3.337-playfix"));
 
 const map = read("map/ssdns-map.js");
 const call = map.slice(map.indexOf("const barHp = underTokenHp"), map.indexOf("Guardian budget is a number"));

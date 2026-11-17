@@ -1,5 +1,5 @@
 /**
- * Hunger of Hadar stays on the player map (sheet 0.3.336 / DMCC 0.2.349).
+ * Hunger of Hadar stays on the player map (sheet 0.3.337 / DMCC 0.2.350).
  * The cast FX fades. The lasting sphere has to be the same zone the DM saved,
  * still there after the player map is opened again, and painted as ink on top
  * of the player's fog (the same disc Darkness uses).
@@ -21,8 +21,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.336" && version.sheetBuild === "sheet-playtest-v03336");
-check("ver.dmcc", version.dmcc === "0.2.349" && version.dmccBuild === "dmcc-playtest-v02349");
+check("ver.sheet", version.sheet === "0.3.337" && version.sheetBuild === "sheet-playtest-v03337");
+check("ver.dmcc", version.dmcc === "0.2.350" && version.dmccBuild === "dmcc-playtest-v02350");
 
 function makeWindow(fills) {
   const dom = new JSDOM("<!doctype html><html><body></body></html>", {

@@ -1,6 +1,6 @@
 /**
  * Two characters with the same name stay distinct.
- * Sheet 0.3.336 / DMCC 0.2.349.
+ * Sheet 0.3.337 / DMCC 0.2.350.
  *   node tools/test-same-name-03331.mjs
  */
 import fs from "node:fs";
@@ -17,8 +17,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.336" && version.sheetBuild === "sheet-playtest-v03336");
-check("ver.dmcc", version.dmcc === "0.2.349" && version.dmccBuild === "dmcc-playtest-v02349");
+check("ver.sheet", version.sheet === "0.3.337" && version.sheetBuild === "sheet-playtest-v03337");
+check("ver.dmcc", version.dmcc === "0.2.350" && version.dmccBuild === "dmcc-playtest-v02350");
 const dmcc = read("dm/assets/js/dmcc.js");
 const v2 = read("dm/assets/js/v2.js");
 const map = read("map/ssdns-map.js");
@@ -60,4 +60,4 @@ if (failures.length) {
   console.error("\n" + failures.length + " failed");
   process.exit(1);
 }
-console.log("\nsame name 0.3.336 ok");
+console.log("\nsame name 0.3.337 ok");

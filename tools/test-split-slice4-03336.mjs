@@ -1,6 +1,6 @@
 /**
  * Slice 4: the later disconnect choice wins, and a removed token stays gone.
- * Sheet 0.3.336 / DMCC 0.2.349.
+ * Sheet 0.3.337 / DMCC 0.2.350.
  *   node tools/test-split-slice4-03336.mjs
  */
 import fs from "node:fs";
@@ -16,7 +16,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.336" && ver.dmcc === "0.2.349");
+check("ver", ver.sheet === "0.3.337" && ver.dmcc === "0.2.350");
 check("rules.clean", !read("assets/data/rules.js").includes("removeToken") && !read("database.rules.json").includes("setPresence"));
 const dmcc = read("dm/assets/js/dmcc.js");
 const v2 = read("dm/assets/js/v2.js");
@@ -49,4 +49,4 @@ if (failures.length) {
   failures.forEach((line) => console.error(" - " + line));
   process.exit(1);
 }
-console.log("split slice 4 0.3.336 ok");
+console.log("split slice 4 0.3.337 ok");
