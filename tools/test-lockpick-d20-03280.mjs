@@ -1,6 +1,6 @@
 /**
  * Pick lock throws the Challenge d20 and plays the lockpick sound once.
- * Sheet 0.3.333 / DMCC 0.2.346.
+ * Sheet 0.3.334 / DMCC 0.2.347.
  *   node tools/test-lockpick-d20-03280.mjs
  */
 import fs from "node:fs";
@@ -30,8 +30,8 @@ check("die.mapPath", dieImg && dieImg.getAttribute("src") === "../assets/img/dic
 played.then(() => {}).catch(() => {});
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.333" && ver.dmcc === "0.2.346" && ver.sheetBuild === "sheet-playtest-v03333" && ver.dmccBuild === "dmcc-playtest-v02346");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.333") && !read("database.rules.json").includes("0.3.333"));
+check("ver", ver.sheet === "0.3.334" && ver.dmcc === "0.2.347" && ver.sheetBuild === "sheet-playtest-v03334" && ver.dmccBuild === "dmcc-playtest-v02347");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.334") && !read("database.rules.json").includes("0.3.334"));
 check("sound.file", fs.existsSync(path.join(root, "assets/sfx/lockpick-attempt.mp3")));
 const sfxMap = JSON.parse(read("assets/sfx/sfx.json"));
 check("sound.mapped", sfxMap.events["lockpick-attempt"] === "lockpick-attempt.mp3");

@@ -1,5 +1,5 @@
 /**
- * Give tab search, portraits, and quantity stepper (sheet 0.3.333 / DMCC 0.2.346).
+ * Give tab search, portraits, and quantity stepper (sheet 0.3.334 / DMCC 0.2.347).
  * Same doPushReward command types. Loot still refuses.
  *   node tools/test-give-search-03288.mjs
  */
@@ -17,7 +17,7 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.333" && ver.dmcc === "0.2.346" && ver.sheetBuild === "sheet-playtest-v03333" && ver.dmccBuild === "dmcc-playtest-v02346");
+check("ver", ver.sheet === "0.3.334" && ver.dmcc === "0.2.347" && ver.sheetBuild === "sheet-playtest-v03334" && ver.dmccBuild === "dmcc-playtest-v02347");
 check("rules.clean", !read("assets/data/rules.js").includes("giveCatalogSearch") && !read("database.rules.json").includes("giveCatalogSearch"));
 
 const send = read("dm/assets/js/dmcc.js");
