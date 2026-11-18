@@ -2849,6 +2849,19 @@ label.ssm-act.n62-aim select {
   font-weight: 600;
 }
 .n62-guncard .n62-roll { width: 100%; margin-top: 2px; min-height: 26px; padding: 3px 8px; }
+.n62-wname { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.n62-help {
+  width: 22px; min-width: 22px; height: 22px; min-height: 22px; flex: 0 0 22px;
+  border-radius: 50%; padding: 0; font-weight: 800; line-height: 20px;
+}
+.n62-hexrow, .n62-hexrow .ssm-hex { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; width: 100%; }
+.ssdns-playercard .n62-hexrow select,
+.ssdns-playercard .n62-hexrow button,
+.ssm-drawer .n62-hexrow select,
+.ssm-drawer .n62-hexrow button { width: auto; flex: 1 1 7rem; min-width: 0; min-height: 28px; }
+.n62-hexcard .n61-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.ssdns-playercard .n62-hexcard .n61-chip,
+.ssm-drawer .n62-hexcard .n61-chip { width: auto; }
 .n62-pair { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .ssdns-playercard .n62-pair > button,
 .ssm-drawer .n62-pair > button { flex: 1 1 30%; width: auto; min-height: 24px; padding: 3px 6px; }
@@ -3468,5 +3481,17 @@ body.map-phone #mapMount.ssdns-map {
   .ssm-drawer .n62-guncard .chamber-dots .chamber-dot.hammer {
     box-shadow: 0 0 0 2px #c81e1e, 0 0 0 4px rgba(200, 30, 30, 0.45);
     z-index: 2;
+  }
+  .ssdns-playercard .n62-guncard .chamber-dots .chamber-dot.full.hex,
+  .ssm-drawer .n62-guncard .chamber-dots .chamber-dot.full.hex {
+    border-color: #7fe0d2;
+    background:
+      radial-gradient(circle at 16% 50%, #a86b3c 0 1.1px, #f4f0e8 1.3px 2.1px, transparent 2.3px),
+      linear-gradient(90deg, #f3e0a0 0 12%, #e0b44a 12% 48%, #7fe0d2 48% 100%);
+    box-shadow: 0 0 0 1px #0e3f36, 0 0 8px 2px #3fb8a8;
+  }
+  .ssdns-playercard .n62-guncard .chamber-dots .chamber-dot.hammer.hex,
+  .ssm-drawer .n62-guncard .chamber-dots .chamber-dot.hammer.hex {
+    box-shadow: 0 0 0 2px #c81e1e, 0 0 8px #3fb8a8;
   }
 }

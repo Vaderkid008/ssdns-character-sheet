@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>SSDNS Map — M2 v4 demo</title>
-<link rel="stylesheet" href="ssdns-map.css?v=0.3.337-dice">
+<link rel="stylesheet" href="ssdns-map.css?v=0.3.338-dice">
 <link rel="stylesheet" href="../assets/css/dice.css?v=0.3.168-dice">
 <link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.3.200-digit">
 <style>
@@ -32,26 +32,26 @@
 <div id="mount" class="ssdns-map hidden"></div>
 <script src="../assets/js/range-rings.js?v=0.3.168-adv"></script>
 <script src="../assets/js/ammo-display.js?v=0.3.201-encounter"></script>
-<script src="../assets/js/weapon-art.js?v=0.3.337-drawer"></script>
+<script src="../assets/js/weapon-art.js?v=0.3.338-drawer"></script>
 <script src="ssdns-map-chat.js?v=0.3.31-float"></script>
 <script src="token-size.js?v=0.3.168-size"></script>
-<script src="ssdns-map-fx.js?v=0.3.337-p1c"></script>
-<script src="../assets/js/challenge-sfx.js?v=0.3.337-challsfx"></script>
-<script src="../assets/js/dice-art.js?v=0.3.337-lockdie"></script>
-<script src="../assets/js/d20-plain.js?v=0.3.337-lockdie"></script>
-<script src="../assets/js/d20-zoom.js?v=0.3.337-lockdie"></script>
+<script src="ssdns-map-fx.js?v=0.3.338-p1c"></script>
+<script src="../assets/js/challenge-sfx.js?v=0.3.338-challsfx"></script>
+<script src="../assets/js/dice-art.js?v=0.3.338-lockdie"></script>
+<script src="../assets/js/d20-plain.js?v=0.3.338-lockdie"></script>
+<script src="../assets/js/d20-zoom.js?v=0.3.338-lockdie"></script>
 <script src="../assets/js/turn-rules.js?v=0.3.168-turn2"></script>
 <script src="ssdns-map-move.js?v=0.3.168-move"></script>
 <script src="../assets/js/conditions.js?v=0.3.210-pills"></script>
-<script src="zone-art.js?v=0.3.337-zones"></script>
-<script src="../assets/js/spell-zones.js?v=0.3.337-timers"></script>
-<script src="map-packs.js?v=0.3.337-between"></script>
-<script src="map-library.js?v=0.3.337-between"></script>
-<script src="../assets/js/loot.js?v=0.3.337-claim"></script>
-<script src="places.js?v=0.3.337-places"></script>
-<script src="scene-builder.js?v=0.3.337-scenes"></script>
-<script src="../assets/js/game-actions.js?v=0.3.337-actions"></script>
-<script src="ssdns-map.js?v=0.3.337-force"></script>
+<script src="zone-art.js?v=0.3.338-zones"></script>
+<script src="../assets/js/spell-zones.js?v=0.3.338-timers"></script>
+<script src="map-packs.js?v=0.3.338-between"></script>
+<script src="map-library.js?v=0.3.338-between"></script>
+<script src="../assets/js/loot.js?v=0.3.338-claim"></script>
+<script src="places.js?v=0.3.338-places"></script>
+<script src="scene-builder.js?v=0.3.338-scenes"></script>
+<script src="../assets/js/game-actions.js?v=0.3.338-actions"></script>
+<script src="ssdns-map.js?v=0.3.338-force"></script>
 <script>
 // demo.html is the only file allowed to read the URL, localStorage, and BroadcastChannel.
 const params = new URLSearchParams(location.search);
@@ -173,6 +173,30 @@ const host = {
   },
   ownCard() {
     if (role !== 'player') return null;
+    if (params.get('hex') === '1') {
+      return {
+        name: 'TEST All-Spells (catalog 85)',
+        calling: 'hexslinger',
+        ac: 14,
+        hp: { cur: 22, max: 22 },
+        speed: 30,
+        init: 3,
+        attacks: [
+          { id: 'gunroll:0', name: 'Blacksnake', toHit: 6, damage: '1d8', action: 'Caster cylinder', weapon: 'blacksnake', ammoName: 'cartridge', calling: 'hexslinger', caster: true, spare: 8, tr: true, trId: 'tr:0', reloadId: 'reload:0',
+            ammo: { loaded: 3, cap: 6, chambers: ['k:hex:1::::Fire%20Bolt', 1, 1, 0, 0, 0], spare: 8 },
+            pools: [{ idx: '0', label: '.357' }],
+            castSpells: [
+              { value: '0:Fire Bolt', label: 'Fire Bolt', slots: [] },
+              { value: '1:Hex', label: 'Hex', slots: [{ value: '1', label: '1st' }] }
+            ] }
+        ],
+        spells: [
+          { id: 'spell:0:Eldritch Blast', name: 'Eldritch Blast', level: 0, kind: 'attack' },
+          { id: 'spell:0:Fire Bolt', name: 'Fire Bolt', level: 0, kind: 'attack' },
+          { id: 'spell:1:Hex', name: 'Hex', level: 1, kind: 'none' }
+        ]
+      };
+    }
     return {
       name: 'Jolene "Dusty" Pike',
       calling: 'gunslinger',
