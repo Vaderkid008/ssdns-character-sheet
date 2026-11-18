@@ -96,14 +96,14 @@
           return '<button type="button" class="' + cls + '"' + attr + ">" + esc(q.name) + "</button>";
         }).join("") + "</div>";
       }
-      body = '<div class="n61-focus"><div>' + esc(skin.focus) + "<small>focus</small></div>" +
+      body = '<div class="n61-focus"><div>' + esc(skin.focus) + "</div>" +
         (cantrips ? '<div class="n61-chips">' + cantrips + "</div>" : '<span class="n61-chip dry">Cantrip <i>always ready</i></span>') +
         "</div>" + (rails ? '<div class="n61-slots">' + rails + "</div>" : "") + quick;
     }
-    return '<section class="n61-card ' + skin.bg + (skin.gun ? " gun" : "") + '" data-calling="' + esc(model.calling) + '">' +
-      '<div class="n61-tag">' + esc(model.calling) + "</div><h2>" + esc(skin.title) + "</h2>" +
-      '<p class="n61-who">' + esc(skin.who) + "</p>" + body +
-      '<p class="n61-cap">Tap a charged token, pick the spell, cast. Cantrips spend no token.</p></section>';
+    return '<section class="n61-card n62-tight ' + skin.bg + (skin.gun ? " gun" : "") + '" data-calling="' + esc(model.calling) + '">' +
+      '<div class="n62-wname"><span>' + esc(skin.title) + '</span>' +
+      '<button type="button" class="n62-help" title="' + esc(skin.who) + '" aria-label="Card help">?</button></div>' +
+      body + "</section>";
   }
 
   function enemyHtml(model) {
@@ -228,9 +228,10 @@
     }).join("");
     var focusName = model.focus || skin.focus;
     var focus = '<div class="' + (skin.id === "pact" ? "n62-iron" : "n61-focus") + '"><div>' + esc(focusName) +
-      "<small>focus art</small></div>" +
+      "</div>" +
       (chips ? '<div class="n61-chips">' + chips + "</div>" : '<span class="n61-chip dry">Cantrip <i>always ready</i></span>') +
       "</div>";
+    /* focus name once; the slot row below is the graphic */
     function pop(level, spells) {
       if (openLevel !== String(level)) return "";
       var list = spells || [];
@@ -310,11 +311,10 @@
         ? "Tap a shining badge → pick → <em>Cast ▸</em>. Badge dulls when spent."
         : "Tap a charged token → pick → <em>Cast ▸</em>. Cantrips spend no token.";
     }
-    var tag = prettyCalling(model.calling) + " · cast";
-    return '<section class="n61-card ' + skin.bg + '" data-calling="' + esc(model.calling) + '" data-n62-card="1">' +
-      '<div class="n61-tag">' + esc(tag) + "</div><h2>" + esc(skin.title) + "</h2>" +
-      '<p class="n61-who">' + esc(skin.who) + "</p>" + body +
-      '<p class="n61-cap">' + cap + "</p></section>";
+    return '<section class="n61-card n62-tight ' + skin.bg + '" data-calling="' + esc(model.calling) + '" data-n62-card="1">' +
+      '<div class="n62-wname"><span>' + esc(skin.title) + '</span>' +
+      '<button type="button" class="n62-help" title="' + esc(skin.who + " " + cap) + '" aria-label="Card help">?</button></div>' +
+      body + "</section>";
   }
   function paintSheet() {
     var host = root.document && root.document.getElementById("castSkin");

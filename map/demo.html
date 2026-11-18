@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="ssdns-map.css?v=0.3.338-dice">
 <link rel="stylesheet" href="../assets/css/dice.css?v=0.3.168-dice">
 <link rel="stylesheet" href="../assets/css/ammo-display.css?v=0.3.200-digit">
+<link rel="stylesheet" href="../assets/css/cast-skins.css?v=0.3.338-cast">
 <style>
   html, body { margin: 0; height: 100%; background: #1a1612; color: #e8dcc8; font-family: system-ui, sans-serif; }
   .ssdns-map { position: relative; width: 100vw; height: 100vh; overflow: hidden; touch-action: none; background: #1a1612; }
@@ -33,6 +34,7 @@
 <script src="../assets/js/range-rings.js?v=0.3.168-adv"></script>
 <script src="../assets/js/ammo-display.js?v=0.3.201-encounter"></script>
 <script src="../assets/js/weapon-art.js?v=0.3.338-drawer"></script>
+<script src="../assets/js/cast-skins.js?v=0.3.338-cast"></script>
 <script src="ssdns-map-chat.js?v=0.3.31-float"></script>
 <script src="token-size.js?v=0.3.168-size"></script>
 <script src="ssdns-map-fx.js?v=0.3.338-p1c"></script>
@@ -173,6 +175,23 @@ const host = {
   },
   ownCard() {
     if (role !== 'player') return null;
+    const call = params.get('calling') || '';
+    if (call === 'lawman' || call === 'scholar' || call === 'pact-seeker' || call === 'melee') {
+      const spells = call === 'melee' ? [] : [
+        { id: 'spell:0:Guidance', name: 'Guidance', level: 0, kind: 'none' },
+        { id: 'spell:1:Cure Wounds', name: 'Cure Wounds', level: 1, kind: 'heal' }
+      ];
+      return {
+        name: call === 'melee' ? 'Mara Voss' : (call === 'lawman' ? 'Marshal Quinn' : (call === 'scholar' ? 'Dr. Inez Calder' : 'Ash Vow')),
+        calling: call === 'melee' ? '' : call,
+        ac: 15,
+        hp: { cur: 18, max: 18 },
+        speed: 30,
+        slots: call === 'melee' ? {} : { 1: { total: 2, spent: 0 } },
+        attacks: call === 'melee' ? [{ id: 'melee:0', name: 'Bowie (shortsword)', toHit: 5, damage: '1d6' }] : [],
+        spells: spells
+      };
+    }
     if (params.get('hex') === '1') {
       return {
         name: 'TEST All-Spells (catalog 85)',

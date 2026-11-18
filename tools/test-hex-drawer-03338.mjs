@@ -31,7 +31,7 @@ check("hex.paint", map.includes("n62PaintWarts(slot)") && map.includes("mode ===
 check("phone.hex", css.includes(".chamber-dot.full.hex") && css.includes("#7fe0d2") && css.includes("max-width: 719px"));
 check("dots.hex", map.includes("function chamberIsHex") && map.includes("typeof raw !== 'string'") && map.includes("' hex'"));
 check("others.notarget", !skins.includes("cylTarget") && skins.includes("Hexslinger is not drawn here"));
-check("dm.strip", map.includes("function n62StripRowChrome") && map.includes("mode === 'weapon' ? n62StripRowChrome"));
+check("dm.tight", map.includes("function n62TightGuns") && map.includes("n62TightGuns(card, 'dm', true)") && map.includes("n62TightGuns(card, dm ? 'dm' : 'player'"));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");
