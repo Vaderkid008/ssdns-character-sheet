@@ -1,6 +1,6 @@
 /**
  * A disconnect keeps the token, dims it, and holds the turn.
- * Sheet 0.3.337 / DMCC 0.2.350.
+ * Sheet 0.3.338 / DMCC 0.2.351.
  *   node tools/test-disconnect-03332.mjs
  */
 import fs from "node:fs";
@@ -18,8 +18,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 const version = JSON.parse(read("version.json"));
-check("ver.sheet", version.sheet === "0.3.337" && version.sheetBuild === "sheet-playtest-v03337");
-check("ver.dmcc", version.dmcc === "0.2.350" && version.dmccBuild === "dmcc-playtest-v02350");
+check("ver.sheet", version.sheet === "0.3.338" && version.sheetBuild === "sheet-playtest-v03338");
+check("ver.dmcc", version.dmcc === "0.2.351" && version.dmccBuild === "dmcc-playtest-v02351");
 const v2 = read("dm/assets/js/v2.js");
 const dmcc = read("dm/assets/js/dmcc.js");
 const note = v2.slice(v2.indexOf("function notePresence"), v2.indexOf("function clearFight"));
@@ -88,4 +88,4 @@ if (failures.length) {
   console.error("\n" + failures.length + " failed");
   process.exit(1);
 }
-console.log("\ndisconnect 0.3.337 ok");
+console.log("\ndisconnect 0.3.338 ok");

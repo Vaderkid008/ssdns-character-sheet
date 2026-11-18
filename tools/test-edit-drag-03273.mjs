@@ -208,8 +208,8 @@ const walked = box(player, "tok_jolene");
 check("player.ownDrag", walked && walked.x !== armed.x, JSON.stringify(walked && { x: walked.x, y: walked.y, from: armed.x }));
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.337" && ver.dmcc === "0.2.350");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.337") && !read("database.rules.json").includes("0.3.337"));
+check("ver", ver.sheet === "0.3.338" && ver.dmcc === "0.2.351");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.338") && !read("database.rules.json").includes("0.3.338"));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");

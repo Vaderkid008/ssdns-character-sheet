@@ -19768,7 +19768,7 @@ function syncCombatants(initiative) {
       '<button type="button" data-act="' + prefix + 'Cast" data-gun="' + esc(gi) + '" data-wid="' + esc(a.id || '') + '">Cast through gun</button>' +
       '</span>';
   }
-  function gunExtras(a, side) {
+  function gunExtras(a, side, opts) {
     const gi = gunIndexOf(a);
     const unload = side === 'player' && ((a && a.reloadId) || (a && a.ammo && a.ammo.cap))
       ? '<button type="button" data-act="playerUnload" data-id="unload:' + esc(gi) + '">Unload</button>'
@@ -19787,7 +19787,7 @@ function syncCombatants(initiative) {
       : '';
     const pools = poolSelect(a, side === 'player' ? 'playerPool' : 'rowPool');
     const modes = modeChecks(a, side === 'player' ? 'playerAdv' : 'rowAdv', side === 'player' ? 'playerDis' : 'rowDis');
-    const hex = hexCastControl(a, side === 'player' ? 'player' : 'row');
+    const hex = (opts && opts.skipHex) ? '' : hexCastControl(a, side === 'player' ? 'player' : 'row');
     return unload + tr + pools + modes + hex;
   }
   function playerGunTube(a) {
@@ -19795,7 +19795,13 @@ function syncCombatants(initiative) {
       action: a.action || '', name: a.name || '', weapon: a.weapon || '', group: a.group || '', ammo: a.ammoName || '', ammoDisplay: a.ammoDisplay || ''
     }) === 'tube';
   }
-  function playerAmmoPicture(a) {
+  function chamberIsHex(raw) {
+    /* A numeric 1 is a plain loaded flag. Only a hex token string is a shell. */
+    if (typeof raw !== 'string') return false;
+    if (raw.indexOf('k:hex:') === 0) return true;
+    return /^(?:10|[1-9])$/.test(raw);
+  }
+  function playerAmmoPicture(a, act) {
     const cap = a.ammo ? (Number(a.ammo.cap) || 0) : 0;
     if (!(cap && window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.enabled())) return '';
     const flags = a.ammo && Array.isArray(a.ammo.chambers) ? a.ammo.chambers : null;
@@ -19814,11 +19820,11 @@ function syncCombatants(initiative) {
       jammed: !!a.jammed,
       locked: lockList(a),
       size: 'drawer',
-      attr: 'data-act="playerChamber" data-wid="' + esc(a.id) + '"',
+      attr: 'data-act="' + (act || 'playerChamber') + '" data-wid="' + esc(a.id) + '"',
       attrs: function (k) { return { 'data-k': String(k) }; }
     });
   }
-  function playerAmmoDots(a) {
+  function playerAmmoDots(a, fireAct, spinAct) {
     const cap = a.ammo ? (Number(a.ammo.cap) || 0) : 0;
     if (!cap) return '';
     const loaded = a.ammo ? (Number(a.ammo.loaded) || 0) : 0;
@@ -19827,24 +19833,28 @@ function syncCombatants(initiative) {
     const spinKind = window.SSDNSAmmoDisplay && window.SSDNSAmmoDisplay.spins && window.SSDNSAmmoDisplay.spins({
       action: a.action || '', name: a.name || '', weapon: a.weapon || '', group: a.group || '', ammo: a.ammoName || ''
     });
+    const fire = fireAct || 'playerChamber';
+    const spin = spinAct || 'playerSpin';
     let dots = '';
     for (let k = 0; k < cap; k++) {
       const locked = locks.some(n => Number(n) === k);
-      const full = !locked && (flags ? !!flags[k] : k < loaded);
-      const act = spinKind && k > 0 ? 'playerSpin' : 'playerChamber';
+      const raw = flags ? flags[k] : '';
+      const full = !locked && (flags ? !!raw : k < loaded);
+      const hex = chamberIsHex(raw) ? ' hex' : '';
+      const act = spinKind && k > 0 ? spin : fire;
       const label = spinKind && k > 0 ? ('Spin chamber ' + (k + 1) + ' under the hammer') : ((locked ? 'Locked chamber ' : 'Chamber ') + (k + 1) + (spinKind && k === 0 ? ', under the hammer' : ''));
-      dots += '<button type="button" class="chamber-dot' + (locked ? ' locked' : (full ? ' full' : '')) + (spinKind && k === 0 ? ' hammer' : '') + '" data-act="' + act + '" data-wid="' + esc(a.id) + '" data-k="' + k + '" aria-label="' + label + '">' + (locked ? 'X' : '') + '</button>';
+      dots += '<button type="button" class="chamber-dot' + (locked ? ' locked' : (full ? ' full' : '')) + hex + (spinKind && k === 0 ? ' hammer' : '') + '" data-act="' + act + '" data-wid="' + esc(a.id) + '" data-k="' + k + '" aria-label="' + label + '">' + (locked ? 'X' : '') + '</button>';
     }
     return '<span class="chamber-dots">' + dots + '</span>';
   }
-  function playerGunButtons(a) {
+  function playerGunButtons(a, opts) {
     const spareN = a.spare != null && a.spare !== '' ? a.spare : (a.ammo && a.ammo.spare != null ? a.ammo.spare : null);
     const reloadLabel = 'Reload' + (spareN != null && spareN !== '' ? ' · ' + spareN : '');
     const reload = a.reloadId ? '<button type="button" data-act="playerReload" data-id="' + esc(a.reloadId) + '">' + esc(reloadLabel) + '</button>' : '';
     const tr = a.trId ? '<button type="button" data-act="playerTr" data-id="' + esc(a.trId) + '">TR</button>' : '';
     const cycle = playerGunTube(a) ? '<button type="button" data-act="playerCycle" data-gun="' + esc(gunIndexOf(a)) + '" title="Cycle (free): eject the chambered round onto the ground and chamber the next. Not back into the belt.">Cycle</button>' : '';
     const lockup = lockList(a).length ? lockupMark(a) : '';
-    return reload + tr + cycle + lockup + cleanControl(a, 'playerClean') + unjamControl(a, 'playerUnjam') + reopenControl(a, 'playerReopen') + gunExtras(a, 'player');
+    return reload + tr + cycle + lockup + cleanControl(a, 'playerClean') + unjamControl(a, 'playerUnjam') + reopenControl(a, 'playerReopen') + gunExtras(a, 'player', opts);
   }
   function playerCylinderRow(a, targetHtml) {
     const cap = a.ammo ? (Number(a.ammo.cap) || 0) : 0;
@@ -20045,7 +20055,7 @@ function syncCombatants(initiative) {
       '</section>';
   }
   function n62IsGunCard(a) {
-    return !!(a && !a.arm && !a.fan && !a.offhand && a.ammo && Number(a.ammo.cap) > 0 && String(a.id).indexOf('gunroll:') === 0);
+    return !!(a && !a.arm && !a.fan && !a.offhand && a.ammo && Number(a.ammo.cap) > 0);
   }
   function n62GunMeta(a) {
     const hit = hitText(a && a.toHit);
@@ -20063,54 +20073,105 @@ function syncCombatants(initiative) {
     const cls = 'ssm-atk' + (className ? ' ' + className : '') + (a.fan ? ' ssm-fan' : '');
     return '<button type="button" class="' + cls + '" data-act="playerAttack" data-id="' + esc(a.id) + '"' + off + ' title="' + esc(tip) + '">' + esc(text) + disMark(verdict) + '</button>';
   }
-  function n62GunCard(a, shooterId, activeId) {
+  function n62GunCard(a, shooterId, activeId, side, acting) {
+    const dm = side === 'dm';
     const cap = a.ammo ? (Number(a.ammo.cap) || 0) : 0;
     const loaded = a.ammo ? (Number(a.ammo.loaded) || 0) : 0;
     const meta = n62GunMeta(a);
     const sig = String(a.id) === String(activeId) ? 'Signature' : '';
     const metaLine = [sig, meta].filter(Boolean).join(' · ');
+    const roll = dm
+      ? '<button type="button" class="ssm-atk n62-roll" data-wid="' + esc(a.id) + '">Roll attack</button>'
+      : n62AttackButton(a, shooterId, 'n62-roll', 'Roll attack');
+    const pair = dm ? n62DmGunButtons(a, { dmActsAs: acting !== false }) : playerGunButtons(a);
     return '<section class="n62-wcard n62-guncard' + crossClass(a) + '" data-n62-card="1" data-gun-wid="' + esc(a.id) + '">' +
       n62WartHtml(a) +
       '<div class="n62-wname">' + esc(a.name || 'Weapon') + '</div>' +
       (metaLine ? '<p class="n62-wmeta">' + esc(metaLine) + '</p>' : '') +
-      '<div class="n62-ammo-line">' + playerAmmoPicture(a) + playerAmmoDots(a) +
+      '<div class="n62-ammo-line">' + playerAmmoPicture(a, dm ? 'chamber' : 'playerChamber') + playerAmmoDots(a, dm ? 'chamber' : 'playerChamber', dm ? 'spin' : 'playerSpin') +
       (cap ? '<b class="n62-count">' + loaded + '/' + cap + '</b>' : '') + '</div>' +
-      n62AttackButton(a, shooterId, 'n62-roll', 'Roll attack') +
-      '<div class="n62-pair">' + playerGunButtons(a) + '</div></section>';
+      roll +
+      '<div class="n62-pair">' + pair + '</div></section>';
   }
-  function n62PlayerWeaponHtml(card, targetHtml, shoveHtml) {
+  function n62TightGuns(card, side, acting) {
     const shooter = actingToken();
     const shooterId = (shooter && shooter.id) || uid;
     const active = n62ActiveAttack(card);
     const activeId = active ? active.id : '';
     const list = ((card && card.attacks) || []).slice();
     list.sort((x, y) => (String(y.id) === String(activeId) ? 1 : 0) - (String(x.id) === String(activeId) ? 1 : 0));
-    const guns = list.filter(n62IsGunCard).map(a => n62GunCard(a, shooterId, activeId)).join('');
-    const lines = list.filter(a => a && !a.arm && !n62IsGunCard(a)).map(a => n62AttackButton(a, shooterId, 'n62-li')).join('');
+    const guns = list.filter(n62IsGunCard).map(a => n62GunCard(a, shooterId, activeId, side, acting)).join('');
+    const lines = list.filter(a => a && !a.arm && !n62IsGunCard(a)).map(a => {
+      if (side === 'dm') return '<button type="button" class="ssm-atk n62-li" data-wid="' + esc(a.id) + '">' + esc(a.name || a.id) + '</button>';
+      return n62AttackButton(a, shooterId, 'n62-li');
+    }).join('');
+    return guns + lines;
+  }
+  function n62PlayerWeaponHtml(card, targetHtml, shoveHtml) {
     const aim = '<label class="ssm-act n62-aim"><span class="n62-target-label">Target</span><select data-act="n62Target" aria-label="Target">' + (targetHtml || '') + '</select></label>';
-    return aim + (guns || '<span class="n62-none">No gun on this card.</span>') + lines + (shoveHtml || '');
+    const body = n62TightGuns(card, 'player', true);
+    return aim + (body || '<span class="n62-none">No weapon on this card.</span>') + (shoveHtml || '');
+  }
+  function n62StripRowChrome(html) {
+    return String(html || '')
+      .replace(/<select data-act="cylTarget"[\s\S]*?<\/select>/g, '')
+      .replace(/<span class="cyl-name">[\s\S]*?<\/span>/g, '');
+  }
+  function n62CasterGun(card) {
+    const list = (card && card.attacks) || [];
+    return list.find(a => a && a.caster && a.ammo && Number(a.ammo.cap) > 0)
+      || list.find(a => a && a.ammo && Number(a.ammo.cap) > 0)
+      || null;
+  }
+  function n62DmGunButtons(a, card) {
+    const spareN = a.spare != null && a.spare !== '' ? a.spare : (a.ammo && a.ammo.spare != null ? a.ammo.spare : '');
+    const reload = '<button type="button" data-act="rowReload" data-wid="' + esc(a.id) + '">Reload' + (spareN !== '' ? ' · ' + esc(spareN) : '') + '</button>';
+    const cycle = playerGunTube(a) ? '<button type="button" data-act="rowCycle" data-wid="' + esc(a.id) + '">Cycle</button>' : '';
+    const acting = !!(card && card.dmActsAs);
+    const extras = acting ? gunExtras(a, 'row', { skipHex: true }) : '';
+    return reload + cycle + extras;
   }
   function n62HexCard(card, hitHtml, cylinders, bars, dm) {
-    const gun = ((card && card.attacks) || []).find(a => a && (a.caster || (a.ammo && a.ammo.cap))) || null;
-    const capN = gun && gun.ammo ? (Number(gun.ammo.cap) || 0) : 0;
-    const loaded = gun && gun.ammo ? (Number(gun.ammo.loaded) || 0) : 0;
-    const hexN = gun ? loadedHexNames(gun).length : 0;
-    const line = gun ? attackLine(gun) : 'Caster Gun';
+    const gun = n62CasterGun(card);
     const chips = ((card && card.spells) || []).filter(s => s && !(Number(s.level) > 0) && s.id !== 'pact').slice(0, 3).map(s => {
       return '<button type="button" class="n61-chip' + (dm ? ' ssm-atk' : '') + '" ' + n62CastAttr(s, dm) + '>✧ ' + esc(s.name) + '<i>dry fire</i></button>';
     }).join('');
-    return '<section class="n61-card bg-hex gun" data-calling="hexslinger" data-n62-card="1">' +
-      '<div class="n61-tag">Hexslinger · signature card</div>' +
-      '<div class="n62-sigrow"><h2>Caster Gun</h2><span><b>' + loaded + '/' + (capN || 6) + '</b> · ' + hexN + ' hex lead</span></div>' +
-      '<div class="n62-sigrow"><span>' + esc(line) + '</span>' + (chips ? '<span class="n61-chips">' + chips + '</span>' : '') + '</div>' +
-      (bars || '') +
-      '<div class="n62-cylhost">' + (cylinders || '') + '</div>' +
-      '<div class="n62-legend"><span><i class="n62-dot" style="background:#e8bf62;box-shadow:0 0 6px #3fb8a8"></i>hex lead = slot</span>' +
-      '<span><i class="n62-dot" style="background:#c99434"></i>plain round</span>' +
-      '<span><i class="n62-dot" style="background:#050506;border:1px solid #555"></i>empty</span></div>' +
-      '<p class="n61-gunnote"><b>Cylinder stays on the gun.</b> Hex lead chambers are the slots. This card does not add a second token wall. Load a hex lead, then cast. Cantrips dry-fire.</p>' +
-      (hitHtml ? '<div class="n62-attacks">' + hitHtml + '</div>' : '') +
-      '<p class="n61-cap">Tap a hex chamber to cast the loaded lead. Tap a plain round to fire. <em>The only gun in the system.</em></p></section>';
+    if (!gun) {
+      return '<section class="n62-wcard n62-hexcard" data-calling="hexslinger" data-n62-card="1">' +
+        '<div class="n62-wname">Caster Gun</div>' +
+        (chips ? '<div class="n61-chips">' + chips + '</div>' : '') +
+        '</section>';
+    }
+    const capN = gun.ammo ? (Number(gun.ammo.cap) || 0) : 0;
+    const loaded = gun.ammo ? (Number(gun.ammo.loaded) || 0) : 0;
+    const hexN = loadedHexNames(gun).length;
+    const meta = ['Signature', n62GunMeta(gun), hexN ? (hexN + ' hex lead') : ''].filter(Boolean).join(' · ');
+    const help = 'Hex lead chambers are the slots. Load a hex lead, then cast. Tap a hex chamber to cast it. Tap a plain round to fire. Cantrips dry-fire.';
+    const picture = playerAmmoPicture(gun, dm ? 'chamber' : 'playerChamber');
+    const dots = playerAmmoDots(gun, dm ? 'chamber' : 'playerChamber', dm ? 'spin' : 'playerSpin');
+    const shooter = actingToken();
+    const roll = dm
+      ? '<button type="button" class="ssm-atk n62-roll" data-wid="' + esc(gun.id) + '">Roll attack</button>'
+      : n62AttackButton(gun, (shooter && shooter.id) || uid, 'n62-roll', 'Roll attack');
+    const pair = dm ? n62DmGunButtons(gun, card) : playerGunButtons(gun, { skipHex: true });
+    const showHex = !dm || !!(card && card.dmActsAs);
+    const hex = showHex ? hexCastControl(gun, dm ? 'row' : 'player') : '';
+    const lines = ((card && card.attacks) || []).filter(a => a && !a.arm && a !== gun && !n62IsGunCard(a)).map(a => {
+      return dm
+        ? '<button type="button" class="ssm-atk n62-li" data-wid="' + esc(a.id) + '">' + esc(a.name || a.id) + '</button>'
+        : n62AttackButton(a, (shooter && shooter.id) || uid, 'n62-li');
+    }).join('');
+    return '<section class="n62-wcard n62-guncard n62-hexcard" data-calling="hexslinger" data-n62-card="1" data-gun-wid="' + esc(gun.id) + '">' +
+      n62WartHtml(gun) +
+      '<div class="n62-wname"><span>' + esc(gun.name || 'Blacksnake') + '</span>' +
+      '<button type="button" class="n62-help" title="' + esc(help) + '" aria-label="Caster gun help">?</button></div>' +
+      (meta ? '<p class="n62-wmeta">' + esc(meta) + '</p>' : '') +
+      '<div class="n62-ammo-line">' + picture + dots + (capN ? '<b class="n62-count">' + loaded + '/' + capN + '</b>' : '') + '</div>' +
+      roll +
+      '<div class="n62-pair">' + pair + '</div>' +
+      (hex ? '<div class="n62-hexrow">' + hex + '</div>' : '') +
+      (chips ? '<div class="n61-chips">' + chips + '</div>' : '') +
+      '</section>' + lines;
   }
   function n62SwitchHtml(card) {
     if (n62IsHex(card) || !n62HasCast(card)) return '';
@@ -20125,7 +20186,7 @@ function syncCombatants(initiative) {
       const cast = n62CastCard(card, dm);
       if (cast) return cast;
     }
-    return n62WeaponCard(card, parts.hitHtml, parts.cylinders, parts.bars);
+    return n62TightGuns(card, dm ? 'dm' : 'player', !dm || !!(card && card.dmActsAs));
   }
   function n62Identity(card) {
     const hp = (card && card.hp) || {};
@@ -20271,9 +20332,12 @@ function syncCombatants(initiative) {
     const bars = '<label class="ssm-act n62-aim"><span class="n62-target-label">Target</span><select data-act="n62Target" aria-label="Target">' + (parts.targetHtml || '') + '</select></label>';
     const slot = q('actionSlot');
     if (slot) {
+      const aim = '<label class="ssm-act n62-aim"><span class="n62-target-label">Target</span><select data-act="n62Target" aria-label="Target">' + (parts.targetHtml || '') + '</select></label>';
       slot.innerHTML = mode === 'weapon'
         ? n62PlayerWeaponHtml(card, parts.targetHtml, parts.shoveHtml)
-        : n62PrimaryHtml(card, { hitHtml: parts.hitHtml, cylinders: mode === 'cast' ? '' : parts.cylinders, bars: bars }, false);
+        : (mode === 'gun'
+          ? aim + n62HexCard(card, parts.hitHtml, '', '', false) + (parts.shoveHtml || '')
+          : aim + n62PrimaryHtml(card, { hitHtml: parts.hitHtml, cylinders: '', bars: '' }, false) + (parts.shoveHtml || ''));
       n62PaintWarts(slot);
     }
     const extras = q('n62Extras');
@@ -20298,10 +20362,10 @@ function syncCombatants(initiative) {
     n62For(bag.tokenId);
     const mode = n62Mode(card);
     const ui = n62Ensure();
-    const primary = n62PrimaryHtml(card, {
-      hitHtml: bag.attacks,
-      cylinders: mode === 'cast' ? '' : bag.cylinders,
-      bars: bag.bars
+    const primary = (bag.bars || '') + n62PrimaryHtml(card, {
+      hitHtml: '',
+      cylinders: '',
+      bars: ''
     }, true);
     const accOpen = (key) => (ui.acc && ui.acc[key]) ? ' open' : '';
     const names = ((card.conditions) || []).map(condLabel).filter(Boolean);
@@ -20319,7 +20383,7 @@ function syncCombatants(initiative) {
       '<option value="adv"' + (rangeOverrideNow() === 'adv' ? ' selected' : '') + '>Force ADV</option>' +
       '</select></label><select data-act="drawerRangeWeapon" aria-label="Token weapon" hidden></select>';
     const sw = n62SwitchHtml(card);
-    const extras = (mode === 'cast' && bag.cylinders ? bag.cylinders : '<span class="n62-none">Reload and the cylinder live on the primary card.</span>') +
+    const extras = (mode === 'cast' && bag.cylinders ? bag.cylinders : '') +
       (n62FallbackHtml(card, true) ? '<div class="n62-attacks">' + n62FallbackHtml(card, true) + '</div>' : '') +
       (n62LooseHtml(card, true) ? '<div class="n62-attacks">' + n62LooseHtml(card, true) + '</div>' : '') +
       '<div class="ssm-row"><select data-act="weaponPick" aria-label="Weapon">' + bag.weaponOptions + '</select>' +
@@ -20330,16 +20394,16 @@ function syncCombatants(initiative) {
     return drawerHeadHtml(card.name || bag.tokenId, n62CallPretty(card), { gear: true }) +
       '<div class="ssm-drawer-body n62">' +
       (bag.pending || '') +
-      '<div class="n62-zone"><div class="n62-zlabel">1 · Identity</div>' + n62Identity(card) + floorToolsHtml(tokenByRef(bag.tokenId)) + (bag.death || '') +
+      '<div class="n62-zone">' + n62Identity(card) + floorToolsHtml(tokenByRef(bag.tokenId)) + (bag.death || '') +
       '<div class="n62-conds">' + condLine + '</div>' +
       (bag.tactics ? '<div class="ssm-tactics">' + esc(bag.tactics) + '</div>' : '') + '</div>' +
       '<div data-act="n62Full"' + (full ? '' : ' hidden') + '>' +
       '<div class="n62-econ">' + (bag.markerRow || '') + '</div>' +
       '<div class="n62-tabsbar">' + tab('fight', 'Fight') + tab('gear', 'Gear') + tab('more', 'More') + '</div>' +
       pane('fight',
-        '<div class="n62-zone"><div class="n62-zlabel">2 · Primary — one card height</div>' +
+        '<div class="n62-zone">' +
         (sw ? '<div class="n62-switch">' + sw + '</div>' : '') + primary + '</div>' +
-        '<div class="n62-zone"><div class="n62-zlabel">3 · Overflow</div>' +
+        '<div class="n62-zone">' +
         '<details class="n62-acc" data-n62-acc="cond"' + accOpen('cond') + '><summary>Conditions <small>' + (names.length ? names.length + ' active' : 'none') + '</small></summary><div class="n62-accbody">' +
         (bag.conds ? '<div class="ssm-conds">' + bag.conds + '</div>' : '') +
         '<div class="ssm-row"><input data-act="hpAmt" type="number" value="1" min="0" aria-label="HP amount">' +
@@ -21562,8 +21626,8 @@ function syncCombatants(initiative) {
       '<select data-act="drawerRangeWeapon" aria-label="Token weapon" hidden></select>' +
       (conds ? '<div class="ssm-conds">' + conds + '</div>' : '') +
       (card.tactics ? '<div class="ssm-tactics">' + esc(card.tactics) + '</div>' : '') +
-      '<div class="ssm-section">Attacks</div>' + weaponBar + targetBar + offhandToggle(isPc && canAct && (card.attacks || []).length) + fanToggle(isPc && canAct && card.pistolero === true && (card.attacks || []).length) + attacks +
-      (cylinders ? '<div class="ssm-section">Cylinder</div>' + cylinders : '') +
+      '<div class="ssm-section">Attacks</div>' + weaponBar + targetBar + offhandToggle(isPc && canAct && (card.attacks || []).length) + fanToggle(isPc && canAct && card.pistolero === true && (card.attacks || []).length) +
+      (n62TightGuns(card, 'dm', true) || attacks) +
       spells +
       gearDrawerHtml(card) +
       '<div class="ssm-row">' +

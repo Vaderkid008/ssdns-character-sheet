@@ -1,5 +1,5 @@
 /**
- * Character drawer cleanup (sheet 0.3.337 / DMCC 0.2.350).
+ * Character drawer cleanup (sheet 0.3.338 / DMCC 0.2.351).
  * Engraving on the weapon card, one red Target, desktop ammo pictures, phone dots.
  *   node tools/test-drawer-cleanup-03337.mjs
  * rules.js is not edited. Ammo counts, reload, and attack buttons stay the same actions.
@@ -18,8 +18,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.337" && ver.dmcc === "0.2.350" && ver.sheetBuild === "sheet-playtest-v03337" && ver.dmccBuild === "dmcc-playtest-v02350");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.337") && !read("database.rules.json").includes("0.3.337"));
+check("ver", ver.sheet === "0.3.338" && ver.dmcc === "0.2.351" && ver.sheetBuild === "sheet-playtest-v03338" && ver.dmccBuild === "dmcc-playtest-v02351");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.338") && !read("database.rules.json").includes("0.3.338"));
 
 const map = read("map/ssdns-map.js");
 const css = read("map/ssdns-map.css");

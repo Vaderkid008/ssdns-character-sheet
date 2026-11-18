@@ -18,8 +18,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush() { return new Promise((resolve) => setTimeout(resolve, 0)); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.337" && ver.dmcc === "0.2.350");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.337") && !read("database.rules.json").includes("0.3.337"));
+check("ver", ver.sheet === "0.3.338" && ver.dmcc === "0.2.351");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.338") && !read("database.rules.json").includes("0.3.338"));
 
 const src = read("map/ssdns-map.js");
 check("rings.gate", /function paintZoneLightRings[\s\S]{0,320}if \(role !== 'dm' \|\| !state\.showLightRings\) return/.test(src));
