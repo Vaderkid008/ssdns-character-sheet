@@ -1,6 +1,6 @@
 /**
  * Slice 2: one loot claim wins, and a cancel beats a door action that already started.
- * Sheet 0.3.339 / DMCC 0.2.352.
+ * Sheet 0.3.340 / DMCC 0.2.353.
  *   node tools/test-split-slice2-03334.mjs
  */
 import fs from "node:fs";
@@ -16,7 +16,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.339" && ver.dmcc === "0.2.352");
+check("ver", ver.sheet === "0.3.340" && ver.dmcc === "0.2.353");
 check("rules.clean", !read("assets/data/rules.js").includes("takeLoot") && !read("database.rules.json").includes("takeLoot"));
 const mapSrc = read("map/ssdns-map.js");
 const actionsSrc = read("assets/js/game-actions.js");
@@ -54,4 +54,4 @@ if (failures.length) {
   failures.forEach((line) => console.error(" - " + line));
   process.exit(1);
 }
-console.log("split slice 2 0.3.339 ok");
+console.log("split slice 2 0.3.340 ok");

@@ -1,6 +1,6 @@
 /**
  * Roll initiative splash, then Round 1 only after the rolls are in.
- * Sheet 0.3.339 / DMCC 0.2.352. Combat stays off until that second splash.
+ * Sheet 0.3.340 / DMCC 0.2.353. Combat stays off until that second splash.
  *   node tools/test-init-splash-03339.mjs
  */
 import fs from "node:fs";
@@ -16,8 +16,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.339" && ver.dmcc === "0.2.352");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.339") && !read("database.rules.json").includes("0.3.339"));
+check("ver", ver.sheet === "0.3.340" && ver.dmcc === "0.2.353");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.340") && !read("database.rules.json").includes("0.3.340"));
 
 const v2 = read("dm/assets/js/v2.js");
 check("calling.first", v2.indexOf("fight.calling = true") < v2.indexOf("Waiting for players to roll"));

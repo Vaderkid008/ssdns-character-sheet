@@ -1,5 +1,5 @@
 /**
- * Prop clicks stay on the prop card (sheet 0.3.339 / DMCC 0.2.352).
+ * Prop clicks stay on the prop card (sheet 0.3.340 / DMCC 0.2.353).
  * A barrel has no Move menu. A chest has no "Link to…".
  * A shared square lists every prop plus any creature.
  * Edit tokens can still drag an asset.
@@ -20,8 +20,8 @@ function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 function flush(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.339" && ver.dmcc === "0.2.352" && ver.sheetBuild === "sheet-playtest-v03339" && ver.dmccBuild === "dmcc-playtest-v02352");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.339") && !read("database.rules.json").includes("0.3.339"));
+check("ver", ver.sheet === "0.3.340" && ver.dmcc === "0.2.353" && ver.sheetBuild === "sheet-playtest-v03340" && ver.dmccBuild === "dmcc-playtest-v02353");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.340") && !read("database.rules.json").includes("0.3.340"));
 
 const dom = new JSDOM("<!doctype html><html><head></head><body></body></html>", { url: "http://localhost/dm/", pretendToBeVisual: true, runScripts: "dangerously" });
 const w = dom.window;

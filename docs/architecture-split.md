@@ -255,13 +255,72 @@ Each slice is its own draft. Versions continue after 0.3.332 / 0.2.345. Nothing 
 
 **Slice 4 — presence and the DM disconnect menu.** `setPresence`, `holdTurn`, `skipTurn`, `takeControl`, `handControl`, `removeToken`. The menu from the disconnect draft stays. The bug this closes: the menu buttons and the reconnect write presence, the token, and the turn row as separate sets, so a reconnect can clear "away" while an older "remove" is still in flight. One seq makes the later choice the one that sticks, and a rejoin does not respawn a token the DM removed.
 
-**Slice 5 — Cloud Functions referee.** Only after Jessey says to deploy. Browsers append actions. A function on the existing Blaze project assigns the room seq and is the only writer of tokens, initiative, HP, and loot. No separate Node host. Until that deploy, a browser can still write the shared paths directly, so the seq from Slice 1 can be skipped by a modified client. The function is what makes one order stick for the whole table.
+**Slice 5 — Cloud Functions referee.** Only after Jessey says to deploy. Browsers append actions. A function on the existing Blaze project assigns the room seq and is the only writer of tokens, initiative, HP, and loot. No separate Node host. Until that deploy, a browser can still write the shared paths directly, so the seq from Slice 1 can be skipped by a modified client. The function is what makes one order stick for the whole table. The package is `functions/`. The client flag `window.SSDNS_REFEREE` is off unless `enabled` is exactly `true`, so the live site keeps the current client-side path. Deploy steps are in the checklist below. Do not deploy until Jessey says so.
 
 **Slice 6 — rules lock.** A separate yes from the deploy. Jessey approves the `database.rules.json` change. Browsers lose the direct writes listed above. Not before.
 
 ## What these drafts will not do
 
 - No edit to `database.rules.json` or `assets/data/rules.js`.
-- No function deploy, no budget, no billing change, and no App Check enforcement in the console. Blaze is already the plan. Each of those waits for Jessey's OK.
-- No write to a live room. Tests use the in-memory adapter.
+- No function deploy, no budget, no billing change, and no App Check enforcement in the console. Blaze is already the plan. Each of those waits for Jessey's OK. The steps are listed below and none of them have been run.
+- No write to a live room. Slice 5 tests use the Firebase emulator. Earlier slices use the in-memory adapter.
 - No merge. Jessey merges.
+
+## Slice 5 deploy checklist
+
+Do these only when you want the referee live. The draft does not deploy, does not create a budget, and does not turn App Check on. The site keeps working with the flag off, which is how it ships.
+
+The function is `referee` in `functions/`. Firebase-specific code is `functions/index.js` only. `functions/referee.js` is the portable rules (seq, rate limits, and the paths it writes). A desktop host can import that file and skip Cloud Functions.
+
+Leave this flag unset on the site. It is off unless `enabled` is exactly `true`:
+
+```js
+window.SSDNS_REFEREE = { enabled: true };
+```
+
+With it unset, `assets/js/referee-client.js` does not load the Functions SDK and does not replace the local action adapter. Direct room writes stay as they are until Slice 6.
+
+### 1. Budget alert at $5 a month
+
+1. Open https://console.cloud.google.com/billing/budgets and select the billing account that pays for `ssdns-dm-hub`.
+2. Create budget. Name it `ssdns-dm-hub monthly`.
+3. Scope: projects, only `ssdns-dm-hub`. Include all services.
+4. Amount: $5, monthly, calendar month.
+5. Alert thresholds: 50%, 90%, and 100%. Email the billing admins.
+6. Do not add a Pub/Sub notification on this step. This alert does not stop spending.
+
+### 2. Optional hard cap
+
+Skip this unless an outage is better than a larger bill.
+
+1. In the same budget, add a Pub/Sub topic, for example `ssdns-billing-cap`.
+2. A function on that topic detaches billing from `ssdns-dm-hub` when the threshold is crossed. It needs permission to change billing on the project.
+3. Realtime Database, Auth, Storage, and Functions then stop until someone links billing again. It can trip mid-session, and the mail is not instant, so spend can pass $5 before the function runs.
+4. Do not deploy that function from this repo. It is not in `functions/`.
+
+### 3. App Check registration
+
+The function checks `SSDNS_ENFORCE_APP_CHECK`. That variable is unset, so `enforceAppCheck` is false and a missing token is accepted. Turn it on only after a live room has shown a verified token.
+
+1. Firebase console → Build → App Check → project `ssdns-dm-hub`.
+2. Register the web app. Use reCAPTCHA Enterprise if the console offers it, otherwise reCAPTCHA v3.
+3. Allowed domains: `vaderkid008.github.io` and `localhost`.
+4. Copy the site key. Do not put a debug token in the repo. A local test can set `self.FIREBASE_APPCHECK_DEBUG_TOKEN` in the browser console.
+5. On the site, next to the Firebase config, set `window.SSDNS_APP_CHECK = { enabled: true, siteKey: "the site key", enterprise: true }`. Use `enterprise: false` for reCAPTCHA v3. Open a live room and confirm App Check shows the token as verified.
+6. Copy `functions/.env.example` to `functions/.env` and set `SSDNS_ENFORCE_APP_CHECK=1`. `functions/.env` is gitignored.
+7. Redeploy with the command in step 4. The function then rejects calls that have no App Check token.
+8. Console enforcement is separate. Firebase console → App Check → Cloud Functions → Enforce. Also leave Realtime Database and Storage unenforced until that same live room is verified. Do not enforce first. A missing token would lock the table out.
+
+### 4. Deploy the function
+
+From a checkout of the commit you want live, with the Firebase CLI logged in as an owner of `ssdns-dm-hub`:
+
+```sh
+npm install --prefix functions
+firebase deploy --only functions --project ssdns-dm-hub
+```
+
+The function is 2nd gen, region `us-central1`, 256 MB, 10 second timeout, `maxInstances` 10, concurrency 5, and no minimum instances. The caps inside the referee are 8 `moveToken` calls per second per token, 30 other actions per minute per signed-in user, and 20 actions per second per room.
+
+After it is deployed, keep `window.SSDNS_REFEREE` unset until you want browsers to send actions to it. Slice 6, the `database.rules.json` lock, is a separate yes. Do not edit those rules as part of the deploy.
+

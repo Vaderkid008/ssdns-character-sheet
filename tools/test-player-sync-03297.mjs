@@ -1,7 +1,7 @@
 /**
  * A fresh room: the DM's linked token and Between Encounters scene reach the player.
  * Two clients, one mocked RTDB. A write that still contains undefined is dropped,
- * the way live Realtime Database rejects it. Sheet 0.3.339 / DMCC 0.2.352.
+ * the way live Realtime Database rejects it. Sheet 0.3.340 / DMCC 0.2.353.
  *   node tools/test-player-sync-03297.mjs
  */
 import fs from "node:fs";
@@ -15,8 +15,8 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.339" && ver.dmcc === "0.2.352");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.339") && !read("database.rules.json").includes("0.3.339"));
+check("ver", ver.sheet === "0.3.340" && ver.dmcc === "0.2.353");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.340") && !read("database.rules.json").includes("0.3.340"));
 
 function undefs(v, path, out) {
   if (v === undefined) { out.push(path); return; }
