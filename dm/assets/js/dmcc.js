@@ -5,7 +5,7 @@
  * Live Firebase path dynamic-imports modular v10+ and degrades if RTDB/auth missing.
  */
 
-const VERSION = "0.2.352"; // dmcc-playtest-v02352
+const VERSION = "0.2.353"; // dmcc-playtest-v02353
 if (window.SSDNSRollCard) {
   window.SSDNSRollCard.setAudience("dm");
   window.SSDNSRollCard.setPortraitLookup(function (name, spec) {
@@ -414,6 +414,7 @@ async function createLiveRoom(name) {
 function attachLiveListeners() {
   clearUnsubs();
   if (!state.db || !state.roomCode) return;
+  if (window.SSDNSRefereeClient) window.SSDNSRefereeClient.attach(state.roomCode);
   state._listenCode = state.roomCode;
   addictionReady = false;
   const bind = (path, handler) => listenRef(path, handler);

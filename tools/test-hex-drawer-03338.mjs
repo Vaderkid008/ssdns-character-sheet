@@ -1,5 +1,5 @@
 /**
- * Hexslinger Caster Gun drawer uses the cleaned card (sheet 0.3.339 / DMCC 0.2.352).
+ * Hexslinger Caster Gun drawer uses the cleaned card (sheet 0.3.340 / DMCC 0.2.353).
  *   node tools/test-hex-drawer-03338.mjs
  * rules.js is not edited. Hex load, cast, dry fire, reload, and TR keep their actions.
  */
@@ -16,8 +16,8 @@ function check(id, cond, detail) {
 function read(rel) { return fs.readFileSync(path.join(root, rel), "utf8"); }
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.339" && ver.dmcc === "0.2.352" && ver.sheetBuild === "sheet-playtest-v03339" && ver.dmccBuild === "dmcc-playtest-v02352");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.339") && !read("database.rules.json").includes("0.3.339"));
+check("ver", ver.sheet === "0.3.340" && ver.dmcc === "0.2.353" && ver.sheetBuild === "sheet-playtest-v03340" && ver.dmccBuild === "dmcc-playtest-v02353");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.340") && !read("database.rules.json").includes("0.3.340"));
 
 const map = read("map/ssdns-map.js");
 const css = read("map/ssdns-map.css");

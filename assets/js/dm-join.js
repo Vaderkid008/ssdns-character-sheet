@@ -2819,6 +2819,7 @@
   function listenRoomFeeds() {
     var fb = state._fb;
     var room = state.roomCode;
+    if (root.SSDNSRefereeClient) root.SSDNSRefereeClient.attach(room);
     state._sfxSince = Date.now();
     function bind(path, handler) {
       var r = fb.ref(state.db, roomPath(path));
