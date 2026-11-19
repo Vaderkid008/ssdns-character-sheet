@@ -26,6 +26,8 @@ const fight = {
   round: 1,
   turn: 0,
   started: false,
+  /* True from the Roll initiative click until every needed roll is in. The map splash reads this before started flips. */
+  calling: false,
   /* N75: End combat keeps the roster (and every mapTokenId) but the strip publishes nothing, so free-action does not look like a live fight. */
   idle: false,
   order: [],
@@ -542,7 +544,7 @@ async function writeRemoteTableOnce() {
       actionSeq = act.seq;
     }
     await fb.update(DM.roomRef("table"), {
-      initiative: { round: fight.round, turn: fight.turn, started: !!fight.started, recruit: fight.recruit !== false, order: visibleOrder,
+      initiative: { round: fight.round, turn: fight.turn, started: !!fight.started, calling: !!fight.calling, recruit: fight.recruit !== false, order: visibleOrder,
         seq: fight.seq || 0, actionSeq: actionSeq || 0, turnStarts: fight.turnStarts || {}, undo: fight.undo || [], markers: fight.markers || {},
         unlock: fight.unlock || {}, oa: fight.oa || {},
         campaignDay: fight.campaignDay || 1, gunClean: fight.gunClean || {},
@@ -9002,6 +9004,29 @@ function controllerUid(row) {
   const who = tok && Array.isArray(tok.controlledBy) ? tok.controlledBy.filter(Boolean) : [];
   return who[0] || "";
 }
+let initWait = null;
+function initWaitKey(row) {
+  if (!row) return "";
+  if (row.kind === "player") return row.playerId || row.id || "";
+  const pid = controllerUid(row);
+  return pid ? pid + "__" + (row.mapTokenId || row.id || "") : "";
+}
+function rowsWaitingOnPlayers() {
+  return (fight.order || []).filter((row) => {
+    if (!row) return false;
+    if (row.kind === "player") return playerIsOnline(row.playerId || row.id);
+    const pid = controllerUid(row);
+    return !!(pid && playerIsOnline(pid));
+  });
+}
+function maybeFinishInit() {
+  if (!initWait || fight.started) return;
+  const pending = rowsWaitingOnPlayers().some((row) => freshInit(initWaitKey(row), initWait.since) == null);
+  if (pending) return;
+  const done = initWait.done;
+  initWait = null;
+  done();
+}
 function rollInitiativeForAll(opts) {
   opts = opts || {};
   const wait = opts.wait != null ? opts.wait : INIT_WAIT_MS;
@@ -9009,6 +9034,8 @@ function rollInitiativeForAll(opts) {
   /* N75: the parked roster is already in fight.order. Showing it again does not ask the DM to re-link. */
   fight.idle = false;
   fight.recruit = true;
+  fight.calling = true;
+  fight.started = false;
   ensurePlayers();
   const status = $("#rollInitStatus");
   const btn = $("#btnRollInitAll");
@@ -9075,6 +9102,7 @@ function rollInitiativeForAll(opts) {
     });
     sortInitiative();
     if (!fight.started) {
+      fight.calling = false;
       fight.started = true;
       fight.idle = false;
       fight.round = 1;
@@ -9090,8 +9118,19 @@ function rollInitiativeForAll(opts) {
     announce("Rolled initiative" + (auto.length ? " (auto: " + auto.join(", ") + ")" : ""), "initiative");
     return auto;
   };
-  if (!players.length || wait <= 0) return Promise.resolve(finish());
-  return new Promise((resolve) => setTimeout(() => resolve(finish()), wait));
+  const done = () => finish();
+  if (!rowsWaitingOnPlayers().length || wait <= 0) return Promise.resolve(done());
+  return new Promise((resolve) => {
+    initWait = {
+      since: since,
+      done: () => resolve(done())
+    };
+    setTimeout(() => {
+      if (!initWait) return;
+      initWait = null;
+      resolve(done());
+    }, wait);
+  });
 }
 /* 0.2.67 Give tab: one recipient picker, type chips, handouts folded in. */
 function wireGiveTab() {
@@ -9195,6 +9234,7 @@ async function endCombat() {
   (fight.order || []).forEach((row) => { if (row) delete row.lastTargetId; });
   fight.idle = true;
   fight.started = false;
+  fight.calling = false;
   fight.turnCmd = null;
   fight.round = 1;
   fight.turn = 0;
@@ -11243,6 +11283,7 @@ function clearFight() {
   fight.idle = false;
   fight.departed = {};
   fight.started = false;
+  fight.calling = false;
   fight.round = 1;
   fight.turn = 0;
   fight.turnCmd = null;
@@ -11269,6 +11310,7 @@ function bindRollActions() {
       ts: p.ts || "", init: p.init, name: p.name || "", from: p.playerId || "", tokenId: p.tokenId || "", seq: action.seq || 0
     };
     if (window.DMCCEnhance && window.DMCCEnhance.onPlayerInit) window.DMCCEnhance.onPlayerInit(DM.state.playerInit);
+    maybeFinishInit();
   });
 }
 bindRollActions();
@@ -11284,6 +11326,7 @@ function onPlayerInit(map) {
     changed = true;
   });
   ensurePlayers();
+  maybeFinishInit();
   if (!changed) return;
   sortInitiative();
   saveRemoteTable();
@@ -11372,6 +11415,7 @@ function enterRoom() {
   fight.round = 1;
   fight.turn = 0;
   fight.started = false;
+  fight.calling = false;
   fight.idle = false;
   fight.removed = {};
   fight.departed = {};
@@ -11996,6 +12040,7 @@ window.SSDNSMapCards = {
       round: fight.round || 1,
       turn: fight.started ? (fight.turn || 0) : -1,
       started: !!fight.started,
+      calling: !!fight.calling,
       order: rows.map((row) => ({
         id: row.id || "",
         name: row.name || "",

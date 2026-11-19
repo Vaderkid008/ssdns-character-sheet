@@ -1,7 +1,7 @@
 /**
  * Encounter packs: containers, hidden enemies, spawns, two-way stairs,
  * export/import, load into a room, player view, chest interact.
- * Sheet 0.3.338 / DMCC 0.2.351.
+ * Sheet 0.3.339 / DMCC 0.2.352.
  *   node tools/test-encounter-packs-03313.mjs
  */
 import fs from "node:fs";
@@ -18,8 +18,8 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.338" && ver.dmcc === "0.2.351" && ver.sheetBuild === "sheet-playtest-v03338" && ver.dmccBuild === "dmcc-playtest-v02351");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.338") && !read("database.rules.json").includes("0.3.338") && !read("docs/encounter-pack.md").includes("rules.js"));
+check("ver", ver.sheet === "0.3.339" && ver.dmcc === "0.2.352" && ver.sheetBuild === "sheet-playtest-v03339" && ver.dmccBuild === "dmcc-playtest-v02352");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.339") && !read("database.rules.json").includes("0.3.339") && !read("docs/encounter-pack.md").includes("rules.js"));
 check("doc", /floors/.test(read("docs/encounter-pack.md")) && /allowRetries/.test(read("docs/encounter-pack.md")) && /hidden/.test(read("docs/encounter-pack.md")));
 
 const sandbox = { window: {}, globalThis: {} };
@@ -294,5 +294,5 @@ if (failures.length) {
   failures.forEach((line) => console.log(" - " + line));
   process.exit(1);
 }
-console.log("encounter packs 0.3.338 ok");
+console.log("encounter packs 0.3.339 ok");
 process.exit(0);

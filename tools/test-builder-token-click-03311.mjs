@@ -1,6 +1,6 @@
 /**
  * Opening the Scene Builder must not swallow token clicks.
- * Sheet 0.3.338 / DMCC 0.2.351.
+ * Sheet 0.3.339 / DMCC 0.2.352.
  *   node tools/test-builder-token-click-03311.mjs
  */
 import fs from "node:fs";
@@ -15,7 +15,7 @@ function check(id, cond, detail) {
   console.log((cond ? "ok  " : "FAIL") + "  " + id + (detail && !cond ? " — " + detail : ""));
 }
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.338" && ver.dmcc === "0.2.351" && ver.sheetBuild === "sheet-playtest-v03338" && ver.dmccBuild === "dmcc-playtest-v02351");
+check("ver", ver.sheet === "0.3.339" && ver.dmcc === "0.2.352" && ver.sheetBuild === "sheet-playtest-v03339" && ver.dmccBuild === "dmcc-playtest-v02352");
 check("rules.clean", !read("assets/data/rules.js").includes("placeBanner") && !read("database.rules.json").includes("ssm-scene-open"));
 
 const OUT = "/opt/cursor/artifacts/builder-clicks";
@@ -201,4 +201,4 @@ if (failures.length) {
   failures.forEach((line) => console.log(" - " + line));
   process.exit(1);
 }
-console.log("builder token click 0.3.338 ok");
+console.log("builder token click 0.3.339 ok");

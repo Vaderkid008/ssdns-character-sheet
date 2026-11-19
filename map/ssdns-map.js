@@ -18302,11 +18302,18 @@ async function loadSceneImage(sceneId, opts) {
   function planCombatStinger(prev, next) {
     const was = !!(prev && prev.started);
     const now = !!(next && next.started);
+    const wasCall = !!(prev && prev.calling);
+    const nowCall = !!(next && next.calling);
     const prevRound = Number(prev && prev.round) || 0;
     const round = Number(next && next.round) || 0;
-    if (!was && now) return [{ kind: "init" }, { kind: "round", n: round || 1 }];
-    if (was && now && round > prevRound) return [{ kind: "round", n: round }];
-    return [];
+    const cards = [];
+    /* Roll initiative is its own splash, before anyone has rolled. Round 1 comes later, when the fight actually starts. */
+    if (!wasCall && nowCall && !now) cards.push({ kind: "init" });
+    if (!was && now) {
+      if (!wasCall && !nowCall) cards.push({ kind: "init" });
+      cards.push({ kind: "round", n: round || 1 });
+    } else if (was && now && round > prevRound) cards.push({ kind: "round", n: round });
+    return cards;
   }
   function stingerNode() {
     let pop = q('combatStinger');

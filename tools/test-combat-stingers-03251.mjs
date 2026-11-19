@@ -1,6 +1,6 @@
 /**
  * Combat stingers: ROLL INITIATIVE then ROUND 1 at the start,
- * and ROUND n only when the round increments (sheet 0.3.338 / DMCC 0.2.351).
+ * and ROUND n only when the round increments (sheet 0.3.339 / DMCC 0.2.352).
  *   node tools/test-combat-stingers-03251.mjs
  * rules.js is not regenerated. No sting sound.
  */
@@ -64,6 +64,10 @@ const start = { started: true, round: 1, turn: 0, order: order };
 const mid = { started: true, round: 1, turn: 1, order: order.concat([{ id: "b", name: "Bandit", kind: "enemy" }]) };
 const nextRound = { started: true, round: 2, turn: 0, order: order };
 
+const calling = { started: false, calling: true, round: 1, turn: 0, order };
+const startedAfter = { started: true, calling: false, round: 1, turn: 0, order };
+check("plan.call", JSON.stringify(api.combatStingerPlan(idle, calling)) === JSON.stringify([{ kind: "init" }]));
+check("plan.thenRound", JSON.stringify(api.combatStingerPlan(calling, startedAfter)) === JSON.stringify([{ kind: "round", n: 1 }]));
 check("plan.start", JSON.stringify(api.combatStingerPlan(idle, start)) === JSON.stringify([{ kind: "init" }, { kind: "round", n: 1 }]));
 check("plan.mid", api.combatStingerPlan(start, mid).length === 0);
 check("plan.round", JSON.stringify(api.combatStingerPlan(start, nextRound)) === JSON.stringify([{ kind: "round", n: 2 }]));
@@ -91,8 +95,8 @@ const shown = w2.document.querySelector('[data-act="combatStinger"]');
 check("player.round", !!(shown && shown.classList.contains("is-on") && shown.textContent.includes("ROUND") && shown.textContent.includes("2")), shown && shown.textContent);
 
 const ver = JSON.parse(read("version.json"));
-check("ver", ver.sheet === "0.3.338" && ver.dmcc === "0.2.351" && ver.sheetBuild === "sheet-playtest-v03338" && ver.dmccBuild === "dmcc-playtest-v02351");
-check("rules.clean", !read("assets/data/rules.js").includes("0.3.338") && !read("database.rules.json").includes("0.3.338"));
+check("ver", ver.sheet === "0.3.339" && ver.dmcc === "0.2.352" && ver.sheetBuild === "sheet-playtest-v03339" && ver.dmccBuild === "dmcc-playtest-v02352");
+check("rules.clean", !read("assets/data/rules.js").includes("0.3.339") && !read("database.rules.json").includes("0.3.339"));
 
 if (failures.length) {
   console.error("\n" + failures.length + " failed");
